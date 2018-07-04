@@ -3,5 +3,5 @@ set wildignore +=*/target/*
 set wildignore +=*.dll
 
 "set makeprg="cargo build"
-compiler cargo
+compiler! cargo
 map <A-b> :make build<CR>

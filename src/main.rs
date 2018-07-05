@@ -3,7 +3,9 @@ extern crate sdl2_sys;
 mod math;
 use math::SVec3f;
 
-use std::os::raw::c_char;
+mod russdl;
+
+//use std::os::raw::c_char;
 
 struct STestStruct {
     x : u64,
@@ -21,13 +23,37 @@ fn main() {
     println!("Hello, world {}!", x);
     println!("Teststruct: {}, {}, {}", teststruct.x, teststruct.blech, teststruct.y);
 
-    unsafe {
-        let _window : *mut sdl2_sys::SDL_Window = sdl2_sys::SDL_CreateWindow(
-            "rusgam".as_ptr() as *const c_char, 0, 0, 800, 600, 0);
-    }
+    let sdlcontext = russdl::init().unwrap();
+    sdlcontext.glsetattribute(sdl2_sys::SDL_GLattr::SDL_GL_CONTEXT_PROFILE_MASK,
+                              sdl2_sys::SDL_GLprofile::SDL_GL_CONTEXT_PROFILE_CORE as i32).unwrap();
+    sdlcontext.glsetattribute(sdl2_sys::SDL_GLattr::SDL_GL_CONTEXT_MAJOR_VERSION, 3).unwrap();
+    sdlcontext.glsetattribute(sdl2_sys::SDL_GLattr::SDL_GL_CONTEXT_MINOR_VERSION, 3).unwrap();
 
-    let rad = (23.4 as f32).to_radians();
-    println!("Deg to rad {}", rad);
+    let window = sdlcontext.createwindow("rusgam", 30, 30, 800, 600).unwrap();
+    let _context = window.createglcontext().unwrap();
+
+    let mut quit = false;
+    while !quit {
+        loop {
+            match sdlcontext.pollevent() {
+                Some(event) => {
+                    match event {
+                        russdl::EEvent::KeyDown(keydownevent) => {
+                            match keydownevent.symbol {
+                                russdl::EKeySym::Q => {
+                                    quit = true;
+                                },
+                                _ => () // unused keys
+                            }
+                        },
+                    }
+                }
+                None => {
+                    break;
+                }
+            }
+        }
+    }
 
     let mut myvec = SVec3f::default();
     myvec.y = -2.0;

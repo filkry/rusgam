@@ -40,6 +40,7 @@ unsafe fn lastsdlerr() -> SErr {
 pub struct SContext {
 }
 
+#[allow(dead_code)]
 pub fn init() -> Result<SContext, SErr> {
     unsafe {
         let initres = sdl2_sys::SDL_Init(sdl2_sys::SDL_INIT_VIDEO);
@@ -201,6 +202,7 @@ pub struct SGLContext {
     context: sdl2_sys::SDL_GLContext,
 }
 
+#[allow(dead_code)]
 impl SWindow {
     pub fn createglcontext(&self) -> Result<SGLContext, SErr> {
         unsafe {

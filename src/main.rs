@@ -1,28 +1,14 @@
 extern crate sdl2_sys;
+extern crate winapi;
 
-mod math;
-use math::SVec3f;
+//mod math;
+//use math::SVec3f;
 
 mod russdl;
+mod rusd3d12;
 
-//use std::os::raw::c_char;
-
-struct STestStruct {
-    x : u64,
-    blech : String,
-    y : i32,
-}
-
-fn main() {
-    let x : u64 = 64;
-    let teststruct = STestStruct {
-        x : 24,
-        blech : "poopsock".to_string(),
-        y : -5,
-    };
-    println!("Hello, world {}!", x);
-    println!("Teststruct: {}, {}, {}", teststruct.x, teststruct.blech, teststruct.y);
-
+#[allow(dead_code)]
+fn main_sdl() {
     let sdlcontext = russdl::init().unwrap();
     sdlcontext.glsetattribute(sdl2_sys::SDL_GLattr::SDL_GL_CONTEXT_PROFILE_MASK,
                               sdl2_sys::SDL_GLprofile::SDL_GL_CONTEXT_PROFILE_CORE as i32).unwrap();
@@ -54,8 +40,14 @@ fn main() {
             }
         }
     }
+}
 
-    let mut myvec = SVec3f::default();
-    myvec.y = -2.0;
-    println!("Vec: {}", 1.3 * myvec);
+fn main_d3d12() {
+    let debuginterface = rusd3d12::getdebuginterface().unwrap();
+    debuginterface.enabledebuglayer();
+}
+
+fn main() {
+    //main_sdl();
+    main_d3d12();
 }

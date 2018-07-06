@@ -45,6 +45,10 @@ fn main_sdl() {
 fn main_d3d12() {
     let debuginterface = rusd3d12::getdebuginterface().unwrap();
     debuginterface.enabledebuglayer();
+
+    let winapi = rusd3d12::initwinapi().unwrap();
+    let windowclass = winapi.registerclassex("rusgam").unwrap();
+    let _window = windowclass.createwindow("rusgame2", 800, 600).unwrap();
 }
 
 fn main() {

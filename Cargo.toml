@@ -5,4 +5,4 @@ authors = ["Fil Krynicki <filipkrynicki@gmail.com>"]
 
 [dependencies]
 sdl2-sys = { version = "0.31.0" }
-winapi = { version = "0.3", features = ["basetsd","d3d12", "d3d12sdklayers", "errhandlingapi", "guiddef", "minwindef", "ntdef", "windef", "winerror", "winnt", "winuser"] } 
+winapi = { version = "0.3", features = ["basetsd","d3d12", "d3d12sdklayers", "errhandlingapi", "guiddef", "libloaderapi", "minwindef", "ntdef", "windef", "winerror", "winnt", "winuser"] } 

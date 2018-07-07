@@ -51,7 +51,8 @@ fn main_d3d12() {
     let windowclass = winapi.registerclassex("rusgam").unwrap();
     let _window = windowclass.createwindow("rusgame2", 800, 600).unwrap();
 
-    let _adapter = rusd3d12::getadapter().unwrap();
+    let mut adapter = rusd3d12::getadapter().unwrap();
+    let _device = adapter.createdevice().unwrap();
 }
 
 fn main() {

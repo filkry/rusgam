@@ -1,5 +1,9 @@
 #![allow(dead_code)]
 
+// -- $$$FRK(TODO): large portions of this are ported from the jpbanoosten D3D12 tutorial, which is
+// under the MIT license. I need to figure out what my obligations are re:that if I ever release
+// this.
+
 //use winapi::um::d3d12 as dx;
 use std::{cmp, fmt, mem, ptr};
 //use std::ptr::{null};
@@ -14,7 +18,8 @@ use winapi::shared::{ntdef, winerror};
 use winapi::shared::minwindef::*;
 use winapi::shared::windef::*;
 use winapi::um::d3d12::*;
-use winapi::um::{d3dcommon, d3d12sdklayers, errhandlingapi, libloaderapi, winnt, unknwnbase};
+use winapi::um::d3d12sdklayers::*;
+use winapi::um::{d3dcommon, errhandlingapi, libloaderapi, winnt, unknwnbase};
 use winapi::um::winnt::LONG;
 use winapi::um::winuser::*;
 
@@ -48,14 +53,14 @@ impl fmt::Debug for SErr {
 }
 
 pub struct SDebugInterface {
-    debuginterface: ComPtr<d3d12sdklayers::ID3D12Debug>,
+    debuginterface: ComPtr<ID3D12Debug>,
 }
 
 pub fn getdebuginterface() -> Result<SDebugInterface, &'static str> {
     unsafe {
         let mut result: SDebugInterface = mem::uninitialized();
 
-        let riid = d3d12sdklayers::ID3D12Debug::uuidof();
+        let riid = ID3D12Debug::uuidof();
         let voidcasted: *mut *mut c_void = &mut result.debuginterface as *mut _ as *mut *mut c_void;
 
         let hresult = D3D12GetDebugInterface(&riid, voidcasted);
@@ -259,3 +264,75 @@ pub fn getadapter() -> Result<SAdapter, &'static str> {
     }
 }
 
+pub struct SDevice {
+    device: ComPtr<ID3D12Device2>,
+}
+
+impl SAdapter {
+    pub fn createdevice(&mut self) -> Result<SDevice, &'static str> {
+        let mut rawdevice: *mut ID3D12Device2 = ptr::null_mut();
+        let hn = unsafe {
+            D3D12CreateDevice(self.adapter.asunknownptr(),
+                              d3dcommon::D3D_FEATURE_LEVEL_11_0,
+                              &ID3D12Device2::uuidof(),
+                              &mut rawdevice as *mut *mut _ as *mut *mut c_void)
+        };
+        if !winerror::SUCCEEDED(hn) {
+            return Err("Could not create device on adapter.");
+        }
+
+        let device = unsafe { ComPtr::from_raw(rawdevice) };
+
+        // -- $$$FRK(TODO): debug only
+        match device.cast::<ID3D12InfoQueue>() {
+            Ok(infoqueue) => {
+                unsafe {
+                    infoqueue.SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, TRUE);
+                    infoqueue.SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, TRUE);
+                    infoqueue.SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_WARNING, TRUE);
+                }
+
+                let mut suppressedseverities = [
+                    D3D12_MESSAGE_SEVERITY_INFO
+                ];
+
+                let mut suppressedmessages = [
+                    D3D12_MESSAGE_ID_CLEARRENDERTARGETVIEW_MISMATCHINGCLEARVALUE
+                ];
+
+                let allowlist = D3D12_INFO_QUEUE_FILTER_DESC{
+                    NumCategories: 0,
+                    pCategoryList: ptr::null_mut(),
+                    NumSeverities: 0,
+                    pSeverityList: ptr::null_mut(),
+                    NumIDs: 0,
+                    pIDList: ptr::null_mut(),
+                };
+
+                let denylist = D3D12_INFO_QUEUE_FILTER_DESC{
+                    NumCategories: 0,
+                    pCategoryList: ptr::null_mut(),
+                    NumSeverities: suppressedseverities.len() as u32,
+                    pSeverityList: &mut suppressedseverities[0] as *mut u32,
+                    NumIDs: suppressedmessages.len() as u32,
+                    pIDList: &mut suppressedmessages[0] as *mut u32,
+                };
+
+                let mut filter = D3D12_INFO_QUEUE_FILTER{
+                    AllowList: allowlist,
+                    DenyList: denylist,
+                };
+
+                let hn = unsafe {infoqueue.PushStorageFilter(&mut filter)};
+                if !winerror::SUCCEEDED(hn) {
+                    return Err("Could not push storage filter on infoqueue.");
+                }
+            }
+            Err(_) => {
+                return Err("Could not get info queue from adapter.");
+            }
+        }
+
+        Ok(SDevice{device: device})
+    }
+}

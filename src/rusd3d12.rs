@@ -12,10 +12,12 @@ use std::{cmp, fmt, mem, ptr};
 use winapi::{Interface};
 use winapi::ctypes::{c_void};
 use winapi::shared::dxgi::*;
+use winapi::shared::dxgi1_2::*;
 use winapi::shared::dxgi1_3::*;
 use winapi::shared::dxgi1_4::*;
+use winapi::shared::dxgi1_5::*;
 use winapi::shared::dxgi1_6::*;
-use winapi::shared::{ntdef, winerror};
+use winapi::shared::{dxgiformat, dxgitype, ntdef, winerror};
 use winapi::shared::minwindef::*;
 use winapi::shared::windef::*;
 use winapi::um::d3d12::*;
@@ -37,6 +39,8 @@ impl<T> ComPtrPtrs<T> for ComPtr<T> where T: Interface {
     }
 }
 
+// -- $$$FRK(TODO): need to decide what I'm doing with errors re: HRESULT and DWORD errcodes -
+// maybe a union?
 pub struct SErr {
     errcode: DWORD,
 }
@@ -186,14 +190,11 @@ impl<'windows> SWindowClass<'windows> {
     }
 }
 
-pub struct SAdapter {
-    adapter: ComPtr<IDXGIAdapter4>,
+pub struct SD3D12 {
+    factory: ComPtr<IDXGIFactory4>,
 }
 
-// -- $$$FRK(TODO): need to decide what I'm doing with errors re: HRESULT and DWORD errcodes -
-// maybe a union?
-pub fn getadapter() -> Result<SAdapter, &'static str> { 
-    // $$$FRK(TODO): shouldn't pass debug flags in all builds
+pub fn initd3d12() -> Result<SD3D12, &'static str> {
     let mut rawfactory: *mut IDXGIFactory4 = ptr::null_mut();
     let createfactoryresult = unsafe {
         CreateDXGIFactory2(DXGI_CREATE_FACTORY_DEBUG,
@@ -201,8 +202,18 @@ pub fn getadapter() -> Result<SAdapter, &'static str> {
                            &mut rawfactory as *mut *mut _ as *mut *mut c_void)
     };
     if winerror::SUCCEEDED(createfactoryresult) {
-        let factory: ComPtr<IDXGIFactory4> = unsafe { ComPtr::from_raw(rawfactory) };
+        return Ok(SD3D12{factory: unsafe { ComPtr::from_raw(rawfactory) }});
+    }
 
+    Err("Couldn't get D3D12 factory.")
+}
+
+pub struct SAdapter {
+    adapter: ComPtr<IDXGIAdapter4>,
+}
+
+impl SD3D12 {
+    pub fn getadapter(&self) -> Result<SAdapter, &'static str> { 
         //let mut rawadapter4: *mut IDXGIFactory4 = ptr::null_mut();
         let mut maxdedicatedmem: usize = 0;
         let mut bestadapter = 0;
@@ -210,7 +221,7 @@ pub fn getadapter() -> Result<SAdapter, &'static str> {
         for adapteridx in 0..10 {
             let mut rawadapter1: *mut IDXGIAdapter1 = ptr::null_mut();
 
-            if unsafe { factory.EnumAdapters1(adapteridx, &mut rawadapter1) } ==
+            if unsafe { self.factory.EnumAdapters1(adapteridx, &mut rawadapter1) } ==
                winerror::DXGI_ERROR_NOT_FOUND {
                 continue;
             }
@@ -246,7 +257,7 @@ pub fn getadapter() -> Result<SAdapter, &'static str> {
 
         if maxdedicatedmem > 0 {
             let mut rawadapter1: *mut IDXGIAdapter1 = ptr::null_mut();
-            unsafe { factory.EnumAdapters1(bestadapter, &mut rawadapter1) };
+            unsafe { self.factory.EnumAdapters1(bestadapter, &mut rawadapter1) };
             let adapter1: ComPtr<IDXGIAdapter1> = unsafe { ComPtr::from_raw(rawadapter1) };
             match adapter1.cast::<IDXGIAdapter4>() {
                 Ok(a) => {
@@ -259,9 +270,6 @@ pub fn getadapter() -> Result<SAdapter, &'static str> {
         }
 
         Err("Could not find valid adapter")
-    }
-    else {
-        Err("CreateDXGIFactory2 gave an error.")
     }
 }
 
@@ -376,3 +384,49 @@ impl SDevice {
         Ok(SCommandQueue{queue: unsafe { ComPtr::from_raw(rawqueue) }})
     }
 }
+
+pub struct SSwapChain {
+    swapchain: ComPtr<IDXGISwapChain4>,
+}
+
+impl SD3D12 {
+    pub fn createswapchain(&self, window: &SWindow, commandqueue: &mut SCommandQueue,
+                           width: u32, height: u32) -> Result<SSwapChain, &'static str> {
+
+        let desc = DXGI_SWAP_CHAIN_DESC1{
+            Width: width,
+            Height: height,
+            Format: dxgiformat::DXGI_FORMAT_R8G8B8A8_UNORM, // $$$FRK(TODO): I have no idea why I'm picking this format
+            Stereo: FALSE,
+            SampleDesc: dxgitype::DXGI_SAMPLE_DESC{Count: 1, Quality: 0}, // $$$FRK(TODO): ???
+            BufferUsage: dxgitype::DXGI_USAGE_RENDER_TARGET_OUTPUT,
+            BufferCount: 2,
+            Scaling: DXGI_SCALING_STRETCH,
+            SwapEffect: DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL,
+            AlphaMode: DXGI_ALPHA_MODE_UNSPECIFIED,
+            Flags: 0,
+        };
+        let mut rawswapchain: *mut IDXGISwapChain1 = ptr::null_mut();
+
+        let hr = unsafe {
+            self.factory.CreateSwapChainForHwnd(
+                commandqueue.queue.asunknownptr(),
+                window.window,
+                &desc,
+                ptr::null(),
+                ptr::null_mut(),
+                &mut rawswapchain as *mut *mut _ as *mut *mut IDXGISwapChain1)
+        };
+
+        if !winerror::SUCCEEDED(hr) {
+            return Err("Failed to create swap chain");
+        }
+
+        let swapchain = unsafe { ComPtr::from_raw(rawswapchain) };
+        match swapchain.cast::<IDXGISwapChain4>() {
+            Ok(sc4) => Ok(SSwapChain{swapchain: sc4}),
+            _ => Err("Swap chain could not be case to SwapChain4")
+        }
+    }
+}
+

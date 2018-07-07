@@ -49,12 +49,14 @@ fn main_d3d12() {
 
     let winapi = rusd3d12::initwinapi().unwrap();
     let windowclass = winapi.registerclassex("rusgam").unwrap();
-    let _window = windowclass.createwindow("rusgame2", 800, 600).unwrap();
+    let window = windowclass.createwindow("rusgame2", 800, 600).unwrap();
 
-    let mut adapter = rusd3d12::getadapter().unwrap();
+    let d3d12 = rusd3d12::initd3d12().unwrap();
+    let mut adapter = d3d12.getadapter().unwrap();
     let device = adapter.createdevice().unwrap();
 
-    let _commandqueue = device.createcommandqueue(rusd3d12::ECommandListType::Direct);
+    let mut commandqueue = device.createcommandqueue(rusd3d12::ECommandListType::Direct).unwrap();
+    let _swapchain = d3d12.createswapchain(&window, &mut commandqueue, 800, 600).unwrap();
 }
 
 fn main() {

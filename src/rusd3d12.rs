@@ -8,6 +8,7 @@
 use std::{cmp, fmt, mem, ptr};
 //use std::ptr::{null};
 
+// -- $$$FRK(TODO): I feel very slightly guilty about all these wildcard uses
 use winapi::{Interface};
 use winapi::ctypes::{c_void};
 use winapi::shared::dxgi::*;
@@ -334,5 +335,44 @@ impl SAdapter {
         }
 
         Ok(SDevice{device: device})
+    }
+}
+
+pub enum ECommandListType {
+    Direct,
+    Compute,
+    Copy,
+}
+
+pub struct SCommandQueue {
+    queue: ComPtr<ID3D12CommandQueue>,
+}
+
+impl SDevice {
+    pub fn createcommandqueue(&self, type_: ECommandListType) -> Result<SCommandQueue, &'static str> {
+        let d3dtype = match type_ {
+            ECommandListType::Direct => D3D12_COMMAND_LIST_TYPE_DIRECT,
+            ECommandListType::Compute => D3D12_COMMAND_LIST_TYPE_COMPUTE,
+            ECommandListType::Copy => D3D12_COMMAND_LIST_TYPE_COPY,
+        };
+
+        let desc = D3D12_COMMAND_QUEUE_DESC{
+            Type: d3dtype,
+            Priority: D3D12_COMMAND_QUEUE_PRIORITY_NORMAL as i32,
+            Flags: 0,
+            NodeMask: 0,
+        };
+
+        let mut rawqueue: *mut ID3D12CommandQueue = ptr::null_mut();
+        let hr = unsafe {
+            self.device.CreateCommandQueue(&desc, &ID3D12CommandQueue::uuidof(),
+                                           &mut rawqueue as *mut *mut _ as *mut *mut c_void)
+        };
+
+        if !winerror::SUCCEEDED(hr) {
+            return Err("Could not create command queue");
+        }
+
+        Ok(SCommandQueue{queue: unsafe { ComPtr::from_raw(rawqueue) }})
     }
 }

@@ -52,7 +52,9 @@ fn main_d3d12() {
     let _window = windowclass.createwindow("rusgame2", 800, 600).unwrap();
 
     let mut adapter = rusd3d12::getadapter().unwrap();
-    let _device = adapter.createdevice().unwrap();
+    let device = adapter.createdevice().unwrap();
+
+    let _commandqueue = device.createcommandqueue(rusd3d12::ECommandListType::Direct);
 }
 
 fn main() {

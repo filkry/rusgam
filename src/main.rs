@@ -1,5 +1,6 @@
 extern crate sdl2_sys;
 extern crate winapi;
+extern crate wio;
 
 //mod math;
 //use math::SVec3f;
@@ -49,6 +50,8 @@ fn main_d3d12() {
     let winapi = rusd3d12::initwinapi().unwrap();
     let windowclass = winapi.registerclassex("rusgam").unwrap();
     let _window = windowclass.createwindow("rusgame2", 800, 600).unwrap();
+
+    let _adapter = rusd3d12::getadapter().unwrap();
 }
 
 fn main() {

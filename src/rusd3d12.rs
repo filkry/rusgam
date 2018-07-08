@@ -386,12 +386,15 @@ impl SDevice {
 }
 
 pub struct SSwapChain {
+    buffercount: u32,
     swapchain: ComPtr<IDXGISwapChain4>,
+    backbuffers: Vec<ComPtr<ID3D12Resource>>,
 }
 
 impl SD3D12 {
     pub fn createswapchain(&self, window: &SWindow, commandqueue: &mut SCommandQueue,
                            width: u32, height: u32) -> Result<SSwapChain, &'static str> {
+        let buffercount = 2;
 
         let desc = DXGI_SWAP_CHAIN_DESC1{
             Width: width,
@@ -400,7 +403,7 @@ impl SD3D12 {
             Stereo: FALSE,
             SampleDesc: dxgitype::DXGI_SAMPLE_DESC{Count: 1, Quality: 0}, // $$$FRK(TODO): ???
             BufferUsage: dxgitype::DXGI_USAGE_RENDER_TARGET_OUTPUT,
-            BufferCount: 2,
+            BufferCount: buffercount,
             Scaling: DXGI_SCALING_STRETCH,
             SwapEffect: DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL,
             AlphaMode: DXGI_ALPHA_MODE_UNSPECIFIED,
@@ -424,9 +427,97 @@ impl SD3D12 {
 
         let swapchain = unsafe { ComPtr::from_raw(rawswapchain) };
         match swapchain.cast::<IDXGISwapChain4>() {
-            Ok(sc4) => Ok(SSwapChain{swapchain: sc4}),
+            Ok(sc4) => {
+                let mut backbuffers = Vec::with_capacity(2);
+                for bbidx in 0..buffercount {
+                    let mut rawbuf: *mut ID3D12Resource = ptr::null_mut();
+                    let hn = unsafe {
+                        sc4.GetBuffer(bbidx, &ID3D12Resource::uuidof(),
+                                      &mut rawbuf as *mut *mut _ as *mut *mut c_void)
+                    };
+
+                    if !winerror::SUCCEEDED(hn) {
+                        return Err("Couldn't get ID3D12Resource for backbuffer from swapchain.");
+                    }
+
+                    backbuffers.push(unsafe { ComPtr::from_raw(rawbuf) });
+                }
+
+                Ok(SSwapChain{
+                    buffercount: buffercount,
+                    swapchain: sc4,
+                    backbuffers: backbuffers,
+                })
+            },
             _ => Err("Swap chain could not be case to SwapChain4")
         }
     }
 }
 
+pub enum EDescriptorHeapType {
+    ConstantBufferShaderResourceUnorderedAccess,
+    Sampler,
+    RenderTarget,
+    DepthStencil,
+}
+
+pub struct SDescriptorHeap {
+    type_: EDescriptorHeapType,
+    heap: ComPtr<ID3D12DescriptorHeap>,
+}
+
+impl SDevice {
+    pub fn createdescriptorheap(&self, type_: EDescriptorHeapType, numdescriptors: u32) -> Result<SDescriptorHeap, &'static str> {
+        let d3dtype = match type_ {
+            EDescriptorHeapType::ConstantBufferShaderResourceUnorderedAccess => D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
+            EDescriptorHeapType::Sampler => D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER,
+            EDescriptorHeapType::RenderTarget => D3D12_DESCRIPTOR_HEAP_TYPE_RTV,
+            EDescriptorHeapType::DepthStencil => D3D12_DESCRIPTOR_HEAP_TYPE_DSV,
+        };
+
+        let desc = D3D12_DESCRIPTOR_HEAP_DESC{
+            Type: d3dtype,
+            NumDescriptors: numdescriptors,
+            Flags: 0,
+            NodeMask: 0,
+        };
+
+        let mut rawheap: *mut ID3D12DescriptorHeap = ptr::null_mut();
+        let hr = unsafe {
+            self.device.CreateDescriptorHeap(&desc, &ID3D12DescriptorHeap::uuidof(),
+                                             &mut rawheap as *mut *mut _ as *mut *mut c_void)
+        };
+
+        if !winerror::SUCCEEDED(hr) {
+            return Err("Failed to create descriptor heap");
+        }
+
+        Ok(SDescriptorHeap{
+            type_: type_,
+            heap: unsafe { ComPtr::from_raw(rawheap) }
+        })
+    }
+
+    pub fn initrendertargetviews(&self, swap: &SSwapChain, heap: &SDescriptorHeap) -> Result<(), &'static str> {
+        match heap.type_ {
+            EDescriptorHeapType::RenderTarget => {
+                let descriptorsize = unsafe { self.device.GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV) };
+                let mut curdescriptorhandle = unsafe { heap.heap.GetCPUDescriptorHandleForHeapStart() };
+
+                for backbuf in &swap.backbuffers {
+                    unsafe {
+                        self.device.CreateRenderTargetView(backbuf.as_raw(),
+                                                           ptr::null(),
+                                                           curdescriptorhandle);
+                    };
+
+                    curdescriptorhandle.ptr += descriptorsize as usize;
+                    //curdescriptorhandle.Offset(descriptorsize);
+                }
+
+                Ok(())
+            },
+            _ => Err("Tried to initialize render target views on non-RTV descriptor heap.")
+        }
+    }
+}

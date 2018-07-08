@@ -56,7 +56,13 @@ fn main_d3d12() {
     let device = adapter.createdevice().unwrap();
 
     let mut commandqueue = device.createcommandqueue(rusd3d12::ECommandListType::Direct).unwrap();
-    let _swapchain = d3d12.createswapchain(&window, &mut commandqueue, 800, 600).unwrap();
+    let swapchain = d3d12.createswapchain(&window, &mut commandqueue, 800, 600).unwrap();
+
+    let rendertargetheap = device.createdescriptorheap(
+        rusd3d12::EDescriptorHeapType::RenderTarget,
+        10).unwrap();
+
+    device.initrendertargetviews(&swapchain, &rendertargetheap).unwrap();
 }
 
 fn main() {

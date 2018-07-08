@@ -348,8 +348,24 @@ impl SAdapter {
 
 pub enum ECommandListType {
     Direct,
+    Bundle,
     Compute,
     Copy,
+    //VideoDecode,
+    //VideoProcess,
+}
+
+impl ECommandListType {
+    fn d3dtype(&self) -> D3D12_COMMAND_LIST_TYPE {
+        match self {
+            ECommandListType::Direct => D3D12_COMMAND_LIST_TYPE_DIRECT ,
+            ECommandListType::Bundle => D3D12_COMMAND_LIST_TYPE_BUNDLE ,
+            ECommandListType::Compute => D3D12_COMMAND_LIST_TYPE_COMPUTE ,
+            ECommandListType::Copy => D3D12_COMMAND_LIST_TYPE_COPY ,
+            //VideoDecode => D3D12_COMMAND_LIST_TYPE_VIDEO_DECODE ,
+            //VideoProcess => D3D12_COMMAND_LIST_TYPE_VIDEO_PROCESS ,
+        }
+    }
 }
 
 pub struct SCommandQueue {
@@ -358,14 +374,8 @@ pub struct SCommandQueue {
 
 impl SDevice {
     pub fn createcommandqueue(&self, type_: ECommandListType) -> Result<SCommandQueue, &'static str> {
-        let d3dtype = match type_ {
-            ECommandListType::Direct => D3D12_COMMAND_LIST_TYPE_DIRECT,
-            ECommandListType::Compute => D3D12_COMMAND_LIST_TYPE_COMPUTE,
-            ECommandListType::Copy => D3D12_COMMAND_LIST_TYPE_COPY,
-        };
-
         let desc = D3D12_COMMAND_QUEUE_DESC{
-            Type: d3dtype,
+            Type: type_.d3dtype(),
             Priority: D3D12_COMMAND_QUEUE_PRIORITY_NORMAL as i32,
             Flags: 0,
             NodeMask: 0,
@@ -519,5 +529,55 @@ impl SDevice {
             },
             _ => Err("Tried to initialize render target views on non-RTV descriptor heap.")
         }
+    }
+}
+
+pub struct SCommandAllocator {
+    type_: ECommandListType,
+    commandallocator: ComPtr<ID3D12CommandAllocator>,
+}
+
+pub struct SCommandList {
+    commandlist: ComPtr<ID3D12GraphicsCommandList>,
+}
+
+impl SDevice {
+    pub fn createcommandallocator(&self, type_: ECommandListType) -> Result<SCommandAllocator, &'static str> {
+        let mut rawca: *mut ID3D12CommandAllocator = ptr::null_mut();
+        let hn = unsafe {
+            self.device.CreateCommandAllocator(type_.d3dtype(), &ID3D12CommandAllocator::uuidof(),
+                                               &mut rawca as *mut *mut _ as *mut *mut c_void)
+        };
+
+        if !winerror::SUCCEEDED(hn) {
+            return Err("Could not create command allocator.");
+        }
+
+        Ok(SCommandAllocator{
+            type_: type_,
+            commandallocator: unsafe { ComPtr::from_raw(rawca) },
+        })
+    }
+
+    pub fn createcommandlist(&self, allocator: &SCommandAllocator) -> Result<SCommandList, &'static str> {
+        let mut rawcl: *mut ID3D12GraphicsCommandList = ptr::null_mut();
+        let hn = unsafe {
+            self.device.CreateCommandList(
+                0,
+                allocator.type_.d3dtype(),
+                allocator.commandallocator.as_raw(),
+                ptr::null_mut(),
+                &ID3D12GraphicsCommandList::uuidof(),
+                &mut rawcl as *mut *mut _ as *mut *mut c_void)
+        };
+
+        if !winerror::SUCCEEDED(hn) {
+            return Err("Could not create command list.");
+        }
+
+        Ok(SCommandList{
+            commandlist: unsafe { ComPtr::from_raw(rawcl) },
+        })
+
     }
 }

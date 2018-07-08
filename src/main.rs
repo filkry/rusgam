@@ -3,8 +3,6 @@ extern crate winapi;
 extern crate wio;
 
 //mod math;
-//use math::SVec3f;
-
 mod russdl;
 mod rusd3d12;
 
@@ -66,7 +64,22 @@ fn main_d3d12() {
     device.initrendertargetviews(&swapchain, &rendertargetheap).unwrap();
     let commandallocator = device.createcommandallocator(
         rusd3d12::ECommandListType::Direct).unwrap();
-    let _commandlist = device.createcommandlist(&commandallocator);
+    let _commandlist = device.createcommandlist(&commandallocator).unwrap();
+
+    let _fence = device.createfence().unwrap();
+
+    let mut framecount: u64 = 0;
+    let mut lastframetime = winapi.curtimemicroseconds();
+    loop {
+        let curframetime = winapi.curtimemicroseconds();
+        let dt = curframetime - lastframetime;
+        let dtms = (dt as f64) / 1000.0;
+
+        println!("Frame {} time: {}ms", framecount, dtms);
+
+        lastframetime = curframetime;
+        framecount += 1;
+    }
 }
 
 fn main() {

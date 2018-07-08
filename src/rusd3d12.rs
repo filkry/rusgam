@@ -22,12 +22,20 @@ use winapi::shared::minwindef::*;
 use winapi::shared::windef::*;
 use winapi::um::d3d12::*;
 use winapi::um::d3d12sdklayers::*;
-use winapi::um::{d3dcommon, errhandlingapi, libloaderapi, winnt, unknwnbase};
+use winapi::um::{d3dcommon, errhandlingapi, libloaderapi, profileapi, synchapi, winnt, unknwnbase};
 use winapi::um::winnt::LONG;
 use winapi::um::winuser::*;
 
 use wio::com::ComPtr;
 //use winapi::shared::{guiddef};
+
+macro_rules! returnerrifwinerror {
+    ($hn:expr, $err:expr) => (
+        if !winerror::SUCCEEDED($hn) {
+            return Err($err);
+        }
+    );
+}
 
 trait ComPtrPtrs<T> {
     unsafe fn asunknownptr(&mut self) -> *mut unknwnbase::IUnknown;
@@ -109,6 +117,16 @@ pub struct SWindowClass<'windows> {
 }
 
 impl SWinAPI {
+    pub fn curtimemicroseconds(&self) -> i64 {
+        let mut result: winnt::LARGE_INTEGER = unsafe { mem::uninitialized() };
+        let success = unsafe { profileapi::QueryPerformanceCounter(&mut result) };
+        if success == 0 {
+            panic!("Can't query performance for timing.");
+        }
+
+        unsafe { *result.QuadPart()}
+    }
+
     pub fn registerclassex(&self,
                            windowclassname: &'static str) -> Result<SWindowClass, SErr> {
         unsafe {
@@ -286,9 +304,7 @@ impl SAdapter {
                               &ID3D12Device2::uuidof(),
                               &mut rawdevice as *mut *mut _ as *mut *mut c_void)
         };
-        if !winerror::SUCCEEDED(hn) {
-            return Err("Could not create device on adapter.");
-        }
+        returnerrifwinerror!(hn, "Could not create device on adapter.");
 
         let device = unsafe { ComPtr::from_raw(rawdevice) };
 
@@ -333,9 +349,7 @@ impl SAdapter {
                 };
 
                 let hn = unsafe {infoqueue.PushStorageFilter(&mut filter)};
-                if !winerror::SUCCEEDED(hn) {
-                    return Err("Could not push storage filter on infoqueue.");
-                }
+                returnerrifwinerror!(hn, "Could not push storage filter on infoqueue.");
             }
             Err(_) => {
                 return Err("Could not get info queue from adapter.");
@@ -387,9 +401,7 @@ impl SDevice {
                                            &mut rawqueue as *mut *mut _ as *mut *mut c_void)
         };
 
-        if !winerror::SUCCEEDED(hr) {
-            return Err("Could not create command queue");
-        }
+        returnerrifwinerror!(hr, "Could not create command queue");
 
         Ok(SCommandQueue{queue: unsafe { ComPtr::from_raw(rawqueue) }})
     }
@@ -431,9 +443,7 @@ impl SD3D12 {
                 &mut rawswapchain as *mut *mut _ as *mut *mut IDXGISwapChain1)
         };
 
-        if !winerror::SUCCEEDED(hr) {
-            return Err("Failed to create swap chain");
-        }
+        returnerrifwinerror!(hr, "Failed to create swap chain");
 
         let swapchain = unsafe { ComPtr::from_raw(rawswapchain) };
         match swapchain.cast::<IDXGISwapChain4>() {
@@ -446,9 +456,7 @@ impl SD3D12 {
                                       &mut rawbuf as *mut *mut _ as *mut *mut c_void)
                     };
 
-                    if !winerror::SUCCEEDED(hn) {
-                        return Err("Couldn't get ID3D12Resource for backbuffer from swapchain.");
-                    }
+                    returnerrifwinerror!(hn, "Couldn't get ID3D12Resource for backbuffer from swapchain.");
 
                     backbuffers.push(unsafe { ComPtr::from_raw(rawbuf) });
                 }
@@ -498,9 +506,7 @@ impl SDevice {
                                              &mut rawheap as *mut *mut _ as *mut *mut c_void)
         };
 
-        if !winerror::SUCCEEDED(hr) {
-            return Err("Failed to create descriptor heap");
-        }
+        returnerrifwinerror!(hr, "Failed to create descriptor heap");
 
         Ok(SDescriptorHeap{
             type_: type_,
@@ -549,9 +555,7 @@ impl SDevice {
                                                &mut rawca as *mut *mut _ as *mut *mut c_void)
         };
 
-        if !winerror::SUCCEEDED(hn) {
-            return Err("Could not create command allocator.");
-        }
+        returnerrifwinerror!(hn, "Could not create command allocator.");
 
         Ok(SCommandAllocator{
             type_: type_,
@@ -571,9 +575,7 @@ impl SDevice {
                 &mut rawcl as *mut *mut _ as *mut *mut c_void)
         };
 
-        if !winerror::SUCCEEDED(hn) {
-            return Err("Could not create command list.");
-        }
+        returnerrifwinerror!(hn, "Could not create command list.");
 
         Ok(SCommandList{
             commandlist: unsafe { ComPtr::from_raw(rawcl) },
@@ -581,3 +583,80 @@ impl SDevice {
 
     }
 }
+
+pub struct SFence {
+    fence: ComPtr<ID3D12Fence>,
+}
+
+impl SDevice {
+    pub fn createfence(&self) -> Result<SFence, &'static str> {
+        let mut rawf: *mut ID3D12Fence = ptr::null_mut();
+        let hn = unsafe {
+            self.device.CreateFence(
+                0, D3D12_FENCE_FLAG_NONE, &ID3D12Fence::uuidof(),
+                &mut rawf as *mut *mut _ as *mut *mut c_void)
+        };
+
+        returnerrifwinerror!(hn, "Could not create fence.");
+
+        Ok(SFence{
+            fence: unsafe { ComPtr::from_raw(rawf) },
+        })
+    }
+}
+
+pub struct SEventHandle {
+    event: winnt::HANDLE,
+}
+
+impl SWinAPI {
+    pub fn createeventhandle() -> Result<SEventHandle, &'static str> {
+        let event = unsafe { synchapi::CreateEventW(ptr::null_mut(), FALSE, FALSE, ptr::null()) };
+
+        if event == ntdef::NULL {
+            return Err("Couldn't create event.");
+        }
+
+        Ok(SEventHandle{ event: event })
+    }
+}
+
+impl SFence {
+    pub fn waitforvalue(&self, val: u64, event: &SEventHandle, duration: u64) -> Result<(), &'static str> {
+        if unsafe { self.fence.GetCompletedValue() } < val {
+            let hn = unsafe { self.fence.SetEventOnCompletion(val, event.event) };
+            returnerrifwinerror!(hn, "Could not set fence event on completion");
+            unsafe { synchapi::WaitForSingleObject(event.event, duration as DWORD) };
+        }
+
+        Ok(())
+    }
+}
+
+macro_rules! properror {
+    ($result:expr) => {
+        match $result {
+            Ok(a) => a,
+            Err(e) => { return Err(e); },
+        }
+    }
+}
+
+impl SCommandQueue {
+    // -- $$$FRK(TODO): revisit this after I understand how I'm going to be using this fence
+    pub fn pushsignal(&self, fence: &SFence, val: &mut u64) -> Result<u64, &'static str> {
+        *val += 1;
+        let hn = unsafe { self.queue.Signal(fence.fence.as_raw(), *val) };
+
+        returnerrifwinerror!(hn, "Could not push signal.");
+
+        Ok(*val)
+    }
+
+    pub fn flushgpublocking(&self, fence: &SFence, val: &mut u64, event: &SEventHandle) -> Result<(), &'static str> {
+        let lastfencevalue = properror!(self.pushsignal(fence, val));
+        properror!(fence.waitforvalue(lastfencevalue, event, <u64>::max_value()));
+        Ok(())
+    }
+}
+

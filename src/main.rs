@@ -62,14 +62,22 @@ fn main_d3d12() {
         10).unwrap();
 
     device.initrendertargetviews(&swapchain, &rendertargetheap).unwrap();
-    let commandallocator = device.createcommandallocator(
-        rusd3d12::ECommandListType::Direct).unwrap();
-    let _commandlist = device.createcommandlist(&commandallocator).unwrap();
+    let commandallocators = [
+        device.createcommandallocator(rusd3d12::ECommandListType::Direct).unwrap(),
+        device.createcommandallocator(rusd3d12::ECommandListType::Direct).unwrap()
+    ];
+    let mut commandlist = device.createcommandlist(&commandallocators[0]).unwrap();
 
-    let _fence = device.createfence().unwrap();
+    let fence = device.createfence().unwrap();
+    let fenceevent = winapi.createeventhandle().unwrap();
 
     let mut framecount: u64 = 0;
     let mut lastframetime = winapi.curtimemicroseconds();
+    let mut currbuffer: u32 = swapchain.currentbackbufferindex();
+
+    let mut framefencevalues = [0; 2];
+    let mut nextfencevalue = 0;
+
     loop {
         let curframetime = winapi.curtimemicroseconds();
         let dt = curframetime - lastframetime;
@@ -77,8 +85,61 @@ fn main_d3d12() {
 
         println!("Frame {} time: {}ms", framecount, dtms);
 
+        // -- render
+        {
+            let commandallocator = &commandallocators[currbuffer as usize];
+            commandallocator.reset();
+            commandlist.reset(commandallocator).unwrap();
+
+            // -- clear the render target
+            {
+                // -- $$$FRK(TODO): do I want to associate these some way?
+                let backbuffer = &swapchain.backbuffers[currbuffer as usize];
+                let rendertargetdescriptor = rendertargetheap.cpuhandle(currbuffer);
+
+                // -- transition to render target
+                let transtorendertargetbarrier = d3d12.createtransitionbarrier(
+                    backbuffer,
+                    rusd3d12::EResourceStates::Present,
+                    rusd3d12::EResourceStates::RenderTarget,
+                );
+                commandlist.pushresourcebarrier(&transtorendertargetbarrier);
+
+                // -- clear
+                let clearcolour = [0.4, 0.6, 0.9, 1.0];
+
+                commandlist.pushclearrendertargetview(
+                    rendertargetdescriptor,
+                    &clearcolour,
+                );
+
+                // -- transition to present
+                let transtopresentbarrier = d3d12.createtransitionbarrier(
+                    backbuffer,
+                    rusd3d12::EResourceStates::RenderTarget,
+                    rusd3d12::EResourceStates::Present,
+                );
+                commandlist.pushresourcebarrier(&transtopresentbarrier);
+
+                // -- close the command list
+                commandlist.close().unwrap();
+
+                // -- execute on the queue
+                commandqueue.executecommandlist(&mut commandlist);
+
+                let syncinterval = 1;
+                swapchain.present(syncinterval, 0).unwrap();
+
+                framefencevalues[currbuffer as usize] =
+                    commandqueue.pushsignal(&fence, &mut nextfencevalue).unwrap();
+            }
+        }
+        currbuffer = swapchain.currentbackbufferindex();
+
         lastframetime = curframetime;
         framecount += 1;
+
+        fence.waitforvalue(framefencevalues[currbuffer as usize], &fenceevent, <u64>::max_value()).unwrap();
     }
 }
 

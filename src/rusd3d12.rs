@@ -230,6 +230,56 @@ pub struct SAdapter {
     adapter: ComPtr<IDXGIAdapter4>,
 }
 
+pub enum EResourceStates {
+    Common,
+    VertexAndConstantBuffer,
+    IndexBuffer,
+    RenderTarget,
+    UnorderedAccess,
+    DepthWrite,
+    DepthRead,
+    NonPixelShaderResource,
+    PixelShaderResource,
+    StreamOut,
+    IndirectArgument,
+    CopyDest,
+    CopySource,
+    ResolveDest,
+    ResolveSource,
+    GenericRead,
+    Present,
+    Predication,
+}
+
+impl EResourceStates {
+    fn d3dstate(&self) -> D3D12_RESOURCE_STATES {
+        match self {
+            EResourceStates::Common => D3D12_RESOURCE_STATE_COMMON,
+            EResourceStates::VertexAndConstantBuffer => D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER,
+            EResourceStates::IndexBuffer => D3D12_RESOURCE_STATE_INDEX_BUFFER,
+            EResourceStates::RenderTarget => D3D12_RESOURCE_STATE_RENDER_TARGET,
+            EResourceStates::UnorderedAccess => D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+            EResourceStates::DepthWrite => D3D12_RESOURCE_STATE_DEPTH_WRITE,
+            EResourceStates::DepthRead => D3D12_RESOURCE_STATE_DEPTH_READ,
+            EResourceStates::NonPixelShaderResource => D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+            EResourceStates::PixelShaderResource => D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+            EResourceStates::StreamOut => D3D12_RESOURCE_STATE_STREAM_OUT,
+            EResourceStates::IndirectArgument => D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT,
+            EResourceStates::CopyDest => D3D12_RESOURCE_STATE_COPY_DEST,
+            EResourceStates::CopySource => D3D12_RESOURCE_STATE_COPY_SOURCE,
+            EResourceStates::ResolveDest => D3D12_RESOURCE_STATE_RESOLVE_DEST,
+            EResourceStates::ResolveSource => D3D12_RESOURCE_STATE_RESOLVE_SOURCE,
+            EResourceStates::GenericRead => D3D12_RESOURCE_STATE_GENERIC_READ,
+            EResourceStates::Present => D3D12_RESOURCE_STATE_PRESENT,
+            EResourceStates::Predication => D3D12_RESOURCE_STATE_PREDICATION,
+        }
+    }
+}
+
+pub struct SBarrier {
+    barrier: D3D12_RESOURCE_BARRIER,
+}
+
 impl SD3D12 {
     pub fn getadapter(&self) -> Result<SAdapter, &'static str> { 
         //let mut rawadapter4: *mut IDXGIFactory4 = ptr::null_mut();
@@ -288,6 +338,25 @@ impl SD3D12 {
         }
 
         Err("Could not find valid adapter")
+    }
+
+    pub fn createtransitionbarrier(&self, resource: &SResource,
+                                   beforestate: EResourceStates,
+                                   afterstate: EResourceStates) -> SBarrier {
+        let mut barrier = D3D12_RESOURCE_BARRIER{
+            Type: D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
+            Flags: D3D12_RESOURCE_BARRIER_FLAG_NONE,
+            u: unsafe { mem::zeroed() },
+        };
+
+        *unsafe { barrier.u.Transition_mut() } = D3D12_RESOURCE_TRANSITION_BARRIER{
+            pResource: resource.resource.as_raw(),
+            Subresource: D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES,
+            StateBefore: beforestate.d3dstate(),
+            StateAfter: afterstate.d3dstate(),
+        };
+
+        SBarrier{barrier: barrier}
     }
 }
 
@@ -407,10 +476,26 @@ impl SDevice {
     }
 }
 
+pub struct SResource {
+    resource: ComPtr<ID3D12Resource>,
+}
+
 pub struct SSwapChain {
     buffercount: u32,
     swapchain: ComPtr<IDXGISwapChain4>,
-    backbuffers: Vec<ComPtr<ID3D12Resource>>,
+    pub backbuffers: Vec<SResource>,
+}
+
+impl SSwapChain {
+    pub fn present(&self, syncinterval: u32, flags: u32) -> Result<(), &'static str> {
+        let hr = unsafe { self.swapchain.Present(syncinterval, flags) };
+        returnerrifwinerror!(hr, "Couldn't present to swap chain.");
+        Ok(())
+    }
+
+    pub fn currentbackbufferindex(&self) -> u32 {
+        unsafe { self.swapchain.GetCurrentBackBufferIndex() }
+    }
 }
 
 impl SD3D12 {
@@ -458,7 +543,9 @@ impl SD3D12 {
 
                     returnerrifwinerror!(hn, "Couldn't get ID3D12Resource for backbuffer from swapchain.");
 
-                    backbuffers.push(unsafe { ComPtr::from_raw(rawbuf) });
+                    backbuffers.push(SResource{
+                        resource: unsafe { ComPtr::from_raw(rawbuf) }
+                    });
                 }
 
                 Ok(SSwapChain{
@@ -482,6 +569,34 @@ pub enum EDescriptorHeapType {
 pub struct SDescriptorHeap {
     type_: EDescriptorHeapType,
     heap: ComPtr<ID3D12DescriptorHeap>,
+    descriptorsize: u32,
+    cpudescriptorhandleforstart: D3D12_CPU_DESCRIPTOR_HANDLE,
+}
+
+impl SDescriptorHeap {
+    pub fn cpuhandle(&self, index: u32) -> SDescriptorHandle {
+        let stride: usize = (index * self.descriptorsize) as usize;
+        let handle = D3D12_CPU_DESCRIPTOR_HANDLE {
+            ptr: self.cpudescriptorhandleforstart.ptr + stride,
+        };
+
+        SDescriptorHandle {
+            heap: self,
+            handle: handle,
+        }
+    }
+}
+
+pub struct SDescriptorHandle<'heap> {
+    heap: &'heap SDescriptorHeap,
+    handle: D3D12_CPU_DESCRIPTOR_HANDLE, 
+}
+
+impl<'heap> SDescriptorHandle<'heap> {
+    pub fn offset(&mut self, count: u32) {
+        let stride: usize = (count * self.heap.descriptorsize) as usize;
+        self.handle.ptr += stride; 
+    }
 }
 
 impl SDevice {
@@ -508,26 +623,32 @@ impl SDevice {
 
         returnerrifwinerror!(hr, "Failed to create descriptor heap");
 
+        let heap = unsafe { ComPtr::from_raw(rawheap) };
+        let descriptorsize = unsafe { self.device.GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV) };
+        let start = unsafe { heap.GetCPUDescriptorHandleForHeapStart() };
+
         Ok(SDescriptorHeap{
             type_: type_,
-            heap: unsafe { ComPtr::from_raw(rawheap) }
+            heap: heap,
+            descriptorsize: descriptorsize,
+            cpudescriptorhandleforstart: start,
         })
     }
 
     pub fn initrendertargetviews(&self, swap: &SSwapChain, heap: &SDescriptorHeap) -> Result<(), &'static str> {
         match heap.type_ {
             EDescriptorHeapType::RenderTarget => {
-                let descriptorsize = unsafe { self.device.GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV) };
-                let mut curdescriptorhandle = unsafe { heap.heap.GetCPUDescriptorHandleForHeapStart() };
+                let mut curdescriptorhandle = heap.cpuhandle(0);
 
                 for backbuf in &swap.backbuffers {
                     unsafe {
-                        self.device.CreateRenderTargetView(backbuf.as_raw(),
+                        self.device.CreateRenderTargetView(backbuf.resource.as_raw(),
                                                            ptr::null(),
-                                                           curdescriptorhandle);
+                                                           curdescriptorhandle.handle);
                     };
 
-                    curdescriptorhandle.ptr += descriptorsize as usize;
+                    curdescriptorhandle.offset(1);
+                    //curdescriptorhandle.ptr += heap.descriptorsize as usize;
                     //curdescriptorhandle.Offset(descriptorsize);
                 }
 
@@ -543,8 +664,40 @@ pub struct SCommandAllocator {
     commandallocator: ComPtr<ID3D12CommandAllocator>,
 }
 
+impl SCommandAllocator {
+    pub fn reset(&self) {
+        unsafe { self.commandallocator.Reset() };
+    }
+}
+
 pub struct SCommandList {
     commandlist: ComPtr<ID3D12GraphicsCommandList>,
+}
+
+impl SCommandList {
+    pub fn reset(&self, commandallocator: &SCommandAllocator) -> Result<(), &'static str> {
+        let hn = unsafe { self.commandlist.Reset(commandallocator.commandallocator.as_raw(), ptr::null_mut()) };
+        returnerrifwinerror!(hn, "Could not reset command list.");
+        Ok(())
+    }
+
+    pub fn pushresourcebarrier(&self, barrier: &SBarrier) {
+        unsafe { self.commandlist.ResourceBarrier(1, &barrier.barrier) };
+    }
+
+    pub fn pushclearrendertargetview(&self, descriptor: SDescriptorHandle,
+                                     colour: &[f32; 4]) {
+        unsafe {
+            self.commandlist.ClearRenderTargetView(
+                descriptor.handle, colour, 0, ptr::null());
+        }
+    }
+
+    pub fn close(&self) -> Result<(), &'static str> {
+        let hn = unsafe { self.commandlist.Close() };
+        returnerrifwinerror!(hn, "Could not close command list.");
+        Ok(())
+    }
 }
 
 impl SDevice {
@@ -610,7 +763,7 @@ pub struct SEventHandle {
 }
 
 impl SWinAPI {
-    pub fn createeventhandle() -> Result<SEventHandle, &'static str> {
+    pub fn createeventhandle(&self) -> Result<SEventHandle, &'static str> {
         let event = unsafe { synchapi::CreateEventW(ptr::null_mut(), FALSE, FALSE, ptr::null()) };
 
         if event == ntdef::NULL {
@@ -657,6 +810,15 @@ impl SCommandQueue {
         let lastfencevalue = properror!(self.pushsignal(fence, val));
         properror!(fence.waitforvalue(lastfencevalue, event, <u64>::max_value()));
         Ok(())
+    }
+
+    pub fn executecommandlist(&self, list: &mut SCommandList) {
+        unsafe {
+            self.queue.ExecuteCommandLists(
+                1,
+                &(list.commandlist.as_raw() as *mut ID3D12CommandList)
+            );
+        }
     }
 }
 

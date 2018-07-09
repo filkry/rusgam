@@ -41,6 +41,8 @@ fn main_sdl() {
     }
 }
 
+#[allow(unused_variables)]
+#[allow(unused_mut)]
 fn main_d3d12() {
     let debuginterface = rusd3d12::getdebuginterface().unwrap();
     debuginterface.enabledebuglayer();
@@ -56,6 +58,7 @@ fn main_d3d12() {
     let mut commandqueue = device.createcommandqueue(
         rusd3d12::ECommandListType::Direct).unwrap();
     let swapchain = d3d12.createswapchain(&window, &mut commandqueue, 800, 600).unwrap();
+    let mut currbuffer: u32 = swapchain.currentbackbufferindex();
 
     let rendertargetheap = device.createdescriptorheap(
         rusd3d12::EDescriptorHeapType::RenderTarget,
@@ -66,17 +69,19 @@ fn main_d3d12() {
         device.createcommandallocator(rusd3d12::ECommandListType::Direct).unwrap(),
         device.createcommandallocator(rusd3d12::ECommandListType::Direct).unwrap()
     ];
-    let mut commandlist = device.createcommandlist(&commandallocators[0]).unwrap();
+    let mut commandlist = device.createcommandlist(&commandallocators[currbuffer as usize]).unwrap();
+    commandlist.close().unwrap();
 
     let fence = device.createfence().unwrap();
     let fenceevent = winapi.createeventhandle().unwrap();
 
     let mut framecount: u64 = 0;
     let mut lastframetime = winapi.curtimemicroseconds();
-    let mut currbuffer: u32 = swapchain.currentbackbufferindex();
 
     let mut framefencevalues = [0; 2];
     let mut nextfencevalue = 0;
+
+    window.show();
 
     loop {
         let curframetime = winapi.curtimemicroseconds();
@@ -134,12 +139,15 @@ fn main_d3d12() {
                     commandqueue.pushsignal(&fence, &mut nextfencevalue).unwrap();
             }
         }
+
         currbuffer = swapchain.currentbackbufferindex();
 
         lastframetime = curframetime;
         framecount += 1;
 
         fence.waitforvalue(framefencevalues[currbuffer as usize], &fenceevent, <u64>::max_value()).unwrap();
+
+        // -- $$$FRK(TODO): framerate is uncapped
     }
 }
 

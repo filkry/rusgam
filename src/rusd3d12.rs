@@ -160,6 +160,12 @@ pub struct SWindow {
     window: HWND,
 }
 
+impl SWindow {
+    pub fn show(&self) {
+        unsafe { ShowWindow(self.window, SW_SHOW) };
+    }
+}
+
 impl<'windows> SWindowClass<'windows> {
     pub fn createwindow(&self, title: &str, width: u32, height: u32) -> Result<SWindow, SErr> {
         unsafe {
@@ -180,13 +186,14 @@ impl<'windows> SWindowClass<'windows> {
 
             //self.class as ntdef::LPCWSTR,
             let windowclassnameparam = self.windowclassname.as_ptr() as ntdef::LPCWSTR;
-            let titleparam = title.as_ptr() as ntdef::LPCWSTR;
+            let mut titleparam: Vec<u16> = title.encode_utf16().collect();
+            titleparam.push('\0' as u16);
             let hinstanceparam = self.winapi.hinstance;
 
             let hwnd: HWND = CreateWindowExW(
                 0,
                 windowclassnameparam,
-                titleparam,
+                titleparam.as_ptr(),
                 windowstyle,
                 windowx,
                 windowy,

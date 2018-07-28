@@ -86,9 +86,9 @@ fn main_d3d12() {
     loop {
         let curframetime = winapi.curtimemicroseconds();
         let dt = curframetime - lastframetime;
-        let dtms = (dt as f64) / 1000.0;
+        let dtms = dt as f64;
 
-        println!("Frame {} time: {}ms", framecount, dtms);
+        println!("Frame {} time: {}us", framecount, dtms);
 
         // -- render
         {

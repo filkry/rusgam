@@ -96,13 +96,22 @@ impl SDebugInterface {
 
 pub struct SWinAPI {
     hinstance: HINSTANCE,
+    frequency: i64,
 }
 
 pub fn initwinapi() -> Result<SWinAPI, SErr> {
     unsafe {
         let hinstance = libloaderapi::GetModuleHandleW(ntdef::NULL as *const u16);
         if !hinstance.is_null() {
-            Ok(SWinAPI{hinstance: hinstance})
+            let mut freqresult: winnt::LARGE_INTEGER = mem::uninitialized();
+            let freqsuccess = profileapi::QueryPerformanceFrequency(&mut freqresult);
+            if freqsuccess != 0 {
+                Ok(SWinAPI{hinstance: hinstance, frequency: *freqresult.QuadPart()})
+            }
+            else {
+                Err(getlasterror())
+            }
+            //Ok(SWinAPI{hinstance: hinstance})
         }
         else {
             Err(getlasterror())
@@ -117,6 +126,22 @@ pub struct SWindowClass<'windows> {
 }
 
 impl SWinAPI {
+    pub unsafe fn unsafecurtimemicroseconds() -> i64 {
+        let mut result: winnt::LARGE_INTEGER = mem::uninitialized();
+        let success = profileapi::QueryPerformanceCounter(&mut result);
+        if success == 0 {
+            panic!("Can't query performance for timing.");
+        }
+
+        let mut freqresult: winnt::LARGE_INTEGER = mem::uninitialized();
+        let freqsuccess = profileapi::QueryPerformanceFrequency(&mut freqresult);
+        if freqsuccess == 0 {
+            panic!("Can't query performance frequency for timing.");
+        }
+
+        *result.QuadPart() / *freqresult.QuadPart()
+    }
+
     pub fn curtimemicroseconds(&self) -> i64 {
         let mut result: winnt::LARGE_INTEGER = unsafe { mem::uninitialized() };
         let success = unsafe { profileapi::QueryPerformanceCounter(&mut result) };
@@ -124,7 +149,7 @@ impl SWinAPI {
             panic!("Can't query performance for timing.");
         }
 
-        unsafe { *result.QuadPart()}
+        unsafe { *result.QuadPart() / self.frequency }
     }
 
     pub fn registerclassex(&self,
@@ -782,11 +807,16 @@ impl SWinAPI {
 }
 
 impl SFence {
+
+    #[allow(unused_variables)]
     pub fn waitforvalue(&self, val: u64, event: &SEventHandle, duration: u64) -> Result<(), &'static str> {
         if unsafe { self.fence.GetCompletedValue() } < val {
+            let startwait = unsafe { SWinAPI::unsafecurtimemicroseconds() };
             let hn = unsafe { self.fence.SetEventOnCompletion(val, event.event) };
             returnerrifwinerror!(hn, "Could not set fence event on completion");
             unsafe { synchapi::WaitForSingleObject(event.event, duration as DWORD) };
+            let endwait = unsafe { SWinAPI::unsafecurtimemicroseconds() };
+            println!("Waited {}us", ((endwait - startwait) as f64));
         }
 
         Ok(())

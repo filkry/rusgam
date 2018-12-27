@@ -125,6 +125,16 @@ pub struct SWindowClass<'windows> {
     class: ATOM,
 }
 
+impl<'windows> Drop for SWindowClass<'windows> {
+    fn drop(&mut self) {
+        unsafe {
+            winapi::um::winuser::UnregisterClassW(
+                self.windowclassname.as_ptr() as *const winnt::WCHAR,
+                self.winapi.hinstance);
+        }
+    }
+}
+
 pub struct SMsg {
     message: winapi::um::winuser::MSG,
 }
@@ -198,6 +208,7 @@ impl SWinAPI {
     }
 }
 
+// -- $$$FRK(TODO): this should have a lifetime associated with the windowclass - can't outlive it
 pub struct SWindow {
     window: HWND,
 }
@@ -746,6 +757,7 @@ impl SDevice {
     }
 }
 
+// -- $$$FRK(TODO): lifetime here should be based on device
 pub struct SCommandAllocator {
     type_: ECommandListType,
     commandallocator: ComPtr<ID3D12CommandAllocator>,

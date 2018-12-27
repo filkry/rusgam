@@ -173,6 +173,11 @@ fn main_d3d12() {
             }
         }
     }
+
+    // -- wait for all commands to clear
+    fence.waitforvalue(framefencevalues[0], &fenceevent, <u64>::max_value()).unwrap();
+    fence.waitforvalue(framefencevalues[1], &fenceevent, <u64>::max_value()).unwrap();
+
 }
 
 fn main() {

@@ -125,6 +125,10 @@ pub struct SWindowClass<'windows> {
     class: ATOM,
 }
 
+pub struct SMsg {
+    message: winapi::um::winuser::MSG,
+}
+
 impl SWinAPI {
     pub unsafe fn unsafecurtimemicroseconds() -> i64 {
         let mut result: winnt::LARGE_INTEGER = mem::uninitialized();
@@ -179,6 +183,19 @@ impl SWinAPI {
             }
         }
     }
+
+    pub fn peekmessage(&self, window: &SWindow) -> Option<SMsg> {
+        // -- $$$FRK(TODO): this can take a lot more options, but we're hardcoding for now
+        let mut msg: winapi::um::winuser::MSG = unsafe { mem::uninitialized() };
+        let foundmessage = unsafe { winapi::um::winuser::PeekMessageW(&mut msg, window.window, 0, 0,
+                                                                      winapi::um::winuser::PM_REMOVE) };
+        if foundmessage > 0 {
+            Some(SMsg{message: msg})
+        }
+        else {
+            None
+        }
+    }
 }
 
 pub struct SWindow {
@@ -188,6 +205,14 @@ pub struct SWindow {
 impl SWindow {
     pub fn show(&self) {
         unsafe { ShowWindow(self.window, SW_SHOW) };
+    }
+
+    pub fn dummyrepaint(&self) {
+        unsafe {
+            let mut paintstruct: winapi::um::winuser::PAINTSTRUCT =  mem::uninitialized();
+            winapi::um::winuser::BeginPaint(self.window, &mut paintstruct);
+            winapi::um::winuser::EndPaint(self.window, &paintstruct);
+        }
     }
 }
 
@@ -237,6 +262,36 @@ impl<'windows> SWindowClass<'windows> {
                 Err(getlasterror())
             }
          }
+    }
+}
+
+pub enum EKey {
+    Invalid,
+    Q,
+}
+
+pub fn translatewmkey(key: winapi::shared::minwindef::WPARAM) -> EKey {
+    match key {
+        0x51 => EKey::Q,
+        _ => EKey::Invalid,
+    }
+}
+
+pub enum EMsgType {
+    Invalid,
+    KeyDown {
+        key: EKey,
+    },
+    Paint,
+}
+
+impl SMsg {
+    pub fn msgtype(&self) -> EMsgType {
+        match self.message.message {
+            winapi::um::winuser::WM_KEYDOWN => EMsgType::KeyDown{key: translatewmkey(self.message.wParam)},
+            winapi::um::winuser::WM_PAINT => EMsgType::Paint,
+            _ => EMsgType::Invalid,
+        }
     }
 }
 

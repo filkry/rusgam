@@ -83,7 +83,8 @@ fn main_d3d12() {
 
     window.show();
 
-    loop {
+    let mut quit: bool = false;
+    while !quit {
         let curframetime = winapi.curtimemicroseconds();
         let dt = curframetime - lastframetime;
         let dtms = dt as f64;
@@ -148,6 +149,29 @@ fn main_d3d12() {
         fence.waitforvalue(framefencevalues[currbuffer as usize], &fenceevent, <u64>::max_value()).unwrap();
 
         // -- $$$FRK(TODO): framerate is uncapped
+
+        loop {
+            match winapi.peekmessage(&window) {
+                Some(msg) => {
+                    match msg.msgtype() {
+                        rusd3d12::EMsgType::Paint => {
+                            window.dummyrepaint();
+                        },
+                        rusd3d12::EMsgType::KeyDown{key} => {
+                            match key {
+                                rusd3d12::EKey::Q => {
+                                    quit = true;
+                                    println!("Q keydown");
+                                },
+                                _ => ()
+                            }
+                        },
+                        rusd3d12::EMsgType::Invalid => (),
+                    }
+                }
+                None => break
+            }
+        }
     }
 }
 

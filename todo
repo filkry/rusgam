@@ -1,4 +1,7 @@
++ handle WM_PAINT event
++ draw triangle
 + data IO
 + identifier storage (hashed vs string interning)
 + port math library
 + .obj load
++ TODO items

@@ -135,8 +135,9 @@ impl<'windows> Drop for SWindowClass<'windows> {
     }
 }
 
-pub struct SMsg {
+pub struct SMsg<'a> {
     message: winapi::um::winuser::MSG,
+    window: &'a SWindow,
 }
 
 impl SWinAPI {
@@ -194,13 +195,13 @@ impl SWinAPI {
         }
     }
 
-    pub fn peekmessage(&self, window: &SWindow) -> Option<SMsg> {
+    pub fn peekmessage<'a> (&self, window: &'a SWindow) -> Option<SMsg<'a>> {
         // -- $$$FRK(TODO): this can take a lot more options, but we're hardcoding for now
         let mut msg: winapi::um::winuser::MSG = unsafe { mem::uninitialized() };
         let foundmessage = unsafe { winapi::um::winuser::PeekMessageW(&mut msg, window.window, 0, 0,
                                                                       winapi::um::winuser::PM_REMOVE) };
         if foundmessage > 0 {
-            Some(SMsg{message: msg})
+            Some(SMsg{message: msg, window: window})
         }
         else {
             None
@@ -294,13 +295,23 @@ pub enum EMsgType {
         key: EKey,
     },
     Paint,
+    Size {
+        width: i32,
+        height: i32,
+    },
 }
 
-impl SMsg {
+impl<'a> SMsg<'a> {
     pub fn msgtype(&self) -> EMsgType {
         match self.message.message {
             winapi::um::winuser::WM_KEYDOWN => EMsgType::KeyDown{key: translatewmkey(self.message.wParam)},
             winapi::um::winuser::WM_PAINT => EMsgType::Paint,
+            winapi::um::winuser::WM_SIZE => {
+                let mut rect: winapi::shared::windef::RECT = unsafe { mem::uninitialized() };
+                unsafe { winapi::um::winuser::GetClientRect(self.window.window, &mut rect); }
+                EMsgType::Size{width: rect.right - rect.left,
+                               height: rect.bottom - rect.top}
+            }
             _ => EMsgType::Invalid,
         }
     }
@@ -883,7 +894,7 @@ impl SFence {
             returnerrifwinerror!(hn, "Could not set fence event on completion");
             unsafe { synchapi::WaitForSingleObject(event.event, duration as DWORD) };
             let endwait = unsafe { SWinAPI::unsafecurtimemicroseconds() };
-            println!("Waited {}us", ((endwait - startwait) as f64));
+            //println!("Waited {}us", ((endwait - startwait) as f64));
         }
 
         Ok(())

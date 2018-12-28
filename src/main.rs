@@ -89,7 +89,7 @@ fn main_d3d12() {
         let dt = curframetime - lastframetime;
         let dtms = dt as f64;
 
-        println!("Frame {} time: {}us", framecount, dtms);
+        //println!("Frame {} time: {}us", framecount, dtms);
 
         // -- render
         {
@@ -165,6 +165,9 @@ fn main_d3d12() {
                                 },
                                 _ => ()
                             }
+                        },
+                        rusd3d12::EMsgType::Size{width, height} => {
+                            println!("Size");
                         },
                         rusd3d12::EMsgType::Invalid => (),
                     }

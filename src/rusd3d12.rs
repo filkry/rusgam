@@ -140,6 +140,11 @@ pub struct SMsg<'a> {
     window: &'a SWindow,
 }
 
+pub type TWindowProc = unsafe extern "system" fn(hWnd: winapi::shared::windef::HWND, 
+                                                 Msg: winapi::shared::minwindef::UINT, 
+                                                 wParam: winapi::shared::minwindef::WPARAM, 
+                                                 lParam: winapi::shared::minwindef::LPARAM) -> winapi::shared::minwindef::LRESULT;
+
 impl SWinAPI {
     pub unsafe fn unsafecurtimemicroseconds() -> i64 {
         let mut result: winnt::LARGE_INTEGER = mem::uninitialized();
@@ -168,12 +173,13 @@ impl SWinAPI {
     }
 
     pub fn registerclassex(&self,
-                           windowclassname: &'static str) -> Result<SWindowClass, SErr> {
+                           windowclassname: &'static str,
+                           windowproc: TWindowProc) -> Result<SWindowClass, SErr> {
         unsafe {
             let classdata = WNDCLASSEXW {
                 cbSize: mem::size_of::<WNDCLASSEXW>() as u32,
                 style: CS_HREDRAW | CS_VREDRAW,
-                lpfnWndProc: Some(DefWindowProcW), //wndproc,
+                lpfnWndProc: Some(windowproc), //wndproc,
                 cbClsExtra: 0,
                 cbWndExtra: 0,
                 hInstance: self.hinstance,

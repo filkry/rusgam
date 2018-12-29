@@ -5,6 +5,7 @@ extern crate wio;
 //mod math;
 mod russdl;
 mod rusd3d12;
+mod collections;
 
 #[allow(dead_code)]
 fn main_sdl() {

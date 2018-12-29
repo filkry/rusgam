@@ -1,3 +1,4 @@
++ try out clippy and formatting code Rustically
 + handle WM_PAINT event
 + draw triangle
 + data IO

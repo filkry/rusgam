@@ -4,6 +4,9 @@ use std::ops::{Index, IndexMut};
 #[allow(dead_code)]
 pub struct STypedBuffer<T: Copy> {
     // -- $$$FRK(TODO): support allocator other than system heap
+    // -- $$$FRK(TODO): while I'm NOT supporting different allocators, is this easier as a Box-d Array?
+    // Or even possibly we should have a way to create Box-d slices from the custom allocators, and
+    // then get all the built-in functionality of slice
     count: u32,
     buffer: *mut T,
 }

@@ -42,15 +42,6 @@ fn main_sdl() {
     }
 }
 
-unsafe extern "system" fn windowproc(
-    hwnd: winapi::shared::windef::HWND, 
-    msg: winapi::shared::minwindef::UINT, 
-    wparam: winapi::shared::minwindef::WPARAM, 
-    lparam: winapi::shared::minwindef::LPARAM,
-) -> winapi::shared::minwindef::LRESULT {
-    return winapi::um::winuser::DefWindowProcW(hwnd, msg, wparam, lparam);
-}
-
 #[allow(unused_variables)]
 #[allow(unused_mut)]
 fn main_d3d12() {
@@ -58,8 +49,12 @@ fn main_d3d12() {
     debuginterface.enabledebuglayer();
 
     let winapi = rusd3d12::initwinapi().unwrap();
-    let windowclass = winapi.registerclassex("rusgam", windowproc).unwrap();
-    let window = windowclass.createwindow("rusgame2", 800, 600).unwrap();
+    let windowclass = winapi.registerclassex("rusgam").unwrap();
+
+    let mut window = rusd3d12::SWindow::create(1024);
+    window.allocqueue();
+
+    windowclass.createwindow(&mut window, "rusgame2", 800, 600).unwrap();
 
     let d3d12 = rusd3d12::initd3d12().unwrap();
     let mut adapter = d3d12.getadapter().unwrap();

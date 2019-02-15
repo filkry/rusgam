@@ -71,7 +71,7 @@ pub struct SFixedQueue<T: Copy> {
 
 #[allow(dead_code)]
 impl<T: Copy> SFixedQueue<T> {
-    fn create(max: u32) -> SFixedQueue<T> {
+    pub fn create(max: u32) -> SFixedQueue<T> {
         SFixedQueue::<T> {
             nextpushidx: 0,
             nextpopidx: 0,
@@ -80,6 +80,8 @@ impl<T: Copy> SFixedQueue<T> {
         }
     }
 
+    // $$$FRK(TODO): allocation must return an error that must be handled - can we bake this
+    // into the lifetime somehow?
     pub fn alloc(&mut self) {
         self.buffer.alloc();
     }

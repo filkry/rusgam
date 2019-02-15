@@ -11,6 +11,7 @@ use std::{cmp, fmt, mem, ptr};
 // -- $$$FRK(TODO): I feel very slightly guilty about all these wildcard uses
 use winapi::{Interface};
 use winapi::ctypes::{c_void};
+use winapi::shared::basetsd::*;
 use winapi::shared::dxgi::*;
 use winapi::shared::dxgi1_2::*;
 use winapi::shared::dxgi1_3::*;
@@ -28,6 +29,8 @@ use winapi::um::winuser::*;
 
 use wio::com::ComPtr;
 //use winapi::shared::{guiddef};
+//
+use collections::SFixedQueue;
 
 macro_rules! returnerrifwinerror {
     ($hn:expr, $err:expr) => (
@@ -145,6 +148,50 @@ pub type TWindowProc = unsafe extern "system" fn(hWnd: winapi::shared::windef::H
                                                  wParam: winapi::shared::minwindef::WPARAM, 
                                                  lParam: winapi::shared::minwindef::LPARAM) -> winapi::shared::minwindef::LRESULT;
 
+unsafe extern "system" fn windowproctrampoline(
+    hwnd: winapi::shared::windef::HWND, 
+    msg: winapi::shared::minwindef::UINT, 
+    wparam: winapi::shared::minwindef::WPARAM, 
+    lparam: winapi::shared::minwindef::LPARAM,
+) -> winapi::shared::minwindef::LRESULT {
+
+    let window_ptr = GetWindowLongPtrW(hwnd, GWLP_USERDATA) as *mut SWindow;
+    if !window_ptr.is_null() {
+        assert!(hwnd == (*window_ptr).window);
+        return (*window_ptr).windowproc(msg, wparam, lparam);
+    }
+
+    DefWindowProcW(hwnd, msg, wparam, lparam)
+
+    // -- $$$FRK(TODO): this code is modified from d2d1test-rs on GitHub
+    /*
+    if msg == WM_CREATE {
+        let create_struct = &*(lparam as *const CREATESTRUCTW);
+        let wndproc_ptr = create_struct.lpCreateParams;
+        SetWindowLongPtrW(hwnd, GWLP_USERDATA, wndproc_ptr as LONG_PTR);
+    }
+    let wndproc_ptr = GetWindowLongPtrW(hwnd, GWLP_USERDATA) as *const Box<WndProc>;
+    let result = {
+        if wndproc_ptr.is_null() {
+            None
+        } else {
+            let wndproc = &*(wndproc_ptr as *const Box<WndProc>);
+            wndproc.window_proc(hwnd, msg, wparam, lparam)
+        }
+    };
+    if msg == WM_NCDESTROY {
+        if !wndproc_ptr.is_null() {
+            SetWindowLongPtrW(hwnd, GWLP_USERDATA, 0);
+            mem::drop(Rc::from_raw(wndproc_ptr));
+        }
+    }
+    match result {
+        Some(lresult) => lresult,
+        None => DefWindowProcW(hwnd, msg, wparam, lparam),
+    }
+    */
+}
+
 impl SWinAPI {
     pub unsafe fn unsafecurtimemicroseconds() -> i64 {
         let mut result: winnt::LARGE_INTEGER = mem::uninitialized();
@@ -173,13 +220,12 @@ impl SWinAPI {
     }
 
     pub fn registerclassex(&self,
-                           windowclassname: &'static str,
-                           windowproc: TWindowProc) -> Result<SWindowClass, SErr> {
+                           windowclassname: &'static str) -> Result<SWindowClass, SErr> {
         unsafe {
             let classdata = WNDCLASSEXW {
                 cbSize: mem::size_of::<WNDCLASSEXW>() as u32,
                 style: CS_HREDRAW | CS_VREDRAW,
-                lpfnWndProc: Some(windowproc), //wndproc,
+                lpfnWndProc: Some(windowproctrampoline), //wndproc,
                 cbClsExtra: 0,
                 cbWndExtra: 0,
                 hInstance: self.hinstance,
@@ -218,9 +264,21 @@ impl SWinAPI {
 // -- $$$FRK(TODO): this should have a lifetime associated with the windowclass - can't outlive it
 pub struct SWindow {
     window: HWND,
+    msgqueue: SFixedQueue<EMsgType>,
 }
 
 impl SWindow {
+    pub fn create(queuemax: u32) -> SWindow {
+        SWindow {
+            window: ptr::null_mut(),
+            msgqueue: SFixedQueue::<EMsgType>::create(queuemax), 
+        }
+    }
+
+    pub fn allocqueue(&mut self) {
+        self.msgqueue.alloc();
+    }
+
     pub fn show(&self) {
         unsafe { ShowWindow(self.window, SW_SHOW) };
     }
@@ -232,10 +290,20 @@ impl SWindow {
             winapi::um::winuser::EndPaint(self.window, &paintstruct);
         }
     }
+
+    // $$$FRK(START FROM HERE): big question to answer: do I want to use the queue I created, or do
+    // I want to make a WindowProc trait at the application level that handles messages? I like
+    // providing a queue to the user that they can just run through, but that may not be sufficient
+    // for message types that require a response
+    pub fn windowproc(&self, msg: UINT, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+        unsafe {
+            DefWindowProcW(self.window, msg, wparam, lparam)
+        }
+    }
 }
 
 impl<'windows> SWindowClass<'windows> {
-    pub fn createwindow(&self, title: &str, width: u32, height: u32) -> Result<SWindow, SErr> {
+    pub fn createwindow(&self, outwindow: &mut SWindow, title: &str, width: u32, height: u32) -> Result<(), SErr> {
         unsafe {
             let windowstyle: DWORD = WS_OVERLAPPEDWINDOW;
 
@@ -274,7 +342,10 @@ impl<'windows> SWindowClass<'windows> {
             );
 
             if !hwnd.is_null() {
-                Ok(SWindow{window: hwnd})
+                outwindow.window = hwnd;
+                let outwindowptr = outwindow as *mut SWindow as LONG_PTR;
+                SetWindowLongPtrW(hwnd, GWLP_USERDATA, outwindowptr);
+                Ok(())
             }
             else {
                 Err(getlasterror())
@@ -283,6 +354,7 @@ impl<'windows> SWindowClass<'windows> {
     }
 }
 
+#[derive(Copy, Clone)]
 pub enum EKey {
     Invalid,
     Q,
@@ -295,6 +367,7 @@ pub fn translatewmkey(key: winapi::shared::minwindef::WPARAM) -> EKey {
     }
 }
 
+#[derive(Copy, Clone)]
 pub enum EMsgType {
     Invalid,
     KeyDown {

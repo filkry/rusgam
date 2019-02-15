@@ -295,6 +295,9 @@ impl SWindow {
     // I want to make a WindowProc trait at the application level that handles messages? I like
     // providing a queue to the user that they can just run through, but that may not be sufficient
     // for message types that require a response
+    // Upon further thought, I like the idea of passing a lambda into peekmessage if possible,
+    // which will be used inside here. This leaves the option of leaving the handling local to the
+    // message processing loop, rather than in a distanct trait impl
     pub fn windowproc(&self, msg: UINT, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
         unsafe {
             DefWindowProcW(self.window, msg, wparam, lparam)

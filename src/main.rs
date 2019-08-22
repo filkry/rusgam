@@ -5,6 +5,39 @@ extern crate wio;
 mod rusd3d12;
 mod collections;
 
+pub struct SMsgHandler {
+    quit: bool,
+}
+
+impl SMsgHandler {
+    fn shouldquit(&self) -> bool {
+        self.quit
+    }
+}
+
+impl rusd3d12::TMsgHandler for SMsgHandler {
+    fn handlemsg(&mut self, msg: rusd3d12::EMsgType) -> () {
+        match msg {
+            rusd3d12::EMsgType::Paint => {
+                //window.dummyrepaint();
+            },
+            rusd3d12::EMsgType::KeyDown{key} => {
+                match key {
+                    rusd3d12::EKey::Q => {
+                        self.quit = true;
+                        println!("Q keydown");
+                    },
+                    _ => ()
+                }
+            },
+            rusd3d12::EMsgType::Size{width: _, height: _} => {
+                println!("Size");
+            },
+            rusd3d12::EMsgType::Invalid => (),
+        }
+    }
+}
+
 #[allow(unused_variables)]
 #[allow(unused_mut)]
 fn main_d3d12() {
@@ -14,8 +47,9 @@ fn main_d3d12() {
     let winapi = rusd3d12::initwinapi().unwrap();
     let windowclass = winapi.registerclassex("rusgam").unwrap();
 
-    let mut window = rusd3d12::SWindow::create(1024);
-    window.allocqueue();
+    let mut window = rusd3d12::SWindow::create();
+    let mut msghandler = SMsgHandler{quit: false};
+    window.setmsghandler(&mut msghandler);
 
     windowclass.createwindow(&mut window, "rusgame2", 800, 600).unwrap();
 
@@ -51,8 +85,7 @@ fn main_d3d12() {
 
     window.show();
 
-    let mut quit: bool = false;
-    while !quit {
+    while !msghandler.shouldquit() {
         let curframetime = winapi.curtimemicroseconds();
         let dt = curframetime - lastframetime;
         let dtms = dt as f64;
@@ -120,7 +153,7 @@ fn main_d3d12() {
 
         loop {
             match winapi.peekmessage(&window) {
-                Some(msg) => {
+                /*Some(msg) => {
                     match msg.msgtype() {
                         rusd3d12::EMsgType::Paint => {
                             window.dummyrepaint();
@@ -140,7 +173,9 @@ fn main_d3d12() {
                         rusd3d12::EMsgType::Invalid => (),
                     }
                 }
-                None => break
+                None => break*/
+                true => (),
+                false => break
             }
         }
     }

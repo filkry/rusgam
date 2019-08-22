@@ -30,7 +30,7 @@ use winapi::um::winuser::*;
 use wio::com::ComPtr;
 //use winapi::shared::{guiddef};
 //
-use collections::SFixedQueue;
+//use collections::SFixedQueue;
 
 macro_rules! returnerrifwinerror {
     ($hn:expr, $err:expr) => (
@@ -138,20 +138,17 @@ impl<'windows> Drop for SWindowClass<'windows> {
     }
 }
 
-pub struct SMsg<'a> {
-    message: winapi::um::winuser::MSG,
-    window: &'a SWindow,
-}
-
-pub type TWindowProc = unsafe extern "system" fn(hWnd: winapi::shared::windef::HWND, 
-                                                 Msg: winapi::shared::minwindef::UINT, 
-                                                 wParam: winapi::shared::minwindef::WPARAM, 
+/*
+pub type TWindowProc = unsafe extern "system" fn(hWnd: winapi::shared::windef::HWND,
+                                                 Msg: winapi::shared::minwindef::UINT,
+                                                 wParam: winapi::shared::minwindef::WPARAM,
                                                  lParam: winapi::shared::minwindef::LPARAM) -> winapi::shared::minwindef::LRESULT;
+*/
 
 unsafe extern "system" fn windowproctrampoline(
-    hwnd: winapi::shared::windef::HWND, 
-    msg: winapi::shared::minwindef::UINT, 
-    wparam: winapi::shared::minwindef::WPARAM, 
+    hwnd: winapi::shared::windef::HWND,
+    msg: winapi::shared::minwindef::UINT,
+    wparam: winapi::shared::minwindef::WPARAM,
     lparam: winapi::shared::minwindef::LPARAM,
 ) -> winapi::shared::minwindef::LRESULT {
 
@@ -247,36 +244,40 @@ impl SWinAPI {
         }
     }
 
-    pub fn peekmessage<'a> (&self, window: &'a SWindow) -> Option<SMsg<'a>> {
+    pub fn peekmessage<'a> (&self, window: &'a SWindow) -> bool {
         // -- $$$FRK(TODO): this can take a lot more options, but we're hardcoding for now
         let mut msg: winapi::um::winuser::MSG = unsafe { mem::uninitialized() };
         let foundmessage = unsafe { winapi::um::winuser::PeekMessageW(&mut msg, window.window, 0, 0,
                                                                       winapi::um::winuser::PM_REMOVE) };
         if foundmessage > 0 {
-            Some(SMsg{message: msg, window: window})
+            true
         }
         else {
-            None
+            false
         }
     }
 }
 
 // -- $$$FRK(TODO): this should have a lifetime associated with the windowclass - can't outlive it
-pub struct SWindow {
+pub struct SWindow<'a> {
     window: HWND,
-    msgqueue: SFixedQueue<EMsgType>,
+    msghandler: Option<&'a mut dyn TMsgHandler>,
 }
 
-impl SWindow {
-    pub fn create(queuemax: u32) -> SWindow {
+pub trait TMsgHandler {
+    fn handlemsg(&mut self, msg: EMsgType) -> ();
+}
+
+impl<'a> SWindow<'a> {
+    pub fn create() -> SWindow<'a> {
         SWindow {
             window: ptr::null_mut(),
-            msgqueue: SFixedQueue::<EMsgType>::create(queuemax), 
+            msghandler: None,
         }
     }
 
-    pub fn allocqueue(&mut self) {
-        self.msgqueue.alloc();
+    pub fn setmsghandler(&mut self, newmsghandler: &'a mut dyn TMsgHandler) {
+        self.msghandler = Some(newmsghandler);
     }
 
     pub fn show(&self) {
@@ -298,9 +299,14 @@ impl SWindow {
     // Upon further thought, I like the idea of passing a lambda into peekmessage if possible,
     // which will be used inside here. This leaves the option of leaving the handling local to the
     // message processing loop, rather than in a distanct trait impl
-    pub fn windowproc(&self, msg: UINT, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
-        unsafe {
-            DefWindowProcW(self.window, msg, wparam, lparam)
+    pub fn windowproc(&mut self, msg: UINT, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+        match &mut self.msghandler {
+            Some(m) => {
+                let msgtype : EMsgType = msgtype(msg, wparam, lparam);
+                m.handlemsg(msgtype);
+                unsafe { DefWindowProcW(self.window, msg, wparam, lparam) }
+            },
+            None => unsafe { DefWindowProcW(self.window, msg, wparam, lparam) }
         }
     }
 }
@@ -383,19 +389,19 @@ pub enum EMsgType {
     },
 }
 
-impl<'a> SMsg<'a> {
-    pub fn msgtype(&self) -> EMsgType {
-        match self.message.message {
-            winapi::um::winuser::WM_KEYDOWN => EMsgType::KeyDown{key: translatewmkey(self.message.wParam)},
-            winapi::um::winuser::WM_PAINT => EMsgType::Paint,
-            winapi::um::winuser::WM_SIZE => {
-                let mut rect: winapi::shared::windef::RECT = unsafe { mem::uninitialized() };
-                unsafe { winapi::um::winuser::GetClientRect(self.window.window, &mut rect); }
-                EMsgType::Size{width: rect.right - rect.left,
-                               height: rect.bottom - rect.top}
-            }
-            _ => EMsgType::Invalid,
-        }
+pub fn msgtype(msg: winapi::shared::minwindef::UINT,
+               wparam: winapi::shared::minwindef::WPARAM,
+               _lparam: winapi::shared::minwindef::LPARAM) -> EMsgType {
+    match msg {
+        winapi::um::winuser::WM_KEYDOWN => EMsgType::KeyDown{key: translatewmkey(wparam)},
+        winapi::um::winuser::WM_PAINT => EMsgType::Paint,
+        /*winapi::um::winuser::WM_SIZE => {
+            let mut rect: winapi::shared::windef::RECT = unsafe { mem::uninitialized() };
+            unsafe { winapi::um::winuser::GetClientRect(self.window.window, &mut rect); }
+            EMsgType::Size{width: rect.right - rect.left,
+                           height: rect.bottom - rect.top}
+        }*/
+        _ => EMsgType::Invalid,
     }
 }
 
@@ -472,7 +478,7 @@ pub struct SBarrier {
 }
 
 impl SD3D12 {
-    pub fn getadapter(&self) -> Result<SAdapter, &'static str> { 
+    pub fn getadapter(&self) -> Result<SAdapter, &'static str> {
         //let mut rawadapter4: *mut IDXGIFactory4 = ptr::null_mut();
         let mut maxdedicatedmem: usize = 0;
         let mut bestadapter = 0;
@@ -780,13 +786,13 @@ impl SDescriptorHeap {
 
 pub struct SDescriptorHandle<'heap> {
     heap: &'heap SDescriptorHeap,
-    handle: D3D12_CPU_DESCRIPTOR_HANDLE, 
+    handle: D3D12_CPU_DESCRIPTOR_HANDLE,
 }
 
 impl<'heap> SDescriptorHandle<'heap> {
     pub fn offset(&mut self, count: u32) {
         let stride: usize = (count * self.heap.descriptorsize) as usize;
-        self.handle.ptr += stride; 
+        self.handle.ptr += stride;
     }
 }
 

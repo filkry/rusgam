@@ -1,46 +1,9 @@
-extern crate sdl2_sys;
 extern crate winapi;
 extern crate wio;
 
 //mod math;
-mod russdl;
 mod rusd3d12;
 mod collections;
-
-#[allow(dead_code)]
-fn main_sdl() {
-    let sdlcontext = russdl::init().unwrap();
-    sdlcontext.glsetattribute(sdl2_sys::SDL_GLattr::SDL_GL_CONTEXT_PROFILE_MASK,
-                              sdl2_sys::SDL_GLprofile::SDL_GL_CONTEXT_PROFILE_CORE as i32).unwrap();
-    sdlcontext.glsetattribute(sdl2_sys::SDL_GLattr::SDL_GL_CONTEXT_MAJOR_VERSION, 3).unwrap();
-    sdlcontext.glsetattribute(sdl2_sys::SDL_GLattr::SDL_GL_CONTEXT_MINOR_VERSION, 3).unwrap();
-
-    let window = sdlcontext.createwindow("rusgam", 30, 30, 800, 600).unwrap();
-    let _context = window.createglcontext().unwrap();
-
-    let mut quit = false;
-    while !quit {
-        loop {
-            match sdlcontext.pollevent() {
-                Some(event) => {
-                    match event {
-                        russdl::EEvent::KeyDown(keydownevent) => {
-                            match keydownevent.symbol {
-                                russdl::EKeySym::Q => {
-                                    quit = true;
-                                },
-                                _ => () // unused keys
-                            }
-                        },
-                    }
-                }
-                None => {
-                    break;
-                }
-            }
-        }
-    }
-}
 
 #[allow(unused_variables)]
 #[allow(unused_mut)]
@@ -189,6 +152,5 @@ fn main_d3d12() {
 }
 
 fn main() {
-    //main_sdl();
     main_d3d12();
 }

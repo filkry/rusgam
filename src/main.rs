@@ -16,7 +16,7 @@ impl SMsgHandler {
 }
 
 impl rusd3d12::TMsgHandler for SMsgHandler {
-    fn handlemsg(&mut self, msg: rusd3d12::EMsgType) -> () {
+    fn handlemsg(&mut self, _window: &mut rusd3d12::SWindow, msg: rusd3d12::EMsgType) -> () {
         match msg {
             rusd3d12::EMsgType::Paint => {
                 //window.dummyrepaint();
@@ -48,8 +48,6 @@ fn main_d3d12() {
     let windowclass = winapi.registerclassex("rusgam").unwrap();
 
     let mut window = rusd3d12::SWindow::create();
-    let mut msghandler = SMsgHandler{quit: false};
-    window.setmsghandler(&mut msghandler);
 
     windowclass.createwindow(&mut window, "rusgame2", 800, 600).unwrap();
 
@@ -84,8 +82,9 @@ fn main_d3d12() {
     let mut nextfencevalue = 0;
 
     window.show();
+    let mut shouldquit = false;
 
-    while !msghandler.shouldquit() {
+    while !shouldquit {
         let curframetime = winapi.curtimemicroseconds();
         let dt = curframetime - lastframetime;
         let dtms = dt as f64;
@@ -152,30 +151,13 @@ fn main_d3d12() {
         // -- $$$FRK(TODO): framerate is uncapped
 
         loop {
-            match winapi.peekmessage(&window) {
-                /*Some(msg) => {
-                    match msg.msgtype() {
-                        rusd3d12::EMsgType::Paint => {
-                            window.dummyrepaint();
-                        },
-                        rusd3d12::EMsgType::KeyDown{key} => {
-                            match key {
-                                rusd3d12::EKey::Q => {
-                                    quit = true;
-                                    println!("Q keydown");
-                                },
-                                _ => ()
-                            }
-                        },
-                        rusd3d12::EMsgType::Size{width, height} => {
-                            println!("Size");
-                        },
-                        rusd3d12::EMsgType::Invalid => (),
-                    }
-                }
-                None => break*/
-                true => (),
-                false => break
+            let mut msghandler = SMsgHandler{
+                quit: false,
+            };
+            let hadmessage = window.peekmessage(&mut msghandler);
+            shouldquit = msghandler.shouldquit();
+            if !hadmessage {
+                break;
             }
         }
     }

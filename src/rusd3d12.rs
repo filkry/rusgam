@@ -243,41 +243,20 @@ impl SWinAPI {
             }
         }
     }
-
-    pub fn peekmessage<'a> (&self, window: &'a SWindow) -> bool {
-        // -- $$$FRK(TODO): this can take a lot more options, but we're hardcoding for now
-        let mut msg: winapi::um::winuser::MSG = unsafe { mem::uninitialized() };
-        let foundmessage = unsafe { winapi::um::winuser::PeekMessageW(&mut msg, window.window, 0, 0,
-                                                                      winapi::um::winuser::PM_REMOVE) };
-        if foundmessage > 0 {
-            true
-        }
-        else {
-            false
-        }
-    }
 }
 
 // -- $$$FRK(TODO): this should have a lifetime associated with the windowclass - can't outlive it
-pub struct SWindow<'a> {
+pub struct SWindow {
     window: HWND,
-    msghandler: Option<&'a mut dyn TMsgHandler>,
+    msghandler: std::cell::UnsafeCell<Option<*mut dyn TMsgHandler>>,
 }
 
-pub trait TMsgHandler {
-    fn handlemsg(&mut self, msg: EMsgType) -> ();
-}
-
-impl<'a> SWindow<'a> {
-    pub fn create() -> SWindow<'a> {
+impl SWindow {
+    pub fn create() -> SWindow {
         SWindow {
             window: ptr::null_mut(),
-            msghandler: None,
+            msghandler: std::cell::UnsafeCell::new(None),
         }
-    }
-
-    pub fn setmsghandler(&mut self, newmsghandler: &'a mut dyn TMsgHandler) {
-        self.msghandler = Some(newmsghandler);
     }
 
     pub fn show(&self) {
@@ -299,16 +278,54 @@ impl<'a> SWindow<'a> {
     // Upon further thought, I like the idea of passing a lambda into peekmessage if possible,
     // which will be used inside here. This leaves the option of leaving the handling local to the
     // message processing loop, rather than in a distanct trait impl
-    pub fn windowproc(&mut self, msg: UINT, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
-        match &mut self.msghandler {
-            Some(m) => {
-                let msgtype : EMsgType = msgtype(msg, wparam, lparam);
-                m.handlemsg(msgtype);
-                unsafe { DefWindowProcW(self.window, msg, wparam, lparam) }
+    pub unsafe fn windowproc(&mut self, msg: UINT, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+        let msghandleroption = self.msghandler.get();
+        match *msghandleroption {
+            Some(mptr) => {
+                match mptr.as_mut() {
+                    Some(m) => {
+                        let msgtype : EMsgType = msgtype(msg, wparam, lparam);
+                        println!("Event: {}", msg);
+                        m.handlemsg(self, msgtype);
+                        DefWindowProcW(self.window, msg, wparam, lparam)
+                    },
+                    None => {
+                        DefWindowProcW(self.window, msg, wparam, lparam)
+                    }
+                }
             },
-            None => unsafe { DefWindowProcW(self.window, msg, wparam, lparam) }
+            None => {
+                DefWindowProcW(self.window, msg, wparam, lparam)
+            }
         }
     }
+
+    pub fn peekmessage<'a> (&mut self, msghandler: &'a mut dyn TMsgHandler) -> bool {
+        unsafe {
+            let staticlifetimeptr = std::mem::transmute::<&'a mut dyn TMsgHandler, &'static mut dyn TMsgHandler>(msghandler);
+
+            let internalmsghandler = self.msghandler.get();
+            (*internalmsghandler) = Some(staticlifetimeptr);
+
+            // -- $$$FRK(TODO): this can take a lot more options, but we're hardcoding for now
+            let mut msg: winapi::um::winuser::MSG = mem::uninitialized();
+            let foundmessage = winapi::um::winuser::PeekMessageW(&mut msg, self.window, 0, 0,
+                                                                 winapi::um::winuser::PM_REMOVE);
+
+            (*internalmsghandler) = None;
+
+            if foundmessage > 0 {
+                true
+            }
+            else {
+                false
+            }
+        }
+    }
+}
+
+pub trait TMsgHandler {
+    fn handlemsg(&mut self, window: &mut SWindow, msg: EMsgType) -> ();
 }
 
 impl<'windows> SWindowClass<'windows> {

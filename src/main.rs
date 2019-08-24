@@ -5,18 +5,18 @@ extern crate wio;
 mod rusd3d12;
 mod collections;
 
-pub struct SMsgHandler {
+pub struct SWindowProc {
     quit: bool,
 }
 
-impl SMsgHandler {
+impl SWindowProc {
     fn shouldquit(&self) -> bool {
         self.quit
     }
 }
 
-impl rusd3d12::TMsgHandler for SMsgHandler {
-    fn handlemsg(&mut self, window: &mut rusd3d12::SWindow, msg: rusd3d12::EMsgType) -> () {
+impl rusd3d12::TWindowProc for SWindowProc {
+    fn windowproc(&mut self, window: &mut rusd3d12::SWindow, msg: rusd3d12::EMsgType) -> () {
         match msg {
             rusd3d12::EMsgType::Paint => {
                 window.dummyrepaint();
@@ -151,7 +151,7 @@ fn main_d3d12() {
         // -- $$$FRK(TODO): framerate is uncapped
 
         loop {
-            let mut msghandler = SMsgHandler{
+            let mut msghandler = SWindowProc{
                 quit: false,
             };
             let hadmessage = window.peekmessage(&mut msghandler);

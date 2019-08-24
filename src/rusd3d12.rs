@@ -248,7 +248,7 @@ impl SWinAPI {
 // -- $$$FRK(TODO): this should have a lifetime associated with the windowclass - can't outlive it
 pub struct SWindow {
     window: HWND,
-    msghandler: Option<*mut dyn TMsgHandler>,
+    msghandler: Option<*mut dyn TWindowProc>,
 }
 
 impl SWindow {
@@ -284,7 +284,7 @@ impl SWindow {
                 match mptr.as_mut() {
                     Some(m) => {
                         let msgtype : EMsgType = msgtype(msg, wparam, lparam);
-                        m.handlemsg(self, msgtype);
+                        m.windowproc(self, msgtype);
                         DefWindowProcW(self.window, msg, wparam, lparam)
                     },
                     None => {
@@ -298,9 +298,9 @@ impl SWindow {
         }
     }
 
-    pub fn peekmessage<'a> (&mut self, msghandler: &'a mut dyn TMsgHandler) -> bool {
+    pub fn peekmessage<'a> (&mut self, msghandler: &'a mut dyn TWindowProc) -> bool {
         unsafe {
-            let staticlifetimeptr = std::mem::transmute::<&'a mut dyn TMsgHandler, &'static mut dyn TMsgHandler>(msghandler);
+            let staticlifetimeptr = std::mem::transmute::<&'a mut dyn TWindowProc, &'static mut dyn TWindowProc>(msghandler);
 
             self.msghandler = Some(staticlifetimeptr);
 
@@ -320,8 +320,8 @@ impl SWindow {
     }
 }
 
-pub trait TMsgHandler {
-    fn handlemsg(&mut self, window: &mut SWindow, msg: EMsgType) -> ();
+pub trait TWindowProc {
+    fn windowproc(&mut self, window: &mut SWindow, msg: EMsgType) -> ();
 }
 
 impl<'windows> SWindowClass<'windows> {

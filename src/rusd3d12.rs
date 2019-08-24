@@ -248,14 +248,14 @@ impl SWinAPI {
 // -- $$$FRK(TODO): this should have a lifetime associated with the windowclass - can't outlive it
 pub struct SWindow {
     window: HWND,
-    msghandler: std::cell::UnsafeCell<Option<*mut dyn TMsgHandler>>,
+    msghandler: Option<*mut dyn TMsgHandler>,
 }
 
 impl SWindow {
     pub fn create() -> SWindow {
         SWindow {
             window: ptr::null_mut(),
-            msghandler: std::cell::UnsafeCell::new(None),
+            msghandler: None,
         }
     }
 
@@ -279,8 +279,7 @@ impl SWindow {
     // which will be used inside here. This leaves the option of leaving the handling local to the
     // message processing loop, rather than in a distanct trait impl
     pub unsafe fn windowproc(&mut self, msg: UINT, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
-        let msghandleroption = self.msghandler.get();
-        match *msghandleroption {
+        match self.msghandler {
             Some(mptr) => {
                 match mptr.as_mut() {
                     Some(m) => {
@@ -303,8 +302,7 @@ impl SWindow {
         unsafe {
             let staticlifetimeptr = std::mem::transmute::<&'a mut dyn TMsgHandler, &'static mut dyn TMsgHandler>(msghandler);
 
-            let internalmsghandler = self.msghandler.get();
-            (*internalmsghandler) = Some(staticlifetimeptr);
+            self.msghandler = Some(staticlifetimeptr);
 
             // -- $$$FRK(TODO): this can take a lot more options, but we're hardcoding for now
             let mut msg: winapi::um::winuser::MSG = mem::uninitialized();
@@ -316,7 +314,7 @@ impl SWindow {
                 winapi::um::winuser::DispatchMessageW(&mut msg);
             }
 
-            (*internalmsghandler) = None;
+            self.msghandler = None;
             return foundmessage > 0;
         }
     }

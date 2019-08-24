@@ -285,7 +285,6 @@ impl SWindow {
                 match mptr.as_mut() {
                     Some(m) => {
                         let msgtype : EMsgType = msgtype(msg, wparam, lparam);
-                        println!("Event: {}", msg);
                         m.handlemsg(self, msgtype);
                         DefWindowProcW(self.window, msg, wparam, lparam)
                     },
@@ -312,14 +311,13 @@ impl SWindow {
             let foundmessage = winapi::um::winuser::PeekMessageW(&mut msg, self.window, 0, 0,
                                                                  winapi::um::winuser::PM_REMOVE);
 
-            (*internalmsghandler) = None;
-
             if foundmessage > 0 {
-                true
+                winapi::um::winuser::TranslateMessage(&mut msg);
+                winapi::um::winuser::DispatchMessageW(&mut msg);
             }
-            else {
-                false
-            }
+
+            (*internalmsghandler) = None;
+            return foundmessage > 0;
         }
     }
 }

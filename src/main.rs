@@ -16,10 +16,10 @@ impl SMsgHandler {
 }
 
 impl rusd3d12::TMsgHandler for SMsgHandler {
-    fn handlemsg(&mut self, _window: &mut rusd3d12::SWindow, msg: rusd3d12::EMsgType) -> () {
+    fn handlemsg(&mut self, window: &mut rusd3d12::SWindow, msg: rusd3d12::EMsgType) -> () {
         match msg {
             rusd3d12::EMsgType::Paint => {
-                //window.dummyrepaint();
+                window.dummyrepaint();
             },
             rusd3d12::EMsgType::KeyDown{key} => {
                 match key {
@@ -155,7 +155,7 @@ fn main_d3d12() {
                 quit: false,
             };
             let hadmessage = window.peekmessage(&mut msghandler);
-            shouldquit = msghandler.shouldquit();
+            shouldquit |= msghandler.shouldquit();
             if !hadmessage {
                 break;
             }

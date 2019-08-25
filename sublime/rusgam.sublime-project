@@ -1,0 +1,9 @@
+{
+	"folders":
+	[
+		{
+			"path": "rusgam",
+            "folder_exclude_patterns": ["target"]
+		}
+	]
+}

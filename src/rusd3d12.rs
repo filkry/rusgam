@@ -4,13 +4,14 @@
 // under the MIT license. I need to figure out what my obligations are re:that if I ever release
 // this.
 
+use safewindows;
+
 //use winapi::um::d3d12 as dx;
-use std::{cmp, fmt, mem, ptr};
+use std::{mem, ptr};
 //use std::ptr::{null};
 
 // -- $$$FRK(TODO): I feel very slightly guilty about all these wildcard uses
 use winapi::ctypes::c_void;
-use winapi::shared::basetsd::*;
 use winapi::shared::dxgi::*;
 use winapi::shared::dxgi1_2::*;
 use winapi::shared::dxgi1_3::*;
@@ -18,14 +19,11 @@ use winapi::shared::dxgi1_4::*;
 use winapi::shared::dxgi1_5::*;
 use winapi::shared::dxgi1_6::*;
 use winapi::shared::minwindef::*;
-use winapi::shared::windef::*;
-use winapi::shared::{dxgiformat, dxgitype, ntdef, winerror};
+use winapi::shared::{dxgiformat, dxgitype, winerror};
 use winapi::um::d3d12::*;
 use winapi::um::d3d12sdklayers::*;
-use winapi::um::winnt::LONG;
-use winapi::um::winuser::*;
 use winapi::um::{
-    d3dcommon, errhandlingapi, libloaderapi, profileapi, synchapi, unknwnbase, winnt,
+    d3dcommon, synchapi, unknwnbase,
 };
 use winapi::Interface;
 
@@ -34,14 +32,7 @@ use wio::com::ComPtr;
 //
 //use collections::SFixedQueue;
 
-macro_rules! returnerrifwinerror {
-    ($hn:expr, $err:expr) => {
-        if !winerror::SUCCEEDED($hn) {
-            return Err($err);
-        }
-    };
-}
-
+// -- this is copied in safewindows, does it have to be?
 trait ComPtrPtrs<T> {
     unsafe fn asunknownptr(&mut self) -> *mut unknwnbase::IUnknown;
 }
@@ -55,23 +46,12 @@ where
     }
 }
 
-// -- $$$FRK(TODO): need to decide what I'm doing with errors re: HRESULT and DWORD errcodes -
-// maybe a union?
-pub struct SErr {
-    errcode: DWORD,
-}
-
-pub unsafe fn getlasterror() -> SErr {
-    SErr {
-        errcode: errhandlingapi::GetLastError(),
-    }
-}
-
-impl fmt::Debug for SErr {
-    fn fmt(&self, _f: &mut fmt::Formatter) -> fmt::Result {
-        // -- $$$FRK(TODO): we can call GetLastError to impl Debug/Display for SErr
-        Ok(())
-    }
+macro_rules! returnerrifwinerror {
+    ($hn:expr, $err:expr) => {
+        if !winerror::SUCCEEDED($hn) {
+            return Err($err);
+        }
+    };
 }
 
 pub struct SDebugInterface {
@@ -99,340 +79,6 @@ impl SDebugInterface {
         unsafe {
             self.debuginterface.EnableDebugLayer();
         }
-    }
-}
-
-pub struct SWinAPI {
-    hinstance: HINSTANCE,
-    frequency: i64,
-}
-
-pub fn initwinapi() -> Result<SWinAPI, SErr> {
-    unsafe {
-        let hinstance = libloaderapi::GetModuleHandleW(ntdef::NULL as *const u16);
-        if !hinstance.is_null() {
-            let mut freqresult: winnt::LARGE_INTEGER = mem::uninitialized();
-            let freqsuccess = profileapi::QueryPerformanceFrequency(&mut freqresult);
-            if freqsuccess != 0 {
-                Ok(SWinAPI {
-                    hinstance: hinstance,
-                    frequency: *freqresult.QuadPart(),
-                })
-            } else {
-                Err(getlasterror())
-            }
-        //Ok(SWinAPI{hinstance: hinstance})
-        } else {
-            Err(getlasterror())
-        }
-    }
-}
-
-pub struct SWindowClass<'windows> {
-    winapi: &'windows SWinAPI,
-    windowclassname: &'static str,
-    class: ATOM,
-}
-
-impl<'windows> Drop for SWindowClass<'windows> {
-    fn drop(&mut self) {
-        unsafe {
-            winapi::um::winuser::UnregisterClassW(
-                self.windowclassname.as_ptr() as *const winnt::WCHAR,
-                self.winapi.hinstance,
-            );
-        }
-    }
-}
-
-/*
-pub type TWindowProc = unsafe extern "system" fn(hWnd: winapi::shared::windef::HWND,
-                                                 Msg: winapi::shared::minwindef::UINT,
-                                                 wParam: winapi::shared::minwindef::WPARAM,
-                                                 lParam: winapi::shared::minwindef::LPARAM) -> winapi::shared::minwindef::LRESULT;
-*/
-
-unsafe extern "system" fn windowproctrampoline(
-    hwnd: winapi::shared::windef::HWND,
-    msg: winapi::shared::minwindef::UINT,
-    wparam: winapi::shared::minwindef::WPARAM,
-    lparam: winapi::shared::minwindef::LPARAM,
-) -> winapi::shared::minwindef::LRESULT {
-    let window_ptr = GetWindowLongPtrW(hwnd, GWLP_USERDATA) as *mut SWindow;
-    if !window_ptr.is_null() {
-        assert!(hwnd == (*window_ptr).window);
-        return (*window_ptr).windowproc(msg, wparam, lparam);
-    }
-
-    DefWindowProcW(hwnd, msg, wparam, lparam)
-
-    // -- $$$FRK(TODO): this code is modified from d2d1test-rs on GitHub
-    /*
-    if msg == WM_CREATE {
-        let create_struct = &*(lparam as *const CREATESTRUCTW);
-        let wndproc_ptr = create_struct.lpCreateParams;
-        SetWindowLongPtrW(hwnd, GWLP_USERDATA, wndproc_ptr as LONG_PTR);
-    }
-    let wndproc_ptr = GetWindowLongPtrW(hwnd, GWLP_USERDATA) as *const Box<WndProc>;
-    let result = {
-        if wndproc_ptr.is_null() {
-            None
-        } else {
-            let wndproc = &*(wndproc_ptr as *const Box<WndProc>);
-            wndproc.window_proc(hwnd, msg, wparam, lparam)
-        }
-    };
-    if msg == WM_NCDESTROY {
-        if !wndproc_ptr.is_null() {
-            SetWindowLongPtrW(hwnd, GWLP_USERDATA, 0);
-            mem::drop(Rc::from_raw(wndproc_ptr));
-        }
-    }
-    match result {
-        Some(lresult) => lresult,
-        None => DefWindowProcW(hwnd, msg, wparam, lparam),
-    }
-    */
-}
-
-impl SWinAPI {
-    pub unsafe fn unsafecurtimemicroseconds() -> i64 {
-        let mut result: winnt::LARGE_INTEGER = mem::uninitialized();
-        let success = profileapi::QueryPerformanceCounter(&mut result);
-        if success == 0 {
-            panic!("Can't query performance for timing.");
-        }
-
-        let mut freqresult: winnt::LARGE_INTEGER = mem::uninitialized();
-        let freqsuccess = profileapi::QueryPerformanceFrequency(&mut freqresult);
-        if freqsuccess == 0 {
-            panic!("Can't query performance frequency for timing.");
-        }
-
-        *result.QuadPart() / *freqresult.QuadPart()
-    }
-
-    pub fn curtimemicroseconds(&self) -> i64 {
-        let mut result: winnt::LARGE_INTEGER = unsafe { mem::uninitialized() };
-        let success = unsafe { profileapi::QueryPerformanceCounter(&mut result) };
-        if success == 0 {
-            panic!("Can't query performance for timing.");
-        }
-
-        unsafe { *result.QuadPart() / self.frequency }
-    }
-
-    pub fn registerclassex(&self, windowclassname: &'static str) -> Result<SWindowClass, SErr> {
-        unsafe {
-            let classdata = WNDCLASSEXW {
-                cbSize: mem::size_of::<WNDCLASSEXW>() as u32,
-                style: CS_HREDRAW | CS_VREDRAW,
-                lpfnWndProc: Some(windowproctrampoline), //wndproc,
-                cbClsExtra: 0,
-                cbWndExtra: 0,
-                hInstance: self.hinstance,
-                hIcon: LoadIconW(self.hinstance, ntdef::NULL as *const u16),
-                hCursor: LoadCursorW(ntdef::NULL as HINSTANCE, IDC_ARROW),
-                hbrBackground: (COLOR_WINDOW + 1) as HBRUSH,
-                lpszMenuName: ntdef::NULL as *const u16,
-                lpszClassName: windowclassname.as_ptr() as *const winnt::WCHAR,
-                hIconSm: ntdef::NULL as HICON,
-            };
-
-            let atom = RegisterClassExW(&classdata);
-            if atom > 0 {
-                Ok(SWindowClass {
-                    winapi: self,
-                    windowclassname: windowclassname,
-                    class: atom,
-                })
-            } else {
-                Err(getlasterror())
-            }
-        }
-    }
-}
-
-// -- $$$FRK(TODO): this should have a lifetime associated with the windowclass - can't outlive it
-pub struct SWindow {
-    window: HWND,
-    msghandler: Option<*mut dyn TWindowProc>,
-}
-
-impl SWindow {
-    pub fn create() -> SWindow {
-        SWindow {
-            window: ptr::null_mut(),
-            msghandler: None,
-        }
-    }
-
-    pub fn show(&self) {
-        unsafe { ShowWindow(self.window, SW_SHOW) };
-    }
-
-    pub fn dummyrepaint(&self) {
-        unsafe {
-            let mut paintstruct: winapi::um::winuser::PAINTSTRUCT = mem::uninitialized();
-            winapi::um::winuser::BeginPaint(self.window, &mut paintstruct);
-            winapi::um::winuser::EndPaint(self.window, &paintstruct);
-        }
-    }
-
-    // $$$FRK(START FROM HERE): big question to answer: do I want to use the queue I created, or do
-    // I want to make a WindowProc trait at the application level that handles messages? I like
-    // providing a queue to the user that they can just run through, but that may not be sufficient
-    // for message types that require a response
-    // Upon further thought, I like the idea of passing a lambda into peekmessage if possible,
-    // which will be used inside here. This leaves the option of leaving the handling local to the
-    // message processing loop, rather than in a distanct trait impl
-    pub unsafe fn windowproc(&mut self, msg: UINT, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
-        match self.msghandler {
-            Some(mptr) => match mptr.as_mut() {
-                Some(m) => {
-                    let msgtype: EMsgType = msgtype(msg, wparam, lparam);
-                    m.windowproc(self, msgtype);
-                    DefWindowProcW(self.window, msg, wparam, lparam)
-                }
-                None => DefWindowProcW(self.window, msg, wparam, lparam),
-            },
-            None => DefWindowProcW(self.window, msg, wparam, lparam),
-        }
-    }
-
-    pub fn peekmessage<'a>(&mut self, msghandler: &'a mut dyn TWindowProc) -> bool {
-        unsafe {
-            let staticlifetimeptr = std::mem::transmute::<
-                &'a mut dyn TWindowProc,
-                &'static mut dyn TWindowProc,
-            >(msghandler);
-
-            self.msghandler = Some(staticlifetimeptr);
-
-            // -- $$$FRK(TODO): this can take a lot more options, but we're hardcoding for now
-            let mut msg: winapi::um::winuser::MSG = mem::uninitialized();
-            let foundmessage = winapi::um::winuser::PeekMessageW(
-                &mut msg,
-                self.window,
-                0,
-                0,
-                winapi::um::winuser::PM_REMOVE,
-            );
-
-            if foundmessage > 0 {
-                winapi::um::winuser::TranslateMessage(&mut msg);
-                winapi::um::winuser::DispatchMessageW(&mut msg);
-            }
-
-            self.msghandler = None;
-            return foundmessage > 0;
-        }
-    }
-}
-
-pub trait TWindowProc {
-    fn windowproc(&mut self, window: &mut SWindow, msg: EMsgType) -> ();
-}
-
-impl<'windows> SWindowClass<'windows> {
-    pub fn createwindow(
-        &self,
-        outwindow: &mut SWindow,
-        title: &str,
-        width: u32,
-        height: u32,
-    ) -> Result<(), SErr> {
-        unsafe {
-            let windowstyle: DWORD = WS_OVERLAPPEDWINDOW;
-
-            let screenwidth = GetSystemMetrics(SM_CXSCREEN);
-            let screenheight = GetSystemMetrics(SM_CYSCREEN);
-
-            let mut windowrect = RECT {
-                left: 0,
-                top: 0,
-                right: width as LONG,
-                bottom: height as LONG,
-            };
-            AdjustWindowRect(&mut windowrect, windowstyle, false as i32);
-
-            let windowwidth = windowrect.right - windowrect.left;
-            let windowheight = windowrect.bottom - windowrect.top;
-
-            let windowx = cmp::max(0, (screenwidth - windowwidth) / 2);
-            let windowy = cmp::max(0, (screenheight - windowheight) / 2);
-
-            //self.class as ntdef::LPCWSTR,
-            let windowclassnameparam = self.windowclassname.as_ptr() as ntdef::LPCWSTR;
-            let mut titleparam: Vec<u16> = title.encode_utf16().collect();
-            titleparam.push('\0' as u16);
-            let hinstanceparam = self.winapi.hinstance;
-
-            let hwnd: HWND = CreateWindowExW(
-                0,
-                windowclassnameparam,
-                titleparam.as_ptr(),
-                windowstyle,
-                windowx,
-                windowy,
-                windowwidth,
-                windowheight,
-                ntdef::NULL as HWND,
-                ntdef::NULL as HMENU,
-                hinstanceparam,
-                ntdef::NULL,
-            );
-
-            if !hwnd.is_null() {
-                outwindow.window = hwnd;
-                let outwindowptr = outwindow as *mut SWindow as LONG_PTR;
-                SetWindowLongPtrW(hwnd, GWLP_USERDATA, outwindowptr);
-                Ok(())
-            } else {
-                Err(getlasterror())
-            }
-        }
-    }
-}
-
-#[derive(Copy, Clone)]
-pub enum EKey {
-    Invalid,
-    Q,
-}
-
-pub fn translatewmkey(key: winapi::shared::minwindef::WPARAM) -> EKey {
-    match key {
-        0x51 => EKey::Q,
-        _ => EKey::Invalid,
-    }
-}
-
-#[derive(Copy, Clone)]
-pub enum EMsgType {
-    Invalid,
-    KeyDown { key: EKey },
-    Paint,
-    Size { width: i32, height: i32 },
-}
-
-pub fn msgtype(
-    msg: winapi::shared::minwindef::UINT,
-    wparam: winapi::shared::minwindef::WPARAM,
-    _lparam: winapi::shared::minwindef::LPARAM,
-) -> EMsgType {
-    match msg {
-        winapi::um::winuser::WM_KEYDOWN => EMsgType::KeyDown {
-            key: translatewmkey(wparam),
-        },
-        winapi::um::winuser::WM_PAINT => EMsgType::Paint,
-        /*winapi::um::winuser::WM_SIZE => {
-            let mut rect: winapi::shared::windef::RECT = unsafe { mem::uninitialized() };
-            unsafe { winapi::um::winuser::GetClientRect(self.window.window, &mut rect); }
-            EMsgType::Size{width: rect.right - rect.left,
-                           height: rect.bottom - rect.top}
-        }*/
-        _ => EMsgType::Invalid,
     }
 }
 
@@ -751,7 +397,7 @@ impl SSwapChain {
 impl SD3D12 {
     pub fn createswapchain(
         &self,
-        window: &SWindow,
+        window: &safewindows::SWindow,
         commandqueue: &mut SCommandQueue,
         width: u32,
         height: u32,
@@ -779,7 +425,7 @@ impl SD3D12 {
         let hr = unsafe {
             self.factory.CreateSwapChainForHwnd(
                 commandqueue.queue.asunknownptr(),
-                window.window,
+                window.raw(),
                 &desc,
                 ptr::null(),
                 ptr::null_mut(),
@@ -1056,37 +702,18 @@ impl SDevice {
     }
 }
 
-pub struct SEventHandle {
-    event: winnt::HANDLE,
-}
-
-impl SWinAPI {
-    pub fn createeventhandle(&self) -> Result<SEventHandle, &'static str> {
-        let event = unsafe { synchapi::CreateEventW(ptr::null_mut(), FALSE, FALSE, ptr::null()) };
-
-        if event == ntdef::NULL {
-            return Err("Couldn't create event.");
-        }
-
-        Ok(SEventHandle { event: event })
-    }
-}
-
 impl SFence {
     #[allow(unused_variables)]
     pub fn waitforvalue(
         &self,
         val: u64,
-        event: &SEventHandle,
+        event: &safewindows::SEventHandle,
         duration: u64,
     ) -> Result<(), &'static str> {
         if unsafe { self.fence.GetCompletedValue() } < val {
-            let startwait = unsafe { SWinAPI::unsafecurtimemicroseconds() };
-            let hn = unsafe { self.fence.SetEventOnCompletion(val, event.event) };
+            let hn = unsafe { self.fence.SetEventOnCompletion(val, event.raw()) };
             returnerrifwinerror!(hn, "Could not set fence event on completion");
-            unsafe { synchapi::WaitForSingleObject(event.event, duration as DWORD) };
-            let endwait = unsafe { SWinAPI::unsafecurtimemicroseconds() };
-            //println!("Waited {}us", ((endwait - startwait) as f64));
+            unsafe { synchapi::WaitForSingleObject(event.raw(), duration as DWORD) };
         }
 
         Ok(())

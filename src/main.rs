@@ -4,6 +4,8 @@ extern crate wio;
 //mod math;
 mod collections;
 mod rusd3d12;
+mod safewindows;
+mod rustywindows;
 
 macro_rules! properror {
     ($result:expr) => {
@@ -26,26 +28,27 @@ impl SWindowProc {
     }
 }
 
-impl rusd3d12::TWindowProc for SWindowProc {
-    fn windowproc(&mut self, window: &mut rusd3d12::SWindow, msg: rusd3d12::EMsgType) -> () {
+impl safewindows::TWindowProc for SWindowProc {
+    fn windowproc(&mut self, _window: &mut safewindows::SWindow, msg: safewindows::EMsgType) -> () {
         match msg {
-            rusd3d12::EMsgType::Paint => {
-                window.dummyrepaint();
+            safewindows::EMsgType::Paint => {
+                // -- $$$FRK(FUCK MY LIFE): here we are again, can't build on top of this
+                //window.dummyrepaint();
             }
-            rusd3d12::EMsgType::KeyDown { key } => match key {
-                rusd3d12::EKey::Q => {
+            safewindows::EMsgType::KeyDown { key } => match key {
+                safewindows::EKey::Q => {
                     self.quit = true;
                     println!("Q keydown");
                 }
                 _ => (),
             },
-            rusd3d12::EMsgType::Size {
+            safewindows::EMsgType::Size {
                 width: _,
                 height: _,
             } => {
                 println!("Size");
             }
-            rusd3d12::EMsgType::Invalid => (),
+            safewindows::EMsgType::Invalid => (),
         }
     }
 }
@@ -53,13 +56,13 @@ impl rusd3d12::TWindowProc for SWindowProc {
 struct SCommandQueue {
     q: rusd3d12::SCommandQueue,
     fence: rusd3d12::SFence,
-    fenceevent: rusd3d12::SEventHandle,
+    fenceevent: safewindows::SEventHandle,
     nextfencevalue: u64,
 }
 
 impl SCommandQueue {
     pub fn createcommandqueue(
-        winapi: &rusd3d12::SWinAPI,
+        winapi: &safewindows::SWinAPI,
         device: &mut rusd3d12::SDevice,
     ) -> Result<SCommandQueue, &'static str> {
         let qresult = device
@@ -101,22 +104,17 @@ fn main_d3d12() {
     let debuginterface = rusd3d12::getdebuginterface().unwrap();
     debuginterface.enabledebuglayer();
 
-    let winapi = rusd3d12::initwinapi().unwrap();
-    let windowclass = winapi.registerclassex("rusgam").unwrap();
-
-    let mut window = rusd3d12::SWindow::create();
-
-    windowclass
-        .createwindow(&mut window, "rusgame2", 800, 600)
-        .unwrap();
+    let mut winapi = rustywindows::SWinAPI::create();
+    let windowclass = winapi.rawwinapi().registerclassex("rusgam").unwrap();
+    let mut window = rustywindows::SWindow::create(&windowclass, "rusgam", 800, 600);
 
     let d3d12 = rusd3d12::initd3d12().unwrap();
     let mut adapter = d3d12.getadapter().unwrap();
     let mut device = adapter.createdevice().unwrap();
 
-    let mut commandqueue = SCommandQueue::createcommandqueue(&winapi, &mut device).unwrap();
+    let mut commandqueue = SCommandQueue::createcommandqueue(&winapi.rawwinapi(), &mut device).unwrap();
     let swapchain = d3d12
-        .createswapchain(&window, commandqueue.rawqueue(), 800, 600)
+        .createswapchain(&window.raw(), commandqueue.rawqueue(), 800, 600)
         .unwrap();
     let mut currbuffer: u32 = swapchain.currentbackbufferindex();
 
@@ -145,7 +143,7 @@ fn main_d3d12() {
 
     let mut framefencevalues = [0; 2];
 
-    window.show();
+    window.rawmut().show();
     let mut shouldquit = false;
 
     while !shouldquit {
@@ -212,7 +210,7 @@ fn main_d3d12() {
 
         loop {
             let mut msghandler = SWindowProc { quit: false };
-            let hadmessage = window.peekmessage(&mut msghandler);
+            let hadmessage = window.processmessage(&mut msghandler);
             shouldquit |= msghandler.shouldquit();
             if !hadmessage {
                 break;

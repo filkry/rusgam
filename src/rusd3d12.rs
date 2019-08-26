@@ -279,13 +279,6 @@ impl SWindow {
         }
     }
 
-    // $$$FRK(START FROM HERE): big question to answer: do I want to use the queue I created, or do
-    // I want to make a WindowProc trait at the application level that handles messages? I like
-    // providing a queue to the user that they can just run through, but that may not be sufficient
-    // for message types that require a response
-    // Upon further thought, I like the idea of passing a lambda into peekmessage if possible,
-    // which will be used inside here. This leaves the option of leaving the handling local to the
-    // message processing loop, rather than in a distanct trait impl
     pub unsafe fn windowproc(&mut self, msg: UINT, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
         match self.msghandler {
             Some(mptr) => match mptr.as_mut() {
@@ -335,6 +328,7 @@ pub trait TWindowProc {
 }
 
 impl<'windows> SWindowClass<'windows> {
+    // -- $$$FRK(TODO): this shouldn't be in here, it's not raw windows functionalty
     pub fn createwindow(
         &self,
         outwindow: &mut SWindow,

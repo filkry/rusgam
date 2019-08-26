@@ -95,6 +95,39 @@ impl SCommandQueue {
     }
 }
 
+struct SWindow {
+    w: rusd3d12::SWindow,
+    width: u32,
+    height: u32,
+}
+
+impl SWindow {
+    pub fn create(windowclass: rusd3d12::SWindowClass, title: &str, width: u32, height: u32) -> SWindow  {
+        let mut window = rusd3d12::SWindow::create();
+        windowclass.createwindow(&mut window, title, width, height) .unwrap();
+        SWindow{
+            w: window,
+            width: width,
+            height: height,
+        }
+    }
+
+    pub fn rawwindow(&self) -> &rusd3d12::SWindow {
+        &self.w
+    }
+    pub fn rawwindowmut(&mut self) -> &mut rusd3d12::SWindow {
+        &mut self.w
+    }
+
+    pub fn width(&self) -> u32 {
+        self.width
+    }
+
+    pub fn height(&self) -> u32 {
+        self.height
+    }
+}
+
 #[allow(unused_variables)]
 #[allow(unused_mut)]
 fn main_d3d12() {
@@ -104,11 +137,7 @@ fn main_d3d12() {
     let winapi = rusd3d12::initwinapi().unwrap();
     let windowclass = winapi.registerclassex("rusgam").unwrap();
 
-    let mut window = rusd3d12::SWindow::create();
-
-    windowclass
-        .createwindow(&mut window, "rusgame2", 800, 600)
-        .unwrap();
+    let mut window = SWindow::create(windowclass, "rusgam", 800, 600);
 
     let d3d12 = rusd3d12::initd3d12().unwrap();
     let mut adapter = d3d12.getadapter().unwrap();
@@ -116,7 +145,7 @@ fn main_d3d12() {
 
     let mut commandqueue = SCommandQueue::createcommandqueue(&winapi, &mut device).unwrap();
     let swapchain = d3d12
-        .createswapchain(&window, commandqueue.rawqueue(), 800, 600)
+        .createswapchain(&window.rawwindow(), commandqueue.rawqueue(), window.width(), window.height())
         .unwrap();
     let mut currbuffer: u32 = swapchain.currentbackbufferindex();
 
@@ -145,7 +174,7 @@ fn main_d3d12() {
 
     let mut framefencevalues = [0; 2];
 
-    window.show();
+    window.rawwindow().show();
     let mut shouldquit = false;
 
     while !shouldquit {
@@ -212,7 +241,7 @@ fn main_d3d12() {
 
         loop {
             let mut msghandler = SWindowProc { quit: false };
-            let hadmessage = window.peekmessage(&mut msghandler);
+            let hadmessage = window.rawwindowmut().peekmessage(&mut msghandler);
             shouldquit |= msghandler.shouldquit();
             if !hadmessage {
                 break;

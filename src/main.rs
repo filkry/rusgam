@@ -2,8 +2,19 @@ extern crate winapi;
 extern crate wio;
 
 //mod math;
-mod rusd3d12;
 mod collections;
+mod rusd3d12;
+
+macro_rules! properror {
+    ($result:expr) => {
+        match $result {
+            Ok(a) => a,
+            Err(e) => {
+                return Err(e);
+            }
+        }
+    };
+}
 
 pub struct SWindowProc {
     quit: bool,
@@ -20,21 +31,67 @@ impl rusd3d12::TWindowProc for SWindowProc {
         match msg {
             rusd3d12::EMsgType::Paint => {
                 window.dummyrepaint();
-            },
-            rusd3d12::EMsgType::KeyDown{key} => {
-                match key {
-                    rusd3d12::EKey::Q => {
-                        self.quit = true;
-                        println!("Q keydown");
-                    },
-                    _ => ()
+            }
+            rusd3d12::EMsgType::KeyDown { key } => match key {
+                rusd3d12::EKey::Q => {
+                    self.quit = true;
+                    println!("Q keydown");
                 }
+                _ => (),
             },
-            rusd3d12::EMsgType::Size{width: _, height: _} => {
+            rusd3d12::EMsgType::Size {
+                width: _,
+                height: _,
+            } => {
                 println!("Size");
-            },
+            }
             rusd3d12::EMsgType::Invalid => (),
         }
+    }
+}
+
+struct SCommandQueue {
+    q: rusd3d12::SCommandQueue,
+    fence: rusd3d12::SFence,
+    fenceevent: rusd3d12::SEventHandle,
+    nextfencevalue: u64,
+}
+
+impl SCommandQueue {
+    pub fn createcommandqueue(
+        winapi: &rusd3d12::SWinAPI,
+        device: &mut rusd3d12::SDevice,
+    ) -> Result<SCommandQueue, &'static str> {
+        let qresult = device
+            .createcommandqueue(rusd3d12::ECommandListType::Direct)
+            .unwrap();
+        Ok(SCommandQueue {
+            q: qresult,
+            fence: device.createfence().unwrap(),
+            fenceevent: winapi.createeventhandle().unwrap(),
+            nextfencevalue: 0,
+        })
+    }
+
+    pub fn pushsignal(&mut self) -> Result<u64, &'static str> {
+        self.nextfencevalue += 1;
+        self.q.pushsignal(&self.fence, self.nextfencevalue)
+    }
+
+    pub fn waitforfencevalue(&self, val: u64) {
+        self.fence
+            .waitforvalue(val, &self.fenceevent, <u64>::max_value())
+            .unwrap();
+    }
+
+    pub fn flushblocking(&mut self) -> Result<(), &'static str> {
+        let lastfencevalue = properror!(self.pushsignal());
+        self.waitforfencevalue(lastfencevalue);
+        Ok(())
+    }
+
+    pub fn rawqueue(&mut self) -> &mut rusd3d12::SCommandQueue {
+        &mut self.q
     }
 }
 
@@ -49,37 +106,44 @@ fn main_d3d12() {
 
     let mut window = rusd3d12::SWindow::create();
 
-    windowclass.createwindow(&mut window, "rusgame2", 800, 600).unwrap();
+    windowclass
+        .createwindow(&mut window, "rusgame2", 800, 600)
+        .unwrap();
 
     let d3d12 = rusd3d12::initd3d12().unwrap();
     let mut adapter = d3d12.getadapter().unwrap();
-    let device = adapter.createdevice().unwrap();
+    let mut device = adapter.createdevice().unwrap();
 
-    let mut commandqueue = device.createcommandqueue(
-        rusd3d12::ECommandListType::Direct).unwrap();
-    let swapchain = d3d12.createswapchain(&window, &mut commandqueue, 800, 600).unwrap();
+    let mut commandqueue = SCommandQueue::createcommandqueue(&winapi, &mut device).unwrap();
+    let swapchain = d3d12
+        .createswapchain(&window, commandqueue.rawqueue(), 800, 600)
+        .unwrap();
     let mut currbuffer: u32 = swapchain.currentbackbufferindex();
 
-    let rendertargetheap = device.createdescriptorheap(
-        rusd3d12::EDescriptorHeapType::RenderTarget,
-        10).unwrap();
+    let rendertargetheap = device
+        .createdescriptorheap(rusd3d12::EDescriptorHeapType::RenderTarget, 10)
+        .unwrap();
 
-    device.initrendertargetviews(&swapchain, &rendertargetheap).unwrap();
+    device
+        .initrendertargetviews(&swapchain, &rendertargetheap)
+        .unwrap();
     let commandallocators = [
-        device.createcommandallocator(rusd3d12::ECommandListType::Direct).unwrap(),
-        device.createcommandallocator(rusd3d12::ECommandListType::Direct).unwrap()
+        device
+            .createcommandallocator(rusd3d12::ECommandListType::Direct)
+            .unwrap(),
+        device
+            .createcommandallocator(rusd3d12::ECommandListType::Direct)
+            .unwrap(),
     ];
-    let mut commandlist = device.createcommandlist(&commandallocators[currbuffer as usize]).unwrap();
+    let mut commandlist = device
+        .createcommandlist(&commandallocators[currbuffer as usize])
+        .unwrap();
     commandlist.close().unwrap();
-
-    let fence = device.createfence().unwrap();
-    let fenceevent = winapi.createeventhandle().unwrap();
 
     let mut framecount: u64 = 0;
     let mut lastframetime = winapi.curtimemicroseconds();
 
     let mut framefencevalues = [0; 2];
-    let mut nextfencevalue = 0;
 
     window.show();
     let mut shouldquit = false;
@@ -114,10 +178,7 @@ fn main_d3d12() {
                 // -- clear
                 let clearcolour = [0.4, 0.6, 0.9, 1.0];
 
-                commandlist.pushclearrendertargetview(
-                    rendertargetdescriptor,
-                    &clearcolour,
-                );
+                commandlist.pushclearrendertargetview(rendertargetdescriptor, &clearcolour);
 
                 // -- transition to present
                 let transtopresentbarrier = d3d12.createtransitionbarrier(
@@ -131,13 +192,12 @@ fn main_d3d12() {
                 commandlist.close().unwrap();
 
                 // -- execute on the queue
-                commandqueue.executecommandlist(&mut commandlist);
+                commandqueue.rawqueue().executecommandlist(&mut commandlist);
 
                 let syncinterval = 1;
                 swapchain.present(syncinterval, 0).unwrap();
 
-                framefencevalues[currbuffer as usize] =
-                    commandqueue.pushsignal(&fence, &mut nextfencevalue).unwrap();
+                framefencevalues[currbuffer as usize] = commandqueue.pushsignal().unwrap();
             }
         }
 
@@ -146,14 +206,12 @@ fn main_d3d12() {
         lastframetime = curframetime;
         framecount += 1;
 
-        fence.waitforvalue(framefencevalues[currbuffer as usize], &fenceevent, <u64>::max_value()).unwrap();
+        commandqueue.waitforfencevalue(framefencevalues[currbuffer as usize]);
 
         // -- $$$FRK(TODO): framerate is uncapped
 
         loop {
-            let mut msghandler = SWindowProc{
-                quit: false,
-            };
+            let mut msghandler = SWindowProc { quit: false };
             let hadmessage = window.peekmessage(&mut msghandler);
             shouldquit |= msghandler.shouldquit();
             if !hadmessage {
@@ -163,9 +221,7 @@ fn main_d3d12() {
     }
 
     // -- wait for all commands to clear
-    fence.waitforvalue(framefencevalues[0], &fenceevent, <u64>::max_value()).unwrap();
-    fence.waitforvalue(framefencevalues[1], &fenceevent, <u64>::max_value()).unwrap();
-
+    commandqueue.flushblocking().unwrap();
 }
 
 fn main() {

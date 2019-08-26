@@ -22,7 +22,10 @@ impl<T: Copy> STypedBuffer<T> {
 
     fn alloc(&mut self) {
         let eightbytealign = 8;
-        let layoutres = Layout::from_size_align((self.count as usize) * std::mem::size_of::<T>(), eightbytealign);
+        let layoutres = Layout::from_size_align(
+            (self.count as usize) * std::mem::size_of::<T>(),
+            eightbytealign,
+        );
         let layout = layoutres.unwrap(); // $$$FRK(TODO): handle
         self.buffer = unsafe { alloc(layout) as *mut T };
     }
@@ -32,7 +35,10 @@ impl<T: Copy> Index<isize> for STypedBuffer<T> {
     type Output = T;
     fn index<'a>(&'a self, index: isize) -> &'a T {
         assert!(self.buffer != std::ptr::null_mut());
-        assert!(index >= 0 && index < (self.count as isize), "Trying to get invalid index into STypedBuffer.");
+        assert!(
+            index >= 0 && index < (self.count as isize),
+            "Trying to get invalid index into STypedBuffer."
+        );
         // -- $$$FRK(TODO): handle unwrap?
         unsafe {
             return self.buffer.offset(index).as_ref().unwrap();
@@ -43,7 +49,10 @@ impl<T: Copy> Index<isize> for STypedBuffer<T> {
 impl<T: Copy> IndexMut<isize> for STypedBuffer<T> {
     fn index_mut<'a>(&'a mut self, index: isize) -> &'a mut T {
         assert!(self.buffer != std::ptr::null_mut());
-        assert!(index >= 0 && index < (self.count as isize), "Trying to get invalid index into STypedBuffer.");
+        assert!(
+            index >= 0 && index < (self.count as isize),
+            "Trying to get invalid index into STypedBuffer."
+        );
         // -- $$$FRK(TODO): handle unwrap?
         unsafe {
             return self.buffer.offset(index).as_mut().unwrap();
@@ -54,7 +63,10 @@ impl<T: Copy> IndexMut<isize> for STypedBuffer<T> {
 impl<T: Copy> Drop for STypedBuffer<T> {
     fn drop(&mut self) {
         let eightbytealign = 8;
-        let layoutres = Layout::from_size_align((self.count as usize) * std::mem::size_of::<T>(), eightbytealign);
+        let layoutres = Layout::from_size_align(
+            (self.count as usize) * std::mem::size_of::<T>(),
+            eightbytealign,
+        );
         let layout = layoutres.unwrap(); // $$$FRK(TODO): handle
 
         unsafe { dealloc(self.buffer as *mut u8, layout) };
@@ -116,8 +128,7 @@ impl<T: Copy> SFixedQueue<T> {
             self.nextpopidx = (self.nextpopidx + 1) % self.buffer.count;
             self.curcount -= 1;
             Some(result)
-        }
-        else {
+        } else {
             None
         }
     }

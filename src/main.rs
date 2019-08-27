@@ -3,9 +3,10 @@ extern crate wio;
 
 //mod math;
 mod collections;
-mod rusd3d12;
 mod safewindows;
 mod rustywindows;
+mod safed3d12;
+mod rustyd3d12;
 
 macro_rules! properror {
     ($result:expr) => {
@@ -53,87 +54,47 @@ impl safewindows::TWindowProc for SWindowProc {
     }
 }
 
-struct SCommandQueue {
-    q: rusd3d12::SCommandQueue,
-    fence: rusd3d12::SFence,
-    fenceevent: safewindows::SEventHandle,
-    nextfencevalue: u64,
-}
-
-impl SCommandQueue {
-    pub fn createcommandqueue(
-        winapi: &safewindows::SWinAPI,
-        device: &mut rusd3d12::SDevice,
-    ) -> Result<SCommandQueue, &'static str> {
-        let qresult = device
-            .createcommandqueue(rusd3d12::ECommandListType::Direct)
-            .unwrap();
-        Ok(SCommandQueue {
-            q: qresult,
-            fence: device.createfence().unwrap(),
-            fenceevent: winapi.createeventhandle().unwrap(),
-            nextfencevalue: 0,
-        })
-    }
-
-    pub fn pushsignal(&mut self) -> Result<u64, &'static str> {
-        self.nextfencevalue += 1;
-        self.q.pushsignal(&self.fence, self.nextfencevalue)
-    }
-
-    pub fn waitforfencevalue(&self, val: u64) {
-        self.fence
-            .waitforvalue(val, &self.fenceevent, <u64>::max_value())
-            .unwrap();
-    }
-
-    pub fn flushblocking(&mut self) -> Result<(), &'static str> {
-        let lastfencevalue = properror!(self.pushsignal());
-        self.waitforfencevalue(lastfencevalue);
-        Ok(())
-    }
-
-    pub fn rawqueue(&mut self) -> &mut rusd3d12::SCommandQueue {
-        &mut self.q
-    }
-}
-
 #[allow(unused_variables)]
 #[allow(unused_mut)]
 fn main_d3d12() {
-    let debuginterface = rusd3d12::getdebuginterface().unwrap();
+    let debuginterface = safed3d12::getdebuginterface().unwrap();
     debuginterface.enabledebuglayer();
 
     let mut winapi = rustywindows::SWinAPI::create();
     let windowclass = winapi.rawwinapi().registerclassex("rusgam").unwrap();
     let mut window = rustywindows::SWindow::create(&windowclass, "rusgam", 800, 600);
 
-    let d3d12 = rusd3d12::initd3d12().unwrap();
-    let mut adapter = d3d12.getadapter().unwrap();
-    let mut device = adapter.createdevice().unwrap();
+    // -- $$$FRK(TODO): better way of creating rustyd3d12 structs
+    let d3d12 = rustyd3d12::SFactory{
+        f: safed3d12::createdxgifactory4().unwrap(),
+    };
+    let mut adapter = d3d12.bestadapter().unwrap();
+    let mut device = rustyd3d12::SDevice {
+        d: adapter.createdevice().unwrap(),
+    };
 
-    let mut commandqueue = SCommandQueue::createcommandqueue(&winapi.rawwinapi(), &mut device).unwrap();
-    let swapchain = d3d12
+    let mut commandqueue = rustyd3d12::SCommandQueue::createcommandqueue(&winapi.rawwinapi(), device.rawmut()).unwrap();
+    let swapchain = d3d12.raw()
         .createswapchain(&window.raw(), commandqueue.rawqueue(), 800, 600)
         .unwrap();
     let mut currbuffer: u32 = swapchain.currentbackbufferindex();
 
-    let rendertargetheap = device
-        .createdescriptorheap(rusd3d12::EDescriptorHeapType::RenderTarget, 10)
+    let rendertargetheap = device.raw()
+        .createdescriptorheap(safed3d12::EDescriptorHeapType::RenderTarget, 10)
         .unwrap();
 
     device
         .initrendertargetviews(&swapchain, &rendertargetheap)
         .unwrap();
     let commandallocators = [
-        device
-            .createcommandallocator(rusd3d12::ECommandListType::Direct)
+        device.raw()
+            .createcommandallocator(safed3d12::ECommandListType::Direct)
             .unwrap(),
-        device
-            .createcommandallocator(rusd3d12::ECommandListType::Direct)
+        device.raw()
+            .createcommandallocator(safed3d12::ECommandListType::Direct)
             .unwrap(),
     ];
-    let mut commandlist = device
+    let mut commandlist = device.raw()
         .createcommandlist(&commandallocators[currbuffer as usize])
         .unwrap();
     commandlist.close().unwrap();
@@ -166,25 +127,25 @@ fn main_d3d12() {
                 let rendertargetdescriptor = rendertargetheap.cpuhandle(currbuffer);
 
                 // -- transition to render target
-                let transtorendertargetbarrier = d3d12.createtransitionbarrier(
+                let transtorendertargetbarrier = d3d12.raw().createtransitionbarrier(
                     backbuffer,
-                    rusd3d12::EResourceStates::Present,
-                    rusd3d12::EResourceStates::RenderTarget,
+                    safed3d12::EResourceStates::Present,
+                    safed3d12::EResourceStates::RenderTarget,
                 );
-                commandlist.pushresourcebarrier(&transtorendertargetbarrier);
+                commandlist.resourcebarrier(1, &[transtorendertargetbarrier]);
 
                 // -- clear
                 let clearcolour = [0.4, 0.6, 0.9, 1.0];
 
-                commandlist.pushclearrendertargetview(rendertargetdescriptor, &clearcolour);
+                commandlist.clearrendertargetview(rendertargetdescriptor, &clearcolour);
 
                 // -- transition to present
-                let transtopresentbarrier = d3d12.createtransitionbarrier(
+                let transtopresentbarrier = d3d12.raw().createtransitionbarrier(
                     backbuffer,
-                    rusd3d12::EResourceStates::RenderTarget,
-                    rusd3d12::EResourceStates::Present,
+                    safed3d12::EResourceStates::RenderTarget,
+                    safed3d12::EResourceStates::Present,
                 );
-                commandlist.pushresourcebarrier(&transtopresentbarrier);
+                commandlist.resourcebarrier(1, &[transtopresentbarrier]);
 
                 // -- close the command list
                 commandlist.close().unwrap();

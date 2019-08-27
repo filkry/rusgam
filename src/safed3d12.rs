@@ -22,6 +22,8 @@ use winapi::Interface;
 
 use wio::com::ComPtr;
 
+use std::marker::PhantomData;
+
 // -- this is copied in safewindows, does it have to be?
 trait ComPtrPtrs<T> {
     unsafe fn asunknownptr(&mut self) -> *mut unknwnbase::IUnknown;
@@ -106,7 +108,7 @@ impl SAdapter1 {
     }
 
     pub fn castadapter4(&self) -> Option<SAdapter4> {
-        match adapter1.cast::<IDXGIAdapter4>() {
+        match self.adapter.cast::<IDXGIAdapter4>() {
             Ok(a) => {
                 return Some(SAdapter4 { adapter: a });
             }
@@ -240,14 +242,14 @@ pub struct SInfoQueue {
 }
 
 impl SInfoQueue {
-    pub fn setbreakonseverity(id: D3D12_MESSAGE_ID, val: BOOL) {
+    pub fn setbreakonseverity(&self, id: D3D12_MESSAGE_ID, val: BOOL) {
         unsafe {
-            infoqueue.SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, TRUE);
+            self.infoqueue.SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, TRUE);
         }
     }
 
-    pub fn pushstoragefilter(filter: &mut D3D12_INFO_QUEUE_FILTER) -> Result<(), &'static str> {
-        let hn = unsafe { infoqueue.PushStorageFilter(&mut filter) };
+    pub fn pushstoragefilter(&self, filter: &mut D3D12_INFO_QUEUE_FILTER) -> Result<(), &'static str> {
+        let hn = unsafe { self.infoqueue.PushStorageFilter(&mut filter) };
         returnerrifwinerror!(hn, "Could not push storage filter on infoqueue.");
     }
 }
@@ -296,8 +298,9 @@ impl ECommandListType {
     }
 }
 
-pub struct SCommandQueue {
+pub struct SCommandQueue<'device> {
     queue: ComPtr<ID3D12CommandQueue>,
+    phantom: PhantomData<&'device SDevice>,
 }
 
 impl SDevice {
@@ -435,11 +438,24 @@ pub enum EDescriptorHeapType {
     DepthStencil,
 }
 
+impl EDescriptorHeapType {
+    pub fn d3dtype(&self) {
+        match self {
+            EDescriptorHeapType::ConstantBufferShaderResourceUnorderedAccess => {
+                D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV
+            }
+            EDescriptorHeapType::Sampler => D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER,
+            EDescriptorHeapType::RenderTarget => D3D12_DESCRIPTOR_HEAP_TYPE_RTV,
+            EDescriptorHeapType::DepthStencil => D3D12_DESCRIPTOR_HEAP_TYPE_DSV,
+        }
+    }
+}
+
 pub struct SDescriptorHeap {
     type_: EDescriptorHeapType,
     heap: ComPtr<ID3D12DescriptorHeap>,
-    descriptorsize: u32,
-    cpudescriptorhandleforstart: D3D12_CPU_DESCRIPTOR_HANDLE,
+    //descriptorsize: u32,
+    //cpudescriptorhandleforstart: D3D12_CPU_DESCRIPTOR_HANDLE,
 }
 
 impl SDescriptorHeap {
@@ -454,18 +470,19 @@ impl SDescriptorHeap {
             handle: handle,
         }
     }
+
+    pub fn getdescriptorhandleforheapstart(&self) -> SDescriptorHandle<'_> {
+        let start = unsafe { self.heap.GetCPUDescriptorHandleForHeapStart() };
+        SDescriptorHandle{
+            handle: start,
+            phantom: PhantomData,
+        }
+    }
 }
 
 pub struct SDescriptorHandle<'heap> {
-    heap: &'heap SDescriptorHeap,
     handle: D3D12_CPU_DESCRIPTOR_HANDLE,
-}
-
-impl<'heap> SDescriptorHandle<'heap> {
-    pub fn offset(&mut self, count: u32) {
-        let stride: usize = (count * self.heap.descriptorsize) as usize;
-        self.handle.ptr += stride;
-    }
+    phantom: PhantomData<&'heap D3D12_CPU_DESCRIPTOR_HANDLE>,
 }
 
 impl SDevice {
@@ -474,17 +491,9 @@ impl SDevice {
         type_: EDescriptorHeapType,
         numdescriptors: u32,
     ) -> Result<SDescriptorHeap, &'static str> {
-        let d3dtype = match type_ {
-            EDescriptorHeapType::ConstantBufferShaderResourceUnorderedAccess => {
-                D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV
-            }
-            EDescriptorHeapType::Sampler => D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER,
-            EDescriptorHeapType::RenderTarget => D3D12_DESCRIPTOR_HEAP_TYPE_RTV,
-            EDescriptorHeapType::DepthStencil => D3D12_DESCRIPTOR_HEAP_TYPE_DSV,
-        };
 
         let desc = D3D12_DESCRIPTOR_HEAP_DESC {
-            Type: d3dtype,
+            Type: type_.d3dtype(),
             NumDescriptors: numdescriptors,
             Flags: 0,
             NodeMask: 0,
@@ -502,68 +511,41 @@ impl SDevice {
         returnerrifwinerror!(hr, "Failed to create descriptor heap");
 
         let heap = unsafe { ComPtr::from_raw(rawheap) };
-        let descriptorsize = unsafe {
-            self.device
-                .GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV)
-        };
-        let start = unsafe { heap.GetCPUDescriptorHandleForHeapStart() };
 
         Ok(SDescriptorHeap {
             type_: type_,
             heap: heap,
-            descriptorsize: descriptorsize,
-            cpudescriptorhandleforstart: start,
         })
     }
 
-    pub fn initrendertargetviews(
-        &self,
-        swap: &SSwapChain,
-        heap: &SDescriptorHeap,
-    ) -> Result<(), &'static str> {
-        match heap.type_ {
-            EDescriptorHeapType::RenderTarget => {
-                let mut curdescriptorhandle = heap.cpuhandle(0);
-
-                for backbuf in &swap.backbuffers {
-                    unsafe {
-                        self.device.CreateRenderTargetView(
-                            backbuf.resource.as_raw(),
-                            ptr::null(),
-                            curdescriptorhandle.handle,
-                        );
-                    };
-
-                    curdescriptorhandle.offset(1);
-                    //curdescriptorhandle.ptr += heap.descriptorsize as usize;
-                    //curdescriptorhandle.Offset(descriptorsize);
-                }
-
-                Ok(())
-            }
-            _ => Err("Tried to initialize render target views on non-RTV descriptor heap."),
+    pub fn getdescriptorhandleincrementsize(&self, type_: EDescriptorHeapType) -> u32 {
+        unsafe {
+            self.device.GetDescriptorHandleIncrementSize(type_.d3dtype())
         }
     }
+
 }
 
 // -- $$$FRK(TODO): lifetime here should be based on device
-pub struct SCommandAllocator {
+pub struct SCommandAllocator<'device> {
     type_: ECommandListType,
     commandallocator: ComPtr<ID3D12CommandAllocator>,
+    phantom: PhantomData<&'device SDevice>,
 }
 
-impl SCommandAllocator {
+impl<'device> SCommandAllocator<'device> {
     pub fn reset(&self) {
         unsafe { self.commandallocator.Reset() };
     }
 }
 
-pub struct SCommandList {
+pub struct SCommandList<'commandallocator> {
     commandlist: ComPtr<ID3D12GraphicsCommandList>,
+    phantom: PhantomData<&'commandallocator SCommandAllocator<'commandallocator>>,
 }
 
-impl SCommandList {
-    pub fn reset(&self, commandallocator: &SCommandAllocator) -> Result<(), &'static str> {
+impl<'commandallocator> SCommandList<'commandallocator> {
+    pub fn reset(&self, commandallocator: &'commandallocator SCommandAllocator) -> Result<(), &'static str> {
         let hn = unsafe {
             self.commandlist
                 .Reset(commandallocator.commandallocator.as_raw(), ptr::null_mut())
@@ -572,11 +554,15 @@ impl SCommandList {
         Ok(())
     }
 
-    pub fn pushresourcebarrier(&self, barrier: &SBarrier) {
-        unsafe { self.commandlist.ResourceBarrier(1, &barrier.barrier) };
+    pub fn resourcebarrier(&self, numbarriers: u32, barriers: &[SBarrier]) {
+        // -- $$$FRK(TODO): need to figure out how to make a c array from the rust slice
+        // -- w/o a heap allocation...
+        assert!(numbarriers == 1);
+        unsafe { self.commandlist.ResourceBarrier(1, &(barriers[0].barrier)) };
     }
 
-    pub fn pushclearrendertargetview(&self, descriptor: SDescriptorHandle, colour: &[f32; 4]) {
+    pub fn clearrendertargetview(&self, descriptor: SDescriptorHandle, colour: &[f32; 4]) {
+        // -- $$$FRK(TODO): support third/fourth parameter
         unsafe {
             self.commandlist
                 .ClearRenderTargetView(descriptor.handle, colour, 0, ptr::null());
@@ -612,10 +598,10 @@ impl SDevice {
         })
     }
 
-    pub fn createcommandlist(
+    pub fn createcommandlist<'allocator>(
         &self,
-        allocator: &SCommandAllocator,
-    ) -> Result<SCommandList, &'static str> {
+        allocator: &'allocator SCommandAllocator,
+    ) -> Result<SCommandList<'allocator>, &'static str> {
         let mut rawcl: *mut ID3D12GraphicsCommandList = ptr::null_mut();
         let hn = unsafe {
             self.device.CreateCommandList(
@@ -630,20 +616,24 @@ impl SDevice {
 
         returnerrifwinerror!(hn, "Could not create command list.");
 
-        Ok(SCommandList {
+        Ok(SCommandList<'allocator> {
             commandlist: unsafe { ComPtr::from_raw(rawcl) },
+            phantomdata: PhantomData,
         })
     }
 }
 
-pub struct SFence {
+pub struct SFence<'device> {
     fence: ComPtr<ID3D12Fence>,
+    phantomdata: PhantomData<&'device SDevice>,
 }
 
 impl SDevice {
-    pub fn createfence(&self) -> Result<SFence, &'static str> {
+    // -- $$$FRK(TODO): think about mutable refs for lots of fns here and in safewindows
+    pub fn createfence(&self) -> Result<SFence<'_>, &'static str> {
         let mut rawf: *mut ID3D12Fence = ptr::null_mut();
         let hn = unsafe {
+            // -- $$$FRK(TODO): support parameters
             self.device.CreateFence(
                 0,
                 D3D12_FENCE_FLAG_NONE,
@@ -654,33 +644,27 @@ impl SDevice {
 
         returnerrifwinerror!(hn, "Could not create fence.");
 
-        Ok(SFence {
+        Ok(SFence<'_> {
             fence: unsafe { ComPtr::from_raw(rawf) },
+            phandomdata: PhantomData,
         })
     }
 }
 
 impl SFence {
-    #[allow(unused_variables)]
-    pub fn waitforvalue(
-        &self,
-        val: u64,
-        event: &safewindows::SEventHandle,
-        duration: u64,
-    ) -> Result<(), &'static str> {
-        if unsafe { self.fence.GetCompletedValue() } < val {
-            let hn = unsafe { self.fence.SetEventOnCompletion(val, event.raw()) };
-            returnerrifwinerror!(hn, "Could not set fence event on completion");
-            unsafe { synchapi::WaitForSingleObject(event.raw(), duration as DWORD) };
-        }
+    pub fn getcompletedvalue(&self) {
+        unsafe { self.fence.GetCompletedValue() }
+    }
 
-        Ok(())
+    pub fn seteventoncompletion(&self, val: u64, event: &safewindows::SEventHandle) -> Result<(), &'static str> {
+        let hn = unsafe { self.fence.SetEventOnCompletion(val, event.raw()) };
+        returnerrifwinerror!(hn, "Could not set fence event on completion");
     }
 }
 
 impl SCommandQueue {
     // -- $$$FRK(TODO): revisit this after I understand how I'm going to be using this fence
-    pub fn pushsignal(&self, fence: &SFence, val: u64) -> Result<u64, &'static str> {
+    pub fn signal(&self, fence: &SFence, val: u64) -> Result<u64, &'static str> {
         let hn = unsafe { self.queue.Signal(fence.fence.as_raw(), val) };
 
         returnerrifwinerror!(hn, "Could not push signal.");
@@ -688,6 +672,7 @@ impl SCommandQueue {
         Ok(val)
     }
 
+    // -- $$$FRK(TODO): support listS
     pub fn executecommandlist(&self, list: &mut SCommandList) {
         unsafe {
             self.queue

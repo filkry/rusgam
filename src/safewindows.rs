@@ -100,6 +100,10 @@ impl SEventHandle {
     pub unsafe fn raw(&self) -> winnt::HANDLE {
         self.event
     }
+
+    pub fn waitforsingleobject(&self, duration: u64) {
+        unsafe { synchapi::WaitForSingleObject(self.raw(), duration as DWORD) };
+    }
 }
 
 impl SWinAPI {

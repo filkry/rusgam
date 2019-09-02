@@ -16,7 +16,7 @@ use winapi::shared::{dxgiformat, dxgitype, winerror};
 use winapi::um::d3d12::*;
 use winapi::um::d3d12sdklayers::*;
 use winapi::um::{
-    d3dcommon, synchapi, unknwnbase,
+    d3dcommon, unknwnbase,
 };
 use winapi::Interface;
 
@@ -119,7 +119,7 @@ impl SAdapter1 {
     }
 
     pub fn d3d12createdevice(&mut self) -> Result<SDevice, &'static str> {
-        d3d12createdevice(self.adapter.asunknownptr())
+        unsafe { d3d12createdevice(self.adapter.asunknownptr()) }
     }
 }
 
@@ -191,7 +191,7 @@ impl SFactory {
             return None;
         }
 
-        let mut adapter1: ComPtr<IDXGIAdapter1> = unsafe { ComPtr::from_raw(rawadapter1) };
+        let adapter1: ComPtr<IDXGIAdapter1> = unsafe { ComPtr::from_raw(rawadapter1) };
         Some(SAdapter1{
             adapter: adapter1,
         })
@@ -244,7 +244,7 @@ pub struct SInfoQueue {
 impl SInfoQueue {
     pub fn setbreakonseverity(&self, id: D3D12_MESSAGE_ID, val: BOOL) {
         unsafe {
-            self.infoqueue.SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, TRUE);
+            self.infoqueue.SetBreakOnSeverity(id, val);
         }
     }
 
@@ -273,7 +273,7 @@ fn d3d12createdevice(adapter: *mut unknwnbase::IUnknown) -> Result<SDevice, &'st
 
 impl SAdapter4 {
     pub fn d3d12createdevice(&mut self) -> Result<SDevice, &'static str> {
-        d3d12createdevice(self.adapter.asunknownptr())
+        unsafe { d3d12createdevice(self.adapter.asunknownptr()) }
     }
 }
 
@@ -433,6 +433,7 @@ impl SFactory {
     }
 }
 
+#[derive(Copy, Clone)]
 pub enum EDescriptorHeapType {
     ConstantBufferShaderResourceUnorderedAccess,
     Sampler,

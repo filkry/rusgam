@@ -8,17 +8,6 @@ mod rustywindows;
 mod safed3d12;
 mod rustyd3d12;
 
-macro_rules! properror {
-    ($result:expr) => {
-        match $result {
-            Ok(a) => a,
-            Err(e) => {
-                return Err(e);
-            }
-        }
-    };
-}
-
 pub struct SWindowProc {
     quit: bool,
 }
@@ -64,14 +53,9 @@ fn main_d3d12() {
     let windowclass = winapi.rawwinapi().registerclassex("rusgam").unwrap();
     let mut window = rustywindows::SWindow::create(&windowclass, "rusgam", 800, 600);
 
-    // -- $$$FRK(TODO): better way of creating rustyd3d12 structs
-    let d3d12 = rustyd3d12::SFactory{
-        f: safed3d12::createdxgifactory4().unwrap(),
-    };
+    let d3d12 = rustyd3d12::SFactory::create().unwrap();
     let mut adapter = d3d12.bestadapter().unwrap();
-    let mut device = rustyd3d12::SDevice {
-        d: adapter.createdevice().unwrap(),
-    };
+    let mut device = adapter.createdevice().unwrap();
 
     let mut commandqueue = rustyd3d12::SCommandQueue::createcommandqueue(&winapi.rawwinapi(), &device).unwrap();
     let swapchain = d3d12.raw()

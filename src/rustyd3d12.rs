@@ -1,9 +1,9 @@
+#![allow(dead_code)]
+
 use safed3d12;
 use safewindows;
 
 // -- $$$FRK(TODO): all these imports should not exist
-use winapi::shared::dxgi;
-use winapi::shared::{dxgiformat, dxgitype, winerror};
 use winapi::um::d3d12sdklayers::*;
 use winapi::shared::minwindef::*;
 use std::{ptr};
@@ -13,6 +13,13 @@ pub struct SFactory {
 }
 
 impl SFactory {
+
+    pub fn create() -> Result<SFactory, &'static str> {
+        Ok(SFactory{
+            f: safed3d12::createdxgifactory4()?,
+        })
+    }
+
     pub fn raw(&self) -> &safed3d12::SFactory {
         &self.f
     }
@@ -67,7 +74,7 @@ pub struct SAdapter {
 }
 
 impl SAdapter {
-    pub fn createdevice(&mut self) -> Result<safed3d12::SDevice, &'static str> {
+    pub fn createdevice(&mut self) -> Result<SDevice, &'static str> {
         // -- $$$FRK(TODO): remove unwraps
         let device = self.a.d3d12createdevice()?;
 
@@ -118,7 +125,9 @@ impl SAdapter {
             }
         }
 
-        Ok(device)
+        Ok(SDevice{
+            d: device,
+        })
     }
 }
 
@@ -135,8 +144,7 @@ impl<'device> SCommandQueue<'device> {
         device: &'device SDevice,
     ) -> Result<SCommandQueue<'device>, &'static str> {
         let qresult = device.raw()
-            .createcommandqueue(safed3d12::ECommandListType::Direct)
-            .unwrap();
+            .createcommandqueue(safed3d12::ECommandListType::Direct)?;
         Ok(SCommandQueue{
             q: qresult,
             fence: device.createfence().unwrap(),
@@ -187,7 +195,7 @@ impl SDevice {
     pub fn raw(&self) -> &safed3d12::SDevice {
         &self.d
     }
-    pub fn rawmut(&self) -> &mut safed3d12::SDevice {
+    pub fn rawmut(&mut self) -> &mut safed3d12::SDevice {
         &mut self.d
     }
 
@@ -203,6 +211,7 @@ impl SDevice {
                 for backbuf in &swap.backbuffers {
                     let curdescriptorhandle = heap.cpuhandle(rtidx)?;
                     self.d.createrendertargetview(backbuf, &curdescriptorhandle);
+                    rtidx += 1;
                 }
 
                 Ok(())
@@ -211,7 +220,7 @@ impl SDevice {
         }
     }
 
-    pub fn createfence(&mut self) -> Result<SFence, &'static str> {
+    pub fn createfence(&self) -> Result<SFence, &'static str> {
         Ok(SFence{
             f: self.d.createfence()?,
         })
@@ -222,12 +231,12 @@ impl SDevice {
         type_: safed3d12::EDescriptorHeapType,
         numdescriptors: u32,
     ) -> Result<SDescriptorHeap, &'static str> {
-        let raw = self.d.createdescriptorheap(type_, numdescriptors)?;
+        //let raw = self.d.createdescriptorheap(type_, numdescriptors)?;
         Ok(SDescriptorHeap{
-            dh: raw,
+            dh: self.d.createdescriptorheap(type_, numdescriptors)?,
             numdescriptors: numdescriptors,
             descriptorsize: self.d.getdescriptorhandleincrementsize(type_),
-            cpudescriptorhandleforstart: raw.getcpudescriptorhandleforheapstart(),
+            //cpudescriptorhandleforstart: raw.getcpudescriptorhandleforheapstart(),
         })
     }
 }
@@ -256,14 +265,14 @@ impl<'device> SFence<'device> {
     }
 }
 
-pub struct SDescriptorHeap<'heap, 'device> {
+pub struct SDescriptorHeap<'device> {
     dh: safed3d12::SDescriptorHeap<'device>,
     numdescriptors: u32,
     descriptorsize: u32,
-    cpudescriptorhandleforstart: safed3d12::SDescriptorHandle<'heap, 'device>,
+    //cpudescriptorhandleforstart: safed3d12::SDescriptorHandle<'heap, 'device>,
 }
 
-impl<'heap, 'device> SDescriptorHeap<'heap, 'device> {
+impl<'device> SDescriptorHeap<'device> {
     pub fn raw(&self) -> &safed3d12::SDescriptorHeap {
         &self.dh
     }
@@ -272,7 +281,8 @@ impl<'heap, 'device> SDescriptorHeap<'heap, 'device> {
 
         if index < self.numdescriptors {
             let offsetbytes: usize = (index * self.descriptorsize) as usize;
-            Ok(unsafe { self.cpudescriptorhandleforstart.offset(offsetbytes) })
+            let starthandle = self.dh.getcpudescriptorhandleforheapstart();
+            Ok(unsafe { starthandle.offset(offsetbytes) })
         }
         else {
             Err("Descripter handle index past number of descriptors.")

@@ -5,13 +5,11 @@ use std::{cmp, fmt, mem, ptr};
 // -- $$$FRK(TODO): I feel very slightly guilty about all these wildcard uses
 use winapi::shared::basetsd::*;
 use winapi::shared::minwindef::*;
+use winapi::shared::ntdef;
 use winapi::shared::windef::*;
-use winapi::shared::{ntdef};
 use winapi::um::winnt::LONG;
 use winapi::um::winuser::*;
-use winapi::um::{
-    errhandlingapi, libloaderapi, profileapi, synchapi, unknwnbase, winnt,
-};
+use winapi::um::{errhandlingapi, libloaderapi, profileapi, synchapi, unknwnbase, winnt};
 use winapi::Interface;
 
 use wio::com::ComPtr;
@@ -83,7 +81,12 @@ impl<'windows> Drop for SWindowClass<'windows> {
     }
 }
 
-unsafe extern "system" fn windowproctrampoline(hwnd: HWND, msg: UINT, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+unsafe extern "system" fn windowproctrampoline(
+    hwnd: HWND,
+    msg: UINT,
+    wparam: WPARAM,
+    lparam: LPARAM,
+) -> LRESULT {
     let window_ptr = GetWindowLongPtrW(hwnd, GWLP_USERDATA) as *mut SWindow;
     if !window_ptr.is_null() {
         assert!(hwnd == (*window_ptr).window);
@@ -182,7 +185,7 @@ pub struct SMSG {
 impl SMSG {
     pub fn createempty() -> SMSG {
         unsafe {
-            SMSG{
+            SMSG {
                 msg: mem::uninitialized(),
             }
         }
@@ -269,15 +272,16 @@ impl SWindow {
 
             if foundmessage > 0 {
                 Some(msg)
-            }
-            else {
+            } else {
                 None
             }
         }
     }
 
     pub fn translatemessage<'a>(&mut self, message: &mut SMSG) {
-        unsafe { winapi::um::winuser::TranslateMessage(&mut message.msg); }
+        unsafe {
+            winapi::um::winuser::TranslateMessage(&mut message.msg);
+        }
     }
 
     pub fn dispatchmessage<'a>(&mut self, message: &mut SMSG, windowproc: &'a mut dyn TWindowProc) {
@@ -294,13 +298,13 @@ impl SWindow {
 
     pub fn getclientrect(&self) -> Result<SRect, &'static str> {
         unsafe {
-            let mut rect : RECT = mem::zeroed();
+            let mut rect: RECT = mem::zeroed();
             let res = winapi::um::winuser::GetClientRect(self.window, &mut rect as LPRECT);
             if res == 0 {
                 return Err("Could not get client rect.");
             }
 
-            Ok(SRect{
+            Ok(SRect {
                 left: rect.left,
                 right: rect.right,
                 top: rect.top,
@@ -324,12 +328,7 @@ pub trait TWindowProc {
 impl<'windows> SWindowClass<'windows> {
     // -- $$$FRK(TODO): right now this assumes a ton of defaults, we should pass those in
     // -- and move defaults to rustywindows
-    pub fn createwindow(
-        &self,
-        title: &str,
-        width: u32,
-        height: u32,
-    ) -> Result<SWindow, SErr> {
+    pub fn createwindow(&self, title: &str, width: u32, height: u32) -> Result<SWindow, SErr> {
         unsafe {
             let windowstyle: DWORD = WS_OVERLAPPEDWINDOW;
 
@@ -372,7 +371,7 @@ impl<'windows> SWindowClass<'windows> {
             );
 
             if !hwnd.is_null() {
-                Ok(SWindow{
+                Ok(SWindow {
                     window: hwnd,
                     registereduserdata: false,
                     windowproc: None,
@@ -405,7 +404,7 @@ pub enum EMsgType {
     Size,
 }
 
-pub fn msgtype( msg: UINT, wparam: WPARAM, _lparam: LPARAM, ) -> EMsgType {
+pub fn msgtype(msg: UINT, wparam: WPARAM, _lparam: LPARAM) -> EMsgType {
     match msg {
         winapi::um::winuser::WM_KEYDOWN => EMsgType::KeyDown {
             key: translatewmkey(wparam),

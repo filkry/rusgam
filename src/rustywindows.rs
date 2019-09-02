@@ -22,7 +22,7 @@ impl SWinAPI {
     }
 
     pub fn create() -> SWinAPI {
-        SWinAPI{
+        SWinAPI {
             // -- $$$FRK(TODO): not very rusty
             wapi: safewindows::initwinapi().unwrap(),
             frequency: unsafe { safewindows::SWinAPI::queryperformancefrequencycounter() },
@@ -43,11 +43,16 @@ pub struct SWindow {
 }
 
 impl SWindow {
-    pub fn create(windowclass: &safewindows::SWindowClass, title: &str, width: u32, height: u32) -> Result<SWindow, safewindows::SErr> {
+    pub fn create(
+        windowclass: &safewindows::SWindowClass,
+        title: &str,
+        width: u32,
+        height: u32,
+    ) -> Result<SWindow, safewindows::SErr> {
         let safewindow = windowclass.createwindow(title, width, height)?;
         Ok(SWindow {
             w: safewindow,
-            windowproc: SWindowProc{
+            windowproc: SWindowProc {
                 pendingmsgs: std::collections::VecDeque::new(),
             },
         })
@@ -69,7 +74,7 @@ impl SWindow {
                 self.w.dispatchmessage(&mut m, &mut self.windowproc);
                 self.windowproc.pendingmsgs.pop_front()
             }
-            None => None
+            None => None,
         }
     }
 
@@ -91,5 +96,3 @@ impl safewindows::TWindowProc for SWindowProc {
         self.pendingmsgs.push_back(msg);
     }
 }
-
-

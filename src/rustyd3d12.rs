@@ -4,18 +4,17 @@ use safed3d12;
 use safewindows;
 
 // -- $$$FRK(TODO): all these imports should not exist
-use winapi::um::d3d12sdklayers::*;
+use std::ptr;
 use winapi::shared::minwindef::*;
-use std::{ptr};
+use winapi::um::d3d12sdklayers::*;
 
 pub struct SFactory {
     f: safed3d12::SFactory,
 }
 
 impl SFactory {
-
     pub fn create() -> Result<SFactory, &'static str> {
-        Ok(SFactory{
+        Ok(SFactory {
             f: safed3d12::createdxgifactory4()?,
         })
     }
@@ -68,9 +67,17 @@ impl SFactory {
         Err("Could not find valid adapter")
     }
 
-    pub fn createswapchain(&self, window: &safewindows::SWindow, commandqueue: &mut safed3d12::SCommandQueue, width: u32, height: u32) -> Result<SSwapChain, &'static str> {
-        Ok(SSwapChain{
-            sc: self.f.createswapchainforwindow(window, commandqueue, width, height)?,
+    pub fn createswapchain(
+        &self,
+        window: &safewindows::SWindow,
+        commandqueue: &mut safed3d12::SCommandQueue,
+        width: u32,
+        height: u32,
+    ) -> Result<SSwapChain, &'static str> {
+        Ok(SSwapChain {
+            sc: self
+                .f
+                .createswapchainforwindow(window, commandqueue, width, height)?,
             buffercount: 2,
             backbuffers: Vec::with_capacity(2),
         })
@@ -123,7 +130,7 @@ impl SAdapter {
                     DenyList: denylist,
                 };
 
-                match infoqueue.pushstoragefilter(&mut filter)  {
+                match infoqueue.pushstoragefilter(&mut filter) {
                     Ok(_) => (),
                     Err(e) => return Err(e),
                 }
@@ -133,9 +140,7 @@ impl SAdapter {
             }
         }
 
-        Ok(SDevice{
-            d: device,
-        })
+        Ok(SDevice { d: device })
     }
 }
 
@@ -151,9 +156,10 @@ impl<'device> SCommandQueue<'device> {
         winapi: &safewindows::SWinAPI,
         device: &'device SDevice,
     ) -> Result<SCommandQueue<'device>, &'static str> {
-        let qresult = device.raw()
+        let qresult = device
+            .raw()
             .createcommandqueue(safed3d12::ECommandListType::Direct)?;
-        Ok(SCommandQueue{
+        Ok(SCommandQueue {
             q: qresult,
             fence: device.createfence().unwrap(),
             fenceevent: winapi.createeventhandle().unwrap(),
@@ -183,7 +189,6 @@ impl<'device> SCommandQueue<'device> {
     }
 }
 
-
 // --
 /*
 impl<'heap> SDescriptorHandle<'heap> {
@@ -193,7 +198,6 @@ impl<'heap> SDescriptorHandle<'heap> {
     }
 }
 */
-
 
 pub struct SDevice {
     d: safed3d12::SDevice,
@@ -212,17 +216,18 @@ impl SDevice {
         swap: &mut SSwapChain,
         heap: &SDescriptorHeap,
     ) -> Result<(), &'static str> {
-
         assert!(swap.backbuffers.is_empty());
 
         match heap.raw().type_ {
             safed3d12::EDescriptorHeapType::RenderTarget => {
-
                 for backbuffidx in 0..2 {
                     swap.backbuffers.push(swap.raw().getbuffer(backbuffidx)?);
 
                     let curdescriptorhandle = heap.cpuhandle(backbuffidx)?;
-                    self.d.createrendertargetview(&swap.backbuffers[backbuffidx as usize], &curdescriptorhandle);
+                    self.d.createrendertargetview(
+                        &swap.backbuffers[backbuffidx as usize],
+                        &curdescriptorhandle,
+                    );
                 }
 
                 Ok(())
@@ -232,7 +237,7 @@ impl SDevice {
     }
 
     pub fn createfence(&self) -> Result<SFence, &'static str> {
-        Ok(SFence{
+        Ok(SFence {
             f: self.d.createfence()?,
         })
     }
@@ -243,7 +248,7 @@ impl SDevice {
         numdescriptors: u32,
     ) -> Result<SDescriptorHeap, &'static str> {
         //let raw = self.d.createdescriptorheap(type_, numdescriptors)?;
-        Ok(SDescriptorHeap{
+        Ok(SDescriptorHeap {
             dh: self.d.createdescriptorheap(type_, numdescriptors)?,
             numdescriptors: numdescriptors,
             descriptorsize: self.d.getdescriptorhandleincrementsize(type_),
@@ -289,16 +294,13 @@ impl<'device> SDescriptorHeap<'device> {
     }
 
     pub fn cpuhandle(&self, index: u32) -> Result<safed3d12::SDescriptorHandle, &'static str> {
-
         if index < self.numdescriptors {
             let offsetbytes: usize = (index * self.descriptorsize) as usize;
             let starthandle = self.dh.getcpudescriptorhandleforheapstart();
             Ok(unsafe { starthandle.offset(offsetbytes) })
-        }
-        else {
+        } else {
             Err("Descripter handle index past number of descriptors.")
         }
-
     }
 }
 

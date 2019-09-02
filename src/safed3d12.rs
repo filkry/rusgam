@@ -15,9 +15,7 @@ use winapi::shared::minwindef::*;
 use winapi::shared::{dxgiformat, dxgitype, winerror};
 use winapi::um::d3d12::*;
 use winapi::um::d3d12sdklayers::*;
-use winapi::um::{
-    d3dcommon, unknwnbase,
-};
+use winapi::um::{d3dcommon, unknwnbase};
 use winapi::Interface;
 
 use wio::com::ComPtr;
@@ -192,9 +190,7 @@ impl SFactory {
         }
 
         let adapter1: ComPtr<IDXGIAdapter1> = unsafe { ComPtr::from_raw(rawadapter1) };
-        Some(SAdapter1{
-            adapter: adapter1,
-        })
+        Some(SAdapter1 { adapter: adapter1 })
     }
 
     pub fn createtransitionbarrier(
@@ -248,7 +244,10 @@ impl SInfoQueue {
         }
     }
 
-    pub fn pushstoragefilter(&self, filter: &mut D3D12_INFO_QUEUE_FILTER) -> Result<(), &'static str> {
+    pub fn pushstoragefilter(
+        &self,
+        filter: &mut D3D12_INFO_QUEUE_FILTER,
+    ) -> Result<(), &'static str> {
         let hn = unsafe { self.infoqueue.PushStorageFilter(filter) };
         returnerrifwinerror!(hn, "Could not push storage filter on infoqueue.");
         Ok(())
@@ -379,18 +378,26 @@ impl SSwapChain {
             let mut desc: DXGI_SWAP_CHAIN_DESC = mem::zeroed();
             let hr = self.swapchain.GetDesc(&mut desc as *mut _);
             returnerrifwinerror!(hr, "Couldn't get swap chain desc.");
-            Ok(SSwapChainDesc{
-                desc: desc,
-            })
+            Ok(SSwapChainDesc { desc: desc })
         }
     }
 
     // -- $$$FRK(TODO): support correct params
-    pub fn resizebuffers(&self, buffercount: u32, width: u32, height: u32, olddesc: &SSwapChainDesc) -> Result<(), &'static str> {
+    pub fn resizebuffers(
+        &self,
+        buffercount: u32,
+        width: u32,
+        height: u32,
+        olddesc: &SSwapChainDesc,
+    ) -> Result<(), &'static str> {
         unsafe {
-            let hr = self.swapchain.ResizeBuffers(buffercount, width, height,
-                                                  olddesc.desc.BufferDesc.Format,
-                                                  olddesc.desc.Flags);
+            let hr = self.swapchain.ResizeBuffers(
+                buffercount,
+                width,
+                height,
+                olddesc.desc.BufferDesc.Format,
+                olddesc.desc.Flags,
+            );
             returnerrifwinerror!(hr, "Couldn't resize buffers.");
         }
         Ok(())
@@ -402,7 +409,6 @@ pub struct SSwapChainDesc {
 }
 
 impl SFactory {
-
     pub fn createswapchainforwindow(
         &self,
         window: &safewindows::SWindow,
@@ -446,11 +452,7 @@ impl SFactory {
         let swapchain = unsafe { ComPtr::from_raw(rawswapchain) };
 
         match swapchain.cast::<IDXGISwapChain4>() {
-            Ok(sc4) => {
-                Ok(SSwapChain {
-                    swapchain: sc4,
-                })
-            }
+            Ok(sc4) => Ok(SSwapChain { swapchain: sc4 }),
             _ => Err("Swap chain could not be case to SwapChain4"),
         }
     }
@@ -486,7 +488,7 @@ pub struct SDescriptorHeap<'device> {
 impl<'device> SDescriptorHeap<'device> {
     pub fn getcpudescriptorhandleforheapstart(&self) -> SDescriptorHandle<'_, 'device> {
         let start = unsafe { self.heap.GetCPUDescriptorHandleForHeapStart() };
-        SDescriptorHandle{
+        SDescriptorHandle {
             handle: start,
             phantom: PhantomData,
         }
@@ -500,8 +502,10 @@ pub struct SDescriptorHandle<'heap, 'device> {
 
 impl<'heap, 'device> SDescriptorHandle<'heap, 'device> {
     pub unsafe fn offset(&self, bytes: usize) -> SDescriptorHandle<'heap, 'device> {
-        SDescriptorHandle{
-            handle: D3D12_CPU_DESCRIPTOR_HANDLE { ptr: self.handle.ptr + bytes, },
+        SDescriptorHandle {
+            handle: D3D12_CPU_DESCRIPTOR_HANDLE {
+                ptr: self.handle.ptr + bytes,
+            },
             phantom: PhantomData,
         }
     }
@@ -514,7 +518,6 @@ impl SDevice {
         type_: EDescriptorHeapType,
         numdescriptors: u32,
     ) -> Result<SDescriptorHeap, &'static str> {
-
         let desc = D3D12_DESCRIPTOR_HEAP_DESC {
             Type: type_.d3dtype(),
             NumDescriptors: numdescriptors,
@@ -544,7 +547,8 @@ impl SDevice {
 
     pub fn getdescriptorhandleincrementsize(&self, type_: EDescriptorHeapType) -> u32 {
         unsafe {
-            self.device.GetDescriptorHandleIncrementSize(type_.d3dtype())
+            self.device
+                .GetDescriptorHandleIncrementSize(type_.d3dtype())
         }
     }
 
@@ -578,7 +582,10 @@ pub struct SCommandList<'commandallocator> {
 }
 
 impl<'commandallocator> SCommandList<'commandallocator> {
-    pub fn reset(&self, commandallocator: &'commandallocator SCommandAllocator) -> Result<(), &'static str> {
+    pub fn reset(
+        &self,
+        commandallocator: &'commandallocator SCommandAllocator,
+    ) -> Result<(), &'static str> {
         let hn = unsafe {
             self.commandlist
                 .Reset(commandallocator.commandallocator.as_raw(), ptr::null_mut())
@@ -678,7 +685,7 @@ impl SDevice {
 
         returnerrifwinerror!(hn, "Could not create fence.");
 
-        Ok(SFence{
+        Ok(SFence {
             fence: unsafe { ComPtr::from_raw(rawf) },
             phantom: PhantomData,
         })
@@ -690,7 +697,11 @@ impl<'device> SFence<'device> {
         unsafe { self.fence.GetCompletedValue() }
     }
 
-    pub fn seteventoncompletion(&self, val: u64, event: &safewindows::SEventHandle) -> Result<(), &'static str> {
+    pub fn seteventoncompletion(
+        &self,
+        val: u64,
+        event: &safewindows::SEventHandle,
+    ) -> Result<(), &'static str> {
         let hn = unsafe { self.fence.SetEventOnCompletion(val, event.raw()) };
         returnerrifwinerror!(hn, "Could not set fence event on completion");
         Ok(())
@@ -715,4 +726,3 @@ impl<'device> SCommandQueue<'device> {
         }
     }
 }
-

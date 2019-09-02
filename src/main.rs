@@ -3,10 +3,10 @@ extern crate wio;
 
 //mod math;
 mod collections;
-mod safewindows;
+mod rustyd3d12;
 mod rustywindows;
 mod safed3d12;
-mod rustyd3d12;
+mod safewindows;
 
 fn resize(
     width: u32,
@@ -19,8 +19,7 @@ fn resize(
     rendertargetheap: &rustyd3d12::SDescriptorHeap,
     framefencevalues: &mut [u64],
     currbuffer: &mut u32,
-    ) -> Result<(), &'static str> {
-
+) -> Result<(), &'static str> {
     if *curwidth != width || *curheight != height {
         let newwidth = std::cmp::max(1, width);
         let newheight = std::cmp::max(1, height);
@@ -31,7 +30,9 @@ fn resize(
         framefencevalues[1] = framefencevalues[*currbuffer as usize];
 
         let desc = swapchain.raw().getdesc()?;
-        swapchain.raw().resizebuffers(2, newwidth, newheight, &desc)?;
+        swapchain
+            .raw()
+            .resizebuffers(2, newwidth, newheight, &desc)?;
 
         *currbuffer = swapchain.raw().currentbackbufferindex();
         device.initrendertargetviews(swapchain, rendertargetheap)?;
@@ -54,13 +55,15 @@ fn main_d3d12() {
 
     let mut winapi = rustywindows::SWinAPI::create();
     let windowclass = winapi.rawwinapi().registerclassex("rusgam").unwrap();
-    let mut window = rustywindows::SWindow::create(&windowclass, "rusgam", curwidth, curheight).unwrap();
+    let mut window =
+        rustywindows::SWindow::create(&windowclass, "rusgam", curwidth, curheight).unwrap();
 
     let d3d12 = rustyd3d12::SFactory::create().unwrap();
     let mut adapter = d3d12.bestadapter().unwrap();
     let mut device = adapter.createdevice().unwrap();
 
-    let mut commandqueue = rustyd3d12::SCommandQueue::createcommandqueue(&winapi.rawwinapi(), &device).unwrap();
+    let mut commandqueue =
+        rustyd3d12::SCommandQueue::createcommandqueue(&winapi.rawwinapi(), &device).unwrap();
     let mut swapchain = d3d12
         .createswapchain(&window.raw(), commandqueue.rawqueue(), curwidth, curheight)
         .unwrap();
@@ -74,14 +77,17 @@ fn main_d3d12() {
         .initrendertargetviews(&mut swapchain, &rendertargetheap)
         .unwrap();
     let commandallocators = [
-        device.raw()
+        device
+            .raw()
             .createcommandallocator(safed3d12::ECommandListType::Direct)
             .unwrap(),
-        device.raw()
+        device
+            .raw()
             .createcommandallocator(safed3d12::ECommandListType::Direct)
             .unwrap(),
     ];
-    let mut commandlist = device.raw()
+    let mut commandlist = device
+        .raw()
         .createcommandlist(&commandallocators[currbuffer as usize])
         .unwrap();
     commandlist.close().unwrap();
@@ -160,35 +166,41 @@ fn main_d3d12() {
             let msg = window.pollmessage();
             match msg {
                 None => break,
-                Some(m) => {
-                    match m {
-                        safewindows::EMsgType::Paint => {
-                            println!("Paint!");
-                            window.dummyrepaint();
-                        }
-                        safewindows::EMsgType::KeyDown { key } => match key {
-                            safewindows::EKey::Q => {
-                                shouldquit = true;
-                                println!("Q keydown");
-                            }
-                            _ => (),
-                        },
-                        safewindows::EMsgType::Size => {
-                            println!("Size");
-                            let rect : safewindows::SRect = window.raw().getclientrect().unwrap();
-                            let newwidth = rect.right - rect.left;
-                            let newheight = rect.bottom - rect.top;
-
-                            resize(newwidth as u32, newheight as u32, &mut curwidth, &mut curheight,
-                                &mut commandqueue, &mut swapchain, &device,
-                                &rendertargetheap, &mut framefencevalues[..],
-                                &mut currbuffer).unwrap();
-                        }
-                        safewindows::EMsgType::Invalid => (),
+                Some(m) => match m {
+                    safewindows::EMsgType::Paint => {
+                        println!("Paint!");
+                        window.dummyrepaint();
                     }
-                }
-            }
+                    safewindows::EMsgType::KeyDown { key } => match key {
+                        safewindows::EKey::Q => {
+                            shouldquit = true;
+                            println!("Q keydown");
+                        }
+                        _ => (),
+                    },
+                    safewindows::EMsgType::Size => {
+                        println!("Size");
+                        let rect: safewindows::SRect = window.raw().getclientrect().unwrap();
+                        let newwidth = rect.right - rect.left;
+                        let newheight = rect.bottom - rect.top;
 
+                        resize(
+                            newwidth as u32,
+                            newheight as u32,
+                            &mut curwidth,
+                            &mut curheight,
+                            &mut commandqueue,
+                            &mut swapchain,
+                            &device,
+                            &rendertargetheap,
+                            &mut framefencevalues[..],
+                            &mut currbuffer,
+                        )
+                        .unwrap();
+                    }
+                    safewindows::EMsgType::Invalid => (),
+                },
+            }
         }
     }
 

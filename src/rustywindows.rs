@@ -39,8 +39,6 @@ impl SWinAPI {
 
 pub struct SWindow {
     w: safewindows::SWindow,
-    // -- $$$FRK(TODO) allocations
-    //pendingmsgs: std::collections::VecDeque<safewindows::EMsgType>,
     windowproc: SWindowProc,
 }
 
@@ -49,7 +47,6 @@ impl SWindow {
         let safewindow = windowclass.createwindow(title, width, height)?;
         Ok(SWindow {
             w: safewindow,
-            //pendingmsgs: std::collections::VecDeque::new(),
             windowproc: SWindowProc{
                 pendingmsgs: std::collections::VecDeque::new(),
             },
@@ -85,6 +82,7 @@ impl SWindow {
 }
 
 pub struct SWindowProc {
+    // -- $$$FRK(TODO) allocations
     pendingmsgs: std::collections::VecDeque<safewindows::EMsgType>,
 }
 

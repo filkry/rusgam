@@ -126,8 +126,7 @@ fn main_d3d12() {
                     match m {
                         safewindows::EMsgType::Paint => {
                             println!("Paint!");
-                            // -- $$$FRK(FUCK MY LIFE): here we are again, can't build on top of this
-                            //window.dummyrepaint();
+                            window.dummyrepaint();
                         }
                         safewindows::EMsgType::KeyDown { key } => match key {
                             safewindows::EKey::Q => {

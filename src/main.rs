@@ -8,23 +8,61 @@ mod rustywindows;
 mod safed3d12;
 mod rustyd3d12;
 
+fn resize(
+    width: u32,
+    height: u32,
+    curwidth: &mut u32,
+    curheight: &mut u32,
+    commandqueue: &mut rustyd3d12::SCommandQueue,
+    swapchain: &mut safed3d12::SSwapChain,
+    device: &rustyd3d12::SDevice,
+    rendertargetheap: &rustyd3d12::SDescriptorHeap,
+    framefencevalues: &mut [u64],
+    currbuffer: &mut u32,
+    ) -> Result<(), &'static str> {
+
+    if *curwidth != width || *curheight != height {
+        let newwidth = std::cmp::max(1, width);
+        let newheight = std::cmp::max(1, height);
+        commandqueue.flushblocking()?;
+
+        swapchain.backbuffers.clear();
+        framefencevalues[0] = framefencevalues[*currbuffer as usize];
+        framefencevalues[1] = framefencevalues[*currbuffer as usize];
+
+        let desc = swapchain.getdesc()?;
+        swapchain.resizebuffers(2, newwidth, newheight, &desc)?;
+
+        *currbuffer = swapchain.currentbackbufferindex();
+        device.initrendertargetviews(swapchain, rendertargetheap)?;
+
+        *curwidth = newwidth;
+        *curheight = newheight;
+    }
+
+    Ok(())
+}
+
 #[allow(unused_variables)]
 #[allow(unused_mut)]
 fn main_d3d12() {
     let debuginterface = safed3d12::getdebuginterface().unwrap();
     debuginterface.enabledebuglayer();
 
+    let mut curwidth = 800;
+    let mut curheight = 600;
+
     let mut winapi = rustywindows::SWinAPI::create();
     let windowclass = winapi.rawwinapi().registerclassex("rusgam").unwrap();
-    let mut window = rustywindows::SWindow::create(&windowclass, "rusgam", 800, 600).unwrap();
+    let mut window = rustywindows::SWindow::create(&windowclass, "rusgam", curwidth, curheight).unwrap();
 
     let d3d12 = rustyd3d12::SFactory::create().unwrap();
     let mut adapter = d3d12.bestadapter().unwrap();
     let mut device = adapter.createdevice().unwrap();
 
     let mut commandqueue = rustyd3d12::SCommandQueue::createcommandqueue(&winapi.rawwinapi(), &device).unwrap();
-    let swapchain = d3d12.raw()
-        .createswapchain(&window.raw(), commandqueue.rawqueue(), 800, 600)
+    let mut swapchain = d3d12.raw()
+        .createswapchain(&window.raw(), commandqueue.rawqueue(), curwidth, curheight)
         .unwrap();
     let mut currbuffer: u32 = swapchain.currentbackbufferindex();
 
@@ -137,6 +175,10 @@ fn main_d3d12() {
                         },
                         safewindows::EMsgType::Size => {
                             println!("Size");
+                            resize(800, 600, &mut curwidth, &mut curheight,
+                                &mut commandqueue, &mut swapchain, &device,
+                                &rendertargetheap, &mut framefencevalues[..],
+                                &mut currbuffer).unwrap();
                         }
                         safewindows::EMsgType::Invalid => (),
                     }

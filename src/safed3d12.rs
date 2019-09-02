@@ -355,6 +355,32 @@ impl SSwapChain {
     pub fn currentbackbufferindex(&self) -> u32 {
         unsafe { self.swapchain.GetCurrentBackBufferIndex() }
     }
+
+    pub fn getdesc(&self) -> Result<SSwapChainDesc, &'static str> {
+        unsafe {
+            let mut desc: DXGI_SWAP_CHAIN_DESC = mem::zeroed();
+            let hr = self.swapchain.GetDesc(&mut desc as *mut _);
+            returnerrifwinerror!(hr, "Couldn't get swap chain desc.");
+            Ok(SSwapChainDesc{
+                desc: desc,
+            })
+        }
+    }
+
+    // -- $$$FRK(TODO): support correct params
+    pub fn resizebuffers(&self, buffercount: u32, width: u32, height: u32, olddesc: &SSwapChainDesc) -> Result<(), &'static str> {
+        unsafe {
+            let hr = self.swapchain.ResizeBuffers(buffercount, width, height,
+                                                  olddesc.desc.BufferDesc.Format,
+                                                  olddesc.desc.Flags);
+            returnerrifwinerror!(hr, "Couldn't resize buffers.");
+        }
+        Ok(())
+    }
+}
+
+pub struct SSwapChainDesc {
+    desc: DXGI_SWAP_CHAIN_DESC,
 }
 
 impl SFactory {

@@ -8,41 +8,6 @@ mod rustywindows;
 mod safed3d12;
 mod rustyd3d12;
 
-pub struct SWindowProc {
-    quit: bool,
-}
-
-impl SWindowProc {
-    fn shouldquit(&self) -> bool {
-        self.quit
-    }
-}
-
-impl safewindows::TWindowProc for SWindowProc {
-    fn windowproc(&mut self, _window: &mut safewindows::SWindow, msg: safewindows::EMsgType) -> () {
-        match msg {
-            safewindows::EMsgType::Paint => {
-                // -- $$$FRK(FUCK MY LIFE): here we are again, can't build on top of this
-                //window.dummyrepaint();
-            }
-            safewindows::EMsgType::KeyDown { key } => match key {
-                safewindows::EKey::Q => {
-                    self.quit = true;
-                    println!("Q keydown");
-                }
-                _ => (),
-            },
-            safewindows::EMsgType::Size {
-                width: _,
-                height: _,
-            } => {
-                println!("Size");
-            }
-            safewindows::EMsgType::Invalid => (),
-        }
-    }
-}
-
 #[allow(unused_variables)]
 #[allow(unused_mut)]
 fn main_d3d12() {
@@ -51,7 +16,7 @@ fn main_d3d12() {
 
     let mut winapi = rustywindows::SWinAPI::create();
     let windowclass = winapi.rawwinapi().registerclassex("rusgam").unwrap();
-    let mut window = rustywindows::SWindow::create(&windowclass, "rusgam", 800, 600);
+    let mut window = rustywindows::SWindow::create(&windowclass, "rusgam", 800, 600).unwrap();
 
     let d3d12 = rustyd3d12::SFactory::create().unwrap();
     let mut adapter = d3d12.bestadapter().unwrap();
@@ -154,12 +119,31 @@ fn main_d3d12() {
         // -- $$$FRK(TODO): framerate is uncapped
 
         loop {
-            let mut msghandler = SWindowProc { quit: false };
-            let hadmessage = window.processmessage(&mut msghandler);
-            shouldquit |= msghandler.shouldquit();
-            if !hadmessage {
-                break;
+            let msg = window.pollmessage();
+            match msg {
+                None => break,
+                Some(m) => {
+                    match m {
+                        safewindows::EMsgType::Paint => {
+                            println!("Paint!");
+                            // -- $$$FRK(FUCK MY LIFE): here we are again, can't build on top of this
+                            //window.dummyrepaint();
+                        }
+                        safewindows::EMsgType::KeyDown { key } => match key {
+                            safewindows::EKey::Q => {
+                                shouldquit = true;
+                                println!("Q keydown");
+                            }
+                            _ => (),
+                        },
+                        safewindows::EMsgType::Size => {
+                            println!("Size");
+                        }
+                        safewindows::EMsgType::Invalid => (),
+                    }
+                }
             }
+
         }
     }
 

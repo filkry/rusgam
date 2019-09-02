@@ -39,15 +39,21 @@ impl SWinAPI {
 
 pub struct SWindow {
     w: safewindows::SWindow,
+    // -- $$$FRK(TODO) allocations
+    //pendingmsgs: std::collections::VecDeque<safewindows::EMsgType>,
+    windowproc: SWindowProc,
 }
 
 impl SWindow {
-    pub fn create(windowclass: &safewindows::SWindowClass, title: &str, width: u32, height: u32) -> SWindow {
-        // -- $$$FRK(TODO): all these unwraps are not very safee
-        let safewindow = windowclass.createwindow(title, width, height).unwrap();
-        SWindow {
+    pub fn create(windowclass: &safewindows::SWindowClass, title: &str, width: u32, height: u32) -> Result<SWindow, safewindows::SErr> {
+        let safewindow = windowclass.createwindow(title, width, height)?;
+        Ok(SWindow {
             w: safewindow,
-        }
+            //pendingmsgs: std::collections::VecDeque::new(),
+            windowproc: SWindowProc{
+                pendingmsgs: std::collections::VecDeque::new(),
+            },
+        })
     }
 
     pub fn dummyrepaint(&mut self) {
@@ -55,14 +61,18 @@ impl SWindow {
         self.w.endpaint();
     }
 
-    pub fn processmessage<'a>(&mut self, windowproc: &'a mut dyn safewindows::TWindowProc) -> bool {
-        match self.w.peekmessage(windowproc) {
+    pub fn pollmessage(&mut self) -> Option<safewindows::EMsgType> {
+        if let Some(msg) = self.windowproc.pendingmsgs.pop_front() {
+            return Some(msg);
+        }
+
+        match self.w.peekmessage(&mut self.windowproc) {
             Some(mut m) => {
                 self.w.translatemessage(&mut m);
-                self.w.dispatchmessage(&mut m, windowproc);
-                true
+                self.w.dispatchmessage(&mut m, &mut self.windowproc);
+                self.windowproc.pendingmsgs.pop_front()
             }
-            None => false
+            None => None
         }
     }
 
@@ -73,3 +83,15 @@ impl SWindow {
         &mut self.w
     }
 }
+
+pub struct SWindowProc {
+    pendingmsgs: std::collections::VecDeque<safewindows::EMsgType>,
+}
+
+impl safewindows::TWindowProc for SWindowProc {
+    fn windowproc(&mut self, _window: &mut safewindows::SWindow, msg: safewindows::EMsgType) -> () {
+        self.pendingmsgs.push_back(msg);
+    }
+}
+
+

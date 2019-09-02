@@ -378,7 +378,7 @@ pub enum EMsgType {
     Invalid,
     KeyDown { key: EKey },
     Paint,
-    Size { width: i32, height: i32 },
+    Size,
 }
 
 pub fn msgtype( msg: UINT, wparam: WPARAM, _lparam: LPARAM, ) -> EMsgType {
@@ -387,6 +387,7 @@ pub fn msgtype( msg: UINT, wparam: WPARAM, _lparam: LPARAM, ) -> EMsgType {
             key: translatewmkey(wparam),
         },
         winapi::um::winuser::WM_PAINT => EMsgType::Paint,
+        winapi::um::winuser::WM_SIZE => EMsgType::Size,
         _ => EMsgType::Invalid,
     }
 }

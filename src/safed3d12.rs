@@ -340,9 +340,7 @@ pub struct SResource {
 }
 
 pub struct SSwapChain {
-    buffercount: u32,
     swapchain: ComPtr<IDXGISwapChain4>,
-    pub backbuffers: Vec<SResource>,
 }
 
 impl SSwapChain {
@@ -354,6 +352,26 @@ impl SSwapChain {
 
     pub fn currentbackbufferindex(&self) -> u32 {
         unsafe { self.swapchain.GetCurrentBackBufferIndex() }
+    }
+
+    pub fn getbuffer(&self, idx: u32) -> Result<SResource, &'static str> {
+        let mut rawbuf: *mut ID3D12Resource = ptr::null_mut();
+        let hn = unsafe {
+            self.swapchain.GetBuffer(
+                idx,
+                &ID3D12Resource::uuidof(),
+                &mut rawbuf as *mut *mut _ as *mut *mut c_void,
+            )
+        };
+
+        returnerrifwinerror!(
+            hn,
+            "Couldn't get ID3D12Resource for backbuffer from swapchain."
+        );
+
+        Ok(SResource {
+            resource: unsafe { ComPtr::from_raw(rawbuf) },
+        })
     }
 
     pub fn getdesc(&self) -> Result<SSwapChainDesc, &'static str> {
@@ -384,7 +402,8 @@ pub struct SSwapChainDesc {
 }
 
 impl SFactory {
-    pub fn createswapchain(
+
+    pub fn createswapchainforwindow(
         &self,
         window: &safewindows::SWindow,
         commandqueue: &mut SCommandQueue,
@@ -425,33 +444,11 @@ impl SFactory {
         returnerrifwinerror!(hr, "Failed to create swap chain");
 
         let swapchain = unsafe { ComPtr::from_raw(rawswapchain) };
+
         match swapchain.cast::<IDXGISwapChain4>() {
             Ok(sc4) => {
-                let mut backbuffers = Vec::with_capacity(2);
-                for bbidx in 0..buffercount {
-                    let mut rawbuf: *mut ID3D12Resource = ptr::null_mut();
-                    let hn = unsafe {
-                        sc4.GetBuffer(
-                            bbidx,
-                            &ID3D12Resource::uuidof(),
-                            &mut rawbuf as *mut *mut _ as *mut *mut c_void,
-                        )
-                    };
-
-                    returnerrifwinerror!(
-                        hn,
-                        "Couldn't get ID3D12Resource for backbuffer from swapchain."
-                    );
-
-                    backbuffers.push(SResource {
-                        resource: unsafe { ComPtr::from_raw(rawbuf) },
-                    });
-                }
-
                 Ok(SSwapChain {
-                    buffercount: buffercount,
                     swapchain: sc4,
-                    backbuffers: backbuffers,
                 })
             }
             _ => Err("Swap chain could not be case to SwapChain4"),

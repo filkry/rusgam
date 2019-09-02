@@ -67,6 +67,14 @@ impl SFactory {
 
         Err("Could not find valid adapter")
     }
+
+    pub fn createswapchain(&self, window: &safewindows::SWindow, commandqueue: &mut safed3d12::SCommandQueue, width: u32, height: u32) -> Result<SSwapChain, &'static str> {
+        Ok(SSwapChain{
+            sc: self.f.createswapchainforwindow(window, commandqueue, width, height)?,
+            buffercount: 2,
+            backbuffers: Vec::with_capacity(2),
+        })
+    }
 }
 
 pub struct SAdapter {
@@ -201,17 +209,20 @@ impl SDevice {
 
     pub fn initrendertargetviews(
         &self,
-        swap: &safed3d12::SSwapChain,
+        swap: &mut SSwapChain,
         heap: &SDescriptorHeap,
     ) -> Result<(), &'static str> {
+
+        assert!(swap.backbuffers.is_empty());
+
         match heap.raw().type_ {
             safed3d12::EDescriptorHeapType::RenderTarget => {
-                let mut rtidx = 0;
 
-                for backbuf in &swap.backbuffers {
-                    let curdescriptorhandle = heap.cpuhandle(rtidx)?;
-                    self.d.createrendertargetview(backbuf, &curdescriptorhandle);
-                    rtidx += 1;
+                for backbuffidx in 0..2 {
+                    swap.backbuffers.push(swap.raw().getbuffer(backbuffidx)?);
+
+                    let curdescriptorhandle = heap.cpuhandle(backbuffidx)?;
+                    self.d.createrendertargetview(&swap.backbuffers[backbuffidx as usize], &curdescriptorhandle);
                 }
 
                 Ok(())
@@ -288,5 +299,17 @@ impl<'device> SDescriptorHeap<'device> {
             Err("Descripter handle index past number of descriptors.")
         }
 
+    }
+}
+
+pub struct SSwapChain {
+    sc: safed3d12::SSwapChain,
+    pub buffercount: u32,
+    pub backbuffers: Vec<safed3d12::SResource>,
+}
+
+impl SSwapChain {
+    pub fn raw(&self) -> &safed3d12::SSwapChain {
+        &self.sc
     }
 }

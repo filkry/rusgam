@@ -291,6 +291,30 @@ impl SWindow {
             self.clearwindowproc();
         }
     }
+
+    pub fn getclientrect(&self) -> Result<SRect, &'static str> {
+        unsafe {
+            let mut rect : RECT = mem::zeroed();
+            let res = winapi::um::winuser::GetClientRect(self.window, &mut rect as LPRECT);
+            if res == 0 {
+                return Err("Could not get client rect.");
+            }
+
+            Ok(SRect{
+                left: rect.left,
+                right: rect.right,
+                top: rect.top,
+                bottom: rect.bottom,
+            })
+        }
+    }
+}
+
+pub struct SRect {
+    pub left: i32,
+    pub right: i32,
+    pub top: i32,
+    pub bottom: i32,
 }
 
 pub trait TWindowProc {

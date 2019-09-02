@@ -14,7 +14,7 @@ fn resize(
     curwidth: &mut u32,
     curheight: &mut u32,
     commandqueue: &mut rustyd3d12::SCommandQueue,
-    swapchain: &mut safed3d12::SSwapChain,
+    swapchain: &mut rustyd3d12::SSwapChain,
     device: &rustyd3d12::SDevice,
     rendertargetheap: &rustyd3d12::SDescriptorHeap,
     framefencevalues: &mut [u64],
@@ -30,10 +30,10 @@ fn resize(
         framefencevalues[0] = framefencevalues[*currbuffer as usize];
         framefencevalues[1] = framefencevalues[*currbuffer as usize];
 
-        let desc = swapchain.getdesc()?;
-        swapchain.resizebuffers(2, newwidth, newheight, &desc)?;
+        let desc = swapchain.raw().getdesc()?;
+        swapchain.raw().resizebuffers(2, newwidth, newheight, &desc)?;
 
-        *currbuffer = swapchain.currentbackbufferindex();
+        *currbuffer = swapchain.raw().currentbackbufferindex();
         device.initrendertargetviews(swapchain, rendertargetheap)?;
 
         *curwidth = newwidth;
@@ -61,17 +61,17 @@ fn main_d3d12() {
     let mut device = adapter.createdevice().unwrap();
 
     let mut commandqueue = rustyd3d12::SCommandQueue::createcommandqueue(&winapi.rawwinapi(), &device).unwrap();
-    let mut swapchain = d3d12.raw()
+    let mut swapchain = d3d12
         .createswapchain(&window.raw(), commandqueue.rawqueue(), curwidth, curheight)
         .unwrap();
-    let mut currbuffer: u32 = swapchain.currentbackbufferindex();
+    let mut currbuffer: u32 = swapchain.raw().currentbackbufferindex();
 
     let rendertargetheap = device
         .createdescriptorheap(safed3d12::EDescriptorHeapType::RenderTarget, 10)
         .unwrap();
 
     device
-        .initrendertargetviews(&swapchain, &rendertargetheap)
+        .initrendertargetviews(&mut swapchain, &rendertargetheap)
         .unwrap();
     let commandallocators = [
         device.raw()
@@ -141,13 +141,13 @@ fn main_d3d12() {
                 commandqueue.rawqueue().executecommandlist(&mut commandlist);
 
                 let syncinterval = 1;
-                swapchain.present(syncinterval, 0).unwrap();
+                swapchain.raw().present(syncinterval, 0).unwrap();
 
                 framefencevalues[currbuffer as usize] = commandqueue.pushsignal().unwrap();
             }
         }
 
-        currbuffer = swapchain.currentbackbufferindex();
+        currbuffer = swapchain.raw().currentbackbufferindex();
 
         lastframetime = curframetime;
         framecount += 1;
@@ -175,7 +175,11 @@ fn main_d3d12() {
                         },
                         safewindows::EMsgType::Size => {
                             println!("Size");
-                            resize(800, 600, &mut curwidth, &mut curheight,
+                            let rect : safewindows::SRect = window.raw().getclientrect().unwrap();
+                            let newwidth = rect.right - rect.left;
+                            let newheight = rect.bottom - rect.top;
+
+                            resize(newwidth as u32, newheight as u32, &mut curwidth, &mut curheight,
                                 &mut commandqueue, &mut swapchain, &device,
                                 &rendertargetheap, &mut framefencevalues[..],
                                 &mut currbuffer).unwrap();

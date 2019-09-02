@@ -23,7 +23,7 @@ impl SFactory {
         let mut bestadapter = 0;
 
         for adapteridx in 0..10 {
-            let mut adapter1opt = self.f.enumadapters(adapteridx);
+            let adapter1opt = self.f.enumadapters(adapteridx);
             if let None = adapter1opt {
                 continue;
             }
@@ -118,13 +118,13 @@ impl SAdapter {
             }
         }
 
-        Ok(safed3d12::SDevice { device: device })
+        Ok(device)
     }
 }
 
 pub struct SCommandQueue<'device> {
     q: safed3d12::SCommandQueue<'device>,
-    fence: safed3d12::SFence<'device>,
+    fence: SFence<'device>,
     fenceevent: safewindows::SEventHandle,
     nextfencevalue: u64,
 }
@@ -132,12 +132,12 @@ pub struct SCommandQueue<'device> {
 impl<'device> SCommandQueue<'device> {
     pub fn createcommandqueue(
         winapi: &safewindows::SWinAPI,
-        device: &mut safed3d12::SDevice,
+        device: &'device SDevice,
     ) -> Result<SCommandQueue<'device>, &'static str> {
-        let qresult = device
+        let qresult = device.raw()
             .createcommandqueue(safed3d12::ECommandListType::Direct)
             .unwrap();
-        Ok(SCommandQueue {
+        Ok(SCommandQueue{
             q: qresult,
             fence: device.createfence().unwrap(),
             fenceevent: winapi.createeventhandle().unwrap(),
@@ -147,7 +147,7 @@ impl<'device> SCommandQueue<'device> {
 
     pub fn pushsignal(&mut self) -> Result<u64, &'static str> {
         self.nextfencevalue += 1;
-        self.q.pushsignal(&self.fence, self.nextfencevalue)
+        self.q.signal(&self.fence.raw(), self.nextfencevalue)
     }
 
     pub fn waitforfencevalue(&self, val: u64) {
@@ -162,7 +162,7 @@ impl<'device> SCommandQueue<'device> {
         Ok(())
     }
 
-    pub fn rawqueue(&mut self) -> &mut safed3d12::SCommandQueue {
+    pub fn rawqueue(&mut self) -> &mut safed3d12::SCommandQueue<'device> {
         &mut self.q
     }
 }
@@ -193,25 +193,16 @@ impl SDevice {
 
     pub fn initrendertargetviews(
         &self,
-        swap: &SSwapChain,
+        swap: &safed3d12::SSwapChain,
         heap: &SDescriptorHeap,
     ) -> Result<(), &'static str> {
-        match heap.type_ {
-            EDescriptorHeapType::RenderTarget => {
-                let mut curdescriptorhandle = heap.cpuhandle(0);
+        match heap.raw().type_ {
+            safed3d12::EDescriptorHeapType::RenderTarget => {
+                let mut rtidx = 0;
 
                 for backbuf in &swap.backbuffers {
-                    unsafe {
-                        self.device.CreateRenderTargetView(
-                            backbuf.resource.as_raw(),
-                            ptr::null(),
-                            curdescriptorhandle.handle,
-                        );
-                    };
-
-                    curdescriptorhandle.offset(1);
-                    //curdescriptorhandle.ptr += heap.descriptorsize as usize;
-                    //curdescriptorhandle.Offset(descriptorsize);
+                    let curdescriptorhandle = heap.cpuhandle(rtidx)?;
+                    self.d.createrendertargetview(backbuf, &curdescriptorhandle);
                 }
 
                 Ok(())
@@ -219,24 +210,73 @@ impl SDevice {
             _ => Err("Tried to initialize render target views on non-RTV descriptor heap."),
         }
     }
+
+    pub fn createfence(&mut self) -> Result<SFence, &'static str> {
+        Ok(SFence{
+            f: self.d.createfence()?,
+        })
+    }
+
+    pub fn createdescriptorheap(
+        &self,
+        type_: safed3d12::EDescriptorHeapType,
+        numdescriptors: u32,
+    ) -> Result<SDescriptorHeap, &'static str> {
+        let raw = self.d.createdescriptorheap(type_, numdescriptors)?;
+        Ok(SDescriptorHeap{
+            dh: raw,
+            numdescriptors: numdescriptors,
+            descriptorsize: self.d.getdescriptorhandleincrementsize(type_),
+            cpudescriptorhandleforstart: raw.getcpudescriptorhandleforheapstart(),
+        })
+    }
 }
 
-/*
-impl SFence {
-    #[allow(unused_variables)]
+pub struct SFence<'device> {
+    f: safed3d12::SFence<'device>,
+}
+
+impl<'device> SFence<'device> {
+    pub fn raw(&self) -> &safed3d12::SFence {
+        &self.f
+    }
+
     pub fn waitforvalue(
         &self,
         val: u64,
         event: &safewindows::SEventHandle,
         duration: u64,
     ) -> Result<(), &'static str> {
-        if unsafe { self.fence.GetCompletedValue() } < val {
-            let hn = unsafe { self.fence.SetEventOnCompletion(val, event.raw()) };
-            returnerrifwinerror!(hn, "Could not set fence event on completion");
-            unsafe { synchapi::WaitForSingleObject(event.raw(), duration as DWORD) };
+        if self.f.getcompletedvalue() < val {
+            self.f.seteventoncompletion(val, event)?;
+            event.waitforsingleobject(duration);
         }
 
         Ok(())
     }
 }
-*/
+
+pub struct SDescriptorHeap<'heap, 'device> {
+    dh: safed3d12::SDescriptorHeap<'device>,
+    numdescriptors: u32,
+    descriptorsize: u32,
+    cpudescriptorhandleforstart: safed3d12::SDescriptorHandle<'heap, 'device>,
+}
+
+impl<'heap, 'device> SDescriptorHeap<'heap, 'device> {
+    pub fn raw(&self) -> &safed3d12::SDescriptorHeap {
+        &self.dh
+    }
+
+    pub fn cpuhandle(&self, index: u32) -> Result<safed3d12::SDescriptorHandle, &'static str> {
+
+        if index < self.numdescriptors {
+            let offsetbytes: usize = (index * self.descriptorsize) as usize;
+            Ok(unsafe { self.cpudescriptorhandleforstart.offset(offsetbytes) })
+        }
+        else {
+            Err("Descripter handle index past number of descriptors.")
+        }
+
+    }
+}

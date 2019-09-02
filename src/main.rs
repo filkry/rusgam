@@ -73,13 +73,13 @@ fn main_d3d12() {
         d: adapter.createdevice().unwrap(),
     };
 
-    let mut commandqueue = rustyd3d12::SCommandQueue::createcommandqueue(&winapi.rawwinapi(), device.rawmut()).unwrap();
+    let mut commandqueue = rustyd3d12::SCommandQueue::createcommandqueue(&winapi.rawwinapi(), &device).unwrap();
     let swapchain = d3d12.raw()
         .createswapchain(&window.raw(), commandqueue.rawqueue(), 800, 600)
         .unwrap();
     let mut currbuffer: u32 = swapchain.currentbackbufferindex();
 
-    let rendertargetheap = device.raw()
+    let rendertargetheap = device
         .createdescriptorheap(safed3d12::EDescriptorHeapType::RenderTarget, 10)
         .unwrap();
 
@@ -124,7 +124,7 @@ fn main_d3d12() {
             {
                 // -- $$$FRK(TODO): do I want to associate these some way?
                 let backbuffer = &swapchain.backbuffers[currbuffer as usize];
-                let rendertargetdescriptor = rendertargetheap.cpuhandle(currbuffer);
+                let rendertargetdescriptor = rendertargetheap.cpuhandle(currbuffer).unwrap();
 
                 // -- transition to render target
                 let transtorendertargetbarrier = d3d12.raw().createtransitionbarrier(

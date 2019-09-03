@@ -144,6 +144,11 @@ impl SPoolHandle {
     fn valid(&self) -> bool {
         self.index != std::u16::MAX && self.generation != std::u16::MAX
     }
+
+    fn invalidate(&mut self) {
+        self.index = std::u16::MAX;
+        self.generation = std::u16::MAX;
+    }
 }
 
 impl Default for SPoolHandle {
@@ -250,6 +255,7 @@ pub struct SRefCellPool<T: Default + Clone> {
     max: u16,
     freelist: VecDeque<u16>,
     setup: bool,
+    defaultonfree: bool,
 }
 
 impl<T: Default + Clone> Default for SRefCellPool<T> {
@@ -260,6 +266,7 @@ impl<T: Default + Clone> Default for SRefCellPool<T> {
             max: 0,
             freelist: VecDeque::new(),
             setup: false,
+            defaultonfree: false,
         }
     }
 }
@@ -305,7 +312,9 @@ impl<T: Default + Clone> SRefCellPool<T> {
         if handle.valid() {
             let idx = handle.index as usize;
             if self.generations[idx] == handle.generation {
-                *self.buffer[idx].borrow_mut() = Default::default();
+                if self.defaultonfree {
+                    *self.buffer[idx].borrow_mut() = Default::default();
+                }
                 self.generations[idx] += 1;
                 self.freelist.push_back(handle.index);
             }

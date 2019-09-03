@@ -2,6 +2,7 @@
 
 use safed3d12;
 use safewindows;
+use collections::{SPoolHandle, SRefCellPool};
 
 // -- $$$FRK(TODO): all these imports should not exist
 use std::ptr;
@@ -144,6 +145,16 @@ impl SAdapter {
     }
 }
 
+pub struct SActiveCommandAllocator {
+    allocator: SPoolHandle,
+    reusefencevalue: u64,
+}
+
+pub struct SCommandList {
+    allocator: SPoolHandle,
+    list: SPoolHandle,
+}
+
 pub struct SCommandQueue<'device> {
     q: safed3d12::SCommandQueue<'device>,
     fence: SFence<'device>,
@@ -165,6 +176,14 @@ impl<'device> SCommandQueue<'device> {
             fenceevent: winapi.createeventhandle().unwrap(),
             nextfencevalue: 0,
         })
+    }
+
+    pub fn getcommandlist(&mut self) -> Result<SPoolHandle, &'static str> {
+
+    }
+
+    pub fn executecommandlist(&mut self, list: SPoolHandle) {
+
     }
 
     pub fn pushsignal(&mut self) -> Result<u64, &'static str> {

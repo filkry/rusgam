@@ -155,7 +155,7 @@ impl Default for SPoolHandle {
     }
 }
 
-pub struct SPool<T: Default + Copy> {
+pub struct SPool<T: Default + Clone> {
     buffer: Vec<T>,
     generations: Vec<u16>,
     max: u16,
@@ -163,7 +163,7 @@ pub struct SPool<T: Default + Copy> {
     setup: bool,
 }
 
-impl<T: Default + Copy> Default for SPool<T> {
+impl<T: Default + Clone> Default for SPool<T> {
     fn default() -> Self {
         SPool {
             buffer: Vec::new(),
@@ -175,7 +175,7 @@ impl<T: Default + Copy> Default for SPool<T> {
     }
 }
 
-impl<T: Default + Copy> SPool<T> {
+impl<T: Default + Clone> SPool<T> {
     pub fn setup(&mut self, max: u16) {
         assert_eq!(self.setup, false);
 
@@ -202,7 +202,7 @@ impl<T: Default + Copy> SPool<T> {
         match self.freelist.pop_front() {
             Some(newidx) => {
                 let idx = newidx as usize;
-                self.buffer[idx] = *val;
+                self.buffer[idx] = val.clone();
                 Ok(SPoolHandle{
                     index: newidx,
                     generation: self.generations[idx]
@@ -244,7 +244,7 @@ impl<T: Default + Copy> SPool<T> {
     }
 }
 
-pub struct SRefCellPool<T: Default + Copy> {
+pub struct SRefCellPool<T: Default + Clone> {
     buffer: Vec<RefCell<T>>,
     generations: Vec<u16>,
     max: u16,
@@ -252,7 +252,7 @@ pub struct SRefCellPool<T: Default + Copy> {
     setup: bool,
 }
 
-impl<T: Default + Copy> Default for SRefCellPool<T> {
+impl<T: Default + Clone> Default for SRefCellPool<T> {
     fn default() -> Self {
         Self {
             buffer: Vec::new(),
@@ -264,7 +264,7 @@ impl<T: Default + Copy> Default for SRefCellPool<T> {
     }
 }
 
-impl<T: Default + Copy> SRefCellPool<T> {
+impl<T: Default + Clone> SRefCellPool<T> {
     pub fn setup(&mut self, max: u16) {
         assert_eq!(self.setup, false);
 
@@ -291,7 +291,7 @@ impl<T: Default + Copy> SRefCellPool<T> {
         match self.freelist.pop_front() {
             Some(newidx) => {
                 let idx = newidx as usize;
-                *self.buffer[idx].borrow_mut() = *val;
+                *self.buffer[idx].borrow_mut() = val.clone();
                 Ok(SPoolHandle{
                     index: newidx,
                     generation: self.generations[idx]

@@ -235,17 +235,18 @@ impl<'device> SCommandQueue<'device> {
 
         let commandlisthandle = self.commandlistpool.push()?;
         let commandlist = self.commandlistpool.getmut(commandlisthandle)?;
-        commandlist.list.reset(commandallocator);
+        commandlist.list.reset(commandallocator)?;
         commandlist.allocator = commandallocatorhandle;
 
         Ok(commandlisthandle)
     }
 
     pub fn executecommandlist(&mut self, list: SPoolHandle) -> Result<(), &'static str> {
+        #[allow(unused_assignments)]
         let mut allocator : SPoolHandle = Default::default();
         {
             let rawlist = self.commandlistpool.getmut(list)?;
-            self.rawqueue().executecommandlist(&mut rawlist.list);
+            self.q.executecommandlist(&mut rawlist.list);
 
             assert!(rawlist.allocator.valid());
             allocator = rawlist.allocator;

@@ -1,7 +1,9 @@
+#![allow(dead_code)]
+
 use std::alloc::*;
 use std::ops::{Index, IndexMut};
+use std::collections::VecDeque;
 
-#[allow(dead_code)]
 pub struct STypedBuffer<T: Copy> {
     // -- $$$FRK(TODO): support allocator other than system heap
     // -- $$$FRK(TODO): while I'm NOT supporting different allocators, is this easier as a Box-d Array?
@@ -11,7 +13,6 @@ pub struct STypedBuffer<T: Copy> {
     buffer: *mut T,
 }
 
-#[allow(dead_code)]
 impl<T: Copy> STypedBuffer<T> {
     fn create(count: u32) -> STypedBuffer<T> {
         STypedBuffer::<T> {
@@ -73,7 +74,6 @@ impl<T: Copy> Drop for STypedBuffer<T> {
     }
 }
 
-#[allow(dead_code)]
 pub struct SFixedQueue<T: Copy> {
     nextpushidx: u32,
     nextpopidx: u32,
@@ -81,7 +81,6 @@ pub struct SFixedQueue<T: Copy> {
     buffer: STypedBuffer<T>,
 }
 
-#[allow(dead_code)]
 impl<T: Copy> SFixedQueue<T> {
     pub fn create(max: u32) -> SFixedQueue<T> {
         SFixedQueue::<T> {
@@ -130,6 +129,116 @@ impl<T: Copy> SFixedQueue<T> {
             Some(result)
         } else {
             None
+        }
+    }
+}
+
+pub struct SPool<T: Default + Copy> {
+    buffer: Vec<T>,
+    generations: Vec<u16>,
+    max: u16,
+    freelist: VecDeque<u16>,
+    setup: bool,
+}
+
+impl<T: Default + Copy> Default for SPool<T> {
+    fn default() -> Self {
+        SPool {
+            buffer: Vec::new(),
+            generations: Vec::new(),
+            max: 0,
+            freelist: VecDeque::new(),
+            setup: false,
+        }
+    }
+}
+
+#[derive(Copy, Clone)]
+pub struct SPoolHandle {
+    index: u16,
+    generation: u16,
+}
+
+impl SPoolHandle {
+    fn valid(&self) -> bool {
+        self.index != std::u16::MAX && self.generation != std::u16::MAX
+    }
+}
+
+impl Default for SPoolHandle {
+    fn default() -> Self {
+        SPoolHandle {
+            index: std::u16::MAX,
+            generation: std::u16::MAX,
+        }
+    }
+}
+
+impl<T: Default + Copy> SPool<T> {
+    pub fn setup(&mut self, max: u16) {
+        assert_eq!(self.setup, false);
+
+        self.buffer.resize(max as usize, Default::default());
+        self.generations.resize(max as usize, 0);
+        self.max = max;
+
+        for i in 0..max {
+            self.freelist.push_back(i);
+        }
+
+        self.setup = true;
+    }
+
+    pub fn full(&self) -> bool {
+        !self.freelist.is_empty()
+    }
+
+    pub fn pushval(&mut self, val: T) -> Result<SPoolHandle, &'static str> {
+        self.push(&val)
+    }
+
+    pub fn push(&mut self, val: &T) -> Result<SPoolHandle, &'static str> {
+        match self.freelist.pop_front() {
+            Some(newidx) => {
+                let idx = newidx as usize;
+                self.buffer[idx] = *val;
+                Ok(SPoolHandle{
+                    index: newidx,
+                    generation: self.generations[idx]
+                })
+            }
+            None => Err("Cannot push to full SPool.")
+        }
+    }
+
+    pub fn pop(&mut self, handle: SPoolHandle) {
+        if handle.valid() {
+            let idx = handle.index as usize;
+            if self.generations[idx] == handle.generation {
+                self.buffer[idx] = Default::default();
+                self.generations[idx] += 1;
+                self.freelist.push_back(handle.index);
+            }
+        }
+    }
+
+    pub fn get(&self, handle: SPoolHandle) -> Result<&T, &'static str> {
+        let idx = handle.index as usize;
+        if handle.valid() && handle.index < self.max && handle.generation == self.generations[idx] {
+            Ok(&self.buffer[idx])
+        }
+        else {
+            Err("Invalid, out of bounds, or stale handle.")
+        }
+    }
+
+    pub fn getmut(&mut self, handle: SPoolHandle) -> Result<&mut T, &'static str> {
+        let idx = handle.index as usize;
+        if handle.valid() && handle.index < self.max && handle.generation == self.generations[idx] {
+            Ok(&mut self.buffer[idx])
+        }
+        else {
+            Err("Invalid, out of bounds, or stale handle.")
         }
     }
 }
@@ -184,5 +293,23 @@ mod tests {
         assert_eq!(5, q.pop().unwrap());
 
         assert!(q.empty());
+    }
+
+    #[test]
+    fn test_basicpool_nonmut() {
+        let mut p : SPool<u64> = Default::default();
+        p.setup(10);
+
+        let ahandle = p.pushval(234).unwrap();
+        let bhandle = p.pushval(023913).unwrap();
+
+        assert_eq!(*p.get(bhandle).unwrap(), 023913);
+        assert_eq!(*p.get(ahandle).unwrap(), 234);
+
+        *p.getmut(ahandle).unwrap() = 432;
+        *p.getmut(bhandle).unwrap() = 9293231;
+
+        assert_eq!(*p.get(bhandle).unwrap(), 9293231);
+        assert_eq!(*p.get(ahandle).unwrap(), 432);
     }
 }

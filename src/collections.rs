@@ -3,7 +3,7 @@
 use std::alloc::*;
 use std::ops::{Index, IndexMut};
 use std::collections::VecDeque;
-use std::cell::{RefCell, Ref, RefMut};
+//use std::cell::{RefCell, Ref, RefMut};
 
 pub struct STypedBuffer<T: Copy> {
     // -- $$$FRK(TODO): support allocator other than system heap
@@ -141,11 +141,11 @@ pub struct SPoolHandle {
 }
 
 impl SPoolHandle {
-    fn valid(&self) -> bool {
+    pub fn valid(&self) -> bool {
         self.index != std::u16::MAX && self.generation != std::u16::MAX
     }
 
-    fn invalidate(&mut self) {
+    pub fn invalidate(&mut self) {
         self.index = std::u16::MAX;
         self.generation = std::u16::MAX;
     }
@@ -160,7 +160,7 @@ impl Default for SPoolHandle {
     }
 }
 
-pub struct SPool<T: Default + Clone> {
+pub struct SPool<T: Clone> {
     buffer: Vec<T>,
     generations: Vec<u16>,
     max: u16,
@@ -168,7 +168,7 @@ pub struct SPool<T: Default + Clone> {
     setup: bool,
 }
 
-impl<T: Default + Clone> Default for SPool<T> {
+impl<T: Clone> Default for SPool<T> {
     fn default() -> Self {
         SPool {
             buffer: Vec::new(),
@@ -180,11 +180,13 @@ impl<T: Default + Clone> Default for SPool<T> {
     }
 }
 
-impl<T: Default + Clone> SPool<T> {
-    pub fn setup(&mut self, max: u16) {
+impl<T: Clone> SPool<T> {
+    pub fn setup<F>(&mut self, max: u16, f: F)
+        where F: FnMut() -> T
+    {
         assert_eq!(self.setup, false);
 
-        self.buffer.resize(max as usize, Default::default());
+        self.buffer.resize_with(max as usize, f);
         self.generations.resize(max as usize, 0);
         self.max = max;
 
@@ -200,14 +202,19 @@ impl<T: Default + Clone> SPool<T> {
     }
 
     pub fn pushval(&mut self, val: T) -> Result<SPoolHandle, &'static str> {
-        self.push(&val)
+        self.pushref(&val)
     }
 
-    pub fn push(&mut self, val: &T) -> Result<SPoolHandle, &'static str> {
+    pub fn pushref(&mut self, val: &T) -> Result<SPoolHandle, &'static str> {
+        let handle = self.push()?;
+        *self.getmut(handle)? = val.clone();
+        Ok(handle)
+    }
+
+    pub fn push(&mut self) -> Result<SPoolHandle, &'static str> {
         match self.freelist.pop_front() {
             Some(newidx) => {
                 let idx = newidx as usize;
-                self.buffer[idx] = val.clone();
                 Ok(SPoolHandle{
                     index: newidx,
                     generation: self.generations[idx]
@@ -221,7 +228,6 @@ impl<T: Default + Clone> SPool<T> {
         if handle.valid() {
             let idx = handle.index as usize;
             if self.generations[idx] == handle.generation {
-                self.buffer[idx] = Default::default();
                 self.generations[idx] += 1;
                 self.freelist.push_back(handle.index);
             }
@@ -247,8 +253,39 @@ impl<T: Default + Clone> SPool<T> {
             Err("Invalid, out of bounds, or stale handle.")
         }
     }
+
+    pub fn getbyindex(&mut self, index: u16) -> Result<&T, &'static str> {
+        if index < self.max {
+            Ok(&self.buffer[index as usize])
+        }
+        else {
+            Err("Out of bounds index")
+        }
+    }
+
+    pub fn getmutbyindex(&mut self, index: u16) -> Result<&mut T, &'static str> {
+        if index < self.max {
+            Ok(&mut self.buffer[index as usize])
+        }
+        else {
+            Err("Out of bounds index")
+        }
+    }
+
+    pub fn handleforindex(&self, index: u16) -> Result<SPoolHandle, &'static str> {
+        if index < self.max {
+            Ok(SPoolHandle{
+                index: index,
+                generation: self.generations[index as usize],
+            })
+        }
+        else {
+            Err("Out of bounds index")
+        }
+    }
 }
 
+/*
 pub struct SRefCellPool<T: Default + Clone> {
     buffer: Vec<RefCell<T>>,
     generations: Vec<u16>,
@@ -341,7 +378,7 @@ impl<T: Default + Clone> SRefCellPool<T> {
         }
     }
 }
-
+*/
 
 #[cfg(test)]
 mod tests {
@@ -413,6 +450,7 @@ mod tests {
         assert_eq!(*p.get(ahandle).unwrap(), 432);
     }
 
+    /*
     #[test]
     fn test_refcellpool() {
         let mut p : SRefCellPool<u64> = Default::default();
@@ -436,4 +474,5 @@ mod tests {
         *a = 34;
         *b = 12;
     }
+    */
 }

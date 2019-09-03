@@ -2,7 +2,7 @@
 
 use safed3d12;
 use safewindows;
-use collections::{SPoolHandle, SRefCellPool};
+use collections::{SPoolHandle, SPool};
 
 // -- $$$FRK(TODO): all these imports should not exist
 use std::ptr;
@@ -150,9 +150,10 @@ pub struct SActiveCommandAllocator {
     reusefencevalue: u64,
 }
 
-pub struct SCommandList {
+#[derive(Clone)]
+pub struct SCommandList<'device> {
     allocator: SPoolHandle,
-    list: SPoolHandle,
+    list: safed3d12::SCommandList<'device>,
 }
 
 pub struct SCommandQueue<'device> {
@@ -160,12 +161,18 @@ pub struct SCommandQueue<'device> {
     fence: SFence<'device>,
     fenceevent: safewindows::SEventHandle,
     nextfencevalue: u64,
+    commandlisttype: safed3d12::ECommandListType,
+
+    commandallocatorpool: SPool<safed3d12::SCommandAllocator<'device>>,
+    activeallocators: Vec<SActiveCommandAllocator>,
+    commandlistpool: SPool<SCommandList<'device>>,
 }
 
 impl<'device> SCommandQueue<'device> {
     pub fn createcommandqueue(
         winapi: &safewindows::SWinAPI,
         device: &'device SDevice,
+        commandlisttype: safed3d12::ECommandListType,
     ) -> Result<SCommandQueue<'device>, &'static str> {
         let qresult = device
             .raw()
@@ -175,15 +182,84 @@ impl<'device> SCommandQueue<'device> {
             fence: device.createfence().unwrap(),
             fenceevent: winapi.createeventhandle().unwrap(),
             nextfencevalue: 0,
+            commandlisttype: commandlisttype,
+
+            commandallocatorpool: Default::default(),
+            activeallocators: Vec::new(),
+            commandlistpool: Default::default(),
         })
     }
 
-    pub fn getcommandlist(&mut self) -> Result<SPoolHandle, &'static str> {
+    pub fn setup(&'device mut self, device: &'device SDevice, maxallocators: u16, maxcommandlists: u16) -> Result<(), &'static str> {
+        let commandlisttype = self.commandlisttype;
+        self.commandallocatorpool.setup(maxallocators, || {
+            device.raw().createcommandallocator(commandlisttype).unwrap() // $$$FRK(TODO): need to find a way to not crash here
+        });
+        let firstallocatorhandle = self.commandallocatorpool.handleforindex(0)?;
+        let firstallocator = self.commandallocatorpool.getbyindex(0)?;
 
+        self.activeallocators.reserve(maxallocators as usize);
+        self.commandlistpool.setup(maxcommandlists, || {
+            SCommandList{
+                allocator: firstallocatorhandle,
+                list: device.raw().createcommandlist(firstallocator).unwrap(),
+            }
+        });
+
+        Ok(())
     }
 
-    pub fn executecommandlist(&mut self, list: SPoolHandle) {
+    fn freeallocators(&mut self) {
+        let completedvalue = self.fence.raw().getcompletedvalue();
+        for alloc in &self.activeallocators {
+            if alloc.reusefencevalue <= completedvalue {
+                self.commandallocatorpool.pop(alloc.allocator);
+            }
+        }
 
+        self.activeallocators.retain(|alloc| {
+            alloc.reusefencevalue > completedvalue
+        });
+    }
+
+    pub fn getunusedcommandlisthandle(&mut self) -> Result<SPoolHandle, &'static str> {
+        self.freeallocators();
+
+        if self.commandlistpool.full() || self.commandallocatorpool.full() {
+            return Err("no available command list or allocator");
+        }
+
+        let commandallocatorhandle = self.commandallocatorpool.push()?;
+        let commandallocator = self.commandallocatorpool.getmut(commandallocatorhandle)?;
+        commandallocator.reset();
+
+        let commandlisthandle = self.commandlistpool.push()?;
+        let commandlist = self.commandlistpool.getmut(commandlisthandle)?;
+        commandlist.list.reset(commandallocator);
+        commandlist.allocator = commandallocatorhandle;
+
+        Ok(commandlisthandle)
+    }
+
+    pub fn executecommandlist(&mut self, list: SPoolHandle) -> Result<(), &'static str> {
+        let mut allocator : SPoolHandle = Default::default();
+        {
+            let rawlist = self.commandlistpool.getmut(list)?;
+            self.rawqueue().executecommandlist(&mut rawlist.list);
+
+            assert!(rawlist.allocator.valid());
+            allocator = rawlist.allocator;
+        }
+        self.commandlistpool.pop(list);
+
+        let fenceval = self.pushsignal()?;
+
+        self.activeallocators.push(SActiveCommandAllocator{
+            allocator: allocator,
+            reusefencevalue: fenceval,
+        });
+
+        Ok(())
     }
 
     pub fn pushsignal(&mut self) -> Result<u64, &'static str> {

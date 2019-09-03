@@ -63,7 +63,7 @@ fn main_d3d12() {
     let mut device = adapter.createdevice().unwrap();
 
     let mut commandqueue =
-        rustyd3d12::SCommandQueue::createcommandqueue(&winapi.rawwinapi(), &device).unwrap();
+        rustyd3d12::SCommandQueue::createcommandqueue(&winapi.rawwinapi(), &device, safed3d12::ECommandListType::Direct).unwrap();
     let mut swapchain = d3d12
         .createswapchain(&window.raw(), commandqueue.rawqueue(), curwidth, curheight)
         .unwrap();

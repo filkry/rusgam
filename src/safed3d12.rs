@@ -276,7 +276,9 @@ impl SAdapter4 {
     }
 }
 
+#[derive(Copy, Clone)]
 pub enum ECommandListType {
+    Invalid,
     Direct,
     Bundle,
     Compute,
@@ -288,6 +290,7 @@ pub enum ECommandListType {
 impl ECommandListType {
     fn d3dtype(&self) -> D3D12_COMMAND_LIST_TYPE {
         match self {
+            ECommandListType::Invalid => D3D12_COMMAND_LIST_TYPE_DIRECT, // $$$FRK(TODO): obviously wrong, this needs to return an option I guess
             ECommandListType::Direct => D3D12_COMMAND_LIST_TYPE_DIRECT,
             ECommandListType::Bundle => D3D12_COMMAND_LIST_TYPE_BUNDLE,
             ECommandListType::Compute => D3D12_COMMAND_LIST_TYPE_COMPUTE,
@@ -564,6 +567,7 @@ impl SDevice {
     }
 }
 
+#[derive(Clone)]
 pub struct SCommandAllocator<'device> {
     type_: ECommandListType,
     commandallocator: ComPtr<ID3D12CommandAllocator>,
@@ -576,6 +580,7 @@ impl<'device> SCommandAllocator<'device> {
     }
 }
 
+#[derive(Clone)]
 pub struct SCommandList<'commandallocator> {
     commandlist: ComPtr<ID3D12GraphicsCommandList>,
     phantom: PhantomData<&'commandallocator SCommandAllocator<'commandallocator>>,

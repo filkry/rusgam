@@ -3,6 +3,7 @@
 use std::alloc::*;
 use std::ops::{Index, IndexMut};
 use std::collections::VecDeque;
+use std::cell::{RefCell, Ref, RefMut};
 
 pub struct STypedBuffer<T: Copy> {
     // -- $$$FRK(TODO): support allocator other than system heap
@@ -133,26 +134,6 @@ impl<T: Copy> SFixedQueue<T> {
     }
 }
 
-pub struct SPool<T: Default + Copy> {
-    buffer: Vec<T>,
-    generations: Vec<u16>,
-    max: u16,
-    freelist: VecDeque<u16>,
-    setup: bool,
-}
-
-impl<T: Default + Copy> Default for SPool<T> {
-    fn default() -> Self {
-        SPool {
-            buffer: Vec::new(),
-            generations: Vec::new(),
-            max: 0,
-            freelist: VecDeque::new(),
-            setup: false,
-        }
-    }
-}
-
 #[derive(Copy, Clone)]
 pub struct SPoolHandle {
     index: u16,
@@ -170,6 +151,26 @@ impl Default for SPoolHandle {
         SPoolHandle {
             index: std::u16::MAX,
             generation: std::u16::MAX,
+        }
+    }
+}
+
+pub struct SPool<T: Default + Copy> {
+    buffer: Vec<T>,
+    generations: Vec<u16>,
+    max: u16,
+    freelist: VecDeque<u16>,
+    setup: bool,
+}
+
+impl<T: Default + Copy> Default for SPool<T> {
+    fn default() -> Self {
+        SPool {
+            buffer: Vec::new(),
+            generations: Vec::new(),
+            max: 0,
+            freelist: VecDeque::new(),
+            setup: false,
         }
     }
 }
@@ -243,6 +244,96 @@ impl<T: Default + Copy> SPool<T> {
     }
 }
 
+pub struct SRefCellPool<T: Default + Copy> {
+    buffer: Vec<RefCell<T>>,
+    generations: Vec<u16>,
+    max: u16,
+    freelist: VecDeque<u16>,
+    setup: bool,
+}
+
+impl<T: Default + Copy> Default for SRefCellPool<T> {
+    fn default() -> Self {
+        Self {
+            buffer: Vec::new(),
+            generations: Vec::new(),
+            max: 0,
+            freelist: VecDeque::new(),
+            setup: false,
+        }
+    }
+}
+
+impl<T: Default + Copy> SRefCellPool<T> {
+    pub fn setup(&mut self, max: u16) {
+        assert_eq!(self.setup, false);
+
+        self.generations.resize(max as usize, 0);
+        self.max = max;
+
+        for i in 0..max {
+            self.buffer.push(RefCell::new(Default::default()));
+            self.freelist.push_back(i);
+        }
+
+        self.setup = true;
+    }
+
+    pub fn full(&self) -> bool {
+        !self.freelist.is_empty()
+    }
+
+    pub fn pushval(&mut self, val: T) -> Result<SPoolHandle, &'static str> {
+        self.push(&val)
+    }
+
+    pub fn push(&mut self, val: &T) -> Result<SPoolHandle, &'static str> {
+        match self.freelist.pop_front() {
+            Some(newidx) => {
+                let idx = newidx as usize;
+                *self.buffer[idx].borrow_mut() = *val;
+                Ok(SPoolHandle{
+                    index: newidx,
+                    generation: self.generations[idx]
+                })
+            }
+            None => Err("Cannot push to full SPool.")
+        }
+    }
+
+    pub fn pop(&mut self, handle: SPoolHandle) {
+        if handle.valid() {
+            let idx = handle.index as usize;
+            if self.generations[idx] == handle.generation {
+                *self.buffer[idx].borrow_mut() = Default::default();
+                self.generations[idx] += 1;
+                self.freelist.push_back(handle.index);
+            }
+        }
+    }
+
+    pub fn get(&self, handle: SPoolHandle) -> Result<Ref<T>, &'static str> {
+        let idx = handle.index as usize;
+        if handle.valid() && handle.index < self.max && handle.generation == self.generations[idx] {
+            Ok(self.buffer[idx].borrow())
+        }
+        else {
+            Err("Invalid, out of bounds, or stale handle.")
+        }
+    }
+
+    pub fn getmut(&self, handle: SPoolHandle) -> Result<RefMut<T>, &'static str> {
+        let idx = handle.index as usize;
+        if handle.valid() && handle.index < self.max && handle.generation == self.generations[idx] {
+            Ok(self.buffer[idx].borrow_mut())
+        }
+        else {
+            Err("Invalid, out of bounds, or stale handle.")
+        }
+    }
+}
+
+
 #[cfg(test)]
 mod tests {
     use super::*; // imports the names from the non-test mod scope
@@ -296,7 +387,7 @@ mod tests {
     }
 
     #[test]
-    fn test_basicpool_nonmut() {
+    fn test_pool_basic() {
         let mut p : SPool<u64> = Default::default();
         p.setup(10);
 
@@ -311,5 +402,29 @@ mod tests {
 
         assert_eq!(*p.get(bhandle).unwrap(), 9293231);
         assert_eq!(*p.get(ahandle).unwrap(), 432);
+    }
+
+    #[test]
+    fn test_refcellpool() {
+        let mut p : SRefCellPool<u64> = Default::default();
+        p.setup(10);
+
+        let ahandle = p.pushval(234).unwrap();
+        let bhandle = p.pushval(023913).unwrap();
+
+        assert_eq!(*p.get(bhandle).unwrap(), 023913);
+        assert_eq!(*p.get(ahandle).unwrap(), 234);
+
+        *p.getmut(ahandle).unwrap() = 432;
+        *p.getmut(bhandle).unwrap() = 9293231;
+
+        assert_eq!(*p.get(bhandle).unwrap(), 9293231);
+        assert_eq!(*p.get(ahandle).unwrap(), 432);
+
+        let mut a = p.getmut(ahandle).unwrap();
+        let mut b = p.getmut(bhandle).unwrap();
+
+        *a = 34;
+        *b = 12;
     }
 }

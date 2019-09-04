@@ -208,6 +208,11 @@ impl<'device> SCommandQueue<'device> {
             }
         });
 
+        for i in 0..maxcommandlists {
+            let commandlist = self.commandlistpool.getbyindex(i)?;
+            commandlist.list.close()?;
+        }
+
         Ok(())
     }
 

@@ -198,7 +198,7 @@ impl<T: Clone> SPool<T> {
     }
 
     pub fn full(&self) -> bool {
-        !self.freelist.is_empty()
+        self.freelist.is_empty()
     }
 
     pub fn pushval(&mut self, val: T) -> Result<SPoolHandle, &'static str> {

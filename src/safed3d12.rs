@@ -581,15 +581,14 @@ impl<'device> SCommandAllocator<'device> {
 }
 
 #[derive(Clone)]
-pub struct SCommandList<'commandallocator> {
+pub struct SCommandList {
     commandlist: ComPtr<ID3D12GraphicsCommandList>,
-    phantom: PhantomData<&'commandallocator SCommandAllocator<'commandallocator>>,
 }
 
-impl<'commandallocator> SCommandList<'commandallocator> {
+impl SCommandList {
     pub fn reset(
         &self,
-        commandallocator: &'commandallocator SCommandAllocator,
+        commandallocator: &SCommandAllocator,
     ) -> Result<(), &'static str> {
         let hn = unsafe {
             self.commandlist
@@ -647,7 +646,7 @@ impl SDevice {
     pub fn createcommandlist<'allocator>(
         &self,
         allocator: &'allocator SCommandAllocator,
-    ) -> Result<SCommandList<'allocator>, &'static str> {
+    ) -> Result<SCommandList, &'static str> {
         let mut rawcl: *mut ID3D12GraphicsCommandList = ptr::null_mut();
         let hn = unsafe {
             self.device.CreateCommandList(
@@ -664,7 +663,6 @@ impl SDevice {
 
         Ok(SCommandList {
             commandlist: unsafe { ComPtr::from_raw(rawcl) },
-            phantom: PhantomData,
         })
     }
 }

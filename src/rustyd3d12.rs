@@ -151,9 +151,9 @@ pub struct SActiveCommandAllocator {
 }
 
 #[derive(Clone)]
-pub struct SCommandList<'device> {
+pub struct SCommandList {
     allocator: SPoolHandle,
-    list: safed3d12::SCommandList<'device>,
+    list: safed3d12::SCommandList,
 }
 
 pub struct SCommandQueue<'device> {
@@ -165,7 +165,7 @@ pub struct SCommandQueue<'device> {
 
     commandallocatorpool: SPool<safed3d12::SCommandAllocator<'device>>,
     activeallocators: Vec<SActiveCommandAllocator>,
-    commandlistpool: SPool<SCommandList<'device>>,
+    commandlistpool: SPool<SCommandList>,
 }
 
 impl<'device> SCommandQueue<'device> {
@@ -190,15 +190,17 @@ impl<'device> SCommandQueue<'device> {
         })
     }
 
-    pub fn setup(&'device mut self, device: &'device SDevice, maxallocators: u16, maxcommandlists: u16) -> Result<(), &'static str> {
+    pub fn setup(&mut self, device: &'device SDevice, maxallocators: u16, maxcommandlists: u16) -> Result<(), &'static str> {
         let commandlisttype = self.commandlisttype;
         self.commandallocatorpool.setup(maxallocators, || {
             device.raw().createcommandallocator(commandlisttype).unwrap() // $$$FRK(TODO): need to find a way to not crash here
         });
+
+        self.activeallocators.reserve(maxallocators as usize);
+
         let firstallocatorhandle = self.commandallocatorpool.handleforindex(0)?;
         let firstallocator = self.commandallocatorpool.getbyindex(0)?;
 
-        self.activeallocators.reserve(maxallocators as usize);
         self.commandlistpool.setup(maxcommandlists, || {
             SCommandList{
                 allocator: firstallocatorhandle,
@@ -241,11 +243,16 @@ impl<'device> SCommandQueue<'device> {
         Ok(commandlisthandle)
     }
 
+    pub fn getcommandlist(&mut self, list: SPoolHandle) -> Result<&mut safed3d12::SCommandList, &'static str> {
+        Ok(&mut (self.commandlistpool.getmut(list)?).list)
+    }
+
     pub fn executecommandlist(&mut self, list: SPoolHandle) -> Result<(), &'static str> {
         #[allow(unused_assignments)]
         let mut allocator : SPoolHandle = Default::default();
         {
             let rawlist = self.commandlistpool.getmut(list)?;
+            rawlist.list.close()?;
             self.q.executecommandlist(&mut rawlist.list);
 
             assert!(rawlist.allocator.valid());

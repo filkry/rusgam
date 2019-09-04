@@ -64,6 +64,8 @@ fn main_d3d12() {
 
     let mut commandqueue =
         rustyd3d12::SCommandQueue::createcommandqueue(&winapi.rawwinapi(), &device, safed3d12::ECommandListType::Direct).unwrap();
+    commandqueue.setup(&device, 2, 1).unwrap();
+
     let mut swapchain = d3d12
         .createswapchain(&window.raw(), commandqueue.rawqueue(), curwidth, curheight)
         .unwrap();
@@ -76,21 +78,6 @@ fn main_d3d12() {
     device
         .initrendertargetviews(&mut swapchain, &rendertargetheap)
         .unwrap();
-    let commandallocators = [
-        device
-            .raw()
-            .createcommandallocator(safed3d12::ECommandListType::Direct)
-            .unwrap(),
-        device
-            .raw()
-            .createcommandallocator(safed3d12::ECommandListType::Direct)
-            .unwrap(),
-    ];
-    let mut commandlist = device
-        .raw()
-        .createcommandlist(&commandallocators[currbuffer as usize])
-        .unwrap();
-    commandlist.close().unwrap();
 
     let mut framecount: u64 = 0;
     let mut lastframetime = winapi.curtimemicroseconds();
@@ -109,12 +96,12 @@ fn main_d3d12() {
 
         // -- render
         {
-            let commandallocator = &commandallocators[currbuffer as usize];
-            commandallocator.reset();
-            commandlist.reset(commandallocator).unwrap();
+            let commandlisthandle = commandqueue.getunusedcommandlisthandle().unwrap();
 
             // -- clear the render target
             {
+                let commandlist = commandqueue.getcommandlist(commandlisthandle).unwrap();
+
                 // -- $$$FRK(TODO): do I want to associate these some way?
                 let backbuffer = &swapchain.backbuffers[currbuffer as usize];
                 let rendertargetdescriptor = rendertargetheap.cpuhandle(currbuffer).unwrap();
@@ -139,18 +126,15 @@ fn main_d3d12() {
                     safed3d12::EResourceStates::Present,
                 );
                 commandlist.resourcebarrier(1, &[transtopresentbarrier]);
-
-                // -- close the command list
-                commandlist.close().unwrap();
-
-                // -- execute on the queue
-                commandqueue.rawqueue().executecommandlist(&mut commandlist);
-
-                let syncinterval = 1;
-                swapchain.raw().present(syncinterval, 0).unwrap();
-
-                framefencevalues[currbuffer as usize] = commandqueue.pushsignal().unwrap();
             }
+
+            // -- execute on the queue
+            commandqueue.executecommandlist(commandlisthandle).unwrap();
+
+            let syncinterval = 1;
+            swapchain.raw().present(syncinterval, 0).unwrap();
+
+            framefencevalues[currbuffer as usize] = commandqueue.pushsignal().unwrap();
         }
 
         currbuffer = swapchain.raw().currentbackbufferindex();

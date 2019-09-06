@@ -2,10 +2,13 @@
 
 use safed3d12;
 use safewindows;
+use rustywindows;
 use collections::{SPoolHandle, SPool};
 
-// -- $$$FRK(TODO): all these imports should not exist
 use std::ptr;
+use std::ops::{Deref, DerefMut};
+
+// -- $$$FRK(TODO): all these imports should not exist
 use winapi::shared::minwindef::*;
 use winapi::um::d3d12sdklayers::*;
 
@@ -166,6 +169,20 @@ pub struct SCommandQueue<'device> {
     commandallocatorpool: SPool<safed3d12::SCommandAllocator<'device>>,
     activeallocators: Vec<SActiveCommandAllocator>,
     commandlistpool: SPool<SCommandList>,
+}
+
+impl<'device> Deref for SCommandQueue<'device> {
+    type Target = safed3d12::SCommandQueue<'device>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.q
+    }
+}
+
+impl<'device> DerefMut for SCommandQueue<'device> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.q
+    }
 }
 
 impl<'device> SCommandQueue<'device> {
@@ -353,7 +370,7 @@ impl SDevice {
 
         match heap.raw().type_ {
             safed3d12::EDescriptorHeapType::RenderTarget => {
-                for backbuffidx in 0..2 {
+                for backbuffidx in 0usize..2usize {
                     swap.backbuffers.push(swap.raw().getbuffer(backbuffidx)?);
 
                     let curdescriptorhandle = heap.cpuhandle(backbuffidx)?;
@@ -417,7 +434,7 @@ impl<'device> SFence<'device> {
 pub struct SDescriptorHeap<'device> {
     dh: safed3d12::SDescriptorHeap<'device>,
     numdescriptors: u32,
-    descriptorsize: u32,
+    descriptorsize: usize,
     //cpudescriptorhandleforstart: safed3d12::SDescriptorHandle<'heap, 'device>,
 }
 
@@ -426,8 +443,8 @@ impl<'device> SDescriptorHeap<'device> {
         &self.dh
     }
 
-    pub fn cpuhandle(&self, index: u32) -> Result<safed3d12::SDescriptorHandle, &'static str> {
-        if index < self.numdescriptors {
+    pub fn cpuhandle(&self, index: usize) -> Result<safed3d12::SDescriptorHandle, &'static str> {
+        if index < self.numdescriptors as usize {
             let offsetbytes: usize = (index * self.descriptorsize) as usize;
             let starthandle = self.dh.getcpudescriptorhandleforheapstart();
             Ok(unsafe { starthandle.offset(offsetbytes) })
@@ -447,4 +464,110 @@ impl SSwapChain {
     pub fn raw(&self) -> &safed3d12::SSwapChain {
         &self.sc
     }
+}
+
+pub struct SD3D12Window<'device> {
+    window: rustywindows::SWindow,
+    swapchain: SSwapChain,
+    curbuffer: usize,
+    rtvdescriptorheap: SDescriptorHeap<'device>,
+    curwidth: u32,
+    curheight: u32,
+}
+
+pub fn createsd3d12window<'device>(
+    factory: &mut SFactory,
+    windowclass: &safewindows::SWindowClass,
+    device: &'device SDevice,
+    commandqueue: &mut safed3d12::SCommandQueue,
+    title: &str,
+    width: u32,
+    height: u32,
+) -> Result<SD3D12Window<'device>, &'static str> {
+
+    let window = rustywindows::SWindow::create(windowclass, title, width, height).unwrap(); // $$$FRK(TODO): this panics, need to unify error handling
+    let swapchain = factory.createswapchain(&window.raw(), commandqueue, width, height)?;
+    let curbuffer = swapchain.raw().currentbackbufferindex();
+
+    Ok(SD3D12Window{
+        window: window,
+        swapchain: swapchain,
+        curbuffer: curbuffer,
+        rtvdescriptorheap: device.createdescriptorheap(safed3d12::EDescriptorHeapType::RenderTarget, 10)?,
+        curwidth: width,
+        curheight: height,
+    })
+}
+
+impl<'device> Deref for SD3D12Window<'device> {
+    type Target = rustywindows::SWindow;
+
+    fn deref(&self) -> &Self::Target {
+        &self.window
+    }
+}
+
+impl<'device> DerefMut for SD3D12Window<'device> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.window
+    }
+}
+
+impl<'device> SD3D12Window<'device> {
+    pub fn initrendertargetviews(&mut self, device: &'device SDevice) -> Result<(), &'static str> {
+        device.initrendertargetviews(&mut self.swapchain, &self.rtvdescriptorheap)?;
+        Ok(())
+    }
+
+    // -- $$$FRK(TODO): need to think about this, non-mut seems wrong (as does just handing out a pointer in general)
+    pub fn currentbackbuffer(&self) -> &safed3d12::SResource {
+        &self.swapchain.backbuffers[self.curbuffer]
+    }
+
+    pub fn currentbackbufferindex(&self) -> usize {
+        self.curbuffer
+    }
+
+    pub fn currentrendertargetdescriptor(&self) -> Result<safed3d12::SDescriptorHandle, &'static str> {
+        self.rtvdescriptorheap.cpuhandle(self.curbuffer)
+    }
+
+    pub fn present(&mut self) -> Result<(), &'static str> {
+        // -- $$$FRK(TODO): figure out what this value does
+        let syncinterval = 1;
+        self.swapchain.raw().present(syncinterval, 0)?;
+        self.curbuffer = self.swapchain.raw().currentbackbufferindex();
+
+        Ok(())
+    }
+
+    pub fn resize(
+        &mut self,
+        width: u32,
+        height: u32,
+        commandqueue: &mut SCommandQueue,
+        device: &'device SDevice,
+    ) -> Result<(), &'static str> {
+        if self.curwidth != width || self.curheight != height {
+            let newwidth = std::cmp::max(1, width);
+            let newheight = std::cmp::max(1, height);
+            commandqueue.flushblocking()?;
+
+            self.swapchain.backbuffers.clear();
+
+            let desc = self.swapchain.raw().getdesc()?;
+            self.swapchain
+                .raw()
+                .resizebuffers(2, newwidth, newheight, &desc)?;
+
+            self.curbuffer = self.currentbackbufferindex();
+            self.initrendertargetviews(device)?;
+
+            self.curwidth = newwidth;
+            self.curheight = newheight;
+        }
+
+        Ok(())
+    }
+
 }

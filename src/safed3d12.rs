@@ -352,15 +352,15 @@ impl SSwapChain {
         Ok(())
     }
 
-    pub fn currentbackbufferindex(&self) -> u32 {
-        unsafe { self.swapchain.GetCurrentBackBufferIndex() }
+    pub fn currentbackbufferindex(&self) -> usize {
+        unsafe { self.swapchain.GetCurrentBackBufferIndex() as usize }
     }
 
-    pub fn getbuffer(&self, idx: u32) -> Result<SResource, &'static str> {
+    pub fn getbuffer(&self, idx: usize) -> Result<SResource, &'static str> {
         let mut rawbuf: *mut ID3D12Resource = ptr::null_mut();
         let hn = unsafe {
             self.swapchain.GetBuffer(
-                idx,
+                idx as u32,
                 &ID3D12Resource::uuidof(),
                 &mut rawbuf as *mut *mut _ as *mut *mut c_void,
             )
@@ -548,10 +548,10 @@ impl SDevice {
         })
     }
 
-    pub fn getdescriptorhandleincrementsize(&self, type_: EDescriptorHeapType) -> u32 {
+    pub fn getdescriptorhandleincrementsize(&self, type_: EDescriptorHeapType) -> usize {
         unsafe {
             self.device
-                .GetDescriptorHandleIncrementSize(type_.d3dtype())
+                .GetDescriptorHandleIncrementSize(type_.d3dtype()) as usize
         }
     }
 

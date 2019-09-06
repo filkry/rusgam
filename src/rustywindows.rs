@@ -2,6 +2,8 @@
 
 use safewindows;
 
+use std::ops::{Deref, DerefMut};
+
 pub struct SWinAPI {
     wapi: safewindows::SWinAPI,
     frequency: i64,
@@ -82,6 +84,20 @@ impl SWindow {
         &self.w
     }
     pub fn rawmut(&mut self) -> &mut safewindows::SWindow {
+        &mut self.w
+    }
+}
+
+impl Deref for SWindow {
+    type Target = safewindows::SWindow;
+
+    fn deref(&self) -> &Self::Target {
+        &self.w
+    }
+}
+
+impl DerefMut for SWindow {
+    fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.w
     }
 }

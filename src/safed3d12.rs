@@ -193,27 +193,27 @@ impl SFactory {
         Some(SAdapter1 { adapter: adapter1 })
     }
 
-    pub fn createtransitionbarrier(
-        &self,
-        resource: &SResource,
-        beforestate: EResourceStates,
-        afterstate: EResourceStates,
-    ) -> SBarrier {
-        let mut barrier = D3D12_RESOURCE_BARRIER {
-            Type: D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
-            Flags: D3D12_RESOURCE_BARRIER_FLAG_NONE,
-            u: unsafe { mem::zeroed() },
-        };
+}
 
-        *unsafe { barrier.u.Transition_mut() } = D3D12_RESOURCE_TRANSITION_BARRIER {
-            pResource: resource.resource.as_raw(),
-            Subresource: D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES,
-            StateBefore: beforestate.d3dstate(),
-            StateAfter: afterstate.d3dstate(),
-        };
+pub fn createtransitionbarrier(
+    resource: &SResource,
+    beforestate: EResourceStates,
+    afterstate: EResourceStates,
+) -> SBarrier {
+    let mut barrier = D3D12_RESOURCE_BARRIER {
+        Type: D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
+        Flags: D3D12_RESOURCE_BARRIER_FLAG_NONE,
+        u: unsafe { mem::zeroed() },
+    };
 
-        SBarrier { barrier: barrier }
-    }
+    *unsafe { barrier.u.Transition_mut() } = D3D12_RESOURCE_TRANSITION_BARRIER {
+        pResource: resource.resource.as_raw(),
+        Subresource: D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES,
+        StateBefore: beforestate.d3dstate(),
+        StateAfter: afterstate.d3dstate(),
+    };
+
+    SBarrier { barrier: barrier }
 }
 
 pub struct SDevice {

@@ -100,32 +100,27 @@ fn main_d3d12() {
 
             // -- clear the render target
             {
-                let commandlist = commandqueue.getcommandlist(commandlisthandle).unwrap();
-
                 // -- $$$FRK(TODO): do I want to associate these some way?
                 let backbuffer = &swapchain.backbuffers[currbuffer as usize];
-                let rendertargetdescriptor = rendertargetheap.cpuhandle(currbuffer).unwrap();
 
                 // -- transition to render target
-                let transtorendertargetbarrier = d3d12.raw().createtransitionbarrier(
-                    backbuffer,
+                commandqueue.transitionresource(
+                    commandlisthandle, backbuffer,
                     safed3d12::EResourceStates::Present,
-                    safed3d12::EResourceStates::RenderTarget,
-                );
-                commandlist.resourcebarrier(1, &[transtorendertargetbarrier]);
+                    safed3d12::EResourceStates::RenderTarget
+                ).unwrap();
 
                 // -- clear
                 let clearcolour = [0.4, 0.6, 0.9, 1.0];
-
-                commandlist.clearrendertargetview(rendertargetdescriptor, &clearcolour);
+                let rendertargetdescriptor = rendertargetheap.cpuhandle(currbuffer).unwrap();
+                commandqueue.clearrendertargetview(commandlisthandle, rendertargetdescriptor, &clearcolour).unwrap();
 
                 // -- transition to present
-                let transtopresentbarrier = d3d12.raw().createtransitionbarrier(
-                    backbuffer,
+                commandqueue.transitionresource(
+                    commandlisthandle, backbuffer,
                     safed3d12::EResourceStates::RenderTarget,
-                    safed3d12::EResourceStates::Present,
-                );
-                commandlist.resourcebarrier(1, &[transtopresentbarrier]);
+                    safed3d12::EResourceStates::Present
+                ).unwrap();
             }
 
             // -- execute on the queue

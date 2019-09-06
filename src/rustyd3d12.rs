@@ -275,6 +275,31 @@ impl<'device> SCommandQueue<'device> {
         Ok(())
     }
 
+    pub fn transitionresource(
+        &mut self,
+        list: SPoolHandle,
+        resource: &safed3d12::SResource,
+        beforestate: safed3d12::EResourceStates,
+        afterstate: safed3d12::EResourceStates,
+    ) -> Result<(), &'static str> {
+
+        let commandlist = self.getcommandlist(list)?;
+        let transbarrier = safed3d12::createtransitionbarrier(resource, beforestate, afterstate);
+        commandlist.resourcebarrier(1, &[transbarrier]);
+        Ok(())
+    }
+
+    pub fn clearrendertargetview(
+        &mut self,
+        list: SPoolHandle,
+        rtvdescriptor: safed3d12::SDescriptorHandle,
+        colour: &[f32; 4],
+    ) ->Result<(), &'static str> {
+        let commandlist = self.getcommandlist(list)?;
+        commandlist.clearrendertargetview(rtvdescriptor, colour);
+        Ok(())
+    }
+
     pub fn pushsignal(&mut self) -> Result<u64, &'static str> {
         self.nextfencevalue += 1;
         self.q.signal(&self.fence.raw(), self.nextfencevalue)

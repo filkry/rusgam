@@ -735,3 +735,19 @@ impl<'device> SCommandQueue<'device> {
         }
     }
 }
+
+pub struct SVertexBufferView {
+    vbv: D3D12_VERTEX_BUFFER_VIEW,
+}
+
+pub struct SIndexBufferView {
+    vbv: D3D12_INDEX_BUFFER_VIEW,
+}
+
+pub struct SRootSignature {
+    rootsignature: ComPtr<ID3D12RootSignature>,
+}
+
+pub struct SPipelineState {
+    pipelinestate: ComPtr<ID3D12PipelineState>,
+}

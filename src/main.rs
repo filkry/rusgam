@@ -17,7 +17,7 @@ fn main_d3d12() {
     debuginterface.enabledebuglayer();
 
 
-    // -- setup all data
+    // -- setup window and command queue
     let mut curwidth = 800;
     let mut curheight = 600;
 
@@ -46,6 +46,19 @@ fn main_d3d12() {
     ).unwrap();
     window.initrendertargetviews(&device).unwrap();
     window.show();
+
+
+    // -- tutorial2 data
+    let vertexbufferresource : Option<safed3d12::SResource> = None;
+    let vertexbufferview : Option<safed3d12::SVertexBufferView> = None;
+    let indexbufferresource : Option<safed3d12::SResource> = None;
+    let indexbufferview : Option<safed3d12::SIndexBufferView> = None;
+
+    let depthbufferresource : Option<safed3d12::SResource> = None;
+    let depthstencilviewheap = device.createdescriptorheap(safed3d12::EDescriptorHeapType::DepthStencil, 1);
+
+    let rootsignature : Option<safed3d12::SRootSignature> = None;
+    let pipelinestate : Option<safed3d12::SPipelineState> = None;
 
 
     // -- update loop

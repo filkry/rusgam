@@ -341,6 +341,12 @@ pub struct SResource {
     resource: ComPtr<ID3D12Resource>,
 }
 
+impl std::cmp::PartialEq for SResource {
+    fn eq(&self, other: &Self) -> bool {
+        self.resource == other.resource
+    }
+}
+
 pub struct SSwapChain {
     swapchain: ComPtr<IDXGISwapChain4>,
 }

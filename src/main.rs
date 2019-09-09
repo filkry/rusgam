@@ -64,8 +64,14 @@ fn main_d3d12() {
 
         //println!("Frame {} time: {}us", framecount, dtms);
 
+        // -- wait for buffer to be available
+        commandqueue.waitforfencevalue(framefencevalues[window.currentbackbufferindex()]);
+
         // -- render
         {
+            let backbufferidx = window.currentbackbufferindex();
+            assert!(backbufferidx == window.swapchain.raw().currentbackbufferindex());
+
             let commandlisthandle = commandqueue.getunusedcommandlisthandle().unwrap();
 
             // -- clear the render target
@@ -96,6 +102,7 @@ fn main_d3d12() {
             }
 
             // -- execute on the queue
+            assert_eq!(window.currentbackbufferindex(), backbufferidx);
             commandqueue.executecommandlist(commandlisthandle).unwrap();
             framefencevalues[window.currentbackbufferindex()] = commandqueue.pushsignal().unwrap();
 
@@ -106,9 +113,6 @@ fn main_d3d12() {
         lastframetime = curframetime;
         framecount += 1;
 
-        // -- wait for buffer to be available
-        commandqueue.waitforfencevalue(framefencevalues[window.currentbackbufferindex()]);
-
         // -- $$$FRK(TODO): framerate is uncapped
 
         loop {
@@ -117,18 +121,18 @@ fn main_d3d12() {
                 None => break,
                 Some(m) => match m {
                     safewindows::EMsgType::Paint => {
-                        println!("Paint!");
+                        //println!("Paint!");
                         window.dummyrepaint();
                     }
                     safewindows::EMsgType::KeyDown { key } => match key {
                         safewindows::EKey::Q => {
                             shouldquit = true;
-                            println!("Q keydown");
+                            //println!("Q keydown");
                         }
                         _ => (),
                     },
                     safewindows::EMsgType::Size => {
-                        println!("Size");
+                        //println!("Size");
                         let rect: safewindows::SRect = window.raw().getclientrect().unwrap();
                         let newwidth = rect.right - rect.left;
                         let newheight = rect.bottom - rect.top;
@@ -149,6 +153,9 @@ fn main_d3d12() {
                 },
             }
         }
+
+        // -- increase frame time for testing
+        //std::thread::sleep(std::time::Duration::from_millis(111));
     }
 
     // -- wait for all commands to clear

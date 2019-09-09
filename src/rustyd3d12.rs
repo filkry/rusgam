@@ -163,7 +163,7 @@ pub struct SCommandQueue<'device> {
     q: safed3d12::SCommandQueue<'device>,
     fence: SFence<'device>,
     fenceevent: safewindows::SEventHandle,
-    nextfencevalue: u64,
+    pub nextfencevalue: u64,
     commandlisttype: safed3d12::ECommandListType,
 
     commandallocatorpool: SPool<safed3d12::SCommandAllocator<'device>>,
@@ -460,6 +460,20 @@ pub struct SSwapChain {
     pub backbuffers: Vec<safed3d12::SResource>,
 }
 
+impl Deref for SSwapChain {
+    type Target = safed3d12::SSwapChain;
+
+    fn deref(&self) -> &Self::Target {
+        &self.sc
+    }
+}
+
+impl DerefMut for SSwapChain {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.sc
+    }
+}
+
 impl SSwapChain {
     pub fn raw(&self) -> &safed3d12::SSwapChain {
         &self.sc
@@ -468,7 +482,7 @@ impl SSwapChain {
 
 pub struct SD3D12Window<'device> {
     window: rustywindows::SWindow,
-    swapchain: SSwapChain,
+    pub swapchain: SSwapChain,
     curbuffer: usize,
     rtvdescriptorheap: SDescriptorHeap<'device>,
     curwidth: u32,
@@ -536,7 +550,9 @@ impl<'device> SD3D12Window<'device> {
         // -- $$$FRK(TODO): figure out what this value does
         let syncinterval = 1;
         self.swapchain.raw().present(syncinterval, 0)?;
-        self.curbuffer = self.swapchain.raw().currentbackbufferindex();
+        let newbuffer = self.swapchain.raw().currentbackbufferindex();
+        assert!(newbuffer != self.curbuffer);
+        self.curbuffer = newbuffer;
 
         Ok(())
     }
@@ -560,7 +576,7 @@ impl<'device> SD3D12Window<'device> {
                 .raw()
                 .resizebuffers(2, newwidth, newheight, &desc)?;
 
-            self.curbuffer = self.currentbackbufferindex();
+            self.curbuffer = self.swapchain.currentbackbufferindex();
             self.initrendertargetviews(device)?;
 
             self.curwidth = newwidth;

@@ -1,8 +1,8 @@
 #![allow(dead_code)]
 
 use std::alloc::*;
-use std::ops::{Index, IndexMut};
 use std::collections::VecDeque;
+use std::ops::{Index, IndexMut};
 //use std::cell::{RefCell, Ref, RefMut};
 
 pub struct STypedBuffer<T: Copy> {
@@ -182,7 +182,8 @@ impl<T: Clone> Default for SPool<T> {
 
 impl<T: Clone> SPool<T> {
     pub fn setup<F>(&mut self, max: u16, f: F)
-        where F: FnMut() -> T
+    where
+        F: FnMut() -> T,
     {
         assert_eq!(self.setup, false);
 
@@ -215,12 +216,12 @@ impl<T: Clone> SPool<T> {
         match self.freelist.pop_front() {
             Some(newidx) => {
                 let idx = newidx as usize;
-                Ok(SPoolHandle{
+                Ok(SPoolHandle {
                     index: newidx,
-                    generation: self.generations[idx]
+                    generation: self.generations[idx],
                 })
             }
-            None => Err("Cannot push to full SPool.")
+            None => Err("Cannot push to full SPool."),
         }
     }
 
@@ -238,8 +239,7 @@ impl<T: Clone> SPool<T> {
         let idx = handle.index as usize;
         if handle.valid() && handle.index < self.max && handle.generation == self.generations[idx] {
             Ok(&self.buffer[idx])
-        }
-        else {
+        } else {
             Err("Invalid, out of bounds, or stale handle.")
         }
     }
@@ -248,8 +248,7 @@ impl<T: Clone> SPool<T> {
         let idx = handle.index as usize;
         if handle.valid() && handle.index < self.max && handle.generation == self.generations[idx] {
             Ok(&mut self.buffer[idx])
-        }
-        else {
+        } else {
             Err("Invalid, out of bounds, or stale handle.")
         }
     }
@@ -257,8 +256,7 @@ impl<T: Clone> SPool<T> {
     pub fn getbyindex(&mut self, index: u16) -> Result<&T, &'static str> {
         if index < self.max {
             Ok(&self.buffer[index as usize])
-        }
-        else {
+        } else {
             Err("Out of bounds index")
         }
     }
@@ -266,20 +264,18 @@ impl<T: Clone> SPool<T> {
     pub fn getmutbyindex(&mut self, index: u16) -> Result<&mut T, &'static str> {
         if index < self.max {
             Ok(&mut self.buffer[index as usize])
-        }
-        else {
+        } else {
             Err("Out of bounds index")
         }
     }
 
     pub fn handleforindex(&self, index: u16) -> Result<SPoolHandle, &'static str> {
         if index < self.max {
-            Ok(SPoolHandle{
+            Ok(SPoolHandle {
                 index: index,
                 generation: self.generations[index as usize],
             })
-        }
-        else {
+        } else {
             Err("Out of bounds index")
         }
     }
@@ -434,7 +430,7 @@ mod tests {
 
     #[test]
     fn test_pool_basic() {
-        let mut p : SPool<u64> = Default::default();
+        let mut p: SPool<u64> = Default::default();
         p.setup(10);
 
         let ahandle = p.pushval(234).unwrap();

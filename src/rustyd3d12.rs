@@ -1,12 +1,12 @@
 #![allow(dead_code)]
 
+use collections::{SPool, SPoolHandle};
+use rustywindows;
 use safed3d12;
 use safewindows;
-use rustywindows;
-use collections::{SPoolHandle, SPool};
 
-use std::ptr;
 use std::ops::{Deref, DerefMut};
+use std::ptr;
 
 // -- $$$FRK(TODO): all these imports should not exist
 use winapi::shared::minwindef::*;
@@ -207,10 +207,18 @@ impl<'device> SCommandQueue<'device> {
         })
     }
 
-    pub fn setup(&mut self, device: &'device SDevice, maxallocators: u16, maxcommandlists: u16) -> Result<(), &'static str> {
+    pub fn setup(
+        &mut self,
+        device: &'device SDevice,
+        maxallocators: u16,
+        maxcommandlists: u16,
+    ) -> Result<(), &'static str> {
         let commandlisttype = self.commandlisttype;
         self.commandallocatorpool.setup(maxallocators, || {
-            device.raw().createcommandallocator(commandlisttype).unwrap() // $$$FRK(TODO): need to find a way to not crash here
+            device
+                .raw()
+                .createcommandallocator(commandlisttype)
+                .unwrap() // $$$FRK(TODO): need to find a way to not crash here
         });
 
         self.activeallocators.reserve(maxallocators as usize);
@@ -218,12 +226,11 @@ impl<'device> SCommandQueue<'device> {
         let firstallocatorhandle = self.commandallocatorpool.handleforindex(0)?;
         let firstallocator = self.commandallocatorpool.getbyindex(0)?;
 
-        self.commandlistpool.setup(maxcommandlists, || {
-            SCommandList{
+        self.commandlistpool
+            .setup(maxcommandlists, || SCommandList {
                 allocator: firstallocatorhandle,
                 list: device.raw().createcommandlist(firstallocator).unwrap(),
-            }
-        });
+            });
 
         for i in 0..maxcommandlists {
             let commandlist = self.commandlistpool.getbyindex(i)?;
@@ -241,9 +248,8 @@ impl<'device> SCommandQueue<'device> {
             }
         }
 
-        self.activeallocators.retain(|alloc| {
-            alloc.reusefencevalue > completedvalue
-        });
+        self.activeallocators
+            .retain(|alloc| alloc.reusefencevalue > completedvalue);
     }
 
     pub fn getunusedcommandlisthandle(&mut self) -> Result<SPoolHandle, &'static str> {
@@ -265,13 +271,16 @@ impl<'device> SCommandQueue<'device> {
         Ok(commandlisthandle)
     }
 
-    pub fn getcommandlist(&mut self, list: SPoolHandle) -> Result<&mut safed3d12::SCommandList, &'static str> {
+    pub fn getcommandlist(
+        &mut self,
+        list: SPoolHandle,
+    ) -> Result<&mut safed3d12::SCommandList, &'static str> {
         Ok(&mut (self.commandlistpool.getmut(list)?).list)
     }
 
     pub fn executecommandlist(&mut self, list: SPoolHandle) -> Result<(), &'static str> {
         #[allow(unused_assignments)]
-        let mut allocator : SPoolHandle = Default::default();
+        let mut allocator: SPoolHandle = Default::default();
         {
             let rawlist = self.commandlistpool.getmut(list)?;
             rawlist.list.close()?;
@@ -284,7 +293,7 @@ impl<'device> SCommandQueue<'device> {
 
         let fenceval = self.pushsignal()?;
 
-        self.activeallocators.push(SActiveCommandAllocator{
+        self.activeallocators.push(SActiveCommandAllocator {
             allocator: allocator,
             reusefencevalue: fenceval,
         });
@@ -299,7 +308,6 @@ impl<'device> SCommandQueue<'device> {
         beforestate: safed3d12::EResourceStates,
         afterstate: safed3d12::EResourceStates,
     ) -> Result<(), &'static str> {
-
         let commandlist = self.getcommandlist(list)?;
         let transbarrier = safed3d12::createtransitionbarrier(resource, beforestate, afterstate);
         commandlist.resourcebarrier(1, &[transbarrier]);
@@ -311,7 +319,7 @@ impl<'device> SCommandQueue<'device> {
         list: SPoolHandle,
         rtvdescriptor: safed3d12::SDescriptorHandle,
         colour: &[f32; 4],
-    ) ->Result<(), &'static str> {
+    ) -> Result<(), &'static str> {
         let commandlist = self.getcommandlist(list)?;
         commandlist.clearrendertargetview(rtvdescriptor, colour);
         Ok(())
@@ -337,6 +345,31 @@ impl<'device> SCommandQueue<'device> {
     pub fn rawqueue(&mut self) -> &mut safed3d12::SCommandQueue<'device> {
         &mut self.q
     }
+
+    /*void Tutorial2::UpdateBufferResource(
+    ComPtr<ID3D12GraphicsCommandList2> commandList,
+    ID3D12Resource** pDestinationResource,
+    ID3D12Resource** pIntermediateResource,
+    size_t numElements, size_t elementSize, const void* bufferData,
+    D3D12_RESOURCE_FLAGS flags ) */
+
+    // -- $$$FRK(TODO): flags type used here
+    pub fn updatebufferresource<T>(
+        &mut self,
+        device: &mut SDevice,
+        list: SPoolHandle,
+        bufferdata: &[T],
+        flags: winapi::um::d3d12::D3D12_RESOURCE_FLAGS,
+    ) -> SBufferResourceResult {
+
+        let buffersize = bufferdata.len() * std::mem::size_of::<T>();
+
+    }
+}
+
+pub struct SBufferResourceResult {
+    destinationresource: safed3d12::SResource,
+    intermediateresource: safed3d12::SResource,
 }
 
 // --
@@ -498,16 +531,16 @@ pub fn createsd3d12window<'device>(
     width: u32,
     height: u32,
 ) -> Result<SD3D12Window<'device>, &'static str> {
-
     let window = rustywindows::SWindow::create(windowclass, title, width, height).unwrap(); // $$$FRK(TODO): this panics, need to unify error handling
     let swapchain = factory.createswapchain(&window.raw(), commandqueue, width, height)?;
     let curbuffer = swapchain.raw().currentbackbufferindex();
 
-    Ok(SD3D12Window{
+    Ok(SD3D12Window {
         window: window,
         swapchain: swapchain,
         curbuffer: curbuffer,
-        rtvdescriptorheap: device.createdescriptorheap(safed3d12::EDescriptorHeapType::RenderTarget, 10)?,
+        rtvdescriptorheap: device
+            .createdescriptorheap(safed3d12::EDescriptorHeapType::RenderTarget, 10)?,
         curwidth: width,
         curheight: height,
     })
@@ -542,7 +575,9 @@ impl<'device> SD3D12Window<'device> {
         self.curbuffer
     }
 
-    pub fn currentrendertargetdescriptor(&self) -> Result<safed3d12::SDescriptorHandle, &'static str> {
+    pub fn currentrendertargetdescriptor(
+        &self,
+    ) -> Result<safed3d12::SDescriptorHandle, &'static str> {
         self.rtvdescriptorheap.cpuhandle(self.curbuffer)
     }
 
@@ -555,6 +590,14 @@ impl<'device> SD3D12Window<'device> {
         self.curbuffer = newbuffer;
 
         Ok(())
+    }
+
+    pub fn width(&self) -> u32 {
+        self.curwidth
+    }
+
+    pub fn height(&self) -> u32 {
+        self.curheight
     }
 
     pub fn resize(
@@ -585,5 +628,4 @@ impl<'device> SD3D12Window<'device> {
 
         Ok(())
     }
-
 }

@@ -192,7 +192,6 @@ impl SFactory {
         let adapter1: ComPtr<IDXGIAdapter1> = unsafe { ComPtr::from_raw(rawadapter1) };
         Some(SAdapter1 { adapter: adapter1 })
     }
-
 }
 
 pub fn createtransitionbarrier(
@@ -592,10 +591,7 @@ pub struct SCommandList {
 }
 
 impl SCommandList {
-    pub fn reset(
-        &self,
-        commandallocator: &SCommandAllocator,
-    ) -> Result<(), &'static str> {
+    pub fn reset(&self, commandallocator: &SCommandAllocator) -> Result<(), &'static str> {
         let hn = unsafe {
             self.commandlist
                 .Reset(commandallocator.commandallocator.as_raw(), ptr::null_mut())
@@ -751,3 +747,31 @@ pub struct SRootSignature {
 pub struct SPipelineState {
     pipelinestate: ComPtr<ID3D12PipelineState>,
 }
+
+pub struct SViewport {
+    viewport: D3D12_VIEWPORT,
+}
+
+impl SViewport {
+    pub fn new(
+        topleftx: f32,
+        toplefty: f32,
+        width: f32,
+        height: f32,
+        mindepth: Option<f32>,
+        maxdepth: Option<f32>,
+    ) -> Self {
+        SViewport {
+            viewport: D3D12_VIEWPORT {
+                TopLeftX: topleftx,
+                TopLeftY: toplefty,
+                Width: width,
+                Height: height,
+                MinDepth: mindepth.unwrap_or(D3D12_MIN_DEPTH),
+                MaxDepth: maxdepth.unwrap_or(D3D12_MAX_DEPTH),
+            },
+        }
+    }
+}
+
+pub type SRect = safewindows::SRect;

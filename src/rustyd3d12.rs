@@ -360,18 +360,28 @@ impl<'device> SCommandQueue<'device> {
         _list: SPoolHandle,
         bufferdata: &[T],
         flags: safed3d12::SResourceFlags,
-    ) {
+    ) -> Result<(), &'static str> {
 
         let buffersize = bufferdata.len() * std::mem::size_of::<T>();
 
-        device.raw().createcommittedresource(
+        let destinationresource = device.raw().createcommittedresource(
             safed3d12::SHeapProperties::create(safed3d12::EHeapType::Default),
             safed3d12::EHeapFlags::ENone,
             safed3d12::SResourceDesc::createbuffer(buffersize, flags),
             safed3d12::EResourceStates::CopyDest,
             None,
-        );
+        )?;
 
+        // -- resource created with Upload type MUST have state GenericRead
+        let intermediateresource = device.raw().createcommittedresource(
+            safed3d12::SHeapProperties::create(safed3d12::EHeapType::Upload),
+            safed3d12::EHeapFlags::ENone,
+            safed3d12::SResourceDesc::createbuffer(buffersize, safed3d12::SResourceFlags::none()),
+            safed3d12::EResourceStates::GenericRead,
+            None,
+        )?;
+
+        Ok(())
     }
 }
 

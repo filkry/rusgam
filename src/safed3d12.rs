@@ -604,12 +604,14 @@ impl SDevice {
 
 pub enum EHeapType {
     Default,
+    Upload,
 }
 
 impl EHeapType {
     pub fn d3dtype(&self) -> D3D12_HEAP_TYPE {
         match self {
             EHeapType::Default => D3D12_HEAP_TYPE_DEFAULT,
+            EHeapType::Upload => D3D12_HEAP_TYPE_UPLOAD,
         }
     }
 }

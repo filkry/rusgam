@@ -4,10 +4,11 @@ extern crate wio;
 
 //mod math;
 mod collections;
-mod rustyd3d12;
-mod rustywindows;
 mod safed3d12;
 mod safewindows;
+mod rustyd3d12;
+mod rustywindows;
+mod directxgraphicssamples;
 
 type SMat44 = nalgebra::Matrix4<f32>;
 type SVec3 = nalgebra::Vector3<f32>;

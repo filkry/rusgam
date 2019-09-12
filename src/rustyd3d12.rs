@@ -359,7 +359,7 @@ impl<'device> SCommandQueue<'device> {
         device: &mut SDevice,
         _list: SPoolHandle,
         bufferdata: &[T],
-        flags: safed3d12::EResourceFlags,
+        flags: safed3d12::SResourceFlags,
     ) {
 
         let buffersize = bufferdata.len() * std::mem::size_of::<T>();

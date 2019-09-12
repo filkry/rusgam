@@ -689,10 +689,14 @@ impl<T: TD3DFlags32> SD3DFlags32<T> {
             raw: T::TD3DType::from(res),
         }
     }
+
+    pub fn d3dtype(&self) -> T::TD3DType {
+        self.raw
+    }
 }
 
 impl SResourceDesc {
-    pub fn createbuffer(buffersize: usize, flags: EResourceFlags) -> Self {
+    pub fn createbuffer(buffersize: usize, flags: SResourceFlags) -> Self {
         Self{
             raw: D3D12_RESOURCE_DESC{
                 Dimension: D3D12_RESOURCE_DIMENSION_BUFFER,
@@ -723,8 +727,10 @@ pub enum EResourceFlags {
     AllowSimultaneousAccess,
 }
 
-impl EResourceFlags {
-    pub fn d3dtype(&self) -> D3D12_RESOURCE_FLAGS {
+impl TD3DFlags32 for EResourceFlags {
+    type TD3DType = D3D12_HEAP_FLAGS;
+
+    fn d3dtype(&self) -> Self::TD3DType {
         match self {
             EResourceFlags::ENone => D3D12_RESOURCE_FLAG_NONE,
             EResourceFlags::AllowRenderTarget => D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET,
@@ -736,6 +742,8 @@ impl EResourceFlags {
         }
     }
 }
+
+pub type SResourceFlags = SD3DFlags32<EResourceFlags>;
 
 #[derive(Clone)]
 pub struct SCommandAllocator<'device> {

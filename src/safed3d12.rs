@@ -636,16 +636,59 @@ pub enum EHeapFlags {
     ENone,
 }
 
-impl EHeapFlags {
-    pub fn d3dtype(&self) -> D3D12_HEAP_FLAGS {
+impl TD3DFlags32 for EHeapFlags {
+    type TD3DType = D3D12_HEAP_FLAGS;
+
+    fn d3dtype(&self) -> Self::TD3DType {
         match self {
             EHeapFlags::ENone => D3D12_HEAP_FLAG_NONE,
         }
     }
 }
-
 pub struct SResourceDesc {
     raw: D3D12_RESOURCE_DESC,
+}
+
+pub trait TD3DFlags32 {
+    type TD3DType : std::convert::Into<u32> + std::convert::From<u32> + Copy;
+
+    fn d3dtype(&self) -> Self::TD3DType;
+}
+
+pub struct SD3DFlags32<T: TD3DFlags32> {
+    raw: T::TD3DType,
+}
+
+impl<T: TD3DFlags32> SD3DFlags32<T> {
+    pub fn none() -> Self {
+        Self{
+            raw: T::TD3DType::from(0),
+        }
+    }
+
+    pub fn all() -> Self {
+        Self{
+            raw: T::TD3DType::from(std::u32::MAX),
+        }
+    }
+
+    pub fn and(&self, other: T) -> Self {
+        let a : u32 = self.raw.into();
+        let b : u32 = other.d3dtype().into();
+        let res : u32 = a & b;
+        Self{
+            raw: T::TD3DType::from(res),
+        }
+    }
+
+    pub fn or(&self, other: T) -> Self {
+        let a : u32 = self.raw.into();
+        let b : u32 = other.d3dtype().into();
+        let res : u32 = a | b;
+        Self{
+            raw: T::TD3DType::from(res),
+        }
+    }
 }
 
 impl SResourceDesc {

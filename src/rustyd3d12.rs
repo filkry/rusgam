@@ -357,12 +357,20 @@ impl<'device> SCommandQueue<'device> {
     pub fn updatebufferresource<T>(
         &mut self,
         device: &mut SDevice,
-        list: SPoolHandle,
+        _list: SPoolHandle,
         bufferdata: &[T],
-        flags: winapi::um::d3d12::D3D12_RESOURCE_FLAGS,
-    ) -> SBufferResourceResult {
+        flags: safed3d12::EResourceFlags,
+    ) {
 
         let buffersize = bufferdata.len() * std::mem::size_of::<T>();
+
+        device.raw().createcommittedresource(
+            safed3d12::SHeapProperties::create(safed3d12::EHeapType::Default),
+            safed3d12::EHeapFlags::ENone,
+            safed3d12::SResourceDesc::createbuffer(buffersize, flags),
+            safed3d12::EResourceStates::CopyDest,
+            None,
+        );
 
     }
 }

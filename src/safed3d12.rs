@@ -147,7 +147,7 @@ pub enum EResourceStates {
 }
 
 impl EResourceStates {
-    fn d3dstate(&self) -> D3D12_RESOURCE_STATES {
+    fn d3dtype(&self) -> D3D12_RESOURCE_STATES {
         match self {
             EResourceStates::Common => D3D12_RESOURCE_STATE_COMMON,
             EResourceStates::VertexAndConstantBuffer => {
@@ -208,8 +208,8 @@ pub fn createtransitionbarrier(
     *unsafe { barrier.u.Transition_mut() } = D3D12_RESOURCE_TRANSITION_BARRIER {
         pResource: resource.resource.as_raw(),
         Subresource: D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES,
-        StateBefore: beforestate.d3dstate(),
-        StateAfter: afterstate.d3dstate(),
+        StateBefore: beforestate.d3dtype(),
+        StateAfter: afterstate.d3dtype(),
     };
 
     SBarrier { barrier: barrier }
@@ -568,6 +568,128 @@ impl SDevice {
                 ptr::null(),
                 destdescriptor.handle,
             );
+        }
+    }
+
+    // -- $$$FRK(TODO): Wrapper for D3D12 Resource Flags?
+    pub fn createcommittedresource(
+        &self,
+        heapproperties: SHeapProperties,
+        heapflags: EHeapFlags,
+        resourcedesc: SResourceDesc,
+        initialresourcestate: EResourceStates,
+        _optimizedclearvalue: Option<u32>, // -- $$$FRK(TODO): clear value
+    ) -> Result<SResource, &'static str>
+    {
+
+        unsafe {
+            let mut rawresource: *mut ID3D12Resource = ptr::null_mut();
+            let hn = self.device.CreateCommittedResource(
+                &heapproperties.raw,
+                heapflags.d3dtype(),
+                &resourcedesc.raw,
+                initialresourcestate.d3dtype(),
+                ptr::null() as *const D3D12_CLEAR_VALUE,
+                &ID3D12Resource::uuidof(), // $$$FRK(TODO): this isn't necessarily right
+                &mut rawresource as *mut *mut _ as *mut *mut c_void,
+            );
+
+            returnerrifwinerror!(hn, "Could not create committed resource.");
+            Ok(SResource {
+                resource: ComPtr::from_raw(rawresource),
+            })
+        }
+    }
+}
+
+pub enum EHeapType {
+    Default,
+}
+
+impl EHeapType {
+    pub fn d3dtype(&self) -> D3D12_HEAP_TYPE {
+        match self {
+            EHeapType::Default => D3D12_HEAP_TYPE_DEFAULT,
+        }
+    }
+}
+
+pub struct SHeapProperties {
+    raw: D3D12_HEAP_PROPERTIES,
+}
+
+impl SHeapProperties {
+    pub fn create(type_: EHeapType) -> Self {
+        Self{
+            raw: D3D12_HEAP_PROPERTIES{
+                Type: type_.d3dtype(),
+                CPUPageProperty: D3D12_CPU_PAGE_PROPERTY_UNKNOWN,
+                MemoryPoolPreference: D3D12_MEMORY_POOL_UNKNOWN,
+                CreationNodeMask: 1,
+                VisibleNodeMask: 1,
+            }
+        }
+    }
+}
+
+pub enum EHeapFlags {
+    ENone,
+}
+
+impl EHeapFlags {
+    pub fn d3dtype(&self) -> D3D12_HEAP_FLAGS {
+        match self {
+            EHeapFlags::ENone => D3D12_HEAP_FLAG_NONE,
+        }
+    }
+}
+
+pub struct SResourceDesc {
+    raw: D3D12_RESOURCE_DESC,
+}
+
+impl SResourceDesc {
+    pub fn createbuffer(buffersize: usize, flags: EResourceFlags) -> Self {
+        Self{
+            raw: D3D12_RESOURCE_DESC{
+                Dimension: D3D12_RESOURCE_DIMENSION_BUFFER,
+                Alignment: D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT as u64,
+                Width: buffersize as u64, // seems like this is used as the main dimension for a 1D resource
+                Height: 1, // required
+                DepthOrArraySize: 1, // required
+                MipLevels: 1, // required
+                Format: dxgiformat::DXGI_FORMAT_UNKNOWN, // required
+                SampleDesc: dxgitype::DXGI_SAMPLE_DESC{
+                    Count: 1, // required
+                    Quality: 0, // required
+                },
+                Layout: D3D12_TEXTURE_LAYOUT_ROW_MAJOR, // required
+                Flags: flags.d3dtype(),
+            }
+        }
+    }
+}
+
+pub enum EResourceFlags {
+    ENone,
+    AllowRenderTarget,
+    AllowDepthStencil,
+    AllowUnorderedAccess,
+    DenyShaderResource,
+    AllowCrossAdapter,
+    AllowSimultaneousAccess,
+}
+
+impl EResourceFlags {
+    pub fn d3dtype(&self) -> D3D12_RESOURCE_FLAGS {
+        match self {
+            EResourceFlags::ENone => D3D12_RESOURCE_FLAG_NONE,
+            EResourceFlags::AllowRenderTarget => D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET,
+            EResourceFlags::AllowDepthStencil => D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL,
+            EResourceFlags::AllowUnorderedAccess => D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
+            EResourceFlags::DenyShaderResource => D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE,
+            EResourceFlags::AllowCrossAdapter => D3D12_RESOURCE_FLAG_ALLOW_CROSS_ADAPTER,
+            EResourceFlags::AllowSimultaneousAccess => D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS,
         }
     }
 }

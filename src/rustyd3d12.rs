@@ -368,7 +368,7 @@ impl<'device> SCommandQueue<'device> {
 
         let buffersize = bufferdata.len() * std::mem::size_of::<T>();
 
-        let destinationresource = device.raw().createcommittedresource(
+        let mut destinationresource = device.raw().createcommittedresource(
             safed3d12::SHeapProperties::create(safed3d12::EHeapType::Default),
             safed3d12::EHeapFlags::ENone,
             safed3d12::SResourceDesc::createbuffer(buffersize, flags),
@@ -377,7 +377,7 @@ impl<'device> SCommandQueue<'device> {
         )?;
 
         // -- resource created with Upload type MUST have state GenericRead
-        let intermediateresource = device.raw().createcommittedresource(
+        let mut intermediateresource = device.raw().createcommittedresource(
             safed3d12::SHeapProperties::create(safed3d12::EHeapType::Upload),
             safed3d12::EHeapFlags::ENone,
             safed3d12::SResourceDesc::createbuffer(buffersize, safed3d12::SResourceFlags::none()),
@@ -386,23 +386,24 @@ impl<'device> SCommandQueue<'device> {
         )?;
 
         // -- $$$FRK(TODO): move the rest of this to safed3d12?
+        unsafe {
+            let mut subresourcedata = D3D12_SUBRESOURCE_DATA{
+                pData: bufferdata.as_ptr() as *const c_void,
+                RowPitch: buffersize as isize,
+                SlicePitch: buffersize as isize,
+            };
 
-        let subresourcedata = D3D12_SUBRESOURCE_DATA{
-            pData: bufferdata.as_ptr() as *const c_void,
-            RowPitch: buffersize as isize,
-            SlicePitch: buffersize as isize,
-        };
+            let commandlist = self.getcommandlist(_list)?;
 
-        let commandlist = self.getcommandlist(_list)?;
-
-        directxgraphicssamples::UpdateSubresources(
-            commandlist.Get(),
-            *destinationresource,
-            *intermediateresource,
-            0,
-            0,
-            1,
-            &subresourcedata);
+            directxgraphicssamples::UpdateSubresourcesStack(
+                commandlist.rawmut().as_raw(),
+                destinationresource.raw_mut().as_raw(),
+                intermediateresource.raw_mut().as_raw(),
+                0,
+                0,
+                1,
+                &mut subresourcedata);
+        }
 
         Ok(())
     }

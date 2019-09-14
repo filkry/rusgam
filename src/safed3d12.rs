@@ -346,6 +346,12 @@ impl std::cmp::PartialEq for SResource {
     }
 }
 
+impl SResource {
+    pub unsafe fn raw_mut(&mut self) -> &mut ComPtr<ID3D12Resource> {
+        &mut self.resource
+    }
+}
+
 pub struct SSwapChain {
     swapchain: ComPtr<IDXGISwapChain4>,
 }
@@ -794,6 +800,10 @@ impl SCommandList {
         let hn = unsafe { self.commandlist.Close() };
         returnerrifwinerror!(hn, "Could not close command list.");
         Ok(())
+    }
+
+    pub unsafe fn rawmut(&mut self) -> &mut ComPtr<ID3D12GraphicsCommandList> {
+        &mut self.commandlist
     }
 }
 

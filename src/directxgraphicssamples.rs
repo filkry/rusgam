@@ -154,23 +154,23 @@ pub unsafe fn UpdateSubresourcesStack(
 {
     assert!(numsubresources <= 10);
 
-    let requiredsize : UINT = 0;
-    let layouts : [D3D12_PLACED_SUBRESOURCE_FOOTPRINT; 10] = mem::zeroed();
-    let numrows : [UINT; 10] = [0; 10];
-    let rowsizesinbytes : [UINT64; 10] = [0; 10];
+    let mut requiredsize : u64 = 0;
+    let mut layouts : [D3D12_PLACED_SUBRESOURCE_FOOTPRINT; 10] = mem::zeroed();
+    let mut numrows : [UINT; 10] = [0; 10];
+    let mut rowsizesinbytes : [UINT64; 10] = [0; 10];
 
     let desc = (*destinationresource).GetDesc();
-    let device : *mut ID3D12Device = ptr::null();
-    (*destinationresource).GetDevice(ID3D12Device::uuidof(), &device as *mut *mut _ as *mut *mut c_void);
+    let mut device : *mut ID3D12Device = ptr::null_mut();
+    (*destinationresource).GetDevice(&ID3D12Device::uuidof(), &mut device as *mut *mut _ as *mut *mut c_void);
     (*device).GetCopyableFootprints(
         &desc,
         firstsubresource,
         numsubresources,
         intermediateoffset,
-        layouts,
-        numrows,
-        rowsizesinbytes,
-        &requiredsize
+        layouts.as_mut_ptr(),
+        numrows.as_mut_ptr(),
+        rowsizesinbytes.as_mut_ptr(),
+        &mut requiredsize
     );
     (*device).Release();
 
@@ -181,9 +181,9 @@ pub unsafe fn UpdateSubresourcesStack(
         firstsubresource,
         numsubresources,
         requiredsize,
-        layouts,
-        numrows,
-        rowsizesinbytes,
+        layouts.as_mut_ptr(),
+        numrows.as_mut_ptr(),
+        rowsizesinbytes.as_mut_ptr(),
         srcdata
     );
 }

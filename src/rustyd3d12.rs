@@ -4,13 +4,16 @@ use collections::{SPool, SPoolHandle};
 use rustywindows;
 use safed3d12;
 use safewindows;
+use directxgraphicssamples;
 
 use std::ops::{Deref, DerefMut};
 use std::ptr;
 
 // -- $$$FRK(TODO): all these imports should not exist
+use winapi::ctypes::c_void;
 use winapi::shared::minwindef::*;
 use winapi::um::d3d12sdklayers::*;
+use winapi::um::d3d12::D3D12_SUBRESOURCE_DATA;
 
 pub struct SFactory {
     f: safed3d12::SFactory,
@@ -381,6 +384,25 @@ impl<'device> SCommandQueue<'device> {
             safed3d12::EResourceStates::GenericRead,
             None,
         )?;
+
+        // -- $$$FRK(TODO): move the rest of this to safed3d12?
+
+        let subresourcedata = D3D12_SUBRESOURCE_DATA{
+            pData: bufferdata.as_ptr() as *const c_void,
+            RowPitch: buffersize as isize,
+            SlicePitch: buffersize as isize,
+        };
+
+        let commandlist = self.getcommandlist(_list)?;
+
+        directxgraphicssamples::UpdateSubresources(
+            commandlist.Get(),
+            *destinationresource,
+            *intermediateresource,
+            0,
+            0,
+            1,
+            &subresourcedata);
 
         Ok(())
     }

@@ -141,6 +141,53 @@ pub unsafe fn UpdateSubresources(
     return requiredsize;
 }
 
+// Stack-allocating UpdateSubresources implementation
+pub unsafe fn UpdateSubresourcesStack(
+    cmdlist: *mut ID3D12GraphicsCommandList,
+    destinationresource: *mut ID3D12Resource,
+    intermediate: *ID3D12Resource,
+    intermediateoffset: UINT64,
+    firstsubresource: UINT,
+    numsubresources: UINT,
+    srcdata: *MUT D3D12_SUBRESOURCE_DATA
+) -> UINT64
+{
+    assert!(numsubresources <= 10);
+
+    let requiredsize : UINT = 0;
+    let layouts : [D3D12_PLACED_SUBRESOURCE_FOOTPRINT, 10] = mem::uninitialized();
+    let numrows : [UINT, 10] = [0, 10];
+    let rowsizesinbytes : [UINT64, 10] = [0, 10];
+
+    let desc = (*destinationresource).GetDesc();
+    let device : *mut ID3D12Device = ptr::null();
+    (*destinationresource).GetDevice(ID3D12Device::uuidof(), &device as *mut *mut _ as *mut *mut c_void);
+    (*device).GetCopyableFootprints(
+        &desc,
+        firstsubresource,
+        numsubresources,
+        intermediateoffset,
+        layouts,
+        numrows,
+        rowsizesinbytes,
+        &requiredsize
+    );
+    (*device).Release();
+
+    return UpdateSubresources(
+        cmdlist,
+        destinationresource,
+        intermediate,
+        firstsubresource,
+        numsubresources,
+        requiredsize,
+        layouts,
+        numrows,
+        rowsizesinbytes,
+        srcdata
+    );
+}
+
 pub struct CD3DX12_TEXTURE_COPY_LOCATION {
 }
 

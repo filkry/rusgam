@@ -13,6 +13,7 @@ mod directxgraphicssamples;
 type SMat44 = nalgebra::Matrix4<f32>;
 type SVec3 = nalgebra::Vector3<f32>;
 
+#[allow(dead_code)]
 struct SVertexPosColour {
     position: SVec3,
     colour: SVec3,

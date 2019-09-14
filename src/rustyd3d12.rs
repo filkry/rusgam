@@ -354,6 +354,7 @@ impl<'device> SCommandQueue<'device> {
     D3D12_RESOURCE_FLAGS flags ) */
 
     // -- $$$FRK(TODO): flags type used here
+    #[allow(unused_variables)]
     pub fn updatebufferresource<T>(
         &mut self,
         device: &mut SDevice,

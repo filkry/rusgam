@@ -4,6 +4,6 @@ version = "0.1.0"
 authors = ["Fil Krynicki <filipkrynicki@gmail.com>"]
 
 [dependencies]
-winapi = { version = "0.3", features = ["basetsd","d3d12", "d3d12sdklayers", "dxgiformat", "dxgitype", "dxgi1_3", "dxgi1_4", "dxgi1_6", "errhandlingapi", "guiddef", "libloaderapi", "minwindef", "ntdef", "profileapi", "synchapi", "windef", "winerror", "winnt", "winuser"] }
+winapi = { version = "0.3.8", features = ["basetsd","d3d12", "d3d12sdklayers", "dxgiformat", "dxgitype", "dxgi1_3", "dxgi1_4", "dxgi1_6", "errhandlingapi", "guiddef", "libloaderapi", "minwindef", "ntdef", "profileapi", "synchapi", "windef", "winerror", "winnt", "winuser"] }
 wio = { version = "0.2" }
 nalgebra = { version = "0.18.1" }

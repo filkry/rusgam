@@ -162,38 +162,43 @@ pub struct SCommandList {
     list: safed3d12::SCommandList,
 }
 
-pub struct SCommandQueue<'device> {
-    q: safed3d12::SCommandQueue<'device>,
-    fence: SFence<'device>,
+pub struct SCommandQueue {
+    q: safed3d12::SCommandQueue,
+    fence: SFence,
     fenceevent: safewindows::SEventHandle,
     pub nextfencevalue: u64,
     commandlisttype: safed3d12::ECommandListType,
 
-    commandallocatorpool: SPool<safed3d12::SCommandAllocator<'device>>,
+    commandallocatorpool: SPool<safed3d12::SCommandAllocator>,
     activeallocators: Vec<SActiveCommandAllocator>,
     commandlistpool: SPool<SCommandList>,
 }
 
-impl<'device> Deref for SCommandQueue<'device> {
-    type Target = safed3d12::SCommandQueue<'device>;
+impl Deref for SCommandQueue {
+    type Target = safed3d12::SCommandQueue;
 
     fn deref(&self) -> &Self::Target {
         &self.q
     }
 }
 
-impl<'device> DerefMut for SCommandQueue<'device> {
+impl DerefMut for SCommandQueue {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.q
     }
 }
 
-impl<'device> SCommandQueue<'device> {
+pub struct SCommandQueueUpdateBufferResult {
+    destination: safed3d12::SResource,
+    intermediate: safed3d12::SResource,
+}
+
+impl SCommandQueue {
     pub fn createcommandqueue(
         winapi: &safewindows::SWinAPI,
-        device: &'device SDevice,
+        device: &SDevice,
         commandlisttype: safed3d12::ECommandListType,
-    ) -> Result<SCommandQueue<'device>, &'static str> {
+    ) -> Result<SCommandQueue, &'static str> {
         let qresult = device
             .raw()
             .createcommandqueue(safed3d12::ECommandListType::Direct)?;
@@ -212,7 +217,7 @@ impl<'device> SCommandQueue<'device> {
 
     pub fn setup(
         &mut self,
-        device: &'device SDevice,
+        device: &SDevice,
         maxallocators: u16,
         maxcommandlists: u16,
     ) -> Result<(), &'static str> {
@@ -345,18 +350,10 @@ impl<'device> SCommandQueue<'device> {
         Ok(())
     }
 
-    pub fn rawqueue(&mut self) -> &mut safed3d12::SCommandQueue<'device> {
+    pub fn rawqueue(&mut self) -> &mut safed3d12::SCommandQueue {
         &mut self.q
     }
 
-    /*void Tutorial2::UpdateBufferResource(
-    ComPtr<ID3D12GraphicsCommandList2> commandList,
-    ID3D12Resource** pDestinationResource,
-    ID3D12Resource** pIntermediateResource,
-    size_t numElements, size_t elementSize, const void* bufferData,
-    D3D12_RESOURCE_FLAGS flags ) */
-
-    // -- $$$FRK(TODO): flags type used here
     #[allow(unused_variables)]
     pub fn updatebufferresource<T>(
         &mut self,
@@ -364,7 +361,7 @@ impl<'device> SCommandQueue<'device> {
         _list: SPoolHandle,
         bufferdata: &[T],
         flags: safed3d12::SResourceFlags,
-    ) -> Result<(), &'static str> {
+    ) -> Result<SCommandQueueUpdateBufferResult, &'static str> {
 
         let buffersize = bufferdata.len() * std::mem::size_of::<T>();
 
@@ -405,7 +402,10 @@ impl<'device> SCommandQueue<'device> {
                 &mut subresourcedata);
         }
 
-        Ok(())
+        Ok(SCommandQueueUpdateBufferResult{
+            destination: destinationresource,
+            intermediate: intermediateresource,
+        })
     }
 }
 
@@ -482,11 +482,11 @@ impl SDevice {
     }
 }
 
-pub struct SFence<'device> {
-    f: safed3d12::SFence<'device>,
+pub struct SFence {
+    f: safed3d12::SFence,
 }
 
-impl<'device> SFence<'device> {
+impl SFence {
     pub fn raw(&self) -> &safed3d12::SFence {
         &self.f
     }
@@ -506,14 +506,14 @@ impl<'device> SFence<'device> {
     }
 }
 
-pub struct SDescriptorHeap<'device> {
-    dh: safed3d12::SDescriptorHeap<'device>,
+pub struct SDescriptorHeap {
+    dh: safed3d12::SDescriptorHeap,
     numdescriptors: u32,
     descriptorsize: usize,
     //cpudescriptorhandleforstart: safed3d12::SDescriptorHandle<'heap, 'device>,
 }
 
-impl<'device> SDescriptorHeap<'device> {
+impl SDescriptorHeap {
     pub fn raw(&self) -> &safed3d12::SDescriptorHeap {
         &self.dh
     }
@@ -555,24 +555,24 @@ impl SSwapChain {
     }
 }
 
-pub struct SD3D12Window<'device> {
+pub struct SD3D12Window {
     window: rustywindows::SWindow,
     pub swapchain: SSwapChain,
     curbuffer: usize,
-    rtvdescriptorheap: SDescriptorHeap<'device>,
+    rtvdescriptorheap: SDescriptorHeap,
     curwidth: u32,
     curheight: u32,
 }
 
-pub fn createsd3d12window<'device>(
+pub fn createsd3d12window(
     factory: &mut SFactory,
     windowclass: &safewindows::SWindowClass,
-    device: &'device SDevice,
+    device: &SDevice,
     commandqueue: &mut safed3d12::SCommandQueue,
     title: &str,
     width: u32,
     height: u32,
-) -> Result<SD3D12Window<'device>, &'static str> {
+) -> Result<SD3D12Window, &'static str> {
     let window = rustywindows::SWindow::create(windowclass, title, width, height).unwrap(); // $$$FRK(TODO): this panics, need to unify error handling
     let swapchain = factory.createswapchain(&window.raw(), commandqueue, width, height)?;
     let curbuffer = swapchain.raw().currentbackbufferindex();
@@ -588,7 +588,7 @@ pub fn createsd3d12window<'device>(
     })
 }
 
-impl<'device> Deref for SD3D12Window<'device> {
+impl Deref for SD3D12Window {
     type Target = rustywindows::SWindow;
 
     fn deref(&self) -> &Self::Target {
@@ -596,14 +596,14 @@ impl<'device> Deref for SD3D12Window<'device> {
     }
 }
 
-impl<'device> DerefMut for SD3D12Window<'device> {
+impl DerefMut for SD3D12Window {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.window
     }
 }
 
-impl<'device> SD3D12Window<'device> {
-    pub fn initrendertargetviews(&mut self, device: &'device SDevice) -> Result<(), &'static str> {
+impl SD3D12Window {
+    pub fn initrendertargetviews(&mut self, device: &SDevice) -> Result<(), &'static str> {
         device.initrendertargetviews(&mut self.swapchain, &self.rtvdescriptorheap)?;
         Ok(())
     }
@@ -647,7 +647,7 @@ impl<'device> SD3D12Window<'device> {
         width: u32,
         height: u32,
         commandqueue: &mut SCommandQueue,
-        device: &'device SDevice,
+        device: &SDevice,
     ) -> Result<(), &'static str> {
         if self.curwidth != width || self.curheight != height {
             let newwidth = std::cmp::max(1, width);

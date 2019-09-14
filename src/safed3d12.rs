@@ -300,9 +300,8 @@ impl ECommandListType {
     }
 }
 
-pub struct SCommandQueue<'device> {
+pub struct SCommandQueue {
     queue: ComPtr<ID3D12CommandQueue>,
-    phantom: PhantomData<&'device SDevice>,
 }
 
 impl SDevice {
@@ -331,7 +330,6 @@ impl SDevice {
 
         Ok(SCommandQueue {
             queue: unsafe { ComPtr::from_raw(rawqueue) },
-            phantom: PhantomData,
         })
     }
 }
@@ -493,14 +491,13 @@ impl EDescriptorHeapType {
     }
 }
 
-pub struct SDescriptorHeap<'device> {
+pub struct SDescriptorHeap {
     pub type_: EDescriptorHeapType,
     heap: ComPtr<ID3D12DescriptorHeap>,
-    phantom: PhantomData<&'device SDevice>,
 }
 
-impl<'device> SDescriptorHeap<'device> {
-    pub fn getcpudescriptorhandleforheapstart(&self) -> SDescriptorHandle<'_, 'device> {
+impl SDescriptorHeap {
+    pub fn getcpudescriptorhandleforheapstart(&self) -> SDescriptorHandle<'_> {
         let start = unsafe { self.heap.GetCPUDescriptorHandleForHeapStart() };
         SDescriptorHandle {
             handle: start,
@@ -509,13 +506,13 @@ impl<'device> SDescriptorHeap<'device> {
     }
 }
 
-pub struct SDescriptorHandle<'heap, 'device> {
+pub struct SDescriptorHandle<'heap> {
     handle: D3D12_CPU_DESCRIPTOR_HANDLE,
-    phantom: PhantomData<&'heap SDescriptorHeap<'device>>,
+    phantom: PhantomData<&'heap SDescriptorHeap>,
 }
 
-impl<'heap, 'device> SDescriptorHandle<'heap, 'device> {
-    pub unsafe fn offset(&self, bytes: usize) -> SDescriptorHandle<'heap, 'device> {
+impl<'heap> SDescriptorHandle<'heap> {
+    pub unsafe fn offset(&self, bytes: usize) -> SDescriptorHandle<'heap> {
         SDescriptorHandle {
             handle: D3D12_CPU_DESCRIPTOR_HANDLE {
                 ptr: self.handle.ptr + bytes,
@@ -555,7 +552,6 @@ impl SDevice {
         Ok(SDescriptorHeap {
             type_: type_,
             heap: heap,
-            phantom: PhantomData,
         })
     }
 
@@ -667,6 +663,12 @@ pub struct SD3DFlags32<T: TD3DFlags32> {
     raw: T::TD3DType,
 }
 
+impl<T: TD3DFlags32> From<T> for SD3DFlags32<T> {
+    fn from(flag: T) -> Self {
+        Self::none().and(flag)
+    }
+}
+
 impl<T: TD3DFlags32> SD3DFlags32<T> {
     pub fn none() -> Self {
         Self{
@@ -754,13 +756,12 @@ impl TD3DFlags32 for EResourceFlags {
 pub type SResourceFlags = SD3DFlags32<EResourceFlags>;
 
 #[derive(Clone)]
-pub struct SCommandAllocator<'device> {
+pub struct SCommandAllocator {
     type_: ECommandListType,
     commandallocator: ComPtr<ID3D12CommandAllocator>,
-    phantom: PhantomData<&'device SDevice>,
 }
 
-impl<'device> SCommandAllocator<'device> {
+impl SCommandAllocator {
     pub fn reset(&self) {
         unsafe { self.commandallocator.Reset() };
     }
@@ -826,7 +827,6 @@ impl SDevice {
         Ok(SCommandAllocator {
             type_: type_,
             commandallocator: unsafe { ComPtr::from_raw(rawca) },
-            phantom: PhantomData,
         })
     }
 
@@ -854,14 +854,13 @@ impl SDevice {
     }
 }
 
-pub struct SFence<'device> {
+pub struct SFence {
     fence: ComPtr<ID3D12Fence>,
-    phantom: PhantomData<&'device SDevice>,
 }
 
 impl SDevice {
     // -- $$$FRK(TODO): think about mutable refs for lots of fns here and in safewindows
-    pub fn createfence(&self) -> Result<SFence<'_>, &'static str> {
+    pub fn createfence(&self) -> Result<SFence, &'static str> {
         let mut rawf: *mut ID3D12Fence = ptr::null_mut();
         let hn = unsafe {
             // -- $$$FRK(TODO): support parameters
@@ -877,12 +876,11 @@ impl SDevice {
 
         Ok(SFence {
             fence: unsafe { ComPtr::from_raw(rawf) },
-            phantom: PhantomData,
         })
     }
 }
 
-impl<'device> SFence<'device> {
+impl SFence {
     pub fn getcompletedvalue(&self) -> u64 {
         unsafe { self.fence.GetCompletedValue() }
     }
@@ -898,7 +896,7 @@ impl<'device> SFence<'device> {
     }
 }
 
-impl<'device> SCommandQueue<'device> {
+impl SCommandQueue {
     // -- $$$FRK(TODO): revisit this after I understand how I'm going to be using this fence
     pub fn signal(&self, fence: &SFence, val: u64) -> Result<u64, &'static str> {
         let hn = unsafe { self.queue.Signal(fence.fence.as_raw(), val) };

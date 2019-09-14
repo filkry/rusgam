@@ -42,6 +42,14 @@ fn main_d3d12() {
     .unwrap();
     commandqueue.setup(&device, 2, 1).unwrap();
 
+    let mut copycommandqueue = rustyd3d12::SCommandQueue::createcommandqueue(
+        &winapi.rawwinapi(),
+        &device,
+        safed3d12::ECommandListType::Copy,
+    )
+    .unwrap();
+    copycommandqueue.setup(&device, 2, 1).unwrap();
+
     let mut window = rustyd3d12::createsd3d12window(
         &mut factory,
         &windowclass,
@@ -132,6 +140,17 @@ fn main_d3d12() {
         4, 0, 3,
         4, 3, 7
     ];
+
+    let vertbufferflags : safed3d12::SResourceFlags = safed3d12::SResourceFlags::from(safed3d12::EResourceFlags::ENone);
+
+    let copycommandlist = copycommandqueue.getunusedcommandlisthandle().unwrap();
+    let vertbuffers : rustyd3d12::SCommandQueueUpdateBufferResult =
+        copycommandqueue.updatebufferresource(
+            &mut device,
+            copycommandlist,
+            &cubeverts,
+            vertbufferflags,
+        ).unwrap();
 
     // -- update loop
 

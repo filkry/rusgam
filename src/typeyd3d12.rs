@@ -275,7 +275,7 @@ impl SAdapter4 {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 pub enum ECommandListType {
     Invalid,
     Direct,
@@ -297,6 +297,26 @@ impl ECommandListType {
             //VideoDecode => D3D12_COMMAND_LIST_TYPE_VIDEO_DECODE ,
             //VideoProcess => D3D12_COMMAND_LIST_TYPE_VIDEO_PROCESS ,
         }
+    }
+
+    fn create(d3dtype: D3D12_COMMAND_LIST_TYPE) -> Self {
+        match d3dtype {
+            D3D12_COMMAND_LIST_TYPE_DIRECT => ECommandListType::Direct,
+            D3D12_COMMAND_LIST_TYPE_BUNDLE => ECommandListType::Bundle,
+            D3D12_COMMAND_LIST_TYPE_COMPUTE => ECommandListType::Compute,
+            D3D12_COMMAND_LIST_TYPE_COPY => ECommandListType::Copy,
+            _ => ECommandListType::Invalid,
+        }
+    }
+}
+
+pub struct SCommandQueueDesc {
+    raw: D3D12_COMMAND_QUEUE_DESC,
+}
+
+impl SCommandQueueDesc {
+    pub fn cqtype(&self) -> ECommandListType {
+        ECommandListType::create(self.raw.Type)
     }
 }
 
@@ -347,6 +367,14 @@ impl std::cmp::PartialEq for SResource {
 impl SResource {
     pub unsafe fn raw_mut(&mut self) -> &mut ComPtr<ID3D12Resource> {
         &mut self.resource
+    }
+
+    pub fn getgpuvirtualaddress(&self) -> SGPUVirtualAddress {
+        unsafe {
+            SGPUVirtualAddress{
+                raw: self.resource.GetGPUVirtualAddress(),
+            }
+        }
     }
 }
 
@@ -654,7 +682,7 @@ pub struct SResourceDesc {
 }
 
 pub trait TD3DFlags32 {
-    type TD3DType : std::convert::Into<u32> + std::convert::From<u32> + Copy;
+    type TD3DType : std::convert::Into<u32> + std::convert::From<u32> + Copy + Clone;
 
     fn d3dtype(&self) -> Self::TD3DType;
 }
@@ -668,6 +696,14 @@ impl<T: TD3DFlags32> From<T> for SD3DFlags32<T> {
         Self::none().and(flag)
     }
 }
+
+impl<T: TD3DFlags32> Clone for SD3DFlags32<T> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<T: TD3DFlags32> Copy for SD3DFlags32<T> {}
 
 impl<T: TD3DFlags32> SD3DFlags32<T> {
     pub fn none() -> Self {
@@ -773,6 +809,12 @@ pub struct SCommandList {
 }
 
 impl SCommandList {
+    pub fn gettype(&self) -> ECommandListType {
+        unsafe {
+            ECommandListType::create(self.commandlist.GetType())
+        }
+    }
+
     pub fn reset(&self, commandallocator: &SCommandAllocator) -> Result<(), &'static str> {
         let hn = unsafe {
             self.commandlist
@@ -897,6 +939,12 @@ impl SFence {
 }
 
 impl SCommandQueue {
+    pub fn getdesc(&self) -> SCommandQueueDesc {
+        SCommandQueueDesc {
+            raw: unsafe { self.queue.GetDesc() },
+        }
+    }
+
     // -- $$$FRK(TODO): revisit this after I understand how I'm going to be using this fence
     pub fn signal(&self, fence: &SFence, val: u64) -> Result<u64, &'static str> {
         let hn = unsafe { self.queue.Signal(fence.fence.as_raw(), val) };
@@ -915,13 +963,60 @@ impl SCommandQueue {
     }
 }
 
+pub struct SGPUVirtualAddress {
+    raw: D3D12_GPU_VIRTUAL_ADDRESS,
+}
+
+impl SGPUVirtualAddress {
+    pub fn raw(&self) -> D3D12_GPU_VIRTUAL_ADDRESS {
+        self.raw
+    }
+}
+
 pub struct SVertexBufferView {
-    vbv: D3D12_VERTEX_BUFFER_VIEW,
+    raw: D3D12_VERTEX_BUFFER_VIEW,
+}
+
+impl SVertexBufferView {
+    pub fn create(bufferlocation: SGPUVirtualAddress, sizeinbytes: u32, strideinbytes: u32) -> Self {
+        Self {
+            raw: D3D12_VERTEX_BUFFER_VIEW{
+                BufferLocation: bufferlocation.raw(),
+                SizeInBytes: sizeinbytes,
+                StrideInBytes: strideinbytes,
+            },
+        }
+    }
+}
+
+pub enum EFormat {
+    R16UINT,
+}
+
+impl EFormat {
+    pub fn d3dtype(&self) -> dxgiformat::DXGI_FORMAT {
+        match self {
+            EFormat::R16UINT => dxgiformat::DXGI_FORMAT_R16_UINT,
+        }
+    }
 }
 
 pub struct SIndexBufferView {
-    vbv: D3D12_INDEX_BUFFER_VIEW,
+    raw: D3D12_INDEX_BUFFER_VIEW,
 }
+
+impl SIndexBufferView {
+    pub fn create(bufferlocation: SGPUVirtualAddress, format: EFormat, sizeinbytes: u32) -> Self {
+        Self {
+            raw: D3D12_INDEX_BUFFER_VIEW{
+                BufferLocation: bufferlocation.raw(),
+                Format: format.d3dtype(),
+                SizeInBytes: sizeinbytes,
+            },
+        }
+    }
+}
+
 
 pub struct SRootSignature {
     rootsignature: ComPtr<ID3D12RootSignature>,

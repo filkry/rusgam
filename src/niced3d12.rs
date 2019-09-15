@@ -182,24 +182,18 @@ impl SCommandList {
         flags: typeyd3d12::SResourceFlags,
     ) -> Result<SCommandQueueUpdateBufferResult, &'static str> {
 
-        let buffersize = bufferdata.len() * std::mem::size_of::<T>();
-
-        let mut destinationresource = device.raw().createcommittedresource(
-            typeyd3d12::SHeapProperties::create(typeyd3d12::EHeapType::Default),
-            typeyd3d12::EHeapFlags::ENone,
-            typeyd3d12::SResourceDesc::createbuffer(buffersize, flags),
+        let mut destinationresource = device.createcommittedbufferresource(
+            typeyd3d12::EHeapType::Default,
+            flags,
             typeyd3d12::EResourceStates::CopyDest,
-            None,
-        )?;
+            bufferdata)?;
 
         // -- resource created with Upload type MUST have state GenericRead
-        let mut intermediateresource = device.raw().createcommittedresource(
-            typeyd3d12::SHeapProperties::create(typeyd3d12::EHeapType::Upload),
-            typeyd3d12::EHeapFlags::ENone,
-            typeyd3d12::SResourceDesc::createbuffer(buffersize, typeyd3d12::SResourceFlags::none()),
+        let mut intermediateresource = device.createcommittedbufferresource(
+            typeyd3d12::EHeapType::Upload,
+            flags,
             typeyd3d12::EResourceStates::GenericRead,
-            None,
-        )?;
+            bufferdata)?;
 
         let mut srcdata = typeyd3d12::SSubResourceData::createbuffer(bufferdata);
         updatesubresourcesstack(
@@ -245,8 +239,8 @@ impl DerefMut for SCommandQueue {
 }
 
 pub struct SCommandQueueUpdateBufferResult {
-    destination: typeyd3d12::SResource,
-    intermediate: typeyd3d12::SResource,
+    pub destination: SResource,
+    pub intermediate: SResource,
 }
 
 impl SCommandQueue {
@@ -257,7 +251,7 @@ impl SCommandQueue {
     ) -> Result<SCommandQueue, &'static str> {
         let qresult = device
             .raw()
-            .createcommandqueue(typeyd3d12::ECommandListType::Direct)?;
+            .createcommandqueue(commandlisttype)?;
         Ok(SCommandQueue {
             q: qresult,
             fence: device.createfence().unwrap(),
@@ -339,12 +333,11 @@ impl SCommandQueue {
         &mut self,
         list: SPoolHandle,
     ) -> Result<&mut SCommandList, &'static str> {
-        Ok(self.commandlistpool.getmut(list)?)
-    }
-
-    pub fn getunusedcommandlist(&mut self) -> Result<&mut SCommandList, &'static str> {
-        let handle = self.getunusedcommandlisthandle()?;
-        self.getcommandlist(handle)
+        let commandlist = self.commandlistpool.getmut(list)?;
+        let cqtype = self.q.getdesc().cqtype();
+        assert!(self.commandlisttype == cqtype);
+        assert!(commandlist.gettype() == self.commandlisttype);
+        Ok(commandlist)
     }
 
     pub fn executecommandlist(&mut self, list: SPoolHandle) -> Result<(), &'static str> {
@@ -352,6 +345,7 @@ impl SCommandQueue {
         let mut allocator: SPoolHandle = Default::default();
         {
             let rawlist = self.commandlistpool.getmut(list)?;
+            assert!(rawlist.gettype() == self.commandlisttype);
             rawlist.list.close()?;
             self.q.executecommandlist(&mut rawlist.list);
 
@@ -461,6 +455,61 @@ impl<'heap> SDescriptorHandle<'heap> {
 }
 */
 
+pub enum EResourceMetadata {
+    Invalid,
+    BufferResource {
+        count: usize,
+        sizeofentry: usize,
+    },
+}
+
+pub struct SResource {
+    r: typeyd3d12::SResource,
+    metadata: EResourceMetadata,
+}
+
+impl Deref for SResource {
+    type Target = typeyd3d12::SResource;
+
+    fn deref(&self) -> &Self::Target {
+        &self.r
+    }
+}
+
+impl DerefMut for SResource {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.r
+    }
+}
+
+impl SResource {
+    pub fn createvertexbufferview(&self) -> Result<typeyd3d12::SVertexBufferView, &'static str> {
+        if let EResourceMetadata::BufferResource{count, sizeofentry} = self.metadata {
+            Ok(typeyd3d12::SVertexBufferView::create(
+                self.r.getgpuvirtualaddress(),
+                (count * sizeofentry) as u32,
+                sizeofentry as u32,
+            ))
+        }
+        else {
+            Err("Trying to create vertexbufferview for non-buffer resource")
+        }
+    }
+
+    pub fn createindexbufferview(&self, format: typeyd3d12::EFormat) -> Result<typeyd3d12::SIndexBufferView, &'static str> {
+        if let EResourceMetadata::BufferResource{count, sizeofentry} = self.metadata {
+            Ok(typeyd3d12::SIndexBufferView::create(
+                self.r.getgpuvirtualaddress(),
+                format,
+                (count * sizeofentry) as u32,
+            ))
+        }
+        else {
+            Err("Trying to create indexbufferview for non-buffer resource")
+        }
+    }
+}
+
 pub struct SDevice {
     d: typeyd3d12::SDevice,
 }
@@ -515,6 +564,31 @@ impl SDevice {
             numdescriptors: numdescriptors,
             descriptorsize: self.d.getdescriptorhandleincrementsize(type_),
             //cpudescriptorhandleforstart: raw.getcpudescriptorhandleforheapstart(),
+        })
+    }
+
+    pub fn createcommittedbufferresource<T>(
+        &self,
+        heaptype: typeyd3d12::EHeapType,
+        flags: typeyd3d12::SResourceFlags,
+        resourcestates: typeyd3d12::EResourceStates,
+        bufferdata: &[T]) -> Result<SResource, &'static str> {
+
+        let buffersize = bufferdata.len() * std::mem::size_of::<T>();
+
+        let destinationresource = self.d.createcommittedresource(
+            typeyd3d12::SHeapProperties::create(heaptype),
+            typeyd3d12::EHeapFlags::ENone,
+            typeyd3d12::SResourceDesc::createbuffer(buffersize, flags),
+            resourcestates,
+            None,
+        )?;
+        Ok(SResource{
+            r: destinationresource,
+            metadata: EResourceMetadata::BufferResource {
+                count: bufferdata.len(),
+                sizeofentry: std::mem::size_of::<T>(),
+            },
         })
     }
 }

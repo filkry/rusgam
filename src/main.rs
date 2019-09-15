@@ -141,18 +141,32 @@ fn main_d3d12() {
         4, 3, 7
     ];
 
-    let vertbufferflags : typeyd3d12::SResourceFlags = typeyd3d12::SResourceFlags::from(typeyd3d12::EResourceFlags::ENone);
-
-    let mut _vertbuffers = None;
+    // -- upload data to GPU
     {
-        let copycommandlist = copycommandqueue.getunusedcommandlist().unwrap();
-        let vb : niced3d12::SCommandQueueUpdateBufferResult =
+        let copycommandlisthandle = copycommandqueue.getunusedcommandlisthandle().unwrap();
+        let copycommandlist = copycommandqueue.getcommandlist(copycommandlisthandle).unwrap();
+
+        let mut vertbufferresource = {
+            let vertbufferflags = typeyd3d12::SResourceFlags::from(typeyd3d12::EResourceFlags::ENone);
             copycommandlist.updatebufferresource(
                 &mut device,
                 &cubeverts,
                 vertbufferflags,
-            ).unwrap();
-        _vertbuffers = Some(vb);
+            ).unwrap()
+        };
+        let _vertexbufferview = vertbufferresource.destination.createvertexbufferview().unwrap();
+
+        let indexbufferresource = {
+            let indexbufferflags = typeyd3d12::SResourceFlags::from(typeyd3d12::EResourceFlags::ENone);
+            copycommandlist.updatebufferresource(
+                &mut device,
+                &indices,
+                indexbufferflags,
+            ).unwrap()
+        };
+        let _indexbufferview = indexbufferresource.destination.createindexbufferview(typeyd3d12::EFormat::R16UINT).unwrap();
+
+        copycommandqueue.executecommandlist(copycommandlisthandle).unwrap();
     }
 
     // -- update loop

@@ -143,14 +143,17 @@ fn main_d3d12() {
 
     let vertbufferflags : typeyd3d12::SResourceFlags = typeyd3d12::SResourceFlags::from(typeyd3d12::EResourceFlags::ENone);
 
-    let copycommandlist = copycommandqueue.getunusedcommandlisthandle().unwrap();
-    let vertbuffers : niced3d12::SCommandQueueUpdateBufferResult =
-        copycommandqueue.updatebufferresource(
-            &mut device,
-            copycommandlist,
-            &cubeverts,
-            vertbufferflags,
-        ).unwrap();
+    let mut _vertbuffers = None;
+    {
+        let copycommandlist = copycommandqueue.getunusedcommandlist().unwrap();
+        let vb : niced3d12::SCommandQueueUpdateBufferResult =
+            copycommandlist.updatebufferresource(
+                &mut device,
+                &cubeverts,
+                vertbufferflags,
+            ).unwrap();
+        _vertbuffers = Some(vb);
+    }
 
     // -- update loop
 

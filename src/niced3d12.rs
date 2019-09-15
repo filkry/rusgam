@@ -174,6 +174,50 @@ impl DerefMut for SCommandList {
     }
 }
 
+impl SCommandList {
+    pub fn updatebufferresource<T>(
+        &mut self,
+        device: &mut SDevice,
+        bufferdata: &[T],
+        flags: typeyd3d12::SResourceFlags,
+    ) -> Result<SCommandQueueUpdateBufferResult, &'static str> {
+
+        let buffersize = bufferdata.len() * std::mem::size_of::<T>();
+
+        let mut destinationresource = device.raw().createcommittedresource(
+            typeyd3d12::SHeapProperties::create(typeyd3d12::EHeapType::Default),
+            typeyd3d12::EHeapFlags::ENone,
+            typeyd3d12::SResourceDesc::createbuffer(buffersize, flags),
+            typeyd3d12::EResourceStates::CopyDest,
+            None,
+        )?;
+
+        // -- resource created with Upload type MUST have state GenericRead
+        let mut intermediateresource = device.raw().createcommittedresource(
+            typeyd3d12::SHeapProperties::create(typeyd3d12::EHeapType::Upload),
+            typeyd3d12::EHeapFlags::ENone,
+            typeyd3d12::SResourceDesc::createbuffer(buffersize, typeyd3d12::SResourceFlags::none()),
+            typeyd3d12::EResourceStates::GenericRead,
+            None,
+        )?;
+
+        let mut srcdata = typeyd3d12::SSubResourceData::createbuffer(bufferdata);
+        updatesubresourcesstack(
+            self,
+            &mut destinationresource,
+            &mut intermediateresource,
+            0,
+            0,
+            1,
+            &mut srcdata);
+
+        Ok(SCommandQueueUpdateBufferResult{
+            destination: destinationresource,
+            intermediate: intermediateresource,
+        })
+    }
+}
+
 pub struct SCommandQueue {
     q: typeyd3d12::SCommandQueue,
     fence: SFence,
@@ -298,6 +342,11 @@ impl SCommandQueue {
         Ok(self.commandlistpool.getmut(list)?)
     }
 
+    pub fn getunusedcommandlist(&mut self) -> Result<&mut SCommandList, &'static str> {
+        let handle = self.getunusedcommandlisthandle()?;
+        self.getcommandlist(handle)
+    }
+
     pub fn executecommandlist(&mut self, list: SPoolHandle) -> Result<(), &'static str> {
         #[allow(unused_assignments)]
         let mut allocator: SPoolHandle = Default::default();
@@ -364,51 +413,6 @@ impl SCommandQueue {
 
     pub fn rawqueue(&mut self) -> &mut typeyd3d12::SCommandQueue {
         &mut self.q
-    }
-
-    #[allow(unused_variables)]
-    pub fn updatebufferresource<T>(
-        &mut self,
-        device: &mut SDevice,
-        _list: SPoolHandle,
-        bufferdata: &[T],
-        flags: typeyd3d12::SResourceFlags,
-    ) -> Result<SCommandQueueUpdateBufferResult, &'static str> {
-
-        let buffersize = bufferdata.len() * std::mem::size_of::<T>();
-
-        let mut destinationresource = device.raw().createcommittedresource(
-            typeyd3d12::SHeapProperties::create(typeyd3d12::EHeapType::Default),
-            typeyd3d12::EHeapFlags::ENone,
-            typeyd3d12::SResourceDesc::createbuffer(buffersize, flags),
-            typeyd3d12::EResourceStates::CopyDest,
-            None,
-        )?;
-
-        // -- resource created with Upload type MUST have state GenericRead
-        let mut intermediateresource = device.raw().createcommittedresource(
-            typeyd3d12::SHeapProperties::create(typeyd3d12::EHeapType::Upload),
-            typeyd3d12::EHeapFlags::ENone,
-            typeyd3d12::SResourceDesc::createbuffer(buffersize, typeyd3d12::SResourceFlags::none()),
-            typeyd3d12::EResourceStates::GenericRead,
-            None,
-        )?;
-
-        let mut srcdata = typeyd3d12::SSubResourceData::createbuffer(bufferdata);
-        let commandlist = self.getcommandlist(_list)?;
-        updatesubresourcesstack(
-            commandlist,
-            &mut destinationresource,
-            &mut intermediateresource,
-            0,
-            0,
-            1,
-            &mut srcdata);
-
-        Ok(SCommandQueueUpdateBufferResult{
-            destination: destinationresource,
-            intermediate: intermediateresource,
-        })
     }
 }
 

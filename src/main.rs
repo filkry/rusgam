@@ -34,56 +34,34 @@ fn main_d3d12() {
     let mut adapter = factory.bestadapter().unwrap();
     let mut device = adapter.createdevice().unwrap();
 
-    // -- setup direct command queue and pools
-    let mut allocatorpool = rustyd3d12::SCommandAllocatorPool::create(
-        &device,
-        2,
-        safed3d12::ECommandListType::Direct,
-    ).unwrap();
-    let mut listpool = rustyd3d12::SCommandListPool::create(
-        &device,
-        1,
-        &allocatorpool,
-    ).unwrap();
     let mut commandqueue = rustyd3d12::SCommandQueue::createcommandqueue(
         &winapi.rawwinapi(),
         &device,
-        &allocatorpool,
-        &listpool,
+        safed3d12::ECommandListType::Direct,
     )
     .unwrap();
+    commandqueue.setup(&device, 2, 1).unwrap();
 
-    /*
-    // -- setup copy command queue and pools
-    let mut copyallocatorpool = rustyd3d12::SCommandAllocatorPool::create(
-        &device,
-        2,
-        safed3d12::ECommandListType::Copy,
-    ).unwrap();
-    let mut copylistpool = rustyd3d12::SCommandListPool::create(
-        &device,
-        1,
-        &copyallocatorpool,
-    ).unwrap();
     let mut copycommandqueue = rustyd3d12::SCommandQueue::createcommandqueue(
         &winapi.rawwinapi(),
         &device,
-        &mut copyallocatorpool,
-        &mut copylistpool,
+        safed3d12::ECommandListType::Copy,
     )
     .unwrap();
-    */
+    copycommandqueue.setup(&device, 2, 1).unwrap();
 
-    let mut window = rustywindows::SWindow::create(&windowclass, "rusgam", 800, 600).unwrap(); // $$$FRK(TODO): this panics, need to unify error handling
-    let mut d3dwindow = rustyd3d12::createsd3d12window(
+    let mut window = rustyd3d12::createsd3d12window(
         &mut factory,
-        &mut window,
+        &windowclass,
         &device,
-        &commandqueue,
+        &mut commandqueue,
+        "rusgam",
+        800,
+        600,
     )
     .unwrap();
-    d3dwindow.initrendertargetviews(&device).unwrap();
-    d3dwindow.show();
+    window.initrendertargetviews(&device).unwrap();
+    window.show();
 
     // -- tutorial2 data
     let vertexbufferresource: Option<safed3d12::SResource> = None;
@@ -97,7 +75,7 @@ fn main_d3d12() {
 
     let rootsignature: Option<safed3d12::SRootSignature> = None;
     let pipelinestate: Option<safed3d12::SPipelineState> = None;
-    let viewport = safed3d12::SViewport::new(0.0, 0.0, d3dwindow.width() as f32, d3dwindow.height() as f32, None, None);
+    let viewport = safed3d12::SViewport::new(0.0, 0.0, window.width() as f32, window.height() as f32, None, None);
     let scissorrect = safed3d12::SRect {
         left: 0,
         right: std::i32::MAX,
@@ -163,7 +141,6 @@ fn main_d3d12() {
         4, 3, 7
     ];
 
-    /*
     let vertbufferflags : safed3d12::SResourceFlags = safed3d12::SResourceFlags::from(safed3d12::EResourceFlags::ENone);
 
     let copycommandlist = copycommandqueue.getunusedcommandlisthandle().unwrap();
@@ -174,7 +151,6 @@ fn main_d3d12() {
             &cubeverts,
             vertbufferflags,
         ).unwrap();
-    */
 
     // -- update loop
 
@@ -193,18 +169,18 @@ fn main_d3d12() {
         //println!("Frame {} time: {}us", framecount, dtms);
 
         // -- wait for buffer to be available
-        commandqueue.waitforfencevalue(framefencevalues[d3dwindow.currentbackbufferindex()]);
+        commandqueue.waitforfencevalue(framefencevalues[window.currentbackbufferindex()]);
 
         // -- render
         {
-            let backbufferidx = d3dwindow.currentbackbufferindex();
-            assert!(backbufferidx == d3dwindow.swapchain.raw().currentbackbufferindex());
+            let backbufferidx = window.currentbackbufferindex();
+            assert!(backbufferidx == window.swapchain.raw().currentbackbufferindex());
 
             let commandlisthandle = commandqueue.getunusedcommandlisthandle().unwrap();
 
             // -- clear the render target
             {
-                let backbuffer = d3dwindow.currentbackbuffer();
+                let backbuffer = window.currentbackbuffer();
 
                 // -- transition to render target
                 commandqueue
@@ -221,7 +197,7 @@ fn main_d3d12() {
                 commandqueue
                     .clearrendertargetview(
                         commandlisthandle,
-                        d3dwindow.currentrendertargetdescriptor().unwrap(),
+                        window.currentrendertargetdescriptor().unwrap(),
                         &clearcolour,
                     )
                     .unwrap();
@@ -238,12 +214,12 @@ fn main_d3d12() {
             }
 
             // -- execute on the queue
-            assert_eq!(d3dwindow.currentbackbufferindex(), backbufferidx);
+            assert_eq!(window.currentbackbufferindex(), backbufferidx);
             commandqueue.executecommandlist(commandlisthandle).unwrap();
-            framefencevalues[d3dwindow.currentbackbufferindex()] = commandqueue.pushsignal().unwrap();
+            framefencevalues[window.currentbackbufferindex()] = commandqueue.pushsignal().unwrap();
 
             // -- present the swap chain and switch to next buffer in swap chain
-            d3dwindow.present().unwrap();
+            window.present().unwrap();
         }
 
         lastframetime = curframetime;
@@ -252,13 +228,13 @@ fn main_d3d12() {
         // -- $$$FRK(TODO): framerate is uncapped
 
         loop {
-            let msg = d3dwindow.pollmessage();
+            let msg = window.pollmessage();
             match msg {
                 None => break,
                 Some(m) => match m {
                     safewindows::EMsgType::Paint => {
                         //println!("Paint!");
-                        d3dwindow.dummyrepaint();
+                        window.dummyrepaint();
                     }
                     safewindows::EMsgType::KeyDown { key } => match key {
                         safewindows::EKey::Q => {
@@ -269,11 +245,11 @@ fn main_d3d12() {
                     },
                     safewindows::EMsgType::Size => {
                         //println!("Size");
-                        let rect: safewindows::SRect = d3dwindow.raw().getclientrect().unwrap();
+                        let rect: safewindows::SRect = window.raw().getclientrect().unwrap();
                         let newwidth = rect.right - rect.left;
                         let newheight = rect.bottom - rect.top;
 
-                        d3dwindow
+                        window
                             .resize(
                                 newwidth as u32,
                                 newheight as u32,

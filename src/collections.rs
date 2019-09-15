@@ -165,9 +165,9 @@ pub struct SPool<T: Clone> {
     generations: Vec<u16>,
     max: u16,
     freelist: VecDeque<u16>,
+    setup: bool,
 }
 
-/*
 impl<T: Clone> Default for SPool<T> {
     fn default() -> Self {
         SPool {
@@ -179,29 +179,23 @@ impl<T: Clone> Default for SPool<T> {
         }
     }
 }
-*/
 
 impl<T: Clone> SPool<T> {
-    pub fn create_with<F>(max: u16, f: F) -> SPool<T>
+    pub fn setup<F>(&mut self, max: u16, f: F)
     where
         F: FnMut() -> T,
     {
-        let mut buffer = Vec::new();
-        buffer.resize_with(max as usize, f);
-        let mut generations = Vec::new();
-        generations.resize(max as usize, 0);
+        assert_eq!(self.setup, false);
 
-        let mut freelist = VecDeque::new();
+        self.buffer.resize_with(max as usize, f);
+        self.generations.resize(max as usize, 0);
+        self.max = max;
+
         for i in 0..max {
-            freelist.push_back(i);
+            self.freelist.push_back(i);
         }
 
-        SPool{
-            buffer: buffer,
-            generations: generations,
-            max: max,
-            freelist: freelist,
-        }
+        self.setup = true;
     }
 
     pub fn full(&self) -> bool {

@@ -42,8 +42,6 @@ impl SWinAPI {
 pub struct SWindow {
     w: safewindows::SWindow,
     windowproc: SWindowProc,
-    curwidth: u32,
-    curheight: u32,
 }
 
 impl SWindow {
@@ -59,8 +57,6 @@ impl SWindow {
             windowproc: SWindowProc {
                 pendingmsgs: std::collections::VecDeque::new(),
             },
-            curwidth: width,
-            curheight: height,
         })
     }
 
@@ -89,13 +85,6 @@ impl SWindow {
     }
     pub fn rawmut(&mut self) -> &mut safewindows::SWindow {
         &mut self.w
-    }
-
-    pub fn width(&self) -> u32 {
-        self.curwidth
-    }
-    pub fn height(&self) -> u32 {
-        self.curheight
     }
 }
 

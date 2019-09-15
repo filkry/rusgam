@@ -10,10 +10,8 @@ use std::ops::{Deref, DerefMut};
 use std::ptr;
 
 // -- $$$FRK(TODO): all these imports should not exist
-use winapi::ctypes::c_void;
 use winapi::shared::minwindef::*;
 use winapi::um::d3d12sdklayers::*;
-use winapi::um::d3d12::D3D12_SUBRESOURCE_DATA;
 
 pub struct SFactory {
     f: typeyd3d12::SFactory,
@@ -162,6 +160,20 @@ pub struct SCommandList {
     list: typeyd3d12::SCommandList,
 }
 
+impl Deref for SCommandList {
+    type Target = typeyd3d12::SCommandList;
+
+    fn deref(&self) -> &Self::Target {
+        &self.list
+    }
+}
+
+impl DerefMut for SCommandList {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.list
+    }
+}
+
 pub struct SCommandQueue {
     q: typeyd3d12::SCommandQueue,
     fence: SFence,
@@ -282,8 +294,8 @@ impl SCommandQueue {
     pub fn getcommandlist(
         &mut self,
         list: SPoolHandle,
-    ) -> Result<&mut typeyd3d12::SCommandList, &'static str> {
-        Ok(&mut (self.commandlistpool.getmut(list)?).list)
+    ) -> Result<&mut SCommandList, &'static str> {
+        Ok(self.commandlistpool.getmut(list)?)
     }
 
     pub fn executecommandlist(&mut self, list: SPoolHandle) -> Result<(), &'static str> {
@@ -382,30 +394,51 @@ impl SCommandQueue {
             None,
         )?;
 
-        // -- $$$FRK(TODO): move the rest of this to typeyd3d12?
-        unsafe {
-            let mut subresourcedata = D3D12_SUBRESOURCE_DATA{
-                pData: bufferdata.as_ptr() as *const c_void,
-                RowPitch: buffersize as isize,
-                SlicePitch: buffersize as isize,
-            };
-
-            let commandlist = self.getcommandlist(_list)?;
-
-            directxgraphicssamples::UpdateSubresourcesStack(
-                commandlist.rawmut().as_raw(),
-                destinationresource.raw_mut().as_raw(),
-                intermediateresource.raw_mut().as_raw(),
-                0,
-                0,
-                1,
-                &mut subresourcedata);
-        }
+        let mut srcdata = typeyd3d12::SSubResourceData::createbuffer(bufferdata);
+        let commandlist = self.getcommandlist(_list)?;
+        updatesubresourcesstack(
+            commandlist,
+            &mut destinationresource,
+            &mut intermediateresource,
+            0,
+            0,
+            1,
+            &mut srcdata);
 
         Ok(SCommandQueueUpdateBufferResult{
             destination: destinationresource,
             intermediate: intermediateresource,
         })
+    }
+}
+
+impl typeyd3d12::SSubResourceData {
+    pub fn createbuffer<T>(data: &[T]) -> Self {
+        let buffersize = data.len() * std::mem::size_of::<T>();
+        unsafe {
+            Self::create(data.as_ptr(), buffersize, buffersize)
+        }
+    }
+}
+
+fn updatesubresourcesstack(
+    commandlist: &mut SCommandList,
+    destinationresource: &mut typeyd3d12::SResource,
+    intermediateresource: &mut typeyd3d12::SResource,
+    intermediateoffset: u64,
+    firstsubresource: u32,
+    numsubresources: u32,
+    srcdata: &mut typeyd3d12::SSubResourceData,
+) {
+    unsafe {
+        directxgraphicssamples::UpdateSubresourcesStack(
+            commandlist.rawmut().as_raw(),
+            destinationresource.raw_mut().as_raw(),
+            intermediateresource.raw_mut().as_raw(),
+            intermediateoffset,
+            firstsubresource,
+            numsubresources,
+            srcdata.raw_mut());
     }
 }
 

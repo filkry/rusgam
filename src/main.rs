@@ -4,10 +4,10 @@ extern crate wio;
 
 //mod math;
 mod collections;
-mod safed3d12;
 mod safewindows;
-mod rustyd3d12;
 mod rustywindows;
+mod typeyd3d12;
+mod niced3d12;
 mod directxgraphicssamples;
 
 type SMat44 = nalgebra::Matrix4<f32>;
@@ -23,34 +23,34 @@ struct SVertexPosColour {
 #[allow(unused_mut)]
 fn main_d3d12() {
     // -- initialize debug
-    let debuginterface = safed3d12::getdebuginterface().unwrap();
+    let debuginterface = typeyd3d12::getdebuginterface().unwrap();
     debuginterface.enabledebuglayer();
 
     // -- setup window and command queue
     let mut winapi = rustywindows::SWinAPI::create();
     let windowclass = winapi.rawwinapi().registerclassex("rusgam").unwrap();
 
-    let mut factory = rustyd3d12::SFactory::create().unwrap();
+    let mut factory = niced3d12::SFactory::create().unwrap();
     let mut adapter = factory.bestadapter().unwrap();
     let mut device = adapter.createdevice().unwrap();
 
-    let mut commandqueue = rustyd3d12::SCommandQueue::createcommandqueue(
+    let mut commandqueue = niced3d12::SCommandQueue::createcommandqueue(
         &winapi.rawwinapi(),
         &device,
-        safed3d12::ECommandListType::Direct,
+        typeyd3d12::ECommandListType::Direct,
     )
     .unwrap();
     commandqueue.setup(&device, 2, 1).unwrap();
 
-    let mut copycommandqueue = rustyd3d12::SCommandQueue::createcommandqueue(
+    let mut copycommandqueue = niced3d12::SCommandQueue::createcommandqueue(
         &winapi.rawwinapi(),
         &device,
-        safed3d12::ECommandListType::Copy,
+        typeyd3d12::ECommandListType::Copy,
     )
     .unwrap();
     copycommandqueue.setup(&device, 2, 1).unwrap();
 
-    let mut window = rustyd3d12::createsd3d12window(
+    let mut window = niced3d12::createsd3d12window(
         &mut factory,
         &windowclass,
         &device,
@@ -64,19 +64,19 @@ fn main_d3d12() {
     window.show();
 
     // -- tutorial2 data
-    let vertexbufferresource: Option<safed3d12::SResource> = None;
-    let vertexbufferview: Option<safed3d12::SVertexBufferView> = None;
-    let indexbufferresource: Option<safed3d12::SResource> = None;
-    let indexbufferview: Option<safed3d12::SIndexBufferView> = None;
+    let vertexbufferresource: Option<typeyd3d12::SResource> = None;
+    let vertexbufferview: Option<typeyd3d12::SVertexBufferView> = None;
+    let indexbufferresource: Option<typeyd3d12::SResource> = None;
+    let indexbufferview: Option<typeyd3d12::SIndexBufferView> = None;
 
-    let depthbufferresource: Option<safed3d12::SResource> = None;
+    let depthbufferresource: Option<typeyd3d12::SResource> = None;
     let depthstencilviewheap =
-        device.createdescriptorheap(safed3d12::EDescriptorHeapType::DepthStencil, 1);
+        device.createdescriptorheap(typeyd3d12::EDescriptorHeapType::DepthStencil, 1);
 
-    let rootsignature: Option<safed3d12::SRootSignature> = None;
-    let pipelinestate: Option<safed3d12::SPipelineState> = None;
-    let viewport = safed3d12::SViewport::new(0.0, 0.0, window.width() as f32, window.height() as f32, None, None);
-    let scissorrect = safed3d12::SRect {
+    let rootsignature: Option<typeyd3d12::SRootSignature> = None;
+    let pipelinestate: Option<typeyd3d12::SPipelineState> = None;
+    let viewport = typeyd3d12::SViewport::new(0.0, 0.0, window.width() as f32, window.height() as f32, None, None);
+    let scissorrect = typeyd3d12::SRect {
         left: 0,
         right: std::i32::MAX,
         top: 0,
@@ -141,10 +141,10 @@ fn main_d3d12() {
         4, 3, 7
     ];
 
-    let vertbufferflags : safed3d12::SResourceFlags = safed3d12::SResourceFlags::from(safed3d12::EResourceFlags::ENone);
+    let vertbufferflags : typeyd3d12::SResourceFlags = typeyd3d12::SResourceFlags::from(typeyd3d12::EResourceFlags::ENone);
 
     let copycommandlist = copycommandqueue.getunusedcommandlisthandle().unwrap();
-    let vertbuffers : rustyd3d12::SCommandQueueUpdateBufferResult =
+    let vertbuffers : niced3d12::SCommandQueueUpdateBufferResult =
         copycommandqueue.updatebufferresource(
             &mut device,
             copycommandlist,
@@ -187,8 +187,8 @@ fn main_d3d12() {
                     .transitionresource(
                         commandlisthandle,
                         backbuffer,
-                        safed3d12::EResourceStates::Present,
-                        safed3d12::EResourceStates::RenderTarget,
+                        typeyd3d12::EResourceStates::Present,
+                        typeyd3d12::EResourceStates::RenderTarget,
                     )
                     .unwrap();
 
@@ -207,8 +207,8 @@ fn main_d3d12() {
                     .transitionresource(
                         commandlisthandle,
                         backbuffer,
-                        safed3d12::EResourceStates::RenderTarget,
-                        safed3d12::EResourceStates::Present,
+                        typeyd3d12::EResourceStates::RenderTarget,
+                        typeyd3d12::EResourceStates::Present,
                     )
                     .unwrap();
             }

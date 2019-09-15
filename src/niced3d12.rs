@@ -2,7 +2,7 @@
 
 use collections::{SPool, SPoolHandle};
 use rustywindows;
-use safed3d12;
+use typeyd3d12;
 use safewindows;
 use directxgraphicssamples;
 
@@ -16,17 +16,17 @@ use winapi::um::d3d12sdklayers::*;
 use winapi::um::d3d12::D3D12_SUBRESOURCE_DATA;
 
 pub struct SFactory {
-    f: safed3d12::SFactory,
+    f: typeyd3d12::SFactory,
 }
 
 impl SFactory {
     pub fn create() -> Result<SFactory, &'static str> {
         Ok(SFactory {
-            f: safed3d12::createdxgifactory4()?,
+            f: typeyd3d12::createdxgifactory4()?,
         })
     }
 
-    pub fn raw(&self) -> &safed3d12::SFactory {
+    pub fn raw(&self) -> &typeyd3d12::SFactory {
         &self.f
     }
 
@@ -77,7 +77,7 @@ impl SFactory {
     pub fn createswapchain(
         &self,
         window: &safewindows::SWindow,
-        commandqueue: &mut safed3d12::SCommandQueue,
+        commandqueue: &mut typeyd3d12::SCommandQueue,
         width: u32,
         height: u32,
     ) -> Result<SSwapChain, &'static str> {
@@ -92,7 +92,7 @@ impl SFactory {
 }
 
 pub struct SAdapter {
-    a: safed3d12::SAdapter4,
+    a: typeyd3d12::SAdapter4,
 }
 
 impl SAdapter {
@@ -113,7 +113,7 @@ impl SAdapter {
                 let mut suppressedmessages =
                     [D3D12_MESSAGE_ID_CLEARRENDERTARGETVIEW_MISMATCHINGCLEARVALUE];
 
-                // -- $$$FRK(DNS): need a struct version of this in safed3d12
+                // -- $$$FRK(DNS): need a struct version of this in typeyd3d12
                 let allowlist = D3D12_INFO_QUEUE_FILTER_DESC {
                     NumCategories: 0,
                     pCategoryList: ptr::null_mut(),
@@ -159,23 +159,23 @@ pub struct SActiveCommandAllocator {
 #[derive(Clone)]
 pub struct SCommandList {
     allocator: SPoolHandle,
-    list: safed3d12::SCommandList,
+    list: typeyd3d12::SCommandList,
 }
 
 pub struct SCommandQueue {
-    q: safed3d12::SCommandQueue,
+    q: typeyd3d12::SCommandQueue,
     fence: SFence,
     fenceevent: safewindows::SEventHandle,
     pub nextfencevalue: u64,
-    commandlisttype: safed3d12::ECommandListType,
+    commandlisttype: typeyd3d12::ECommandListType,
 
-    commandallocatorpool: SPool<safed3d12::SCommandAllocator>,
+    commandallocatorpool: SPool<typeyd3d12::SCommandAllocator>,
     activeallocators: Vec<SActiveCommandAllocator>,
     commandlistpool: SPool<SCommandList>,
 }
 
 impl Deref for SCommandQueue {
-    type Target = safed3d12::SCommandQueue;
+    type Target = typeyd3d12::SCommandQueue;
 
     fn deref(&self) -> &Self::Target {
         &self.q
@@ -189,19 +189,19 @@ impl DerefMut for SCommandQueue {
 }
 
 pub struct SCommandQueueUpdateBufferResult {
-    destination: safed3d12::SResource,
-    intermediate: safed3d12::SResource,
+    destination: typeyd3d12::SResource,
+    intermediate: typeyd3d12::SResource,
 }
 
 impl SCommandQueue {
     pub fn createcommandqueue(
         winapi: &safewindows::SWinAPI,
         device: &SDevice,
-        commandlisttype: safed3d12::ECommandListType,
+        commandlisttype: typeyd3d12::ECommandListType,
     ) -> Result<SCommandQueue, &'static str> {
         let qresult = device
             .raw()
-            .createcommandqueue(safed3d12::ECommandListType::Direct)?;
+            .createcommandqueue(typeyd3d12::ECommandListType::Direct)?;
         Ok(SCommandQueue {
             q: qresult,
             fence: device.createfence().unwrap(),
@@ -282,7 +282,7 @@ impl SCommandQueue {
     pub fn getcommandlist(
         &mut self,
         list: SPoolHandle,
-    ) -> Result<&mut safed3d12::SCommandList, &'static str> {
+    ) -> Result<&mut typeyd3d12::SCommandList, &'static str> {
         Ok(&mut (self.commandlistpool.getmut(list)?).list)
     }
 
@@ -312,12 +312,12 @@ impl SCommandQueue {
     pub fn transitionresource(
         &mut self,
         list: SPoolHandle,
-        resource: &safed3d12::SResource,
-        beforestate: safed3d12::EResourceStates,
-        afterstate: safed3d12::EResourceStates,
+        resource: &typeyd3d12::SResource,
+        beforestate: typeyd3d12::EResourceStates,
+        afterstate: typeyd3d12::EResourceStates,
     ) -> Result<(), &'static str> {
         let commandlist = self.getcommandlist(list)?;
-        let transbarrier = safed3d12::createtransitionbarrier(resource, beforestate, afterstate);
+        let transbarrier = typeyd3d12::createtransitionbarrier(resource, beforestate, afterstate);
         commandlist.resourcebarrier(1, &[transbarrier]);
         Ok(())
     }
@@ -325,7 +325,7 @@ impl SCommandQueue {
     pub fn clearrendertargetview(
         &mut self,
         list: SPoolHandle,
-        rtvdescriptor: safed3d12::SDescriptorHandle,
+        rtvdescriptor: typeyd3d12::SDescriptorHandle,
         colour: &[f32; 4],
     ) -> Result<(), &'static str> {
         let commandlist = self.getcommandlist(list)?;
@@ -350,7 +350,7 @@ impl SCommandQueue {
         Ok(())
     }
 
-    pub fn rawqueue(&mut self) -> &mut safed3d12::SCommandQueue {
+    pub fn rawqueue(&mut self) -> &mut typeyd3d12::SCommandQueue {
         &mut self.q
     }
 
@@ -360,29 +360,29 @@ impl SCommandQueue {
         device: &mut SDevice,
         _list: SPoolHandle,
         bufferdata: &[T],
-        flags: safed3d12::SResourceFlags,
+        flags: typeyd3d12::SResourceFlags,
     ) -> Result<SCommandQueueUpdateBufferResult, &'static str> {
 
         let buffersize = bufferdata.len() * std::mem::size_of::<T>();
 
         let mut destinationresource = device.raw().createcommittedresource(
-            safed3d12::SHeapProperties::create(safed3d12::EHeapType::Default),
-            safed3d12::EHeapFlags::ENone,
-            safed3d12::SResourceDesc::createbuffer(buffersize, flags),
-            safed3d12::EResourceStates::CopyDest,
+            typeyd3d12::SHeapProperties::create(typeyd3d12::EHeapType::Default),
+            typeyd3d12::EHeapFlags::ENone,
+            typeyd3d12::SResourceDesc::createbuffer(buffersize, flags),
+            typeyd3d12::EResourceStates::CopyDest,
             None,
         )?;
 
         // -- resource created with Upload type MUST have state GenericRead
         let mut intermediateresource = device.raw().createcommittedresource(
-            safed3d12::SHeapProperties::create(safed3d12::EHeapType::Upload),
-            safed3d12::EHeapFlags::ENone,
-            safed3d12::SResourceDesc::createbuffer(buffersize, safed3d12::SResourceFlags::none()),
-            safed3d12::EResourceStates::GenericRead,
+            typeyd3d12::SHeapProperties::create(typeyd3d12::EHeapType::Upload),
+            typeyd3d12::EHeapFlags::ENone,
+            typeyd3d12::SResourceDesc::createbuffer(buffersize, typeyd3d12::SResourceFlags::none()),
+            typeyd3d12::EResourceStates::GenericRead,
             None,
         )?;
 
-        // -- $$$FRK(TODO): move the rest of this to safed3d12?
+        // -- $$$FRK(TODO): move the rest of this to typeyd3d12?
         unsafe {
             let mut subresourcedata = D3D12_SUBRESOURCE_DATA{
                 pData: bufferdata.as_ptr() as *const c_void,
@@ -410,8 +410,8 @@ impl SCommandQueue {
 }
 
 pub struct SBufferResourceResult {
-    destinationresource: safed3d12::SResource,
-    intermediateresource: safed3d12::SResource,
+    destinationresource: typeyd3d12::SResource,
+    intermediateresource: typeyd3d12::SResource,
 }
 
 // --
@@ -425,14 +425,14 @@ impl<'heap> SDescriptorHandle<'heap> {
 */
 
 pub struct SDevice {
-    d: safed3d12::SDevice,
+    d: typeyd3d12::SDevice,
 }
 
 impl SDevice {
-    pub fn raw(&self) -> &safed3d12::SDevice {
+    pub fn raw(&self) -> &typeyd3d12::SDevice {
         &self.d
     }
-    pub fn rawmut(&mut self) -> &mut safed3d12::SDevice {
+    pub fn rawmut(&mut self) -> &mut typeyd3d12::SDevice {
         &mut self.d
     }
 
@@ -444,7 +444,7 @@ impl SDevice {
         assert!(swap.backbuffers.is_empty());
 
         match heap.raw().type_ {
-            safed3d12::EDescriptorHeapType::RenderTarget => {
+            typeyd3d12::EDescriptorHeapType::RenderTarget => {
                 for backbuffidx in 0usize..2usize {
                     swap.backbuffers.push(swap.raw().getbuffer(backbuffidx)?);
 
@@ -469,7 +469,7 @@ impl SDevice {
 
     pub fn createdescriptorheap(
         &self,
-        type_: safed3d12::EDescriptorHeapType,
+        type_: typeyd3d12::EDescriptorHeapType,
         numdescriptors: u32,
     ) -> Result<SDescriptorHeap, &'static str> {
         //let raw = self.d.createdescriptorheap(type_, numdescriptors)?;
@@ -483,11 +483,11 @@ impl SDevice {
 }
 
 pub struct SFence {
-    f: safed3d12::SFence,
+    f: typeyd3d12::SFence,
 }
 
 impl SFence {
-    pub fn raw(&self) -> &safed3d12::SFence {
+    pub fn raw(&self) -> &typeyd3d12::SFence {
         &self.f
     }
 
@@ -507,18 +507,18 @@ impl SFence {
 }
 
 pub struct SDescriptorHeap {
-    dh: safed3d12::SDescriptorHeap,
+    dh: typeyd3d12::SDescriptorHeap,
     numdescriptors: u32,
     descriptorsize: usize,
-    //cpudescriptorhandleforstart: safed3d12::SDescriptorHandle<'heap, 'device>,
+    //cpudescriptorhandleforstart: typeyd3d12::SDescriptorHandle<'heap, 'device>,
 }
 
 impl SDescriptorHeap {
-    pub fn raw(&self) -> &safed3d12::SDescriptorHeap {
+    pub fn raw(&self) -> &typeyd3d12::SDescriptorHeap {
         &self.dh
     }
 
-    pub fn cpuhandle(&self, index: usize) -> Result<safed3d12::SDescriptorHandle, &'static str> {
+    pub fn cpuhandle(&self, index: usize) -> Result<typeyd3d12::SDescriptorHandle, &'static str> {
         if index < self.numdescriptors as usize {
             let offsetbytes: usize = (index * self.descriptorsize) as usize;
             let starthandle = self.dh.getcpudescriptorhandleforheapstart();
@@ -530,13 +530,13 @@ impl SDescriptorHeap {
 }
 
 pub struct SSwapChain {
-    sc: safed3d12::SSwapChain,
+    sc: typeyd3d12::SSwapChain,
     pub buffercount: u32,
-    pub backbuffers: Vec<safed3d12::SResource>,
+    pub backbuffers: Vec<typeyd3d12::SResource>,
 }
 
 impl Deref for SSwapChain {
-    type Target = safed3d12::SSwapChain;
+    type Target = typeyd3d12::SSwapChain;
 
     fn deref(&self) -> &Self::Target {
         &self.sc
@@ -550,7 +550,7 @@ impl DerefMut for SSwapChain {
 }
 
 impl SSwapChain {
-    pub fn raw(&self) -> &safed3d12::SSwapChain {
+    pub fn raw(&self) -> &typeyd3d12::SSwapChain {
         &self.sc
     }
 }
@@ -568,7 +568,7 @@ pub fn createsd3d12window(
     factory: &mut SFactory,
     windowclass: &safewindows::SWindowClass,
     device: &SDevice,
-    commandqueue: &mut safed3d12::SCommandQueue,
+    commandqueue: &mut typeyd3d12::SCommandQueue,
     title: &str,
     width: u32,
     height: u32,
@@ -582,7 +582,7 @@ pub fn createsd3d12window(
         swapchain: swapchain,
         curbuffer: curbuffer,
         rtvdescriptorheap: device
-            .createdescriptorheap(safed3d12::EDescriptorHeapType::RenderTarget, 10)?,
+            .createdescriptorheap(typeyd3d12::EDescriptorHeapType::RenderTarget, 10)?,
         curwidth: width,
         curheight: height,
     })
@@ -609,7 +609,7 @@ impl SD3D12Window {
     }
 
     // -- $$$FRK(TODO): need to think about this, non-mut seems wrong (as does just handing out a pointer in general)
-    pub fn currentbackbuffer(&self) -> &safed3d12::SResource {
+    pub fn currentbackbuffer(&self) -> &typeyd3d12::SResource {
         &self.swapchain.backbuffers[self.curbuffer]
     }
 
@@ -619,7 +619,7 @@ impl SD3D12Window {
 
     pub fn currentrendertargetdescriptor(
         &self,
-    ) -> Result<safed3d12::SDescriptorHandle, &'static str> {
+    ) -> Result<typeyd3d12::SDescriptorHandle, &'static str> {
         self.rtvdescriptorheap.cpuhandle(self.curbuffer)
     }
 

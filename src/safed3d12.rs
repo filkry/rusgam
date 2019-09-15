@@ -194,8 +194,8 @@ impl SFactory {
     }
 }
 
-pub fn createtransitionbarrier(
-    resource: &SResource,
+pub fn createtransitionbarrier<'resource>(
+    resource: &'resource SResource,
     beforestate: EResourceStates,
     afterstate: EResourceStates,
 ) -> SBarrier {
@@ -300,15 +300,16 @@ impl ECommandListType {
     }
 }
 
-pub struct SCommandQueue {
+pub struct SCommandQueue<'device> {
     queue: ComPtr<ID3D12CommandQueue>,
+    phantom: PhantomData<&'device SDevice>,
 }
 
 impl SDevice {
     pub fn createcommandqueue(
         &self,
         type_: ECommandListType,
-    ) -> Result<SCommandQueue, &'static str> {
+    ) -> Result<SCommandQueue<'_>, &'static str> {
         // -- $$$FRK(TODO): pass priority, flags, nodemask
         let desc = D3D12_COMMAND_QUEUE_DESC {
             Type: type_.d3dtype(),
@@ -330,31 +331,35 @@ impl SDevice {
 
         Ok(SCommandQueue {
             queue: unsafe { ComPtr::from_raw(rawqueue) },
+            phantom: PhantomData,
         })
     }
 }
 
-pub struct SResource {
+pub struct SResource<'device> {
     resource: ComPtr<ID3D12Resource>,
+    phantom: PhantomData<&'device SDevice>,
 }
 
-impl std::cmp::PartialEq for SResource {
+impl<'device> std::cmp::PartialEq for SResource<'device> {
     fn eq(&self, other: &Self) -> bool {
         self.resource == other.resource
     }
 }
 
-impl SResource {
+impl<'device> SResource<'device> {
     pub unsafe fn raw_mut(&mut self) -> &mut ComPtr<ID3D12Resource> {
         &mut self.resource
     }
 }
 
-pub struct SSwapChain {
+pub struct SSwapChain<'cq, 'w> {
     swapchain: ComPtr<IDXGISwapChain4>,
+    phantomdevice: PhantomData<&'cq SCommandQueue<'cq>>,
+    phantomwindow: PhantomData<&'w safewindows::SWindow>,
 }
 
-impl SSwapChain {
+impl<'cq, 'w> SSwapChain<'cq, 'w> {
     pub fn present(&self, syncinterval: u32, flags: u32) -> Result<(), &'static str> {
         let hr = unsafe { self.swapchain.Present(syncinterval, flags) };
         returnerrifwinerror!(hr, "Couldn't present to swap chain.");
@@ -365,7 +370,7 @@ impl SSwapChain {
         unsafe { self.swapchain.GetCurrentBackBufferIndex() as usize }
     }
 
-    pub fn getbuffer(&self, idx: usize) -> Result<SResource, &'static str> {
+    pub fn getbuffer(&self, idx: usize) -> Result<SResource<'cq>, &'static str> {
         let mut rawbuf: *mut ID3D12Resource = ptr::null_mut();
         let hn = unsafe {
             self.swapchain.GetBuffer(
@@ -382,6 +387,7 @@ impl SSwapChain {
 
         Ok(SResource {
             resource: unsafe { ComPtr::from_raw(rawbuf) },
+            phantom: PhantomData,
         })
     }
 
@@ -421,13 +427,13 @@ pub struct SSwapChainDesc {
 }
 
 impl SFactory {
-    pub fn createswapchainforwindow(
+    pub fn createswapchainforwindow<'w, 'cq>(
         &self,
-        window: &safewindows::SWindow,
-        commandqueue: &mut SCommandQueue,
+        window: &'w safewindows::SWindow,
+        commandqueue: &'cq SCommandQueue,
         width: u32,
         height: u32,
-    ) -> Result<SSwapChain, &'static str> {
+    ) -> Result<SSwapChain<'cq, 'w>, &'static str> {
         let buffercount = 2;
 
         let desc = DXGI_SWAP_CHAIN_DESC1 {
@@ -464,7 +470,11 @@ impl SFactory {
         let swapchain = unsafe { ComPtr::from_raw(rawswapchain) };
 
         match swapchain.cast::<IDXGISwapChain4>() {
-            Ok(sc4) => Ok(SSwapChain { swapchain: sc4 }),
+            Ok(sc4) => Ok(SSwapChain {
+                swapchain: sc4,
+                phantomdevice: PhantomData,
+                phantomwindow: PhantomData
+            }),
             _ => Err("Swap chain could not be case to SwapChain4"),
         }
     }
@@ -491,12 +501,13 @@ impl EDescriptorHeapType {
     }
 }
 
-pub struct SDescriptorHeap {
+pub struct SDescriptorHeap<'device> {
     pub type_: EDescriptorHeapType,
     heap: ComPtr<ID3D12DescriptorHeap>,
+    phantom: PhantomData<&'device SDevice>,
 }
 
-impl SDescriptorHeap {
+impl<'device> SDescriptorHeap<'device> {
     pub fn getcpudescriptorhandleforheapstart(&self) -> SDescriptorHandle<'_> {
         let start = unsafe { self.heap.GetCPUDescriptorHandleForHeapStart() };
         SDescriptorHandle {
@@ -508,7 +519,7 @@ impl SDescriptorHeap {
 
 pub struct SDescriptorHandle<'heap> {
     handle: D3D12_CPU_DESCRIPTOR_HANDLE,
-    phantom: PhantomData<&'heap SDescriptorHeap>,
+    phantom: PhantomData<&'heap SDescriptorHeap<'heap>>,
 }
 
 impl<'heap> SDescriptorHandle<'heap> {
@@ -552,6 +563,7 @@ impl SDevice {
         Ok(SDescriptorHeap {
             type_: type_,
             heap: heap,
+            phantom: PhantomData,
         })
     }
 
@@ -599,6 +611,7 @@ impl SDevice {
             returnerrifwinerror!(hn, "Could not create committed resource.");
             Ok(SResource {
                 resource: ComPtr::from_raw(rawresource),
+                phantom: PhantomData,
             })
         }
     }
@@ -756,23 +769,27 @@ impl TD3DFlags32 for EResourceFlags {
 pub type SResourceFlags = SD3DFlags32<EResourceFlags>;
 
 #[derive(Clone)]
-pub struct SCommandAllocator {
+pub struct SCommandAllocator<'device> {
     type_: ECommandListType,
     commandallocator: ComPtr<ID3D12CommandAllocator>,
+    phantom: PhantomData<&'device SDevice>,
 }
 
-impl SCommandAllocator {
+impl<'device> SCommandAllocator<'device> {
     pub fn reset(&self) {
         unsafe { self.commandallocator.Reset() };
     }
 }
 
 #[derive(Clone)]
-pub struct SCommandList {
+pub struct SCommandList<'allocator> {
     commandlist: ComPtr<ID3D12GraphicsCommandList>,
+    phantom: PhantomData<&'allocator SCommandAllocator<'allocator>>,
 }
 
-impl SCommandList {
+impl<'allocator> SCommandList<'allocator> {
+    // -- $$$FRK(TODO): needs to move self, spit out self with a transmuted lifetime to the new commandallocator
+    /*
     pub fn reset(&self, commandallocator: &SCommandAllocator) -> Result<(), &'static str> {
         let hn = unsafe {
             self.commandlist
@@ -781,6 +798,7 @@ impl SCommandList {
         returnerrifwinerror!(hn, "Could not reset command list.");
         Ok(())
     }
+    */
 
     pub fn resourcebarrier(&self, numbarriers: u32, barriers: &[SBarrier]) {
         // -- $$$FRK(TODO): need to figure out how to make a c array from the rust slice
@@ -827,6 +845,7 @@ impl SDevice {
         Ok(SCommandAllocator {
             type_: type_,
             commandallocator: unsafe { ComPtr::from_raw(rawca) },
+            phantom: PhantomData,
         })
     }
 
@@ -850,12 +869,14 @@ impl SDevice {
 
         Ok(SCommandList {
             commandlist: unsafe { ComPtr::from_raw(rawcl) },
+            phantom: PhantomData,
         })
     }
 }
 
-pub struct SFence {
+pub struct SFence<'device> {
     fence: ComPtr<ID3D12Fence>,
+    phantom: PhantomData<&'device SDevice>,
 }
 
 impl SDevice {
@@ -876,11 +897,12 @@ impl SDevice {
 
         Ok(SFence {
             fence: unsafe { ComPtr::from_raw(rawf) },
+            phantom: PhantomData,
         })
     }
 }
 
-impl SFence {
+impl<'device> SFence<'device> {
     pub fn getcompletedvalue(&self) -> u64 {
         unsafe { self.fence.GetCompletedValue() }
     }
@@ -896,7 +918,7 @@ impl SFence {
     }
 }
 
-impl SCommandQueue {
+impl<'device> SCommandQueue<'device> {
     // -- $$$FRK(TODO): revisit this after I understand how I'm going to be using this fence
     pub fn signal(&self, fence: &SFence, val: u64) -> Result<u64, &'static str> {
         let hn = unsafe { self.queue.Signal(fence.fence.as_raw(), val) };
@@ -907,7 +929,7 @@ impl SCommandQueue {
     }
 
     // -- $$$FRK(TODO): support listS
-    pub fn executecommandlist(&self, list: &mut SCommandList) {
+    pub fn executecommandlist<'a>(&self, list: &mut SCommandList<'a>) {
         unsafe {
             self.queue
                 .ExecuteCommandLists(1, &(list.commandlist.as_raw() as *mut ID3D12CommandList));

@@ -525,22 +525,20 @@ pub struct SDescriptorHeap {
 }
 
 impl SDescriptorHeap {
-    pub fn getcpudescriptorhandleforheapstart(&self) -> SDescriptorHandle<'_> {
+    pub fn getcpudescriptorhandleforheapstart(&self) -> SDescriptorHandle {
         let start = unsafe { self.heap.GetCPUDescriptorHandleForHeapStart() };
         SDescriptorHandle {
             handle: start,
-            phantom: PhantomData,
         }
     }
 }
 
 pub struct SDescriptorHandle<'heap> {
     handle: D3D12_CPU_DESCRIPTOR_HANDLE,
-    phantom: PhantomData<&'heap SDescriptorHeap>,
 }
 
-impl<'heap> SDescriptorHandle<'heap> {
-    pub unsafe fn offset(&self, bytes: usize) -> SDescriptorHandle<'heap> {
+impl SDescriptorHandle {
+    pub unsafe fn offset(&self, bytes: usize) -> SDescriptorHandle {
         SDescriptorHandle {
             handle: D3D12_CPU_DESCRIPTOR_HANDLE {
                 ptr: self.handle.ptr + bytes,

@@ -13,22 +13,78 @@ use std::ptr;
 use winapi::shared::minwindef::*;
 use winapi::um::d3d12sdklayers::*;
 
-pub struct SFactory {
+// =================================================================================================
+// MAIN TYPES
+// =================================================================================================
+
+pub struct SD3D12Context {
     f: typeyd3d12::SFactory,
+
+    // -- pools
+    adapters: SPool<typeyd3d12::SAdapter4>,
+    swapchains: SPool<typeyd3d12::SSwapChain>,
+    devices: SPool<typeyd3d12::SDevice>,
 }
 
-impl SFactory {
-    pub fn create() -> Result<SFactory, &'static str> {
-        Ok(SFactory {
+pub struct SAdapter {
+    a: SPoolHandle,
+}
+
+pub struct SSwapChain {
+    sc: SPoolHandle,
+    pub buffercount: u32,
+    pub backbuffers: [SPoolHandle, 4], // -- max 4 backbuffers for now
+}
+
+pub struct SDevice {
+    d: SPoolHandle,
+}
+
+pub struct SCommandList {
+    list: SPoolHandle,
+    allocator: SPoolHandle,
+}
+
+pub struct SCommandQueue {
+    queue: SPoolHandle,
+
+    fence: SPoolHandle,
+    fenceevent: safewindows::SEventHandle,
+    pub nextfencevalue: u64,
+
+    commandlisttype: typeyd3d12::ECommandListType,
+}
+
+// =================================================================================================
+// HELPER TYPES
+// =================================================================================================
+
+pub struct SCommandQueueUpdateBufferResult {
+    pub destinationresource: SPoolHandle,
+    pub intermediateresource: SPoolHandle,
+}
+
+// =================================================================================================
+// IMPLS
+// =================================================================================================
+
+impl SD3D12Context {
+    pub fn create() -> Result<Self, &'static str> {
+        Ok(Self {
             f: typeyd3d12::createdxgifactory4()?,
+
+            // -- $$$FRK(TODO): allow overriding these consts
+            adapters: SPool<typeyd3d12::SAdapter4>::create(1),
+            swapchains: SPool<typeyd3d12::SSwapChain>::create(1),
+            devices: SPool<typeyd3d12::SDevice>::create(4),
+            commandallocators: SPool<typeyd3d12::SCommandAllocator>::create(10),
+            commandqueues: SPool<typeyd3d12::SCommandQueue>::create(10),
+            commandlists: SPool<typeyd3d12::SCommandList>::create(10),
+            resources: SPool<typeyd3d12::SResource>::create(512),
         })
     }
 
-    pub fn raw(&self) -> &typeyd3d12::SFactory {
-        &self.f
-    }
-
-    pub fn bestadapter(&self) -> Result<SAdapter, &'static str> {
+    pub fn create_best_adapter(&mut self) -> Result<SAdapter, &'static str> {
         //let mut rawadapter4: *mut IDXGIFactory4 = ptr::null_mut();
         let mut maxdedicatedmem: usize = 0;
         let mut bestadapter = 0;
@@ -66,37 +122,37 @@ impl SFactory {
         if maxdedicatedmem > 0 {
             let adapter1 = self.f.enumadapters(bestadapter).expect("$$$FRK(TODO)");
             let adapter4 = adapter1.castadapter4().expect("$$$FRK(TODO)");
-            return Ok(SAdapter { a: adapter4 });
+            return self.adapters.pushval(adapter4)?;
         }
 
         Err("Could not find valid adapter")
     }
 
-    pub fn createswapchain(
+    pub fn create_swap_chain(
         &self,
         window: &safewindows::SWindow,
         commandqueue: &mut typeyd3d12::SCommandQueue,
         width: u32,
         height: u32,
     ) -> Result<SSwapChain, &'static str> {
+
+        let newsc = self.f.createswapchainforwindow(window, commandqueue, width, height)?;
+        let handle = self.adapters.pushval(newsc)?;
+
         Ok(SSwapChain {
-            sc: self
-                .f
-                .createswapchainforwindow(window, commandqueue, width, height)?,
+            sc: handle,
             buffercount: 2,
-            backbuffers: Vec::with_capacity(2),
+            backbuffers: [Default::default, 4],
         })
     }
-}
 
-pub struct SAdapter {
-    a: typeyd3d12::SAdapter4,
-}
+    // ---------------------------------------------------------------------------------------------
+    // Adapter functions
+    // ---------------------------------------------------------------------------------------------
 
-impl SAdapter {
-    pub fn createdevice(&mut self) -> Result<SDevice, &'static str> {
-        // -- $$$FRK(TODO): remove unwraps
-        let device = self.a.d3d12createdevice()?;
+    pub fn create_device(&mut self, adapter: SPoolHandle) -> Result<SPoolHandle, &'static str> {
+        // -- $$$FRK(TODO): remove unwraps? Assert instead? Manual unwrap that asserts!
+        let device = self.adapters.get(adapter)?.d3d12createdevice()?;
 
         // -- $$$FRK(TODO): debug only
         match device.castinfoqueue() {
@@ -145,39 +201,17 @@ impl SAdapter {
             }
         }
 
-        Ok(SDevice { d: device })
+        let handle = self.devices.pushval(device)?;
+        Ok(SDevice { d: handle })
     }
-}
 
-pub struct SActiveCommandAllocator {
-    allocator: SPoolHandle,
-    reusefencevalue: u64,
-}
+    // ---------------------------------------------------------------------------------------------
+    // Command List functions
+    // ---------------------------------------------------------------------------------------------
 
-#[derive(Clone)]
-pub struct SCommandList {
-    allocator: SPoolHandle,
-    list: typeyd3d12::SCommandList,
-}
-
-impl Deref for SCommandList {
-    type Target = typeyd3d12::SCommandList;
-
-    fn deref(&self) -> &Self::Target {
-        &self.list
-    }
-}
-
-impl DerefMut for SCommandList {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.list
-    }
-}
-
-impl SCommandList {
-    pub fn updatebufferresource<T>(
+    pub fn update_buffer_resource<T>(
         &mut self,
-        device: &mut SDevice,
+        commandlist: SPoolHandle,
         bufferdata: &[T],
         flags: typeyd3d12::SResourceFlags,
     ) -> Result<SCommandQueueUpdateBufferResult, &'static str> {
@@ -210,43 +244,42 @@ impl SCommandList {
             intermediate: intermediateresource,
         })
     }
-}
 
-pub struct SCommandQueue {
-    q: typeyd3d12::SCommandQueue,
-    fence: SFence,
-    fenceevent: safewindows::SEventHandle,
-    pub nextfencevalue: u64,
-    commandlisttype: typeyd3d12::ECommandListType,
+    pub fn transition_resource(
+        &self,
+        list: SPoolHandle,
+        resource: SPoolHandle,
+        beforestate: typeyd3d12::EResourceStates,
+        afterstate: typeyd3d12::EResourceStates,
+    ) -> Result<(), &'static str> {
 
-    commandallocatorpool: SPool<typeyd3d12::SCommandAllocator>,
-    activeallocators: Vec<SActiveCommandAllocator>,
-    commandlistpool: SPool<SCommandList>,
-}
+        let rawlist = self.commandlists.get(list)?;
+        let rawresource = self.resources.get(resource)?;
 
-impl Deref for SCommandQueue {
-    type Target = typeyd3d12::SCommandQueue;
-
-    fn deref(&self) -> &Self::Target {
-        &self.q
+        let transbarrier = typeyd3d12::createtransitionbarrier(rawresource, beforestate, afterstate);
+        rawlist.resourcebarrier(1, &[transbarrier]);
+        Ok(())
     }
-}
 
-impl DerefMut for SCommandQueue {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.q
+    pub fn clear_render_target_view(
+        &self,
+        list: SPoolHandle,
+        rtvdescriptor: typeyd3d12::SDescriptorHandle,
+        colour: &[f32; 4],
+    ) -> Result<(), &'static str> {
+        let rawlist = self.commandlists.get(list)?;
+        rawlist.clearrendertargetview(rtvdescriptor, colour);
+        Ok(())
     }
-}
 
-pub struct SCommandQueueUpdateBufferResult {
-    pub destination: SResource,
-    pub intermediate: SResource,
-}
+    // ---------------------------------------------------------------------------------------------
+    // Command queue functions
+    // ---------------------------------------------------------------------------------------------
 
-impl SCommandQueue {
-    pub fn createcommandqueue(
+    pub fn create_command_queue(
+        &mut self,
         winapi: &safewindows::SWinAPI,
-        device: &SDevice,
+        device: SPoolHandle,
         commandlisttype: typeyd3d12::ECommandListType,
     ) -> Result<SCommandQueue, &'static str> {
         let qresult = device
@@ -265,148 +298,59 @@ impl SCommandQueue {
         })
     }
 
-    pub fn setup(
-        &mut self,
-        device: &SDevice,
-        maxallocators: u16,
-        maxcommandlists: u16,
-    ) -> Result<(), &'static str> {
-        let commandlisttype = self.commandlisttype;
-        self.commandallocatorpool.setup(maxallocators, || {
-            device
-                .raw()
-                .createcommandallocator(commandlisttype)
-                .unwrap() // $$$FRK(TODO): need to find a way to not crash here
-        });
+    // -- $$$FRK(TODO): can the list know what queue it's on?
+    pub fn execute_command_list(&self, queue: SPoolHandle, list: SPoolHandle) -> Result<(), &'static str> {
+        //#[allow(unused_assignments)] $$$FRK(TODO): cleanup
 
-        self.activeallocators.reserve(maxallocators as usize);
+        let rawqueue = self.commandqueues.get(queue)?;
+        let rawlist = self.commandlists.get(list)?;
 
-        let firstallocatorhandle = self.commandallocatorpool.handleforindex(0)?;
-        let firstallocator = self.commandallocatorpool.getbyindex(0)?;
-
-        self.commandlistpool
-            .setup(maxcommandlists, || SCommandList {
-                allocator: firstallocatorhandle,
-                list: device.raw().createcommandlist(firstallocator).unwrap(),
-            });
-
-        for i in 0..maxcommandlists {
-            let commandlist = self.commandlistpool.getbyindex(i)?;
-            commandlist.list.close()?;
-        }
+        rawlist.close();
+        rawqueue.executecommandlist(rawlist);
 
         Ok(())
     }
 
-    fn freeallocators(&mut self) {
-        let completedvalue = self.fence.raw().getcompletedvalue();
-        for alloc in &self.activeallocators {
-            if alloc.reusefencevalue <= completedvalue {
-                self.commandallocatorpool.pop(alloc.allocator);
-            }
-        }
-
-        self.activeallocators
-            .retain(|alloc| alloc.reusefencevalue > completedvalue);
+    pub fn signal(&self, queue: SPoolHandle, fence: SPoolHandle, value: u64) -> Result<u64, &'static str> {
+        let rawqueue = self.commandqueues.get(queue)?;
+        let rawfence = self.fences.get(fence)?;
+        rawqueue.signal(&rawfence, value)
     }
 
-    pub fn getunusedcommandlisthandle(&mut self) -> Result<SPoolHandle, &'static str> {
-        self.freeallocators();
+    pub fn wait_for_fence_value(&self, queue: &SCommandQueue, val: u64) {
+        let rawqueue = self.commandqueues.get(queue.queue)?;
 
-        if self.commandlistpool.full() || self.commandallocatorpool.full() {
-            return Err("no available command list or allocator");
-        }
-
-        let commandallocatorhandle = self.commandallocatorpool.push()?;
-        let commandallocator = self.commandallocatorpool.getmut(commandallocatorhandle)?;
-        commandallocator.reset();
-
-        let commandlisthandle = self.commandlistpool.push()?;
-        let commandlist = self.commandlistpool.getmut(commandlisthandle)?;
-        commandlist.list.reset(commandallocator)?;
-        commandlist.allocator = commandallocatorhandle;
-
-        Ok(commandlisthandle)
-    }
-
-    pub fn getcommandlist(
-        &mut self,
-        list: SPoolHandle,
-    ) -> Result<&mut SCommandList, &'static str> {
-        let commandlist = self.commandlistpool.getmut(list)?;
-        let cqtype = self.q.getdesc().cqtype();
-        assert!(self.commandlisttype == cqtype);
-        assert!(commandlist.gettype() == self.commandlisttype);
-        Ok(commandlist)
-    }
-
-    pub fn executecommandlist(&mut self, list: SPoolHandle) -> Result<(), &'static str> {
-        #[allow(unused_assignments)]
-        let mut allocator: SPoolHandle = Default::default();
-        {
-            let rawlist = self.commandlistpool.getmut(list)?;
-            assert!(rawlist.gettype() == self.commandlisttype);
-            rawlist.list.close()?;
-            self.q.executecommandlist(&mut rawlist.list);
-
-            assert!(rawlist.allocator.valid());
-            allocator = rawlist.allocator;
-        }
-        self.commandlistpool.pop(list);
-
-        let fenceval = self.pushsignal()?;
-
-        self.activeallocators.push(SActiveCommandAllocator {
-            allocator: allocator,
-            reusefencevalue: fenceval,
-        });
-
-        Ok(())
-    }
-
-    pub fn transitionresource(
-        &mut self,
-        list: SPoolHandle,
-        resource: &typeyd3d12::SResource,
-        beforestate: typeyd3d12::EResourceStates,
-        afterstate: typeyd3d12::EResourceStates,
-    ) -> Result<(), &'static str> {
-        let commandlist = self.getcommandlist(list)?;
-        let transbarrier = typeyd3d12::createtransitionbarrier(resource, beforestate, afterstate);
-        commandlist.resourcebarrier(1, &[transbarrier]);
-        Ok(())
-    }
-
-    pub fn clearrendertargetview(
-        &mut self,
-        list: SPoolHandle,
-        rtvdescriptor: typeyd3d12::SDescriptorHandle,
-        colour: &[f32; 4],
-    ) -> Result<(), &'static str> {
-        let commandlist = self.getcommandlist(list)?;
-        commandlist.clearrendertargetview(rtvdescriptor, colour);
-        Ok(())
-    }
-
-    pub fn pushsignal(&mut self) -> Result<u64, &'static str> {
-        self.nextfencevalue += 1;
-        self.q.signal(&self.fence.raw(), self.nextfencevalue)
-    }
-
-    pub fn waitforfencevalue(&self, val: u64) {
         self.fence
             .waitforvalue(val, &self.fenceevent, <u64>::max_value())
             .unwrap();
     }
 
-    pub fn flushblocking(&mut self) -> Result<(), &'static str> {
-        let lastfencevalue = self.pushsignal()?;
-        self.waitforfencevalue(lastfencevalue);
+    pub fn flush_blocking(&self, queue: &mut SCommandQueue) -> Result<(), &'static str> {
+        let lastfencevalue = self.push_signal(queue)?;
+        self.wait_for_fence_value(queue, lastfencevalue);
         Ok(())
     }
+}
 
-    pub fn rawqueue(&mut self) -> &mut typeyd3d12::SCommandQueue {
-        &mut self.q
+impl SAdapter {
+    pub fn createdevice(&self, ctxt: &mut SD3D12Context) -> Result<SPoolHandle, &'static str> {
+        ctxt.createdevice(self)
+    }
+}
+
+impl SCommandList {
+    pub fn update_buffer_resource<T>(
+        &self,
+        ctxt: &SD3D12Context,
+    ) -> Result<SCommandQueueUpdateBufferResult, &'static str> {
+        ctxt.update_buffer_resource(self.list)
+    }
+}
+
+impl SCommandQueue {
+    pub fn push_signal(&mut self, ctxt: &SD3D12Context) -> Result<u64, &'static str> {
+        self.nextfencevalue += 1;
+        ctxt.signal(self.queue, self.fence, self.nextfencevalue)
     }
 }
 
@@ -508,10 +452,6 @@ impl SResource {
             Err("Trying to create indexbufferview for non-buffer resource")
         }
     }
-}
-
-pub struct SDevice {
-    d: typeyd3d12::SDevice,
 }
 
 impl SDevice {
@@ -638,12 +578,6 @@ impl SDescriptorHeap {
             Err("Descripter handle index past number of descriptors.")
         }
     }
-}
-
-pub struct SSwapChain {
-    sc: typeyd3d12::SSwapChain,
-    pub buffercount: u32,
-    pub backbuffers: Vec<typeyd3d12::SResource>,
 }
 
 impl Deref for SSwapChain {

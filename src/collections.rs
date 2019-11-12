@@ -136,6 +136,7 @@ impl<T: Copy> SFixedQueue<T> {
 
 #[derive(Copy, Clone)]
 pub struct SPoolHandle {
+    poolid: u64,
     index: u16,
     generation: u16,
 }
@@ -146,14 +147,14 @@ impl SPoolHandle {
     }
 
     pub fn invalidate(&mut self) {
-        self.index = std::u16::MAX;
-        self.generation = std::u16::MAX;
+        self = Default::default;
     }
 }
 
 impl Default for SPoolHandle {
     fn default() -> Self {
         SPoolHandle {
+            poolid: std::u64::MAX,
             index: std::u16::MAX,
             generation: std::u16::MAX,
         }
@@ -161,41 +162,24 @@ impl Default for SPoolHandle {
 }
 
 pub struct SPool<T: Clone> {
-    buffer: Vec<T>,
+    id: u64, // -- for making sure we have the right pool
+
+    buffer: Vec<Option<T>>,
     generations: Vec<u16>,
     max: u16,
     freelist: VecDeque<u16>,
-    setup: bool,
-}
-
-impl<T: Clone> Default for SPool<T> {
-    fn default() -> Self {
-        SPool {
-            buffer: Vec::new(),
-            generations: Vec::new(),
-            max: 0,
-            freelist: VecDeque::new(),
-            setup: false,
-        }
-    }
 }
 
 impl<T: Clone> SPool<T> {
-    pub fn setup<F>(&mut self, max: u16, f: F)
-    where
-        F: FnMut() -> T,
+    pub fn create<F>(&mut self, id: u64, max: u16)
     {
-        assert_eq!(self.setup, false);
-
-        self.buffer.resize_with(max as usize, f);
+        self.buffer.resize_with(max as usize, Default::default);
         self.generations.resize(max as usize, 0);
         self.max = max;
 
         for i in 0..max {
             self.freelist.push_back(i);
         }
-
-        self.setup = true;
     }
 
     pub fn full(&self) -> bool {
@@ -208,7 +192,7 @@ impl<T: Clone> SPool<T> {
 
     pub fn pushref(&mut self, val: &T) -> Result<SPoolHandle, &'static str> {
         let handle = self.push()?;
-        *self.getmut(handle)? = val.clone();
+        *self.getmut(handle)? = Some(val.clone());
         Ok(handle)
     }
 

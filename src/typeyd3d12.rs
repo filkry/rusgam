@@ -15,7 +15,7 @@ use winapi::shared::minwindef::*;
 use winapi::shared::{dxgiformat, dxgitype, winerror};
 use winapi::um::d3d12::*;
 use winapi::um::d3d12sdklayers::*;
-use winapi::um::{d3dcommon, unknwnbase, d3dcompiler};
+use winapi::um::{d3dcommon, d3dcompiler, unknwnbase};
 use winapi::Interface;
 
 use wio::com::ComPtr;
@@ -121,6 +121,7 @@ impl SAdapter1 {
     }
 }
 
+#[derive(Clone)]
 pub struct SAdapter4 {
     adapter: ComPtr<IDXGIAdapter4>,
 }
@@ -215,6 +216,7 @@ pub fn createtransitionbarrier(
     SBarrier { barrier: barrier }
 }
 
+#[derive(Clone)]
 pub struct SDevice {
     device: ComPtr<ID3D12Device2>,
 }
@@ -320,6 +322,7 @@ impl SCommandQueueDesc {
     }
 }
 
+#[derive(Clone)]
 pub struct SCommandQueue {
     queue: ComPtr<ID3D12CommandQueue>,
 }
@@ -354,6 +357,7 @@ impl SDevice {
     }
 }
 
+#[derive(Clone)]
 pub struct SResource {
     resource: ComPtr<ID3D12Resource>,
 }
@@ -371,13 +375,14 @@ impl SResource {
 
     pub fn getgpuvirtualaddress(&self) -> SGPUVirtualAddress {
         unsafe {
-            SGPUVirtualAddress{
+            SGPUVirtualAddress {
                 raw: self.resource.GetGPUVirtualAddress(),
             }
         }
     }
 }
 
+#[derive(Clone)]
 pub struct SSwapChain {
     swapchain: ComPtr<IDXGISwapChain4>,
 }
@@ -519,6 +524,7 @@ impl EDescriptorHeapType {
     }
 }
 
+#[derive(Clone)]
 pub struct SDescriptorHeap {
     pub type_: EDescriptorHeapType,
     heap: ComPtr<ID3D12DescriptorHeap>,
@@ -527,13 +533,11 @@ pub struct SDescriptorHeap {
 impl SDescriptorHeap {
     pub fn getcpudescriptorhandleforheapstart(&self) -> SDescriptorHandle {
         let start = unsafe { self.heap.GetCPUDescriptorHandleForHeapStart() };
-        SDescriptorHandle {
-            handle: start,
-        }
+        SDescriptorHandle { handle: start }
     }
 }
 
-pub struct SDescriptorHandle<'heap> {
+pub struct SDescriptorHandle {
     handle: D3D12_CPU_DESCRIPTOR_HANDLE,
 }
 
@@ -607,9 +611,7 @@ impl SDevice {
         resourcedesc: SResourceDesc,
         initialresourcestate: EResourceStates,
         _optimizedclearvalue: Option<u32>, // -- $$$FRK(TODO): clear value
-    ) -> Result<SResource, &'static str>
-    {
-
+    ) -> Result<SResource, &'static str> {
         unsafe {
             let mut rawresource: *mut ID3D12Resource = ptr::null_mut();
             let hn = self.device.CreateCommittedResource(
@@ -650,14 +652,14 @@ pub struct SHeapProperties {
 
 impl SHeapProperties {
     pub fn create(type_: EHeapType) -> Self {
-        Self{
-            raw: D3D12_HEAP_PROPERTIES{
+        Self {
+            raw: D3D12_HEAP_PROPERTIES {
                 Type: type_.d3dtype(),
                 CPUPageProperty: D3D12_CPU_PAGE_PROPERTY_UNKNOWN,
                 MemoryPoolPreference: D3D12_MEMORY_POOL_UNKNOWN,
                 CreationNodeMask: 1,
                 VisibleNodeMask: 1,
-            }
+            },
         }
     }
 }
@@ -680,7 +682,7 @@ pub struct SResourceDesc {
 }
 
 pub trait TD3DFlags32 {
-    type TD3DType : std::convert::Into<u32> + std::convert::From<u32> + Copy + Clone;
+    type TD3DType: std::convert::Into<u32> + std::convert::From<u32> + Copy + Clone;
 
     fn d3dtype(&self) -> Self::TD3DType;
 }
@@ -705,31 +707,31 @@ impl<T: TD3DFlags32> Copy for SD3DFlags32<T> {}
 
 impl<T: TD3DFlags32> SD3DFlags32<T> {
     pub fn none() -> Self {
-        Self{
+        Self {
             raw: T::TD3DType::from(0),
         }
     }
 
     pub fn all() -> Self {
-        Self{
+        Self {
             raw: T::TD3DType::from(std::u32::MAX),
         }
     }
 
     pub fn and(&self, other: T) -> Self {
-        let a : u32 = self.raw.into();
-        let b : u32 = other.d3dtype().into();
-        let res : u32 = a & b;
-        Self{
+        let a: u32 = self.raw.into();
+        let b: u32 = other.d3dtype().into();
+        let res: u32 = a & b;
+        Self {
             raw: T::TD3DType::from(res),
         }
     }
 
     pub fn or(&self, other: T) -> Self {
-        let a : u32 = self.raw.into();
-        let b : u32 = other.d3dtype().into();
-        let res : u32 = a | b;
-        Self{
+        let a: u32 = self.raw.into();
+        let b: u32 = other.d3dtype().into();
+        let res: u32 = a | b;
+        Self {
             raw: T::TD3DType::from(res),
         }
     }
@@ -741,22 +743,22 @@ impl<T: TD3DFlags32> SD3DFlags32<T> {
 
 impl SResourceDesc {
     pub fn createbuffer(buffersize: usize, flags: SResourceFlags) -> Self {
-        Self{
-            raw: D3D12_RESOURCE_DESC{
+        Self {
+            raw: D3D12_RESOURCE_DESC {
                 Dimension: D3D12_RESOURCE_DIMENSION_BUFFER,
                 Alignment: D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT as u64,
                 Width: buffersize as u64, // seems like this is used as the main dimension for a 1D resource
-                Height: 1, // required
-                DepthOrArraySize: 1, // required
-                MipLevels: 1, // required
+                Height: 1,                // required
+                DepthOrArraySize: 1,      // required
+                MipLevels: 1,             // required
                 Format: dxgiformat::DXGI_FORMAT_UNKNOWN, // required
-                SampleDesc: dxgitype::DXGI_SAMPLE_DESC{
-                    Count: 1, // required
+                SampleDesc: dxgitype::DXGI_SAMPLE_DESC {
+                    Count: 1,   // required
                     Quality: 0, // required
                 },
                 Layout: D3D12_TEXTURE_LAYOUT_ROW_MAJOR, // required
                 Flags: flags.d3dtype(),
-            }
+            },
         }
     }
 }
@@ -782,7 +784,9 @@ impl TD3DFlags32 for EResourceFlags {
             EResourceFlags::AllowUnorderedAccess => D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
             EResourceFlags::DenyShaderResource => D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE,
             EResourceFlags::AllowCrossAdapter => D3D12_RESOURCE_FLAG_ALLOW_CROSS_ADAPTER,
-            EResourceFlags::AllowSimultaneousAccess => D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS,
+            EResourceFlags::AllowSimultaneousAccess => {
+                D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS
+            }
         }
     }
 }
@@ -808,9 +812,7 @@ pub struct SCommandList {
 
 impl SCommandList {
     pub fn gettype(&self) -> ECommandListType {
-        unsafe {
-            ECommandListType::create(self.commandlist.GetType())
-        }
+        unsafe { ECommandListType::create(self.commandlist.GetType()) }
     }
 
     pub fn reset(&self, commandallocator: &SCommandAllocator) -> Result<(), &'static str> {
@@ -894,6 +896,7 @@ impl SDevice {
     }
 }
 
+#[derive(Clone)]
 pub struct SFence {
     fence: ComPtr<ID3D12Fence>,
 }
@@ -953,7 +956,7 @@ impl SCommandQueue {
     }
 
     // -- $$$FRK(TODO): support listS
-    pub fn executecommandlist(&self, list: &mut SCommandList) {
+    pub unsafe fn executecommandlist(&self, list: &SCommandList) {
         unsafe {
             self.queue
                 .ExecuteCommandLists(1, &(list.commandlist.as_raw() as *mut ID3D12CommandList));
@@ -976,9 +979,13 @@ pub struct SVertexBufferView {
 }
 
 impl SVertexBufferView {
-    pub fn create(bufferlocation: SGPUVirtualAddress, sizeinbytes: u32, strideinbytes: u32) -> Self {
+    pub fn create(
+        bufferlocation: SGPUVirtualAddress,
+        sizeinbytes: u32,
+        strideinbytes: u32,
+    ) -> Self {
         Self {
-            raw: D3D12_VERTEX_BUFFER_VIEW{
+            raw: D3D12_VERTEX_BUFFER_VIEW {
                 BufferLocation: bufferlocation.raw(),
                 SizeInBytes: sizeinbytes,
                 StrideInBytes: strideinbytes,
@@ -1006,7 +1013,7 @@ pub struct SIndexBufferView {
 impl SIndexBufferView {
     pub fn create(bufferlocation: SGPUVirtualAddress, format: EFormat, sizeinbytes: u32) -> Self {
         Self {
-            raw: D3D12_INDEX_BUFFER_VIEW{
+            raw: D3D12_INDEX_BUFFER_VIEW {
                 BufferLocation: bufferlocation.raw(),
                 Format: format.d3dtype(),
                 SizeInBytes: sizeinbytes,
@@ -1014,7 +1021,6 @@ impl SIndexBufferView {
         }
     }
 }
-
 
 pub struct SRootSignature {
     rootsignature: ComPtr<ID3D12RootSignature>,
@@ -1058,12 +1064,12 @@ pub struct SSubResourceData {
 
 impl SSubResourceData {
     pub unsafe fn create<T>(data: *const T, rowpitch: usize, slicepitch: usize) -> Self {
-        let subresourcedata = D3D12_SUBRESOURCE_DATA{
+        let subresourcedata = D3D12_SUBRESOURCE_DATA {
             pData: data as *const c_void,
             RowPitch: rowpitch as isize,
             SlicePitch: slicepitch as isize,
         };
-        SSubResourceData{
+        SSubResourceData {
             raw: subresourcedata,
         }
     }
@@ -1115,7 +1121,9 @@ impl TD3DFlags32 for ECompile {
             ECompile::AvoidFlowControl => d3dcompiler::D3DCOMPILE_AVOID_FLOW_CONTROL,
             ECompile::PreferFlowControl => d3dcompiler::D3DCOMPILE_PREFER_FLOW_CONTROL,
             ECompile::EnableStrictness => d3dcompiler::D3DCOMPILE_ENABLE_STRICTNESS,
-            ECompile::EnableBackwardsCompatibility => d3dcompiler::D3DCOMPILE_ENABLE_BACKWARDS_COMPATIBILITY,
+            ECompile::EnableBackwardsCompatibility => {
+                d3dcompiler::D3DCOMPILE_ENABLE_BACKWARDS_COMPATIBILITY
+            }
             ECompile::IEEEStrictness => d3dcompiler::D3DCOMPILE_IEEE_STRICTNESS,
             ECompile::OptimizationLevel0 => d3dcompiler::D3DCOMPILE_OPTIMIZATION_LEVEL0,
             ECompile::OptimizationLevel1 => d3dcompiler::D3DCOMPILE_OPTIMIZATION_LEVEL1,
@@ -1139,7 +1147,12 @@ pub struct SBlob {
 // --    + pDefines
 // --    + pInclude
 // --    + flags2
-pub fn d3dcompilefromfile(file: &str, entrypoint: &str, target: &str, flags1: SCompile) -> Result<SBlob, &'static str> {
+pub fn d3dcompilefromfile(
+    file: &str,
+    entrypoint: &str,
+    target: &str,
+    flags1: SCompile,
+) -> Result<SBlob, &'static str> {
     // -- $$$FRK(TODO): allocations :(
     let mut fileparam: Vec<u16> = file.encode_utf16().collect();
     fileparam.push('\0' as u16);
@@ -1153,22 +1166,24 @@ pub fn d3dcompilefromfile(file: &str, entrypoint: &str, target: &str, flags1: SC
     let mut rawcodeblob: *mut d3dcommon::ID3DBlob = ptr::null_mut();
     let mut errormsgsblob: *mut d3dcommon::ID3DBlob = ptr::null_mut();
 
-    let hr = unsafe { d3dcompiler::D3DCompileFromFile(
-        fileparam.as_ptr(),
-        ptr::null_mut(),
-        ptr::null_mut(),
-        entrypointparam.as_ptr() as *const i8,
-        targetparam.as_ptr() as *const i8,
-        flags1.d3dtype(),
-        0,
-        &mut rawcodeblob,
-        &mut errormsgsblob,
-    ) };
+    let hr = unsafe {
+        d3dcompiler::D3DCompileFromFile(
+            fileparam.as_ptr(),
+            ptr::null_mut(),
+            ptr::null_mut(),
+            entrypointparam.as_ptr() as *const i8,
+            targetparam.as_ptr() as *const i8,
+            flags1.d3dtype(),
+            0,
+            &mut rawcodeblob,
+            &mut errormsgsblob,
+        )
+    };
 
     returnerrifwinerror!(hr, "failed to compile shader");
     // -- $$$FRK(TODO): use error messages blob
 
-    Ok(SBlob{
+    Ok(SBlob {
         raw: unsafe { ComPtr::from_raw(rawcodeblob) },
     })
 }

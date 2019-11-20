@@ -147,7 +147,7 @@ impl SPoolHandle {
     }
 
     pub fn invalidate(&mut self) {
-        self = Default::default;
+        *self = Default::default();
     }
 }
 
@@ -162,6 +162,7 @@ impl Default for SPoolHandle {
 }
 
 pub struct SPool<T: Clone> {
+    // -- $$$FRK(TODO): make this into a string, only in debug builds?
     id: u64, // -- for making sure we have the right pool
 
     buffer: Vec<Option<T>>,
@@ -171,15 +172,23 @@ pub struct SPool<T: Clone> {
 }
 
 impl<T: Clone> SPool<T> {
-    pub fn create<F>(&mut self, id: u64, max: u16)
-    {
-        self.buffer.resize_with(max as usize, Default::default);
-        self.generations.resize(max as usize, 0);
-        self.max = max;
+    pub fn create(id: u64, max: u16) -> Self {
+        let result = Self{
+            id: id,
+            buffer: Vec::new(),
+            generations: Vec::new(),
+            max: max,
+            freelist: VecDeque::new(),
+        };
+
+        result.buffer.resize_with(max as usize, Default::default);
+        result.generations.resize(max as usize, 0);
 
         for i in 0..max {
-            self.freelist.push_back(i);
+            result.freelist.push_back(i);
         }
+
+        result
     }
 
     pub fn full(&self) -> bool {
@@ -192,7 +201,7 @@ impl<T: Clone> SPool<T> {
 
     pub fn pushref(&mut self, val: &T) -> Result<SPoolHandle, &'static str> {
         let handle = self.push()?;
-        *self.getmut(handle)? = Some(val.clone());
+        self.buffer[handle.index as usize] = Some(val.clone());
         Ok(handle)
     }
 
@@ -203,6 +212,7 @@ impl<T: Clone> SPool<T> {
                 Ok(SPoolHandle {
                     index: newidx,
                     generation: self.generations[idx],
+                    poolid: self.id,
                 })
             }
             None => Err("Cannot push to full SPool."),
@@ -222,7 +232,7 @@ impl<T: Clone> SPool<T> {
     pub fn get(&self, handle: SPoolHandle) -> Result<&T, &'static str> {
         let idx = handle.index as usize;
         if handle.valid() && handle.index < self.max && handle.generation == self.generations[idx] {
-            Ok(&self.buffer[idx])
+            self.getbyindex(handle.index)
         } else {
             Err("Invalid, out of bounds, or stale handle.")
         }
@@ -231,7 +241,7 @@ impl<T: Clone> SPool<T> {
     pub fn getmut(&mut self, handle: SPoolHandle) -> Result<&mut T, &'static str> {
         let idx = handle.index as usize;
         if handle.valid() && handle.index < self.max && handle.generation == self.generations[idx] {
-            Ok(&mut self.buffer[idx])
+            self.getmutbyindex(handle.index)
         } else {
             Err("Invalid, out of bounds, or stale handle.")
         }
@@ -239,7 +249,10 @@ impl<T: Clone> SPool<T> {
 
     pub fn getbyindex(&mut self, index: u16) -> Result<&T, &'static str> {
         if index < self.max {
-            Ok(&self.buffer[index as usize])
+            match self.buffer[index as usize] {
+                Some(val) => Ok(&val),
+                None => Err("nothing in handle"),
+            }
         } else {
             Err("Out of bounds index")
         }
@@ -247,7 +260,10 @@ impl<T: Clone> SPool<T> {
 
     pub fn getmutbyindex(&mut self, index: u16) -> Result<&mut T, &'static str> {
         if index < self.max {
-            Ok(&mut self.buffer[index as usize])
+            match self.buffer[index as usize] {
+                Some(val) => Ok(&mut val),
+                None => Err("nothing in handle"),
+            }
         } else {
             Err("Out of bounds index")
         }
@@ -258,6 +274,7 @@ impl<T: Clone> SPool<T> {
             Ok(SPoolHandle {
                 index: index,
                 generation: self.generations[index as usize],
+                poolid: self.id,
             })
         } else {
             Err("Out of bounds index")

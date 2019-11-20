@@ -4,11 +4,11 @@ extern crate wio;
 
 //mod math;
 mod collections;
-mod safewindows;
-mod rustywindows;
-mod typeyd3d12;
-mod niced3d12;
 mod directxgraphicssamples;
+mod niced3d12;
+mod rustywindows;
+mod safewindows;
+mod typeyd3d12;
 
 type SMat44 = nalgebra::Matrix4<f32>;
 type SVec3 = nalgebra::Vector3<f32>;
@@ -30,13 +30,15 @@ fn main_d3d12() {
     let mut winapi = rustywindows::SWinAPI::create();
     let windowclass = winapi.rawwinapi().registerclassex("rusgam").unwrap();
 
-    let mut factory = niced3d12::SFactory::create().unwrap();
-    let mut adapter = factory.bestadapter().unwrap();
-    let mut device = adapter.createdevice().unwrap();
+    let mut d3dctxt = niced3d12::SD3D12Context::create().unwrap();
+    let mut adapter = d3dctxt.create_best_adapter().unwrap();
+    let mut device = adapter.create_device(&d3dctxt).unwrap();
 
-    let mut commandqueue = niced3d12::SCommandQueue::createcommandqueue(
+    /*
+    let mut commandqueue = niced3d12::SCommandQueue::create_command_queue(
+        &d3dctxt,
         &winapi.rawwinapi(),
-        &device,
+        &mut device,
         typeyd3d12::ECommandListType::Direct,
     )
     .unwrap();
@@ -51,7 +53,7 @@ fn main_d3d12() {
     copycommandqueue.setup(&device, 2, 1).unwrap();
 
     let mut window = niced3d12::createsd3d12window(
-        &mut factory,
+        &mut d3dctxt,
         &windowclass,
         &device,
         &mut commandqueue,
@@ -75,7 +77,14 @@ fn main_d3d12() {
 
     let rootsignature: Option<typeyd3d12::SRootSignature> = None;
     let pipelinestate: Option<typeyd3d12::SPipelineState> = None;
-    let viewport = typeyd3d12::SViewport::new(0.0, 0.0, window.width() as f32, window.height() as f32, None, None);
+    let viewport = typeyd3d12::SViewport::new(
+        0.0,
+        0.0,
+        window.width() as f32,
+        window.height() as f32,
+        None,
+        None,
+    );
     let scissorrect = typeyd3d12::SRect {
         left: 0,
         right: std::i32::MAX,
@@ -144,29 +153,37 @@ fn main_d3d12() {
     // -- upload data to GPU
     {
         let copycommandlisthandle = copycommandqueue.getunusedcommandlisthandle().unwrap();
-        let copycommandlist = copycommandqueue.getcommandlist(copycommandlisthandle).unwrap();
+        let copycommandlist = copycommandqueue
+            .getcommandlist(copycommandlisthandle)
+            .unwrap();
 
         let mut vertbufferresource = {
-            let vertbufferflags = typeyd3d12::SResourceFlags::from(typeyd3d12::EResourceFlags::ENone);
-            copycommandlist.updatebufferresource(
-                &mut device,
-                &cubeverts,
-                vertbufferflags,
-            ).unwrap()
+            let vertbufferflags =
+                typeyd3d12::SResourceFlags::from(typeyd3d12::EResourceFlags::ENone);
+            copycommandlist
+                .updatebufferresource(&mut device, &cubeverts, vertbufferflags)
+                .unwrap()
         };
-        let _vertexbufferview = vertbufferresource.destination.createvertexbufferview().unwrap();
+        let _vertexbufferview = vertbufferresource
+            .destination
+            .createvertexbufferview()
+            .unwrap();
 
         let indexbufferresource = {
-            let indexbufferflags = typeyd3d12::SResourceFlags::from(typeyd3d12::EResourceFlags::ENone);
-            copycommandlist.updatebufferresource(
-                &mut device,
-                &indices,
-                indexbufferflags,
-            ).unwrap()
+            let indexbufferflags =
+                typeyd3d12::SResourceFlags::from(typeyd3d12::EResourceFlags::ENone);
+            copycommandlist
+                .updatebufferresource(&mut device, &indices, indexbufferflags)
+                .unwrap()
         };
-        let _indexbufferview = indexbufferresource.destination.createindexbufferview(typeyd3d12::EFormat::R16UINT).unwrap();
+        let _indexbufferview = indexbufferresource
+            .destination
+            .createindexbufferview(typeyd3d12::EFormat::R16UINT)
+            .unwrap();
 
-        copycommandqueue.executecommandlist(copycommandlisthandle).unwrap();
+        copycommandqueue
+            .executecommandlist(copycommandlisthandle)
+            .unwrap();
     }
 
     // -- update loop
@@ -292,6 +309,7 @@ fn main_d3d12() {
 
     // -- wait for all commands to clear
     commandqueue.flushblocking().unwrap();
+    */
 }
 
 fn main() {

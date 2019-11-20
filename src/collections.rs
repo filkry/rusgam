@@ -196,7 +196,9 @@ impl<T: Clone> SPool<T> {
     }
 
     pub fn pushval(&mut self, val: T) -> Result<SPoolHandle, &'static str> {
-        self.pushref(&val)
+        let handle = self.push()?;
+        self.buffer[handle.index as usize] = Some(val);
+        Ok(handle)
     }
 
     pub fn pushref(&mut self, val: &T) -> Result<SPoolHandle, &'static str> {

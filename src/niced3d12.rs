@@ -42,8 +42,10 @@ pub struct SAdapter {
 }
 
 pub struct SSwapChain {
-    sc: SPoolHandle,
+    handle: SPoolHandle,
     pub buffercount: u32,
+
+    // -- backbuffers SResources are allocated/freed by SSwapChain
     pub backbuffers: [SPoolHandle; 4], // -- max 4 backbuffers for now
 }
 
@@ -52,7 +54,7 @@ pub struct SDevice {
 }
 
 pub struct SCommandList {
-    list: SPoolHandle,
+    handle: SPoolHandle,
     allocator: SPoolHandle,
 }
 
@@ -81,7 +83,7 @@ pub struct SFence {
 }
 
 pub struct SDescriptorHeap {
-    dh: SPoolHandle,
+    handle: SPoolHandle,
     numdescriptors: u32,
     descriptorsize: usize,
     //cpudescriptorhandleforstart: typeyd3d12::SDescriptorHandle<'heap, 'device>,
@@ -190,7 +192,7 @@ impl SD3D12Context {
         let handle = self.swapchains.pushval(newsc)?;
 
         Ok(SSwapChain {
-            sc: handle,
+            handle: handle,
             buffercount: 2,
             backbuffers: [Default::default(); 4],
         })
@@ -296,7 +298,7 @@ impl SD3D12Context {
         let handle = self.descriptorheaps.pushval(dh)?;
 
         Ok(SDescriptorHeap {
-            dh: handle,
+            handle: handle,
             numdescriptors: numdescriptors,
             descriptorsize: rawdevice.getdescriptorhandleincrementsize(type_),
             //cpudescriptorhandleforstart: raw.getcpudescriptorhandleforheapstart(),
@@ -474,42 +476,36 @@ impl SD3D12Context {
     pub fn create_vertex_buffer_view(
         &self,
         resource: SPoolHandle,
+        count: usize,
+        sizeofentry: usize,
     ) -> Result<typeyd3d12::SVertexBufferView, &'static str> {
         let rawresource = self.resources.get(resource)?;
-
-        if let EResourceMetadata::BufferResource { count, sizeofentry } = self.metadata {
-            Ok(typeyd3d12::SVertexBufferView::create(
-                rawresource.getgpuvirtualaddress(),
-                (count * sizeofentry) as u32,
-                sizeofentry as u32,
-            ))
-        } else {
-            Err("Trying to create vertexbufferview for non-buffer resource")
-        }
+        Ok(typeyd3d12::SVertexBufferView::create(
+            rawresource.getgpuvirtualaddress(),
+            (count * sizeofentry) as u32,
+            sizeofentry as u32,
+        ))
     }
 
     pub fn create_index_buffer_view(
         &self,
         resource: SPoolHandle,
         format: typeyd3d12::EFormat,
+        count: usize,
+        sizeofentry: usize,
     ) -> Result<typeyd3d12::SIndexBufferView, &'static str> {
         let rawresource = self.resources.get(resource)?;
-
-        if let EResourceMetadata::BufferResource { count, sizeofentry } = self.metadata {
-            Ok(typeyd3d12::SIndexBufferView::create(
-                rawresource.getgpuvirtualaddress(),
-                format,
-                (count * sizeofentry) as u32,
-            ))
-        } else {
-            Err("Trying to create indexbufferview for non-buffer resource")
-        }
+        Ok(typeyd3d12::SIndexBufferView::create(
+            rawresource.getgpuvirtualaddress(),
+            format,
+            (count * sizeofentry) as u32,
+        ))
     }
 }
 
 impl SAdapter {
     pub fn create_device(&mut self, ctxt: &SD3D12Context) -> Result<SDevice, &'static str> {
-        ctxt.create_device(self)
+        ctxt.create_device(self.a)
     }
 }
 
@@ -541,6 +537,7 @@ impl SCommandList {
 
         let mut srcdata = typeyd3d12::SSubResourceData::createbuffer(bufferdata);
         update_subresources_stack(
+            ctxt,
             self,
             &mut destinationresource,
             &mut intermediateresource,
@@ -551,8 +548,8 @@ impl SCommandList {
         );
 
         Ok(SCommandQueueUpdateBufferResult {
-            destination: destinationresource,
-            intermediate: intermediateresource,
+            destinationresource: destinationresource.r,
+            intermediateresource: intermediateresource.r,
         })
     }
 
@@ -576,7 +573,7 @@ impl SCommandQueue {
 
     pub fn flush_blocking(&mut self, ctxt: &SD3D12Context) -> Result<(), &'static str> {
         let lastfencevalue = self.push_signal(ctxt)?;
-        ctxt.wait_for_fence_value(self.fence, self.fenceevent, lastfencevalue);
+        ctxt.fence_wait_for_value(self.fence, &mut self.fenceevent, lastfencevalue);
         Ok(())
     }
 }
@@ -589,19 +586,24 @@ impl typeyd3d12::SSubResourceData {
 }
 
 fn update_subresources_stack(
+    ctxt: &SD3D12Context,
     commandlist: &mut SCommandList,
-    destinationresource: &mut typeyd3d12::SResource,
-    intermediateresource: &mut typeyd3d12::SResource,
+    destinationresource: &mut SResource,
+    intermediateresource: &mut SResource,
     intermediateoffset: u64,
     firstsubresource: u32,
     numsubresources: u32,
     srcdata: &mut typeyd3d12::SSubResourceData,
 ) {
+    let rawcommandlist = ctxt.commandlists.get(commandlist.handle).unwrap();
+    let rawdest = ctxt.resources.get(destinationresource.r).unwrap();
+    let rawintermediate = ctxt.resources.get(intermediateresource.r).unwrap();
+
     unsafe {
         directxgraphicssamples::UpdateSubresourcesStack(
-            commandlist.rawmut().as_raw(),
-            destinationresource.raw_mut().as_raw(),
-            intermediateresource.raw_mut().as_raw(),
+            rawcommandlist.rawmut().as_raw(),
+            rawdest.raw_mut().as_raw(),
+            rawintermediate.raw_mut().as_raw(),
             intermediateoffset,
             firstsubresource,
             numsubresources,
@@ -627,22 +629,30 @@ impl<'heap> SDescriptorHandle<'heap> {
 */
 
 impl SDevice {
-    pub fn initrendertargetviews(
+    pub fn init_render_target_views(
         &mut self,
         ctxt: &SD3D12Context,
+        device: &mut SDevice,
         swap_chain: &mut SSwapChain,
         descriptor_heap: &mut SDescriptorHeap,
     ) -> Result<(), &'static str> {
         assert!(swap_chain.backbuffers.is_empty());
 
-        match ctxt.descriptor_heap_type(descriptor_heap) {
+        match ctxt.descriptor_heap_type(descriptor_heap.handle) {
             typeyd3d12::EDescriptorHeapType::RenderTarget => {
-                for backbuffidx in 0usize..2usize {
-                    swap_chain.backbuffers.push(swap_chain.raw().getbuffer(backbuffidx)?);
 
-                    let curdescriptorhandle = descriptor_heap.cpuhandle(backbuffidx)?;
+                let raw_swap_chain = ctxt.swapchains.get(swap_chain.handle)?;
+
+                for backbuffidx in 0usize..2usize {
+                    let resource = raw_swap_chain.getbuffer(backbuffidx)?;
+                    let handle = ctxt.resources.pushval(resource)?;
+
+                    swap_chain.backbuffers[backbuffidx] = handle;
+
+                    let curdescriptorhandle = descriptor_heap.cpu_handle(ctxt, backbuffidx)?;
                     ctxt.create_render_target_view(
-                        &swap_chain.backbuffers[backbuffidx as usize],
+                        device.d,
+                        handle,
                         &curdescriptorhandle,
                     );
                 }
@@ -655,17 +665,42 @@ impl SDevice {
 }
 
 impl SDescriptorHeap {
-    pub fn cpuhandle(
+    pub fn cpu_handle(
         &self,
         ctxt: &SD3D12Context,
         index: usize,
     ) -> Result<typeyd3d12::SDescriptorHandle, &'static str> {
         if index < self.numdescriptors as usize {
             let offsetbytes: usize = (index * self.descriptorsize) as usize;
-            let starthandle = ctxt.descriptor_heap_cpu_handle_heap_start(self.heap);
+            let starthandle = ctxt.descriptor_heap_cpu_handle_heap_start(self.handle);
             Ok(unsafe { starthandle.offset(offsetbytes) })
         } else {
             Err("Descripter handle index past number of descriptors.")
+        }
+    }
+}
+
+impl SResource {
+    pub fn create_vertex_buffer_view(
+        &mut self,
+        ctxt: &SD3D12Context,
+    ) -> Result<typeyd3d12::SVertexBufferView, &'static str> {
+        if let EResourceMetadata::BufferResource { count, sizeofentry } = self.metadata {
+            ctxt.create_vertex_buffer_view(self.r, count, sizeofentry)
+        } else {
+            Err("Trying to create vertexbufferview for non-buffer resource")
+        }
+    }
+
+    pub fn create_index_buffer_view(
+        &mut self,
+        ctxt: &SD3D12Context,
+        format: typeyd3d12::EFormat,
+    ) -> Result<typeyd3d12::SIndexBufferView, &'static str> {
+        if let EResourceMetadata::BufferResource { count, sizeofentry } = self.metadata {
+            ctxt.create_index_buffer_view(self.r, count, sizeofentry)
+        } else {
+            Err("Trying to create indexbufferview for non-buffer resource")
         }
     }
 }

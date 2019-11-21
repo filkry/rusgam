@@ -549,7 +549,7 @@ impl SDescriptorHandle {
 
 // -- $$$FRK(TODO): combine impls
 impl SDevice {
-    pub fn createdescriptorheap(
+    pub fn create_descriptor_heap(
         &self,
         type_: EDescriptorHeapType,
         numdescriptors: u32,

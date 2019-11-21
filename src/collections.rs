@@ -161,7 +161,7 @@ impl Default for SPoolHandle {
     }
 }
 
-pub struct SPool<T: Clone> {
+pub struct SPool<T> {
     // -- $$$FRK(TODO): make this into a string, only in debug builds?
     id: u64, // -- for making sure we have the right pool
 
@@ -171,7 +171,7 @@ pub struct SPool<T: Clone> {
     freelist: VecDeque<u16>,
 }
 
-impl<T: Clone> SPool<T> {
+impl<T> SPool<T> {
     pub fn create(id: u64, max: u16) -> Self {
         let mut result = Self{
             id: id,
@@ -198,12 +198,6 @@ impl<T: Clone> SPool<T> {
     pub fn pushval(&mut self, val: T) -> Result<SPoolHandle, &'static str> {
         let handle = self.push()?;
         self.buffer[handle.index as usize] = Some(val);
-        Ok(handle)
-    }
-
-    pub fn pushref(&mut self, val: &T) -> Result<SPoolHandle, &'static str> {
-        let handle = self.push()?;
-        self.buffer[handle.index as usize] = Some(val.clone());
         Ok(handle)
     }
 
@@ -281,6 +275,14 @@ impl<T: Clone> SPool<T> {
         } else {
             Err("Out of bounds index")
         }
+    }
+}
+
+impl<T: Clone> SPool<T> {
+    pub fn pushref(&mut self, val: &T) -> Result<SPoolHandle, &'static str> {
+        let handle = self.push()?;
+        self.buffer[handle.index as usize] = Some(val.clone());
+        Ok(handle)
     }
 }
 

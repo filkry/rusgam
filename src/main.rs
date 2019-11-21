@@ -35,46 +35,44 @@ fn main_d3d12() {
     let mut adapter = d3dctxt.create_best_adapter().unwrap();
     let mut device = adapter.create_device(&mut d3dctxt).unwrap();
 
-    /*
     let mut commandqueue = niced3d12::SCommandQueue::create_command_queue(
-        &d3dctxt,
+        &mut d3dctxt,
         &winapi.rawwinapi(),
         &mut device,
         typeyd3d12::ECommandListType::Direct,
     )
     .unwrap();
-    commandqueue.setup(&device, 2, 1).unwrap();
 
-    let mut copycommandqueue = niced3d12::SCommandQueue::createcommandqueue(
+    let mut copycommandqueue = niced3d12::SCommandQueue::create_command_queue(
+        &mut d3dctxt,
         &winapi.rawwinapi(),
-        &device,
+        &mut device,
         typeyd3d12::ECommandListType::Copy,
     )
     .unwrap();
-    copycommandqueue.setup(&device, 2, 1).unwrap();
 
     let mut window = niced3d12::createsd3d12window(
         &mut d3dctxt,
         &windowclass,
-        &device,
+        &mut device,
         &mut commandqueue,
         "rusgam",
         800,
         600,
     )
     .unwrap();
-    window.initrendertargetviews(&device).unwrap();
+    window.init_render_target_views(&mut d3dctxt, &mut device).unwrap();
     window.show();
 
     // -- tutorial2 data
-    let vertexbufferresource: Option<typeyd3d12::SResource> = None;
+    let vertexbufferresource: Option<niced3d12::SResource> = None;
     let vertexbufferview: Option<typeyd3d12::SVertexBufferView> = None;
-    let indexbufferresource: Option<typeyd3d12::SResource> = None;
+    let indexbufferresource: Option<niced3d12::SResource> = None;
     let indexbufferview: Option<typeyd3d12::SIndexBufferView> = None;
 
-    let depthbufferresource: Option<typeyd3d12::SResource> = None;
+    let depthbufferresource: Option<niced3d12::SResource> = None;
     let depthstencilviewheap =
-        device.createdescriptorheap(typeyd3d12::EDescriptorHeapType::DepthStencil, 1);
+        device.create_descriptor_heap(&mut d3dctxt, typeyd3d12::EDescriptorHeapType::DepthStencil, 1);
 
     let rootsignature: Option<typeyd3d12::SRootSignature> = None;
     let pipelinestate: Option<typeyd3d12::SPipelineState> = None;
@@ -151,6 +149,7 @@ fn main_d3d12() {
         4, 3, 7
     ];
 
+    /*
     // -- upload data to GPU
     {
         let copycommandlisthandle = copycommandqueue.getunusedcommandlisthandle().unwrap();

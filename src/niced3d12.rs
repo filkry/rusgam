@@ -53,6 +53,10 @@ pub struct SDevice {
     handle: SPoolHandle,
 }
 
+pub struct SCommandAllocator {
+    handle: SPoolHandle,
+}
+
 pub struct SCommandList {
     handle: SPoolHandle,
     allocator: SPoolHandle,
@@ -61,7 +65,7 @@ pub struct SCommandList {
 pub struct SCommandQueue {
     handle: SPoolHandle,
 
-    fence: SPoolHandle,
+    fence: SFence,
     fenceevent: safewindows::SEventHandle,
     pub nextfencevalue: u64,
 
@@ -81,7 +85,7 @@ pub struct SResource {
 }
 
 pub struct SFence {
-    f: SPoolHandle,
+    handle: SPoolHandle,
 }
 
 pub struct SDescriptorHeap {
@@ -109,6 +113,36 @@ pub struct SCommandQueueUpdateBufferResult {
     pub destinationresource: SPoolHandle,
     pub intermediateresource: SPoolHandle,
 }
+
+/*
+pub struct SCommandPool {
+    fenceevent: safewindows::SEventHandle,
+    pub nextfencevalue: u64,
+    commandlisttype: typeyd3d12::ECommandListType,
+
+    // -- owned items
+    fence: SFence,
+    allocators: SPool<SCommandAllocator>,
+    lists: SPool<SCommandList>,
+}
+
+impl SCommandPool {
+    pub fn create(
+        ctxt: &mut SD3D12Context,
+        winapi: &safewindows::SWinAPI,
+    ) -> Self {
+
+        Self {
+            fenceevent: winapi.createeventhandle().unwrap(),
+        }
+    }
+}
+
+pub struct SCommandPoolList {
+    listhandle: SPoolHandle,
+    allocatorhandle: SPoolHandle,
+}
+*/
 
 // =================================================================================================
 // IMPLS
@@ -303,7 +337,7 @@ impl SD3D12Context {
         let fence = rawdevice.createfence()?;
         let handle = self.fences.pushval(fence)?;
         Ok(SFence {
-            f: handle,
+            handle: handle,
         })
     }
 
@@ -331,7 +365,7 @@ impl SD3D12Context {
 
         let rawdevice = self.devices.get(device)?;
 
-        let dh = rawdevice.createdescriptorheap(type_, numdescriptors)?;
+        let dh = rawdevice.create_descriptor_heap(type_, numdescriptors)?;
         let handle = self.descriptorheaps.pushval(dh)?;
 
         Ok(SDescriptorHeap {
@@ -425,7 +459,7 @@ impl SD3D12Context {
 
         Ok(SCommandQueue {
             handle: qhandle,
-            fence: fhandle,
+            fence: SFence{handle: fhandle},
             fenceevent: winapi.createeventhandle().unwrap(),
             nextfencevalue: 0,
             commandlisttype: commandlisttype,
@@ -658,12 +692,12 @@ impl SCommandQueue {
 
     pub fn push_signal(&mut self, ctxt: &SD3D12Context) -> Result<u64, &'static str> {
         self.nextfencevalue += 1;
-        ctxt.signal(self.handle, self.fence, self.nextfencevalue)
+        ctxt.signal(self.handle, self.fence.handle, self.nextfencevalue)
     }
 
     pub fn flush_blocking(&mut self, ctxt: &SD3D12Context) -> Result<(), &'static str> {
         let lastfencevalue = self.push_signal(ctxt)?;
-        ctxt.fence_wait_for_value(self.fence, &mut self.fenceevent, lastfencevalue);
+        ctxt.fence_wait_for_value(self.fence.handle, &mut self.fenceevent, lastfencevalue);
         Ok(())
     }
 }
@@ -728,6 +762,15 @@ impl SDevice {
             }
             _ => Err("Tried to initialize render target views on non-RTV descriptor heap."),
         }
+    }
+
+    pub fn create_descriptor_heap(
+        &mut self,
+        ctxt: &mut SD3D12Context,
+        type_: typeyd3d12::EDescriptorHeapType,
+        numdescriptors: u32,
+    ) -> Result<SDescriptorHeap, &'static str> {
+        unsafe { ctxt.create_descriptor_heap(self.handle, type_, numdescriptors) }
     }
 }
 

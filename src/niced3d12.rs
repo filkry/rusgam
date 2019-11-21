@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use collections::{SPool, SPoolHandle};
+use collections::{SStoragePool, SPoolHandle};
 use directxgraphicssamples;
 use rustywindows;
 use safewindows;
@@ -26,15 +26,15 @@ pub struct SD3D12Context {
     f: typeyd3d12::SFactory,
 
     // -- pools
-    adapters: SPool<typeyd3d12::SAdapter4>,
-    swapchains: SPool<typeyd3d12::SSwapChain>,
-    devices: SPool<typeyd3d12::SDevice>,
-    descriptorheaps: SPool<typeyd3d12::SDescriptorHeap>,
-    commandallocators: SPool<typeyd3d12::SCommandAllocator>,
-    commandqueues: SPool<typeyd3d12::SCommandQueue>,
-    commandlists: SPool<typeyd3d12::SCommandList>,
-    resources: SPool<typeyd3d12::SResource>,
-    fences: SPool<typeyd3d12::SFence>,
+    adapters: SStoragePool<typeyd3d12::SAdapter4>,
+    swapchains: SStoragePool<typeyd3d12::SSwapChain>,
+    devices: SStoragePool<typeyd3d12::SDevice>,
+    descriptorheaps: SStoragePool<typeyd3d12::SDescriptorHeap>,
+    commandallocators: SStoragePool<typeyd3d12::SCommandAllocator>,
+    commandqueues: SStoragePool<typeyd3d12::SCommandQueue>,
+    commandlists: SStoragePool<typeyd3d12::SCommandList>,
+    resources: SStoragePool<typeyd3d12::SResource>,
+    fences: SStoragePool<typeyd3d12::SFence>,
 }
 
 pub struct SAdapter {
@@ -155,15 +155,15 @@ impl SD3D12Context {
             f: typeyd3d12::createdxgifactory4()?,
 
             // -- $$$FRK(TODO): allow overriding these consts
-            adapters: SPool::<typeyd3d12::SAdapter4>::create(0, 1),
-            swapchains: SPool::<typeyd3d12::SSwapChain>::create(1, 1),
-            devices: SPool::<typeyd3d12::SDevice>::create(2, 4),
-            descriptorheaps: SPool::<typeyd3d12::SDescriptorHeap>::create(3, 10),
-            commandallocators: SPool::<typeyd3d12::SCommandAllocator>::create(4, 10),
-            commandqueues: SPool::<typeyd3d12::SCommandQueue>::create(5, 10),
-            commandlists: SPool::<typeyd3d12::SCommandList>::create(6, 10),
-            resources: SPool::<typeyd3d12::SResource>::create(7, 512),
-            fences: SPool::<typeyd3d12::SFence>::create(8, 10),
+            adapters: SStoragePool::<typeyd3d12::SAdapter4>::create(0, 1),
+            swapchains: SStoragePool::<typeyd3d12::SSwapChain>::create(1, 1),
+            devices: SStoragePool::<typeyd3d12::SDevice>::create(2, 4),
+            descriptorheaps: SStoragePool::<typeyd3d12::SDescriptorHeap>::create(3, 10),
+            commandallocators: SStoragePool::<typeyd3d12::SCommandAllocator>::create(4, 10),
+            commandqueues: SStoragePool::<typeyd3d12::SCommandQueue>::create(5, 10),
+            commandlists: SStoragePool::<typeyd3d12::SCommandList>::create(6, 10),
+            resources: SStoragePool::<typeyd3d12::SResource>::create(7, 512),
+            fences: SStoragePool::<typeyd3d12::SFence>::create(8, 10),
         })
     }
 
@@ -206,7 +206,7 @@ impl SD3D12Context {
             let adapter1 = self.f.enumadapters(bestadapter).expect("$$$FRK(TODO)");
             let adapter4 = adapter1.castadapter4().expect("$$$FRK(TODO)");
 
-            let adapterhandle = self.adapters.pushval(adapter4)?;
+            let adapterhandle = self.adapters.insert_val(adapter4)?;
             return Ok(SAdapter{
                 a: adapterhandle,
             });
@@ -228,7 +228,7 @@ impl SD3D12Context {
         let newsc = self
             .f
             .createswapchainforwindow(window, raw_command_queue, width, height)?;
-        let handle = self.swapchains.pushval(newsc)?;
+        let handle = self.swapchains.insert_val(newsc)?;
 
         Ok(SSwapChain {
             handle: handle,
@@ -252,7 +252,7 @@ impl SD3D12Context {
         numsubresources: u32,
         srcdata: &mut typeyd3d12::SSubResourceData,
     ) {
-        let rawcommandlist = self.commandlists.getmut(commandlist.handle).unwrap();
+        let rawcommandlist = self.commandlists.get_mut(commandlist.handle).unwrap();
         let mut rawdest = self.resources.get(destinationresource.handle).unwrap().clone();
         let mut rawintermediate = self.resources.get(intermediateresource.handle).unwrap().clone();
 
@@ -324,7 +324,7 @@ impl SD3D12Context {
             }
         }
 
-        let handle = self.devices.pushval(device)?;
+        let handle = self.devices.insert_val(device)?;
         Ok(SDevice { handle: handle })
     }
 
@@ -335,7 +335,7 @@ impl SD3D12Context {
     pub unsafe fn create_fence(&mut self, device: SPoolHandle) -> Result<SFence, &'static str> {
         let rawdevice = self.devices.get(device)?;
         let fence = rawdevice.createfence()?;
-        let handle = self.fences.pushval(fence)?;
+        let handle = self.fences.insert_val(fence)?;
         Ok(SFence {
             handle: handle,
         })
@@ -366,7 +366,7 @@ impl SD3D12Context {
         let rawdevice = self.devices.get(device)?;
 
         let dh = rawdevice.create_descriptor_heap(type_, numdescriptors)?;
-        let handle = self.descriptorheaps.pushval(dh)?;
+        let handle = self.descriptorheaps.insert_val(dh)?;
 
         Ok(SDescriptorHeap {
             handle: handle,
@@ -396,7 +396,7 @@ impl SD3D12Context {
             None,
         )?;
 
-        let handle = self.resources.pushval(destinationresource)?;
+        let handle = self.resources.insert_val(destinationresource)?;
 
         Ok(SResource {
             handle: handle,
@@ -452,10 +452,10 @@ impl SD3D12Context {
         let rawdevice = self.devices.get(device)?;
 
         let qresult = rawdevice.createcommandqueue(commandlisttype)?;
-        let qhandle = self.commandqueues.pushval(qresult)?;
+        let qhandle = self.commandqueues.insert_val(qresult)?;
 
         let fresult = rawdevice.createfence()?;
-        let fhandle = self.fences.pushval(fresult)?;
+        let fhandle = self.fences.insert_val(fresult)?;
 
         Ok(SCommandQueue {
             handle: qhandle,
@@ -544,7 +544,7 @@ impl SD3D12Context {
     // Resource functions
     // ---------------------------------------------------------------------------------------------
     pub unsafe fn free_resource(&mut self, resource: SPoolHandle) {
-        self.resources.pop(resource);
+        self.resources.free(resource);
     }
 
     pub fn create_vertex_buffer_view(
@@ -741,7 +741,7 @@ impl SDevice {
 
                 for backbuffidx in 0usize..2usize {
                     let rawresource = raw_swap_chain.getbuffer(backbuffidx)?;
-                    let handle = ctxt.resources.pushval(rawresource)?;
+                    let handle = ctxt.resources.insert_val(rawresource)?;
 
                     let resource = SResource{
                         handle: handle,

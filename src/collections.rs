@@ -165,14 +165,16 @@ pub struct SPool<T> {
     // -- $$$FRK(TODO): make this into a string, only in debug builds?
     id: u64, // -- for making sure we have the right pool
 
-    buffer: Vec<Option<T>>,
+    buffer: Vec<T>,
     generations: Vec<u16>,
     max: u16,
     freelist: VecDeque<u16>,
 }
 
 impl<T> SPool<T> {
-    pub fn create(id: u64, max: u16) -> Self {
+    pub fn create<F>(id: u64, max: u16, init_func: F) -> Self
+        where F: Fn() -> T,
+    {
         let mut result = Self{
             id: id,
             buffer: Vec::new(),
@@ -181,7 +183,7 @@ impl<T> SPool<T> {
             freelist: VecDeque::new(),
         };
 
-        result.buffer.resize_with(max as usize, Default::default);
+        result.buffer.resize_with(max as usize, init_func);
         result.generations.resize(max as usize, 0);
 
         for i in 0..max {
@@ -195,13 +197,7 @@ impl<T> SPool<T> {
         self.freelist.is_empty()
     }
 
-    pub fn pushval(&mut self, val: T) -> Result<SPoolHandle, &'static str> {
-        let handle = self.push()?;
-        self.buffer[handle.index as usize] = Some(val);
-        Ok(handle)
-    }
-
-    pub fn push(&mut self) -> Result<SPoolHandle, &'static str> {
+    pub fn alloc(&mut self) -> Result<SPoolHandle, &'static str> {
         match self.freelist.pop_front() {
             Some(newidx) => {
                 let idx = newidx as usize;
@@ -211,11 +207,11 @@ impl<T> SPool<T> {
                     poolid: self.id,
                 })
             }
-            None => Err("Cannot push to full SPool."),
+            None => Err("Cannot alloc from full SPool."),
         }
     }
 
-    pub fn pop(&mut self, handle: SPoolHandle) {
+    pub fn free(&mut self, handle: SPoolHandle) {
         if handle.valid() {
             let idx = handle.index as usize;
             if self.generations[idx] == handle.generation {
@@ -234,7 +230,7 @@ impl<T> SPool<T> {
         }
     }
 
-    pub fn getmut(&mut self, handle: SPoolHandle) -> Result<&mut T, &'static str> {
+    pub fn get_mut(&mut self, handle: SPoolHandle) -> Result<&mut T, &'static str> {
         let idx = handle.index as usize;
         if handle.valid() && handle.index < self.max && handle.generation == self.generations[idx] {
             self.getmutbyindex(handle.index)
@@ -243,23 +239,17 @@ impl<T> SPool<T> {
         }
     }
 
-    pub fn getbyindex(&self, index: u16) -> Result<&T, &'static str> {
+    fn getbyindex(&self, index: u16) -> Result<&T, &'static str> {
         if index < self.max {
-            match &self.buffer[index as usize] {
-                Some(val) => Ok(&val),
-                None => Err("nothing in handle"),
-            }
+            Ok(&self.buffer[index as usize])
         } else {
             Err("Out of bounds index")
         }
     }
 
-    pub fn getmutbyindex(&mut self, index: u16) -> Result<&mut T, &'static str> {
+    fn getmutbyindex(&mut self, index: u16) -> Result<&mut T, &'static str> {
         if index < self.max {
-            match self.buffer[index as usize] {
-                Some(ref mut val) => Ok(val),
-                None => Err("nothing in handle"),
-            }
+            Ok(&mut self.buffer[index as usize])
         } else {
             Err("Out of bounds index")
         }
@@ -279,9 +269,79 @@ impl<T> SPool<T> {
 }
 
 impl<T: Clone> SPool<T> {
-    pub fn pushref(&mut self, val: &T) -> Result<SPoolHandle, &'static str> {
-        let handle = self.push()?;
-        self.buffer[handle.index as usize] = Some(val.clone());
+    pub fn create_from(id: u64, max: u16, default_val: T) -> Self {
+        let mut result = Self{
+            id: id,
+            buffer: Vec::new(),
+            generations: Vec::new(),
+            max: max,
+            freelist: VecDeque::new(),
+        };
+
+        result.buffer.resize(max as usize, default_val);
+        result.generations.resize(max as usize, 0);
+
+        for i in 0..max {
+            result.freelist.push_back(i);
+        }
+
+        result
+    }
+
+}
+
+impl<T: Default> SPool<T> {
+    pub fn create_default(id: u64, max: u16) -> Self {
+        Self::create(id, max, Default::default)
+    }
+}
+
+pub struct SStoragePool<T> {
+    pool: SPool<Option<T>> // -- $$$FRK(TODO): this could be unitialized mem that we use unsafety to construct/destruct in
+}
+
+impl<T> SStoragePool<T> {
+    pub fn create(id: u64, max: u16) -> Self {
+        Self{
+            pool: SPool::<Option<T>>::create_default(id, max),
+        }
+    }
+
+    pub fn insert_val(&mut self, val: T) -> Result<SPoolHandle, &'static str> {
+        let handle = self.pool.alloc()?;
+        let data : &mut Option<T> = self.pool.get_mut(handle).unwrap();
+        *data = Some(val);
+        Ok(handle)
+    }
+
+    pub fn get(&self, handle: SPoolHandle) -> Result<&T, &'static str> {
+        let option = self.pool.get(handle)?;
+        match option {
+            Some(val) => Ok(&val),
+            None => Err("nothing in handle"),
+        }
+    }
+
+    pub fn get_mut(&mut self, handle: SPoolHandle) -> Result<&mut T, &'static str> {
+        let option = self.pool.get_mut(handle)?;
+        match option {
+            Some(ref mut val) => Ok(val),
+            None => Err("nothing in handle"),
+        }
+    }
+
+    pub fn free(&mut self, handle: SPoolHandle) {
+        let option = self.pool.get_mut(handle).unwrap();
+        *option = None;
+        self.pool.free(handle);
+    }
+}
+
+impl<T: Clone> SStoragePool<T> {
+    pub fn insert_ref(&mut self, val: &T) -> Result<SPoolHandle, &'static str> {
+        let handle = self.pool.alloc()?;
+        let data : &mut Option<T> = self.pool.get_mut(handle).unwrap();
+        *data = Some(val.clone());
         Ok(handle)
     }
 }

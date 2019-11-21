@@ -22,14 +22,14 @@ use wio::com::ComPtr;
 
 // -- this is copied in safewindows, does it have to be?
 trait ComPtrPtrs<T> {
-    unsafe fn asunknownptr(&mut self) -> *mut unknwnbase::IUnknown;
+    unsafe fn asunknownptr(&self) -> *mut unknwnbase::IUnknown;
 }
 
 impl<T> ComPtrPtrs<T> for ComPtr<T>
 where
     T: Interface,
 {
-    unsafe fn asunknownptr(&mut self) -> *mut unknwnbase::IUnknown {
+    unsafe fn asunknownptr(&self) -> *mut unknwnbase::IUnknown {
         self.as_raw() as *mut unknwnbase::IUnknown
     }
 }
@@ -479,20 +479,18 @@ impl SFactory {
         };
         let mut rawswapchain: *mut IDXGISwapChain1 = ptr::null_mut();
 
-        let hr = unsafe {
-            self.factory.CreateSwapChainForHwnd(
-                commandqueue.queue.asunknownptr(),
-                window.raw(),
-                &desc,
-                ptr::null(),
-                ptr::null_mut(),
-                &mut rawswapchain as *mut *mut _ as *mut *mut IDXGISwapChain1,
-            )
-        };
+        let hr = self.factory.CreateSwapChainForHwnd(
+            commandqueue.queue.asunknownptr(),
+            window.raw(),
+            &desc,
+            ptr::null(),
+            ptr::null_mut(),
+            &mut rawswapchain as *mut *mut _ as *mut *mut IDXGISwapChain1,
+        );
 
         returnerrifwinerror!(hr, "Failed to create swap chain");
 
-        let swapchain = unsafe { ComPtr::from_raw(rawswapchain) };
+        let swapchain = ComPtr::from_raw(rawswapchain);
 
         match swapchain.cast::<IDXGISwapChain4>() {
             Ok(sc4) => Ok(SSwapChain { swapchain: sc4 }),
@@ -954,10 +952,8 @@ impl SCommandQueue {
 
     // -- $$$FRK(TODO): support listS
     pub unsafe fn executecommandlist(&self, list: &SCommandList) {
-        unsafe {
-            self.queue
-                .ExecuteCommandLists(1, &(list.commandlist.as_raw() as *mut ID3D12CommandList));
-        }
+        self.queue
+            .ExecuteCommandLists(1, &(list.commandlist.as_raw() as *mut ID3D12CommandList));
     }
 }
 

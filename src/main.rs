@@ -10,6 +10,7 @@ mod rustywindows;
 mod safewindows;
 mod typeyd3d12;
 
+#[allow(dead_code)]
 type SMat44 = nalgebra::Matrix4<f32>;
 type SVec3 = nalgebra::Vector3<f32>;
 

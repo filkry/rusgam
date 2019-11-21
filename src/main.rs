@@ -32,7 +32,7 @@ fn main_d3d12() {
 
     let mut d3dctxt = niced3d12::SD3D12Context::create().unwrap();
     let mut adapter = d3dctxt.create_best_adapter().unwrap();
-    let mut device = adapter.create_device(&d3dctxt).unwrap();
+    let mut device = adapter.create_device(&mut d3dctxt).unwrap();
 
     /*
     let mut commandqueue = niced3d12::SCommandQueue::create_command_queue(

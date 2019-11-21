@@ -20,8 +20,6 @@ use winapi::Interface;
 
 use wio::com::ComPtr;
 
-use std::marker::PhantomData;
-
 // -- this is copied in safewindows, does it have to be?
 trait ComPtrPtrs<T> {
     unsafe fn asunknownptr(&mut self) -> *mut unknwnbase::IUnknown;
@@ -116,8 +114,8 @@ impl SAdapter1 {
         };
     }
 
-    pub fn d3d12createdevice(&mut self) -> Result<SDevice, &'static str> {
-        unsafe { d3d12createdevice(self.adapter.asunknownptr()) }
+    pub unsafe fn d3d12createdevice(&self) -> Result<SDevice, &'static str> {
+        d3d12createdevice(self.adapter.asunknownptr())
     }
 }
 
@@ -272,8 +270,8 @@ fn d3d12createdevice(adapter: *mut unknwnbase::IUnknown) -> Result<SDevice, &'st
 }
 
 impl SAdapter4 {
-    pub fn d3d12createdevice(&mut self) -> Result<SDevice, &'static str> {
-        unsafe { d3d12createdevice(self.adapter.asunknownptr()) }
+    pub unsafe fn d3d12createdevice(&self) -> Result<SDevice, &'static str> {
+        d3d12createdevice(self.adapter.asunknownptr())
     }
 }
 
@@ -454,10 +452,10 @@ pub struct SSwapChainDesc {
 }
 
 impl SFactory {
-    pub fn createswapchainforwindow(
+    pub unsafe fn createswapchainforwindow(
         &self,
         window: &safewindows::SWindow,
-        commandqueue: &mut SCommandQueue,
+        commandqueue: &SCommandQueue,
         width: u32,
         height: u32,
     ) -> Result<SSwapChain, &'static str> {
@@ -547,7 +545,6 @@ impl SDescriptorHandle {
             handle: D3D12_CPU_DESCRIPTOR_HANDLE {
                 ptr: self.handle.ptr + bytes,
             },
-            phantom: PhantomData,
         }
     }
 }

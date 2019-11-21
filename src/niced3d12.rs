@@ -46,11 +46,11 @@ pub struct SSwapChain {
     pub buffercount: u32,
 
     // -- backbuffers SResources are allocated/freed by SSwapChain
-    pub backbuffers: [SPoolHandle; 4], // -- max 4 backbuffers for now
+    pub backbuffers: [SResource; 4], // -- max 4 backbuffers for now
 }
 
 pub struct SDevice {
-    d: SPoolHandle,
+    handle: SPoolHandle,
 }
 
 pub struct SCommandList {
@@ -59,7 +59,7 @@ pub struct SCommandList {
 }
 
 pub struct SCommandQueue {
-    queue: SPoolHandle,
+    handle: SPoolHandle,
 
     fence: SPoolHandle,
     fenceevent: safewindows::SEventHandle,
@@ -70,11 +70,13 @@ pub struct SCommandQueue {
 
 pub enum EResourceMetadata {
     Invalid,
+    SwapChainResource,
     BufferResource { count: usize, sizeofentry: usize },
 }
 
+#[derive(Default)]
 pub struct SResource {
-    r: SPoolHandle,
+    handle: SPoolHandle,
     metadata: EResourceMetadata,
 }
 
@@ -91,10 +93,10 @@ pub struct SDescriptorHeap {
 
 pub struct SD3D12Window {
     window: rustywindows::SWindow,
-    swapchain: SPoolHandle,
+    swapchain: SSwapChain, // owns associated swapchain
 
     curbuffer: usize,
-    rtvdescriptorheap: SPoolHandle,
+    rtvdescriptorheap: SDescriptorHeap,
     curwidth: u32,
     curheight: u32,
 }
@@ -141,7 +143,7 @@ impl SD3D12Context {
             if let None = adapter1opt {
                 continue;
             }
-            let mut adapter1 = adapter1opt.expect("$$$FRK(TODO)");
+            let adapter1 = adapter1opt.expect("$$$FRK(TODO)");
 
             let adapterdesc = adapter1.getdesc();
 
@@ -179,22 +181,30 @@ impl SD3D12Context {
         Err("Could not find valid adapter")
     }
 
-    pub fn create_swap_chain(
-        &self,
+    pub unsafe fn create_swap_chain(
+        &mut self,
         window: &safewindows::SWindow,
-        commandqueue: &mut typeyd3d12::SCommandQueue,
+        commandqueue: SPoolHandle,
         width: u32,
         height: u32,
     ) -> Result<SSwapChain, &'static str> {
+
+        let raw_command_queue = self.commandqueues.get(commandqueue)?;
+
         let newsc = self
             .f
-            .createswapchainforwindow(window, commandqueue, width, height)?;
+            .createswapchainforwindow(window, raw_command_queue, width, height)?;
         let handle = self.swapchains.pushval(newsc)?;
 
         Ok(SSwapChain {
             handle: handle,
             buffercount: 2,
-            backbuffers: [Default::default(); 4],
+            backbuffers: [
+                Default::default(),
+                Default::default(),
+                Default::default(),
+                Default::default(),
+            ],
         })
     }
 
@@ -254,14 +264,14 @@ impl SD3D12Context {
         }
 
         let handle = self.devices.pushval(device)?;
-        Ok(SDevice { d: handle })
+        Ok(SDevice { handle: handle })
     }
 
     // ---------------------------------------------------------------------------------------------
     // Device functions
     // ---------------------------------------------------------------------------------------------
 
-    pub unsafe fn create_fence(&self, device: SPoolHandle) -> Result<SFence, &'static str> {
+    pub unsafe fn create_fence(&mut self, device: SPoolHandle) -> Result<SFence, &'static str> {
         let rawdevice = self.devices.get(device)?;
         let fence = rawdevice.createfence()?;
         let handle = self.fences.pushval(fence)?;
@@ -285,7 +295,7 @@ impl SD3D12Context {
     }
 
     pub unsafe fn create_descriptor_heap(
-        &self,
+        &mut self,
         device: SPoolHandle,
         type_: typeyd3d12::EDescriptorHeapType,
         numdescriptors: u32,
@@ -306,7 +316,7 @@ impl SD3D12Context {
     }
 
     pub unsafe fn create_committed_buffer_resource<T>(
-        &self,
+        &mut self,
         device: SPoolHandle,
         heaptype: typeyd3d12::EHeapType,
         flags: typeyd3d12::SResourceFlags,
@@ -328,7 +338,7 @@ impl SD3D12Context {
         let handle = self.resources.pushval(destinationresource)?;
 
         Ok(SResource {
-            r: handle,
+            handle: handle,
             metadata: EResourceMetadata::BufferResource {
                 count: bufferdata.len(),
                 sizeofentry: std::mem::size_of::<T>(),
@@ -372,7 +382,7 @@ impl SD3D12Context {
     // ---------------------------------------------------------------------------------------------
 
     pub unsafe fn create_command_queue(
-        &self,
+        &mut self,
         winapi: &safewindows::SWinAPI,
         device: SPoolHandle,
         commandlisttype: typeyd3d12::ECommandListType,
@@ -387,7 +397,7 @@ impl SD3D12Context {
         let fhandle = self.fences.pushval(fresult)?;
 
         Ok(SCommandQueue {
-            queue: qhandle,
+            handle: qhandle,
             fence: fhandle,
             fenceevent: winapi.createeventhandle().unwrap(),
             nextfencevalue: 0,
@@ -472,6 +482,9 @@ impl SD3D12Context {
     // ---------------------------------------------------------------------------------------------
     // Resource functions
     // ---------------------------------------------------------------------------------------------
+    pub unsafe fn free_resource(&mut self, resource: SPoolHandle) {
+        self.resources.pop(resource);
+    }
 
     pub fn create_vertex_buffer_view(
         &self,
@@ -501,25 +514,66 @@ impl SD3D12Context {
             (count * sizeofentry) as u32,
         ))
     }
+
+    // ---------------------------------------------------------------------------------------------
+    // Swap chain functions
+    // ---------------------------------------------------------------------------------------------
+
+    pub fn current_backbuffer_index(&self, swap_chain: SPoolHandle) -> Result<usize, &'static str> {
+        let raw_sc = self.swapchains.get(swap_chain)?;
+        Ok(raw_sc.currentbackbufferindex())
+    }
+
+    pub fn present(&self, swap_chain: SPoolHandle, sync_interval: u32, flags: u32) -> Result<(), &'static str> {
+        let raw_sc = self.swapchains.get(swap_chain)?;
+        raw_sc.present(sync_interval, flags)
+    }
+
+    pub fn swap_chain_get_desc(&self, swap_chain: SPoolHandle) -> Result<typeyd3d12::SSwapChainDesc, &'static str> {
+        let raw_sc = self.swapchains.get(swap_chain)?;
+        raw_sc.getdesc()
+    }
+
+    pub fn swap_chain_resize_buffers(
+        &self,
+        swap_chain: SPoolHandle,
+        buffercount: u32,
+        width: u32,
+        height: u32,
+        olddesc: &typeyd3d12::SSwapChainDesc,
+    ) -> Result<(), &'static str> {
+        let raw_sc = self.swapchains.get(swap_chain)?;
+        raw_sc.resizebuffers(buffercount, width, height, olddesc)
+    }
 }
 
 impl SAdapter {
-    pub fn create_device(&mut self, ctxt: &SD3D12Context) -> Result<SDevice, &'static str> {
+    pub fn create_device(&mut self, ctxt: &mut SD3D12Context) -> Result<SDevice, &'static str> {
         ctxt.create_device(self.a)
+    }
+}
+
+impl SSwapChain {
+    pub fn current_backbuffer_index(&self, ctxt: &SD3D12Context) -> Result<usize, &'static str> {
+        ctxt.current_backbuffer_index(self.handle)
+    }
+
+    pub fn present(&mut self, ctxt: &SD3D12Context, sync_interval: u32, flags: u32) -> Result<(), &'static str> {
+        ctxt.present(self.handle, sync_interval, flags)
     }
 }
 
 impl SCommandList {
     pub fn update_buffer_resource<T>(
         &mut self,
-        ctxt: &SD3D12Context,
+        ctxt: &mut SD3D12Context,
         device: &mut SDevice,
         bufferdata: &[T],
         flags: typeyd3d12::SResourceFlags,
     ) -> Result<SCommandQueueUpdateBufferResult, &'static str> {
 
         let mut destinationresource = ctxt.create_committed_buffer_resource(
-            device.d,
+            device.handle,
             typeyd3d12::EHeapType::Default,
             flags,
             typeyd3d12::EResourceStates::CopyDest,
@@ -528,7 +582,7 @@ impl SCommandList {
 
         // -- resource created with Upload type MUST have state GenericRead
         let mut intermediateresource = ctxt.create_committed_buffer_resource(
-            device.d,
+            device.handle,
             typeyd3d12::EHeapType::Upload,
             flags,
             typeyd3d12::EResourceStates::GenericRead,
@@ -548,27 +602,33 @@ impl SCommandList {
         );
 
         Ok(SCommandQueueUpdateBufferResult {
-            destinationresource: destinationresource.r,
-            intermediateresource: intermediateresource.r,
+            destinationresource: destinationresource.handle,
+            intermediateresource: intermediateresource.handle,
         })
     }
 
 
 }
 
+impl Default for EResourceMetadata {
+    fn default() -> Self {
+        EResourceMetadata::Invalid
+    }
+}
+
 impl SCommandQueue {
     pub fn create_command_queue(
-        ctxt: &SD3D12Context,
+        ctxt: &mut SD3D12Context,
         winapi: &safewindows::SWinAPI,
         device: &mut SDevice,
         commandlisttype: typeyd3d12::ECommandListType,
     ) -> Result<SCommandQueue, &'static str> {
-        ctxt.create_command_queue(winapi, device.d, commandlisttype)
+        ctxt.create_command_queue(winapi, device.handle, commandlisttype)
     }
 
     pub fn push_signal(&mut self, ctxt: &SD3D12Context) -> Result<u64, &'static str> {
         self.nextfencevalue += 1;
-        ctxt.signal(self.queue, self.fence, self.nextfencevalue)
+        ctxt.signal(self.handle, self.fence, self.nextfencevalue)
     }
 
     pub fn flush_blocking(&mut self, ctxt: &SD3D12Context) -> Result<(), &'static str> {
@@ -596,8 +656,8 @@ fn update_subresources_stack(
     srcdata: &mut typeyd3d12::SSubResourceData,
 ) {
     let rawcommandlist = ctxt.commandlists.get(commandlist.handle).unwrap();
-    let rawdest = ctxt.resources.get(destinationresource.r).unwrap();
-    let rawintermediate = ctxt.resources.get(intermediateresource.r).unwrap();
+    let rawdest = ctxt.resources.get(destinationresource.handle).unwrap();
+    let rawintermediate = ctxt.resources.get(intermediateresource.handle).unwrap();
 
     unsafe {
         directxgraphicssamples::UpdateSubresourcesStack(
@@ -644,14 +704,19 @@ impl SDevice {
                 let raw_swap_chain = ctxt.swapchains.get(swap_chain.handle)?;
 
                 for backbuffidx in 0usize..2usize {
-                    let resource = raw_swap_chain.getbuffer(backbuffidx)?;
-                    let handle = ctxt.resources.pushval(resource)?;
+                    let rawresource = raw_swap_chain.getbuffer(backbuffidx)?;
+                    let handle = ctxt.resources.pushval(rawresource)?;
 
-                    swap_chain.backbuffers[backbuffidx] = handle;
+                    let resource = SResource{
+                        handle: handle,
+                        metadata: EResourceMetadata::SwapChainResource,
+                    };
+
+                    swap_chain.backbuffers[backbuffidx] = resource;
 
                     let curdescriptorhandle = descriptor_heap.cpu_handle(ctxt, backbuffidx)?;
                     ctxt.create_render_target_view(
-                        device.d,
+                        device.handle,
                         handle,
                         &curdescriptorhandle,
                     );
@@ -686,7 +751,7 @@ impl SResource {
         ctxt: &SD3D12Context,
     ) -> Result<typeyd3d12::SVertexBufferView, &'static str> {
         if let EResourceMetadata::BufferResource { count, sizeofentry } = self.metadata {
-            ctxt.create_vertex_buffer_view(self.r, count, sizeofentry)
+            ctxt.create_vertex_buffer_view(self.handle, count, sizeofentry)
         } else {
             Err("Trying to create vertexbufferview for non-buffer resource")
         }
@@ -698,9 +763,16 @@ impl SResource {
         format: typeyd3d12::EFormat,
     ) -> Result<typeyd3d12::SIndexBufferView, &'static str> {
         if let EResourceMetadata::BufferResource { count, sizeofentry } = self.metadata {
-            ctxt.create_index_buffer_view(self.r, count, sizeofentry)
+            ctxt.create_index_buffer_view(self.handle, format, count, sizeofentry)
         } else {
             Err("Trying to create indexbufferview for non-buffer resource")
+        }
+    }
+
+    pub fn free(&mut self, ctxt: &SD3D12Context) {
+        if self.handle.valid() {
+            ctxt.free_resource(self.handle);
+            self.metadata = EResourceMetadata::Invalid;
         }
     }
 }
@@ -716,15 +788,25 @@ pub fn createsd3d12window(
 ) -> Result<SD3D12Window, &'static str> {
     let window = rustywindows::SWindow::create(windowclass, title, width, height).unwrap(); // $$$FRK(TODO): this panics, need to unify error handling
 
-    let swapchain = ctxt.createswapchain(&window.raw(), commandqueue, width, height)?;
-    let curbuffer = swapchain.raw().currentbackbufferindex();
+    let swap_chain = ctxt.create_swap_chain(
+        &window.raw(),
+        commandqueue.handle,
+        width,
+        height
+    )?;
+    let cur_buffer = swap_chain.current_backbuffer_index(ctxt)?;
+
+    let descriptor_heap = ctxt.create_descriptor_heap(
+        device.handle,
+        typeyd3d12::EDescriptorHeapType::RenderTarget,
+        10
+    )?;
 
     Ok(SD3D12Window {
         window: window,
-        swapchain: swapchain,
-        curbuffer: curbuffer,
-        rtvdescriptorheap: device
-            .createdescriptorheap(typeyd3d12::EDescriptorHeapType::RenderTarget, 10)?,
+        swapchain: swap_chain,
+        curbuffer: cur_buffer,
+        rtvdescriptorheap: descriptor_heap,
         curwidth: width,
         curheight: height,
     })
@@ -745,8 +827,8 @@ impl DerefMut for SD3D12Window {
 }
 
 impl SD3D12Window {
-    pub fn initrendertargetviews(&mut self, device: &SDevice) -> Result<(), &'static str> {
-        device.initrendertargetviews(&mut self.swapchain, &self.rtvdescriptorheap)?;
+    pub fn init_render_target_views(&mut self, ctxt: &SD3D12Context, device: &mut SDevice) -> Result<(), &'static str> {
+        device.init_render_target_views(ctxt, device, &mut self.swapchain, &mut self.rtvdescriptorheap)?;
         Ok(())
     }
 
@@ -761,15 +843,16 @@ impl SD3D12Window {
 
     pub fn currentrendertargetdescriptor(
         &self,
+        ctxt: &SD3D12Context,
     ) -> Result<typeyd3d12::SDescriptorHandle, &'static str> {
-        self.rtvdescriptorheap.cpuhandle(self.curbuffer)
+        self.rtvdescriptorheap.cpu_handle(ctxt, self.curbuffer)
     }
 
-    pub fn present(&mut self) -> Result<(), &'static str> {
+    pub fn present(&mut self, ctxt: &SD3D12Context) -> Result<(), &'static str> {
         // -- $$$FRK(TODO): figure out what this value does
         let syncinterval = 1;
-        self.swapchain.present(syncinterval, 0)?;
-        let newbuffer = self.swapchain.current_backbuffer_index();
+        self.swapchain.present(ctxt, syncinterval, 0)?;
+        let newbuffer = self.swapchain.current_backbuffer_index(ctxt)?;
         assert!(newbuffer != self.curbuffer);
         self.curbuffer = newbuffer;
 
@@ -786,24 +869,32 @@ impl SD3D12Window {
 
     pub fn resize(
         &mut self,
+        ctxt: &SD3D12Context,
         width: u32,
         height: u32,
         commandqueue: &mut SCommandQueue,
-        device: &SDevice,
+        device: &mut SDevice,
     ) -> Result<(), &'static str> {
         if self.curwidth != width || self.curheight != height {
             let newwidth = std::cmp::max(1, width);
             let newheight = std::cmp::max(1, height);
-            commandqueue.flushblocking()?;
+            commandqueue.flush_blocking(ctxt)?;
 
-            self.swapchain.backbuffers.clear();
+            for backbuffer in self.swapchain.backbuffers.iter() {
+                backbuffer.free(ctxt);
+            }
 
-            let desc = self.swapchain.raw().getdesc()?;
-            self.swapchain
-                .resizebuffers(2, newwidth, newheight, &desc)?;
+            let desc = ctxt.swap_chain_get_desc(self.swapchain.handle)?;
+            ctxt.swap_chain_resize_buffers(
+                self.swapchain.handle,
+                2,
+                newwidth,
+                newheight,
+                &desc,
+            )?;
 
-            self.curbuffer = self.swapchain.current_backbuffer_index();
-            self.initrendertargetviews(device)?;
+            self.curbuffer = self.swapchain.current_backbuffer_index(ctxt)?;
+            self.init_render_target_views(ctxt, device)?;
 
             self.curwidth = newwidth;
             self.curheight = newheight;

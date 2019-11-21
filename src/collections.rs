@@ -173,7 +173,7 @@ pub struct SPool<T: Clone> {
 
 impl<T: Clone> SPool<T> {
     pub fn create(id: u64, max: u16) -> Self {
-        let result = Self{
+        let mut result = Self{
             id: id,
             buffer: Vec::new(),
             generations: Vec::new(),
@@ -249,9 +249,9 @@ impl<T: Clone> SPool<T> {
         }
     }
 
-    pub fn getbyindex(&mut self, index: u16) -> Result<&T, &'static str> {
+    pub fn getbyindex(&self, index: u16) -> Result<&T, &'static str> {
         if index < self.max {
-            match self.buffer[index as usize] {
+            match &self.buffer[index as usize] {
                 Some(val) => Ok(&val),
                 None => Err("nothing in handle"),
             }
@@ -263,7 +263,7 @@ impl<T: Clone> SPool<T> {
     pub fn getmutbyindex(&mut self, index: u16) -> Result<&mut T, &'static str> {
         if index < self.max {
             match self.buffer[index as usize] {
-                Some(val) => Ok(&mut val),
+                Some(ref mut val) => Ok(val),
                 None => Err("nothing in handle"),
             }
         } else {

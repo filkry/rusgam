@@ -783,17 +783,15 @@ impl<'a> SCommandListPool<'a> {
     }
 
     pub fn execute_and_free_list(&mut self, handle: SPoolHandle) -> Result<(), &'static str> {
-        #[allow(unused_assignments)]
-        let mut allocator: SPoolHandle = Default::default();
-        {
+        let allocator = {
             let list = self.lists.get_mut(handle)?;
             assert!(list.list.get_type() == self.queue.borrow().commandlisttype);
             list.list.close()?;
             self.queue.borrow().execute_command_list(&mut list.list)?;
 
             assert!(list.allocator.valid());
-            allocator = list.allocator;
-        }
+            list.allocator
+        };
         self.lists.free(handle);
 
         let fenceval = self.queue.borrow().signal(&mut self.activefence)?;

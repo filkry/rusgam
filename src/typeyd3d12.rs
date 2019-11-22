@@ -840,6 +840,10 @@ impl SCommandList {
         Ok(())
     }
 
+    pub unsafe fn raw(&self) -> &ComPtr<ID3D12GraphicsCommandList> {
+        &self.commandlist
+    }
+
     pub unsafe fn rawmut(&mut self) -> &mut ComPtr<ID3D12GraphicsCommandList> {
         &mut self.commandlist
     }

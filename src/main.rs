@@ -30,6 +30,7 @@ fn main_d3d12() {
     // -- setup window and command queue
     let mut winapi = rustywindows::SWinAPI::create();
     let windowclass = winapi.rawwinapi().registerclassex("rusgam").unwrap();
+    /*
 
     let mut d3dctxt = niced3d12::SD3D12Context::create().unwrap();
     let mut adapter = d3dctxt.create_best_adapter().unwrap();
@@ -149,7 +150,6 @@ fn main_d3d12() {
         4, 3, 7
     ];
 
-    /*
     // -- upload data to GPU
     {
         let copycommandlisthandle = copycommandqueue.getunusedcommandlisthandle().unwrap();

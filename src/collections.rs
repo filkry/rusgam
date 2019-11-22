@@ -194,8 +194,7 @@ impl<T> SPool<T> {
         result
     }
 
-    pub fn create_from_vec<F>(id: u64, max: u16, contents: Vec<T>) -> Self
-        where F: Fn() -> T,
+    pub fn create_from_vec(id: u64, max: u16, contents: Vec<T>) -> Self
     {
         let mut result = Self{
             id: id,

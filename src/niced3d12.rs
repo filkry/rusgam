@@ -107,7 +107,7 @@ struct SCommandListPoolList {
 
 struct SCommandListPoolActiveAllocator {
     handle: SPoolHandle,
-    reusefencevalue: u32,
+    reusefencevalue: u64,
 }
 
 pub struct SCommandListPool<'a> {
@@ -261,8 +261,26 @@ impl SAdapter {
 // ---------------------------------------------------------------------------------------------
 impl SDevice {
 
+    pub fn create_command_allocator(
+        &self,
+        type_: typeyd3d12::ECommandListType,
+    ) -> Result<SCommandAllocator, &'static str> {
+        let raw = self.raw.createcommandallocator(type_)?;
+        Ok(SCommandAllocator{ raw: raw })
+    }
+
+    // -- NOTE: This is unsafe because it initializes the list to an allocator which we don't
+    // -- know is exclusive to the list
+    pub unsafe fn create_command_list(
+        &self,
+        allocator: &mut SCommandAllocator,
+    ) -> Result<SCommandList, &'static str> {
+        let raw = self.raw.createcommandlist(&allocator.raw)?;
+        Ok(SCommandList{ raw: raw })
+    }
+
     pub fn create_fence(
-        &mut self,
+        &self,
         winapi: &safewindows::SWinAPI,
     ) -> Result<SFence, &'static str> {
 
@@ -328,9 +346,21 @@ impl SDevice {
 }
 
 // ---------------------------------------------------------------------------------------------
+// Command allocator functions
+// ---------------------------------------------------------------------------------------------
+impl SCommandAllocator {
+    pub fn reset(&mut self) {
+        self.raw.reset();
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
 // Command List functions
 // ---------------------------------------------------------------------------------------------
 impl SCommandList {
+    pub fn reset(&mut self, allocator: &mut SCommandAllocator) -> Result<(), &'static str> {
+        self.raw.reset(&allocator.raw)
+    }
 
     pub fn transition_resource(
         &mut self,
@@ -353,6 +383,13 @@ impl SCommandList {
         Ok(())
     }
 
+    pub fn get_type(&self) -> typeyd3d12::ECommandListType {
+        self.raw.gettype()
+    }
+
+    pub fn close(&mut self) -> Result<(), &'static str> {
+        self.raw.close()
+    }
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -395,6 +432,9 @@ impl SCommandQueue {
         Ok(result)
     }
 
+    pub fn internal_fence_value(&self) -> u64 {
+        self.fence.raw.getcompletedvalue()
+    }
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -582,7 +622,10 @@ impl Default for EResourceMetadata {
 
 impl SCommandQueue {
     pub fn signal_internal_fence(&mut self) -> Result<u64, &'static str> {
-        self.signal(&mut self.fence)
+        let result = self.fence.nextfencevalue;
+        self.raw.signal(&self.fence.raw, self.fence.nextfencevalue)?;
+        self.fence.nextfencevalue += 1;
+        Ok(result)
     }
 
     pub fn flush_blocking(&mut self) -> Result<(), &'static str> {
@@ -670,30 +713,44 @@ impl<'a> SCommandListPool<'a> {
         device: &SDevice,
         queue: &'a RefCell<SCommandQueue>,
         winapi: &safewindows::SWinAPI,
-        num_lists: usize,
-        num_allocators: usize) -> Self {
+        num_lists: u16,
+        num_allocators: u16) -> Result<Self, &'static str> {
 
-        let allocators = Vec::new();
-        let lists = Vec::new();
+        assert!(num_allocators > 0 && num_lists > 0);
 
-        for alloc_i in 0..num_allocators {
+        let type_ = queue.borrow().commandlisttype;
 
+        let mut allocators = Vec::new();
+        let mut lists = Vec::new();
+
+        for _ in 0..num_allocators {
+            allocators.push(device.create_command_allocator(type_)?);
         }
 
-        Self {
+        for _ in 0..num_lists {
+            let list = unsafe { device.create_command_list(&mut allocators[0])? } ;
+            // -- immediately close handle because we'll re-assign a new allocator from the pool when ready
+            list.raw.close()?;
+            lists.push(SCommandListPoolList{
+                list: list,
+                allocator: Default::default(),
+            });
+        }
+
+        Ok(Self {
             queue: queue,
-            allocators: SPool::<SCommandAllocator>::create(0, num_allocators),
-            lists: SPool::<SCommandListPoolList>::create(1, num_lists),
-            activefence: SFence::create(winapi),
-            activeallocators: Vec::<SCommandListPoolActiveAllocator>::with_capacity(num_allocators),
-        }
+            allocators: SPool::<SCommandAllocator>::create_from_vec(0, num_allocators, allocators),
+            lists: SPool::<SCommandListPoolList>::create_from_vec(1, num_lists, lists),
+            activefence: device.create_fence(winapi)?,
+            activeallocators: Vec::<SCommandListPoolActiveAllocator>::with_capacity(num_allocators as usize),
+        })
     }
 
     fn free_allocators(&mut self) {
         let completedvalue = self.queue.borrow().internal_fence_value();
         for alloc in &self.activeallocators {
             if alloc.reusefencevalue <= completedvalue {
-                self.commandallocatorpool.free(alloc.allocator);
+                self.allocators.free(alloc.handle);
             }
         }
 
@@ -712,7 +769,7 @@ impl<'a> SCommandListPool<'a> {
         let allocator = self.allocators.get_mut(allocatorhandle)?;
         allocator.reset();
 
-        let listhandle = self.lists.push()?;
+        let listhandle = self.lists.alloc()?;
         let list = self.lists.get_mut(listhandle)?;
         list.list.reset(allocator)?;
         list.allocator = allocatorhandle;
@@ -722,16 +779,17 @@ impl<'a> SCommandListPool<'a> {
 
     pub fn get_list(&mut self, handle: SPoolHandle) -> Result<&mut SCommandList, &'static str> {
         let list = self.lists.get_mut(handle)?;
-        &mut list.list
+        Ok(&mut list.list)
     }
 
     pub fn execute_and_free_list(&mut self, handle: SPoolHandle) -> Result<(), &'static str> {
+        #[allow(unused_assignments)]
         let mut allocator: SPoolHandle = Default::default();
         {
             let list = self.lists.get_mut(handle)?;
-            assert!(list.list.gettype() == self.queue.borrow().commandlisttype);
+            assert!(list.list.get_type() == self.queue.borrow().commandlisttype);
             list.list.close()?;
-            self.queue.borrow().executecommandlist(&mut list.list);
+            self.queue.borrow().execute_command_list(&mut list.list)?;
 
             assert!(list.allocator.valid());
             allocator = list.allocator;
@@ -741,9 +799,11 @@ impl<'a> SCommandListPool<'a> {
         let fenceval = self.queue.borrow().signal(&mut self.activefence)?;
 
         self.activeallocators.push(SCommandListPoolActiveAllocator {
-            allocator: allocator,
+            handle: allocator,
             reusefencevalue: fenceval,
         });
+
+        Ok(())
     }
 }
 

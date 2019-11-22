@@ -871,9 +871,9 @@ impl SDevice {
         })
     }
 
-    pub fn createcommandlist<'allocator>(
+    pub fn createcommandlist(
         &self,
-        allocator: &'allocator SCommandAllocator,
+        allocator: &SCommandAllocator,
     ) -> Result<SCommandList, &'static str> {
         let mut rawcl: *mut ID3D12GraphicsCommandList = ptr::null_mut();
         let hn = unsafe {

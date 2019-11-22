@@ -172,18 +172,39 @@ pub struct SPool<T> {
 }
 
 impl<T> SPool<T> {
+    // -- $$$FRK(TODO): I'd like to make these IDs either really smart, or just random
     pub fn create<F>(id: u64, max: u16, init_func: F) -> Self
         where F: Fn() -> T,
     {
         let mut result = Self{
             id: id,
-            buffer: Vec::new(),
-            generations: Vec::new(),
+            buffer: Vec::with_capacity(max as usize),
+            generations: Vec::with_capacity(max as usize),
             max: max,
             freelist: VecDeque::new(),
         };
 
         result.buffer.resize_with(max as usize, init_func);
+        result.generations.resize(max as usize, 0);
+
+        for i in 0..max {
+            result.freelist.push_back(i);
+        }
+
+        result
+    }
+
+    pub fn create_from_vec<F>(id: u64, max: u16, contents: Vec<T>) -> Self
+        where F: Fn() -> T,
+    {
+        let mut result = Self{
+            id: id,
+            buffer: contents,
+            generations: Vec::with_capacity(max as usize),
+            max: max,
+            freelist: VecDeque::new(),
+        };
+
         result.generations.resize(max as usize, 0);
 
         for i in 0..max {
@@ -269,7 +290,7 @@ impl<T> SPool<T> {
 }
 
 impl<T: Clone> SPool<T> {
-    pub fn create_from(id: u64, max: u16, default_val: T) -> Self {
+    pub fn create_from_val(id: u64, max: u16, default_val: T) -> Self {
         let mut result = Self{
             id: id,
             buffer: Vec::new(),

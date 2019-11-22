@@ -1,10 +1,12 @@
 #![allow(dead_code)]
 
+use collections::{SPool, SPoolHandle};
 use directxgraphicssamples;
 use rustywindows;
 use safewindows;
 use typeyd3d12;
 
+use std::cell::{RefCell};
 use std::ops::{Deref, DerefMut};
 use std::ptr;
 
@@ -40,18 +42,23 @@ pub struct SCommandList {
     //allocator: &RefCell<typeyd3d12::SCommandAllocator>,
 }
 
+pub struct SCommandAllocator {
+    raw: typeyd3d12::SCommandAllocator,
+}
+
 pub struct SCommandQueue {
     raw: typeyd3d12::SCommandQueue,
 
     fence: SFence,
-    fenceevent: safewindows::SEventHandle,
-    pub nextfencevalue: u64,
 
     commandlisttype: typeyd3d12::ECommandListType,
 }
 
 pub struct SFence {
     raw: typeyd3d12::SFence,
+
+    fenceevent: safewindows::SEventHandle,
+    pub nextfencevalue: u64,
 }
 
 pub enum EResourceMetadata {
@@ -91,6 +98,26 @@ pub struct SD3D12Window {
 pub struct SCommandQueueUpdateBufferResult {
     pub destinationresource: SResource,
     pub intermediateresource: SResource,
+}
+
+struct SCommandListPoolList {
+    list: SCommandList,
+    allocator: SPoolHandle,
+}
+
+struct SCommandListPoolActiveAllocator {
+    handle: SPoolHandle,
+    reusefencevalue: u32,
+}
+
+pub struct SCommandListPool<'a> {
+    queue: &'a RefCell<SCommandQueue>,
+
+    allocators: SPool<SCommandAllocator>,
+    lists: SPool<SCommandListPoolList>,
+
+    activefence: SFence,
+    activeallocators: Vec<SCommandListPoolActiveAllocator>,
 }
 
 // =================================================================================================
@@ -151,7 +178,7 @@ impl SFactory {
     }
 
     pub fn create_swap_chain(
-        &mut self,
+        &self,
         window: &safewindows::SWindow,
         commandqueue: &mut SCommandQueue,
         width: u32,
@@ -234,10 +261,16 @@ impl SAdapter {
 // ---------------------------------------------------------------------------------------------
 impl SDevice {
 
-    pub fn create_fence(&mut self) -> Result<SFence, &'static str> {
+    pub fn create_fence(
+        &mut self,
+        winapi: &safewindows::SWinAPI,
+    ) -> Result<SFence, &'static str> {
+
         let fence = self.raw.createfence()?;
         Ok(SFence {
             raw: fence,
+            fenceevent: winapi.createeventhandle().unwrap(),
+            nextfencevalue: 0,
         })
     }
 
@@ -338,9 +371,7 @@ impl SCommandQueue {
 
         Ok(SCommandQueue {
             raw: qresult,
-            fence: device.create_fence()?,
-            fenceevent: winapi.createeventhandle().unwrap(),
-            nextfencevalue: 0,
+            fence: device.create_fence(winapi)?,
             commandlisttype: commandlisttype,
         })
     }
@@ -356,10 +387,12 @@ impl SCommandQueue {
 
     pub fn signal(
         &self, // -- I'm assuming this is safe
-        fence: &SFence,
-        value: u64,
+        fence: &mut SFence,
     ) -> Result<u64, &'static str> {
-        self.raw.signal(&fence.raw, value)
+        let result = fence.nextfencevalue;
+        self.raw.signal(&fence.raw, fence.nextfencevalue)?;
+        fence.nextfencevalue += 1;
+        Ok(result)
     }
 
 }
@@ -371,21 +404,19 @@ impl SFence {
 
     pub fn wait_for_value(
         &self,
-        fenceevent: &mut safewindows::SEventHandle,
         val: u64,
     ) {
-        self.wait_for_value_duration(fenceevent, val, <u64>::max_value()).unwrap();
+        self.wait_for_value_duration(val, <u64>::max_value()).unwrap();
     }
 
     pub fn wait_for_value_duration(
         &self,
-        fenceevent: &mut safewindows::SEventHandle,
         val: u64,
         duration: u64,
     ) -> Result<(), &'static str> {
         if self.raw.getcompletedvalue() < val {
-            self.raw.seteventoncompletion(val, fenceevent)?;
-            fenceevent.waitforsingleobject(duration);
+            self.raw.seteventoncompletion(val, &self.fenceevent)?;
+            self.fenceevent.waitforsingleobject(duration);
         }
 
         Ok(())
@@ -551,13 +582,12 @@ impl Default for EResourceMetadata {
 
 impl SCommandQueue {
     pub fn signal_internal_fence(&mut self) -> Result<u64, &'static str> {
-        self.nextfencevalue += 1;
-        self.signal(&self.fence, self.nextfencevalue)
+        self.signal(&mut self.fence)
     }
 
     pub fn flush_blocking(&mut self) -> Result<(), &'static str> {
         let lastfencevalue = self.signal_internal_fence()?;
-        self.fence.wait_for_value(&mut self.fenceevent, lastfencevalue);
+        self.fence.wait_for_value(lastfencevalue);
         Ok(())
     }
 }
@@ -635,9 +665,91 @@ impl SDescriptorHeap {
     }
 }
 
-pub fn createsd3d12window(
+impl<'a> SCommandListPool<'a> {
+    fn create(
+        device: &SDevice,
+        queue: &'a RefCell<SCommandQueue>,
+        winapi: &safewindows::SWinAPI,
+        num_lists: usize,
+        num_allocators: usize) -> Self {
+
+        let allocators = Vec::new();
+        let lists = Vec::new();
+
+        for alloc_i in 0..num_allocators {
+
+        }
+
+        Self {
+            queue: queue,
+            allocators: SPool::<SCommandAllocator>::create(0, num_allocators),
+            lists: SPool::<SCommandListPoolList>::create(1, num_lists),
+            activefence: SFence::create(winapi),
+            activeallocators: Vec::<SCommandListPoolActiveAllocator>::with_capacity(num_allocators),
+        }
+    }
+
+    fn free_allocators(&mut self) {
+        let completedvalue = self.queue.borrow().internal_fence_value();
+        for alloc in &self.activeallocators {
+            if alloc.reusefencevalue <= completedvalue {
+                self.commandallocatorpool.free(alloc.allocator);
+            }
+        }
+
+        self.activeallocators
+            .retain(|alloc| alloc.reusefencevalue > completedvalue);
+    }
+
+    pub fn alloc_list(&mut self) -> Result<SPoolHandle, &'static str> {
+        self.free_allocators();
+
+        if self.lists.full() || self.allocators.full() {
+            return Err("no available command list or allocator");
+        }
+
+        let allocatorhandle = self.allocators.alloc()?;
+        let allocator = self.allocators.get_mut(allocatorhandle)?;
+        allocator.reset();
+
+        let listhandle = self.lists.push()?;
+        let list = self.lists.get_mut(listhandle)?;
+        list.list.reset(allocator)?;
+        list.allocator = allocatorhandle;
+
+        Ok(listhandle)
+    }
+
+    pub fn get_list(&mut self, handle: SPoolHandle) -> Result<&mut SCommandList, &'static str> {
+        let list = self.lists.get_mut(handle)?;
+        &mut list.list
+    }
+
+    pub fn execute_and_free_list(&mut self, handle: SPoolHandle) -> Result<(), &'static str> {
+        let mut allocator: SPoolHandle = Default::default();
+        {
+            let list = self.lists.get_mut(handle)?;
+            assert!(list.list.gettype() == self.queue.borrow().commandlisttype);
+            list.list.close()?;
+            self.queue.borrow().executecommandlist(&mut list.list);
+
+            assert!(list.allocator.valid());
+            allocator = list.allocator;
+        }
+        self.lists.free(handle);
+
+        let fenceval = self.queue.borrow().signal(&mut self.activefence)?;
+
+        self.activeallocators.push(SCommandListPoolActiveAllocator {
+            allocator: allocator,
+            reusefencevalue: fenceval,
+        });
+    }
+}
+
+pub fn created3d12window(
     windowclass: &safewindows::SWindowClass,
-    factory: &mut SFactory,
+    factory: &SFactory,
     device: &mut SDevice,
     commandqueue: &mut SCommandQueue,
     title: &str,

@@ -22,47 +22,43 @@ struct SVertexPosColour {
 
 #[allow(unused_variables)]
 #[allow(unused_mut)]
-fn main_d3d12() {
+
+fn main_d3d12() -> Result<(), &'static str> {
     // -- initialize debug
-    let debuginterface = typeyd3d12::getdebuginterface().unwrap();
+    let debuginterface = typeyd3d12::getdebuginterface()?;
     debuginterface.enabledebuglayer();
 
     // -- setup window and command queue
     let mut winapi = rustywindows::SWinAPI::create();
     let windowclass = winapi.rawwinapi().registerclassex("rusgam").unwrap();
-    /*
 
-    let mut d3dctxt = niced3d12::SD3D12Context::create().unwrap();
-    let mut adapter = d3dctxt.create_best_adapter().unwrap();
-    let mut device = adapter.create_device(&mut d3dctxt).unwrap();
+    let mut factory = niced3d12::SFactory::create()?;
+    let mut adapter = factory.create_best_adapter()?;
+    let mut device = adapter.create_device()?;
 
-    let mut commandqueue = niced3d12::SCommandQueue::create_command_queue(
-        &mut d3dctxt,
-        &winapi.rawwinapi(),
+    let mut commandqueue = niced3d12::SCommandQueue::create(
         &mut device,
+        &winapi.rawwinapi(),
         typeyd3d12::ECommandListType::Direct,
-    )
-    .unwrap();
+    )?;
 
-    let mut copycommandqueue = niced3d12::SCommandQueue::create_command_queue(
-        &mut d3dctxt,
-        &winapi.rawwinapi(),
+    let mut copycommandqueue = niced3d12::SCommandQueue::create(
         &mut device,
+        &winapi.rawwinapi(),
         typeyd3d12::ECommandListType::Copy,
-    )
-    .unwrap();
+    )?;
 
-    let mut window = niced3d12::createsd3d12window(
-        &mut d3dctxt,
+    let mut window = niced3d12::created3d12window(
         &windowclass,
+        &factory,
         &mut device,
         &mut commandqueue,
         "rusgam",
         800,
         600,
-    )
-    .unwrap();
-    window.init_render_target_views(&mut d3dctxt, &mut device).unwrap();
+    )?;
+
+    window.init_render_target_views(&mut device)?;
     window.show();
 
     // -- tutorial2 data
@@ -73,7 +69,7 @@ fn main_d3d12() {
 
     let depthbufferresource: Option<niced3d12::SResource> = None;
     let depthstencilviewheap =
-        device.create_descriptor_heap(&mut d3dctxt, typeyd3d12::EDescriptorHeapType::DepthStencil, 1);
+        device.create_descriptor_heap(typeyd3d12::EDescriptorHeapType::DepthStencil, 1);
 
     let rootsignature: Option<typeyd3d12::SRootSignature> = None;
     let pipelinestate: Option<typeyd3d12::SPipelineState> = None;
@@ -149,41 +145,42 @@ fn main_d3d12() {
         4, 0, 3,
         4, 3, 7
     ];
+    /*
 
     // -- upload data to GPU
     {
-        let copycommandlisthandle = copycommandqueue.getunusedcommandlisthandle().unwrap();
+        let copycommandlisthandle = copycommandqueue.getunusedcommandlisthandle()?;
         let copycommandlist = copycommandqueue
             .getcommandlist(copycommandlisthandle)
-            .unwrap();
+            ?;
 
         let mut vertbufferresource = {
             let vertbufferflags =
                 typeyd3d12::SResourceFlags::from(typeyd3d12::EResourceFlags::ENone);
             copycommandlist
                 .updatebufferresource(&mut device, &cubeverts, vertbufferflags)
-                .unwrap()
+                ?
         };
         let _vertexbufferview = vertbufferresource
             .destination
             .createvertexbufferview()
-            .unwrap();
+            ?;
 
         let indexbufferresource = {
             let indexbufferflags =
                 typeyd3d12::SResourceFlags::from(typeyd3d12::EResourceFlags::ENone);
             copycommandlist
                 .updatebufferresource(&mut device, &indices, indexbufferflags)
-                .unwrap()
+                ?
         };
         let _indexbufferview = indexbufferresource
             .destination
             .createindexbufferview(typeyd3d12::EFormat::R16UINT)
-            .unwrap();
+            ?;
 
         copycommandqueue
             .executecommandlist(copycommandlisthandle)
-            .unwrap();
+            ?;
     }
 
     // -- update loop
@@ -210,7 +207,7 @@ fn main_d3d12() {
             let backbufferidx = window.currentbackbufferindex();
             assert!(backbufferidx == window.swapchain.raw().currentbackbufferindex());
 
-            let commandlisthandle = commandqueue.getunusedcommandlisthandle().unwrap();
+            let commandlisthandle = commandqueue.getunusedcommandlisthandle()?;
 
             // -- clear the render target
             {
@@ -224,17 +221,17 @@ fn main_d3d12() {
                         typeyd3d12::EResourceStates::Present,
                         typeyd3d12::EResourceStates::RenderTarget,
                     )
-                    .unwrap();
+                    ?;
 
                 // -- clear
                 let clearcolour = [0.4, 0.6, 0.9, 1.0];
                 commandqueue
                     .clearrendertargetview(
                         commandlisthandle,
-                        window.currentrendertargetdescriptor().unwrap(),
+                        window.currentrendertargetdescriptor()?,
                         &clearcolour,
                     )
-                    .unwrap();
+                    ?;
 
                 // -- transition to present
                 commandqueue
@@ -244,16 +241,16 @@ fn main_d3d12() {
                         typeyd3d12::EResourceStates::RenderTarget,
                         typeyd3d12::EResourceStates::Present,
                     )
-                    .unwrap();
+                    ?;
             }
 
             // -- execute on the queue
             assert_eq!(window.currentbackbufferindex(), backbufferidx);
-            commandqueue.executecommandlist(commandlisthandle).unwrap();
-            framefencevalues[window.currentbackbufferindex()] = commandqueue.pushsignal().unwrap();
+            commandqueue.executecommandlist(commandlisthandle)?;
+            framefencevalues[window.currentbackbufferindex()] = commandqueue.pushsignal()?;
 
             // -- present the swap chain and switch to next buffer in swap chain
-            window.present().unwrap();
+            window.present()?;
         }
 
         lastframetime = curframetime;
@@ -279,7 +276,7 @@ fn main_d3d12() {
                     },
                     safewindows::EMsgType::Size => {
                         //println!("Size");
-                        let rect: safewindows::SRect = window.raw().getclientrect().unwrap();
+                        let rect: safewindows::SRect = window.raw().getclientrect()?;
                         let newwidth = rect.right - rect.left;
                         let newheight = rect.bottom - rect.top;
 
@@ -290,7 +287,7 @@ fn main_d3d12() {
                                 &mut commandqueue,
                                 &device,
                             )
-                            .unwrap();
+                            ?;
 
                         // -- $$$FRK(TODO): why do we do this?
                         let maxframefencevalue =
@@ -308,10 +305,12 @@ fn main_d3d12() {
     }
 
     // -- wait for all commands to clear
-    commandqueue.flushblocking().unwrap();
+    commandqueue.flushblocking()?;
     */
+
+    Ok(())
 }
 
 fn main() {
-    main_d3d12();
+    main_d3d12().unwrap();
 }

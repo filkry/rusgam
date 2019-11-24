@@ -81,16 +81,6 @@ pub struct SDescriptorHeap {
     //cpudescriptorhandleforstart: typeyd3d12::SDescriptorHandle<'heap, 'device>,
 }
 
-pub struct SD3D12Window {
-    window: rustywindows::SWindow,
-    swapchain: SSwapChain,
-
-    curbuffer: usize,
-    rtvdescriptorheap: SDescriptorHeap,
-    curwidth: u32,
-    curheight: u32,
-}
-
 // =================================================================================================
 // HELPER TYPES
 // =================================================================================================
@@ -118,6 +108,16 @@ pub struct SCommandListPool<'a> {
 
     activefence: SFence,
     activeallocators: Vec<SCommandListPoolActiveAllocator>,
+}
+
+pub struct SD3D12Window {
+    window: rustywindows::SWindow,
+    pub swapchain: SSwapChain,
+
+    curbuffer: usize,
+    rtvdescriptorheap: SDescriptorHeap,
+    curwidth: u32,
+    curheight: u32,
 }
 
 // =================================================================================================
@@ -628,6 +628,10 @@ impl SCommandQueue {
         Ok(result)
     }
 
+    pub fn wait_for_internal_fence_value(&self, value: u64) {
+        self.fence.wait_for_value(value);
+    }
+
     pub fn flush_blocking(&mut self) -> Result<(), &'static str> {
         let lastfencevalue = self.signal_internal_fence()?;
         self.fence.wait_for_value(lastfencevalue);
@@ -786,7 +790,6 @@ impl<'a> SCommandListPool<'a> {
         let allocator = {
             let list = self.lists.get_mut(handle)?;
             assert!(list.list.get_type() == self.queue.borrow().commandlisttype);
-            list.list.close()?;
             self.queue.borrow().execute_command_list(&mut list.list)?;
 
             assert!(list.allocator.valid());

@@ -38,10 +38,17 @@ fn main_d3d12() -> Result<(), &'static str> {
     let mut adapter = factory.create_best_adapter()?;
     let mut device = adapter.create_device()?;
 
-    let mut commandqueue = niced3d12::SCommandQueue::create(
+    let mut commandqueue = RefCell::new(niced3d12::SCommandQueue::create(
         &mut device,
         &winapi.rawwinapi(),
         typeyd3d12::ECommandListType::Direct,
+    )?);
+    let mut directcommandpool = niced3d12::SCommandListPool::create(
+        &device,
+        &commandqueue,
+        &winapi.rawwinapi(),
+        1,
+        2,
     )?;
 
     let mut copycommandqueue = RefCell::new(niced3d12::SCommandQueue::create(
@@ -61,7 +68,7 @@ fn main_d3d12() -> Result<(), &'static str> {
         &windowclass,
         &factory,
         &mut device,
-        &mut commandqueue,
+        &mut commandqueue.borrow_mut(),
         "rusgam",
         800,
         600,
@@ -186,7 +193,6 @@ fn main_d3d12() -> Result<(), &'static str> {
 
         copycommandpool.execute_and_free_list(handle)?;
     }
-    /*
 
     // -- update loop
 
@@ -205,54 +211,47 @@ fn main_d3d12() -> Result<(), &'static str> {
         //println!("Frame {} time: {}us", framecount, dtms);
 
         // -- wait for buffer to be available
-        commandqueue.waitforfencevalue(framefencevalues[window.currentbackbufferindex()]);
+        commandqueue.borrow().wait_for_internal_fence_value(framefencevalues[window.currentbackbufferindex()]);
 
         // -- render
         {
             let backbufferidx = window.currentbackbufferindex();
-            assert!(backbufferidx == window.swapchain.raw().currentbackbufferindex());
+            assert!(backbufferidx == window.swapchain.current_backbuffer_index());
 
-            let commandlisthandle = commandqueue.getunusedcommandlisthandle()?;
+            let handle = directcommandpool.alloc_list()?;
 
             // -- clear the render target
             {
+                let list = directcommandpool.get_list(handle)?;
+
                 let backbuffer = window.currentbackbuffer();
 
                 // -- transition to render target
-                commandqueue
-                    .transitionresource(
-                        commandlisthandle,
-                        backbuffer,
-                        typeyd3d12::EResourceStates::Present,
-                        typeyd3d12::EResourceStates::RenderTarget,
-                    )
-                    ?;
+                list.transition_resource(
+                    backbuffer,
+                    typeyd3d12::EResourceStates::Present,
+                    typeyd3d12::EResourceStates::RenderTarget,
+                )?;
 
                 // -- clear
                 let clearcolour = [0.4, 0.6, 0.9, 1.0];
-                commandqueue
-                    .clearrendertargetview(
-                        commandlisthandle,
-                        window.currentrendertargetdescriptor()?,
-                        &clearcolour,
-                    )
-                    ?;
+                list.clear_render_target_view(
+                    window.currentrendertargetdescriptor()?,
+                    &clearcolour,
+                )?;
 
                 // -- transition to present
-                commandqueue
-                    .transitionresource(
-                        commandlisthandle,
-                        backbuffer,
-                        typeyd3d12::EResourceStates::RenderTarget,
-                        typeyd3d12::EResourceStates::Present,
-                    )
-                    ?;
+                list.transition_resource(
+                    backbuffer,
+                    typeyd3d12::EResourceStates::RenderTarget,
+                    typeyd3d12::EResourceStates::Present,
+                )?;
             }
 
             // -- execute on the queue
             assert_eq!(window.currentbackbufferindex(), backbufferidx);
-            commandqueue.executecommandlist(commandlisthandle)?;
-            framefencevalues[window.currentbackbufferindex()] = commandqueue.pushsignal()?;
+            directcommandpool.execute_and_free_list(handle)?;
+            framefencevalues[window.currentbackbufferindex()] = commandqueue.borrow_mut().signal_internal_fence()?;
 
             // -- present the swap chain and switch to next buffer in swap chain
             window.present()?;
@@ -289,8 +288,8 @@ fn main_d3d12() -> Result<(), &'static str> {
                             .resize(
                                 newwidth as u32,
                                 newheight as u32,
-                                &mut commandqueue,
-                                &device,
+                                &mut commandqueue.borrow_mut(),
+                                &mut device,
                             )
                             ?;
 
@@ -310,8 +309,7 @@ fn main_d3d12() -> Result<(), &'static str> {
     }
 
     // -- wait for all commands to clear
-    commandqueue.flushblocking()?;
-    */
+    commandqueue.borrow_mut().flush_blocking()?;
 
     Ok(())
 }

@@ -709,7 +709,7 @@ impl SDescriptorHeap {
 }
 
 impl<'a> SCommandListPool<'a> {
-    fn create(
+    pub fn create(
         device: &SDevice,
         queue: &'a RefCell<SCommandQueue>,
         winapi: &safewindows::SWinAPI,

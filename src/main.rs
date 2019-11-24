@@ -10,6 +10,8 @@ mod rustywindows;
 mod safewindows;
 mod typeyd3d12;
 
+use std::cell::{RefCell};
+
 #[allow(dead_code)]
 type SMat44 = nalgebra::Matrix4<f32>;
 type SVec3 = nalgebra::Vector3<f32>;
@@ -42,10 +44,17 @@ fn main_d3d12() -> Result<(), &'static str> {
         typeyd3d12::ECommandListType::Direct,
     )?;
 
-    let mut copycommandqueue = niced3d12::SCommandQueue::create(
+    let mut copycommandqueue = RefCell::new(niced3d12::SCommandQueue::create(
         &mut device,
         &winapi.rawwinapi(),
         typeyd3d12::ECommandListType::Copy,
+    )?);
+    let mut copycommandpool = niced3d12::SCommandListPool::create(
+        &device,
+        &copycommandqueue,
+        &winapi.rawwinapi(),
+        1,
+        2,
     )?;
 
     let mut window = niced3d12::created3d12window(
@@ -145,43 +154,39 @@ fn main_d3d12() -> Result<(), &'static str> {
         4, 0, 3,
         4, 3, 7
     ];
-    /*
 
     // -- upload data to GPU
     {
-        let copycommandlisthandle = copycommandqueue.getunusedcommandlisthandle()?;
-        let copycommandlist = copycommandqueue
-            .getcommandlist(copycommandlisthandle)
-            ?;
+        let handle = copycommandpool.alloc_list()?;
+        let copycommandlist = copycommandpool.get_list(handle)?;
 
         let mut vertbufferresource = {
             let vertbufferflags =
                 typeyd3d12::SResourceFlags::from(typeyd3d12::EResourceFlags::ENone);
             copycommandlist
-                .updatebufferresource(&mut device, &cubeverts, vertbufferflags)
+                .update_buffer_resource(&device, &cubeverts, vertbufferflags)
                 ?
         };
         let _vertexbufferview = vertbufferresource
-            .destination
-            .createvertexbufferview()
+            .destinationresource
+            .create_vertex_buffer_view()
             ?;
 
         let indexbufferresource = {
             let indexbufferflags =
                 typeyd3d12::SResourceFlags::from(typeyd3d12::EResourceFlags::ENone);
             copycommandlist
-                .updatebufferresource(&mut device, &indices, indexbufferflags)
+                .update_buffer_resource(&device, &indices, indexbufferflags)
                 ?
         };
         let _indexbufferview = indexbufferresource
-            .destination
-            .createindexbufferview(typeyd3d12::EFormat::R16UINT)
+            .destinationresource
+            .create_index_buffer_view(typeyd3d12::EFormat::R16UINT)
             ?;
 
-        copycommandqueue
-            .executecommandlist(copycommandlisthandle)
-            ?;
+        copycommandpool.execute_and_free_list(handle)?;
     }
+    /*
 
     // -- update loop
 

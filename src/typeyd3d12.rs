@@ -1184,3 +1184,25 @@ pub fn d3dcompilefromfile(
         raw: unsafe { ComPtr::from_raw(rawcodeblob) },
     })
 }
+
+pub fn read_file_to_blob(
+    file: &str,
+) -> Result<SBlob, &'static str> {
+    let mut fileparam: Vec<u16> = file.encode_utf16().collect();
+    fileparam.push('\0' as u16);
+
+    let mut resultblob: *mut d3dcommon::ID3DBlob = ptr::null_mut();
+
+    let hr = unsafe {
+        d3dcompiler::D3DReadFileToBlob(
+            fileparam.as_ptr(),
+            &mut resultblob,
+        )
+    };
+
+    returnerrifwinerror!(hr, "failed to load shader");
+
+    Ok(SBlob {
+        raw: unsafe { ComPtr::from_raw(resultblob) },
+    })
+}

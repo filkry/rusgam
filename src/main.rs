@@ -194,6 +194,10 @@ fn main_d3d12() -> Result<(), &'static str> {
         copycommandpool.execute_and_free_list(handle)?;
     }
 
+    // -- load shaders
+    let vertblob = typeyd3d12::read_file_to_blob("shaders_built/vertex.cso")?;
+    let pixelblob = typeyd3d12::read_file_to_blob("shaders_built/pixel.cso")?;
+
     // -- update loop
 
     let mut framecount: u64 = 0;

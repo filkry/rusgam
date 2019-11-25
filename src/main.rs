@@ -198,6 +198,28 @@ fn main_d3d12() -> Result<(), &'static str> {
     let vertblob = typeyd3d12::read_file_to_blob("shaders_built/vertex.cso")?;
     let pixelblob = typeyd3d12::read_file_to_blob("shaders_built/pixel.cso")?;
 
+    // -- input assembler stuff
+    let input_element_desc = [
+        typeyd3d12::SInputElementDesc::create(
+            "POSITION",
+            0,
+            typeyd3d12::EDXGIFormat::R32G32B32Float,
+            0,
+            winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
+            typeyd3d12::EInputClassification::PerVertexData,
+            0,
+        ),
+        typeyd3d12::SInputElementDesc::create(
+            "COLOR",
+            0,
+            typeyd3d12::EDXGIFormat::R32G32B32Float,
+            0,
+            winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
+            typeyd3d12::EInputClassification::PerVertexData,
+            0,
+        ),
+    ];
+
     // -- update loop
 
     let mut framecount: u64 = 0;

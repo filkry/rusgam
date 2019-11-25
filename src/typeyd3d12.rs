@@ -1055,6 +1055,84 @@ impl SViewport {
 
 pub type SRect = safewindows::SRect;
 
+pub enum EDXGIFormat {
+    Unknown,
+    R32G32B32A32Typeless,
+    R32G32B32Float,
+}
+
+impl EDXGIFormat {
+    pub fn d3dtype(&self) -> dxgiformat::DXGI_FORMAT {
+        match self {
+            Self::Unknown => dxgiformat::DXGI_FORMAT_UNKNOWN,
+            Self::R32G32B32A32Typeless => dxgiformat::DXGI_FORMAT_R32G32B32A32_TYPELESS,
+            Self::R32G32B32Float => dxgiformat::DXGI_FORMAT_R32G32B32_FLOAT,
+        }
+    }
+}
+
+pub enum EInputClassification {
+    PerVertexData,
+    PerInstanceData,
+}
+
+impl EInputClassification {
+    pub fn d3dtype(&self) -> D3D12_INPUT_CLASSIFICATION {
+        match self {
+            Self::PerVertexData => D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
+            Self::PerInstanceData => D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA,
+        }
+    }
+}
+
+pub struct SInputElementDesc {
+    semantic_name: &'static str,
+    semantic_index: u32,
+    format: EDXGIFormat,
+    input_slot: u32,
+    aligned_byte_offset: u32,
+    input_slot_class: EInputClassification,
+    instance_data_step_rate: u32,
+}
+
+impl SInputElementDesc {
+    pub fn create(
+        semantic_name: &'static str,
+        semantic_index: u32,
+        format: EDXGIFormat,
+        input_slot: u32,
+        aligned_byte_offset: u32,
+        input_slot_class: EInputClassification,
+        instance_data_step_rate: u32,
+    ) -> Self {
+
+        let result = Self {
+            semantic_name: semantic_name,
+            semantic_index: semantic_index,
+            format: format,
+            input_slot: input_slot,
+            aligned_byte_offset: aligned_byte_offset,
+            input_slot_class: input_slot_class,
+            instance_data_step_rate: instance_data_step_rate,
+        };
+
+        result
+    }
+
+    pub unsafe fn d3dtype(&self) -> D3D12_INPUT_ELEMENT_DESC {
+        D3D12_INPUT_ELEMENT_DESC {
+            //SemanticName: self.semantic_name_utf16.as_ptr(),
+            SemanticName: self.semantic_name.as_ptr() as *const i8,
+            SemanticIndex: self.semantic_index,
+            Format: self.format.d3dtype(),
+            InputSlot: self.input_slot,
+            AlignedByteOffset: self.aligned_byte_offset,
+            InputSlotClass: self.input_slot_class.d3dtype(),
+            InstanceDataStepRate: self.instance_data_step_rate,
+        }
+    }
+}
+
 pub struct SSubResourceData {
     raw: D3D12_SUBRESOURCE_DATA,
 }

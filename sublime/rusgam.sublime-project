@@ -3,7 +3,7 @@
 	[
 		{
 			"path": "../",
-            "folder_exclude_patterns": ["target"]
+            "folder_exclude_patterns": ["target", "shaders_built"]
 		}
 	]
 }

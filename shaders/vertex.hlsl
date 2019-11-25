@@ -17,12 +17,12 @@ struct SVertexShaderOutput
     float4 position : SV_Position;
 };
 
-SVertexShaderOutput main(SVertexPosColor in)
+SVertexShaderOutput main(SVertexPosColor input)
 {
-    SVertexShaderOutput out;
+    SVertexShaderOutput output;
 
-    out.position = mul(modelviewprojectionconstantbuffer.mvp, float4(in.position, 1.0f));
-    out.color = float4(in.color, 1.0f);
+    output.position = mul(modelviewprojectionconstantbuffer.mvp, float4(input.position, 1.0f));
+    output.color = float4(input.color, 1.0f);
 
-    return out;
+    return output;
 }

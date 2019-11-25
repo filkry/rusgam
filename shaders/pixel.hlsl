@@ -4,7 +4,7 @@ struct SPixelShaderInput
     float4 position : SV_Position;
 };
 
-float4 main( SPixelShaderInput in ) : SV_Target
+float4 main( SPixelShaderInput input ) : SV_Target
 {
-    return in.color;
+    return input.color;
 }

@@ -124,6 +124,7 @@ pub struct SAdapter4 {
     adapter: ComPtr<IDXGIAdapter4>,
 }
 
+#[derive(Copy, Clone, PartialEq)]
 pub enum EResourceStates {
     Common,
     VertexAndConstantBuffer,
@@ -627,6 +628,7 @@ impl SDevice {
     }
 }
 
+#[derive(Copy, Clone, PartialEq)]
 pub enum EHeapType {
     Default,
     Upload,
@@ -659,6 +661,7 @@ impl SHeapProperties {
     }
 }
 
+#[derive(Copy, Clone, PartialEq)]
 pub enum EHeapFlags {
     ENone,
 }
@@ -682,25 +685,25 @@ pub trait TD3DFlags32 {
     fn d3dtype(&self) -> Self::TD3DType;
 }
 
-pub struct SD3DFlags32<T: TD3DFlags32> {
+pub struct SD3DFlags32<T: TD3DFlags32 + Copy> {
     raw: T::TD3DType,
 }
 
-impl<T: TD3DFlags32> From<T> for SD3DFlags32<T> {
+impl<T: TD3DFlags32 + Copy> From<T> for SD3DFlags32<T> {
     fn from(flag: T) -> Self {
         Self::none().and(flag)
     }
 }
 
-impl<T: TD3DFlags32> Clone for SD3DFlags32<T> {
+impl<T: TD3DFlags32 + Copy> Clone for SD3DFlags32<T> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<T: TD3DFlags32> Copy for SD3DFlags32<T> {}
+impl<T: TD3DFlags32 + Copy> Copy for SD3DFlags32<T> {}
 
-impl<T: TD3DFlags32> SD3DFlags32<T> {
+impl<T: TD3DFlags32 + Copy> SD3DFlags32<T> {
     pub fn none() -> Self {
         Self {
             raw: T::TD3DType::from(0),
@@ -711,6 +714,14 @@ impl<T: TD3DFlags32> SD3DFlags32<T> {
         Self {
             raw: T::TD3DType::from(std::u32::MAX),
         }
+    }
+
+    pub fn create(flags: &[T]) -> Self {
+        let mut result = Self::none();
+        for flag in flags {
+            result = result.and(*flag);
+        }
+        result
     }
 
     pub fn and(&self, other: T) -> Self {
@@ -758,6 +769,7 @@ impl SResourceDesc {
     }
 }
 
+#[derive(Copy, Clone, PartialEq)]
 pub enum EResourceFlags {
     ENone,
     AllowRenderTarget,
@@ -991,6 +1003,7 @@ impl SVertexBufferView {
     }
 }
 
+#[derive(Copy, Clone, PartialEq)]
 pub enum EFormat {
     R16UINT,
 }
@@ -1055,6 +1068,7 @@ impl SViewport {
 
 pub type SRect = safewindows::SRect;
 
+#[derive(Copy, Clone, PartialEq)]
 pub enum EDXGIFormat {
     Unknown,
     R32G32B32A32Typeless,
@@ -1071,6 +1085,7 @@ impl EDXGIFormat {
     }
 }
 
+#[derive(Copy, Clone, PartialEq)]
 pub enum EInputClassification {
     PerVertexData,
     PerInstanceData,
@@ -1154,6 +1169,7 @@ impl SSubResourceData {
     }
 }
 
+#[derive(Copy, Clone, PartialEq)]
 pub enum ECompile {
     Debug,
     SkipValidation,
@@ -1214,9 +1230,207 @@ impl TD3DFlags32 for ECompile {
 
 pub type SCompile = SD3DFlags32<ECompile>;
 
+#[derive(Copy, Clone, PartialEq)]
+pub enum ERootSignatureFlags {
+    ENone,
+    AllowInputAssemblerInputLayout,
+    DenyVertexShaderRootAccess,
+    DenyHullShaderRootAccess,
+    DenyDomainShaderRootAccess,
+    DenyGeometryShaderRootAccess,
+    DenyPixelShaderRootAccess,
+    AllowStreamOutput,
+    //LocalRootSignature,
+}
+
+impl TD3DFlags32 for ERootSignatureFlags {
+    type TD3DType = u32;
+
+    fn d3dtype(&self) -> Self::TD3DType {
+        match self {
+            Self::ENone => D3D12_ROOT_SIGNATURE_FLAG_NONE,
+            Self::AllowInputAssemblerInputLayout => D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT,
+            Self::DenyVertexShaderRootAccess => D3D12_ROOT_SIGNATURE_FLAG_DENY_VERTEX_SHADER_ROOT_ACCESS,
+            Self::DenyHullShaderRootAccess => D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS,
+            Self::DenyDomainShaderRootAccess => D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS,
+            Self::DenyGeometryShaderRootAccess => D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS,
+            Self::DenyPixelShaderRootAccess => D3D12_ROOT_SIGNATURE_FLAG_DENY_PIXEL_SHADER_ROOT_ACCESS,
+            Self::AllowStreamOutput => D3D12_ROOT_SIGNATURE_FLAG_ALLOW_STREAM_OUTPUT,
+            //Self::LocalRootSignature => D3D12_ROOT_SIGNATURE_FLAG_LOCAL_ROOT_SIGNATURE
+        }
+    }
+}
+
+pub type SRootSignatureFlags = SD3DFlags32<ERootSignatureFlags>;
+
 pub struct SBlob {
     raw: ComPtr<d3dcommon::ID3DBlob>,
 }
+
+pub enum EDescriptorRangeType {
+    SRV,
+    UAV,
+    CBV,
+    Sampler,
+}
+
+impl EDescriptorRangeType {
+    pub fn d3dtype(&self) -> D3D12_DESCRIPTOR_RANGE_TYPE {
+        match self {
+            Self::SRV => D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
+            Self::UAV => D3D12_DESCRIPTOR_RANGE_TYPE_UAV,
+            Self::CBV => D3D12_DESCRIPTOR_RANGE_TYPE_CBV,
+            Self::Sampler => D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER,
+        }
+    }
+}
+
+pub enum EDescriptorRangeOffset {
+    EAppend,
+    ENumDecriptors{ num: u32 },
+}
+
+impl EDescriptorRangeOffset {
+    pub fn d3dtype(&self) -> u32 {
+        match self {
+            Self::EAppend => D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND,
+            Self::ENumDecriptors{num} => *num,
+        }
+    }
+}
+
+pub struct SDescriptorRange {
+    range_type: EDescriptorRangeType,
+    num_descriptors: u32,
+    base_shader_register: u32,
+    register_space: u32,
+    offset_in_descriptors_from_table_start: EDescriptorRangeOffset,
+}
+
+impl SDescriptorRange {
+    pub fn d3dtype(&self) -> D3D12_DESCRIPTOR_RANGE {
+        D3D12_DESCRIPTOR_RANGE {
+            RangeType: self.range_type.d3dtype(),
+            NumDescriptors: self.num_descriptors,
+            BaseShaderRegister: self.base_shader_register,
+            RegisterSpace: self.register_space,
+            OffsetInDescriptorsFromTableStart: self.offset_in_descriptors_from_table_start.d3dtype(),
+        }
+    }
+}
+
+pub struct SRootConstants {
+    shader_register: u32,
+    register_space: u32,
+    num_32_bit_values: u32,
+}
+
+impl SRootConstants {
+    pub fn d3dtype(&self) -> D3D12_ROOT_CONSTANTS {
+        D3D12_ROOT_CONSTANTS {
+            ShaderRegister: self.shader_register,
+            RegisterSpace: self.register_space,
+            Num32BitValues: self.num_32_bit_values,
+        }
+    }
+}
+
+pub enum EShaderVisibility {
+    All,
+    Vertex,
+    Hull,
+    Domain,
+    Geometry,
+    Pixel,
+}
+
+impl EShaderVisibility {
+    pub fn d3dtype(&self) -> D3D12_SHADER_VISIBILITY {
+        match self {
+            Self::All => D3D12_SHADER_VISIBILITY_ALL,
+            Self::Vertex => D3D12_SHADER_VISIBILITY_VERTEX,
+            Self::Hull => D3D12_SHADER_VISIBILITY_HULL,
+            Self::Domain => D3D12_SHADER_VISIBILITY_DOMAIN,
+            Self::Geometry => D3D12_SHADER_VISIBILITY_GEOMETRY,
+            Self::Pixel => D3D12_SHADER_VISIBILITY_PIXEL
+        }
+    }
+}
+
+pub enum ERootParameterType {
+    DescriptorTable,
+    E32BitConstants,
+    CBV,
+    SRV,
+    UAV,
+}
+
+impl ERootParameterType {
+    pub fn d3dtype(&self) -> D3D12_ROOT_PARAMETER_TYPE {
+        match self {
+            Self::DescriptorTable => D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
+            Self::E32BitConstants => D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS,
+            Self::CBV => D3D12_ROOT_PARAMETER_TYPE_CBV,
+            Self::SRV => D3D12_ROOT_PARAMETER_TYPE_SRV,
+            Self::UAV => D3D12_ROOT_PARAMETER_TYPE_UAV
+        }
+    }
+}
+
+enum ERootParameterTypeData {
+    Constants{constants: SRootConstants},
+}
+
+pub struct SRootParameter {
+    type_: ERootParameterType,
+    type_data: ERootParameterTypeData,
+    shader_visbility: EShaderVisibility,
+}
+
+impl SRootParameter {
+    pub fn d3dtype(&self) -> D3D12_ROOT_PARAMETER {
+        unsafe {
+            let mut result : D3D12_ROOT_PARAMETER = mem::uninitialized();
+            result.ParameterType = self.type_.d3dtype();
+            match &self.type_data {
+                ERootParameterTypeData::Constants{constants} => {
+                    *result.u.Constants_mut() = constants.d3dtype();
+                }
+            }
+            result.ShaderVisibility = self.shader_visbility.d3dtype();
+
+            result
+        }
+    }
+}
+
+pub struct SRootSignatureDesc {
+    parameters: Vec<SRootParameter>,
+    //static_samplers: Vec<SStaticSamplerDesc>,
+    flags: SRootSignatureFlags,
+
+    // -- for d3dtype()
+    d3d_parameters: Vec<D3D12_ROOT_PARAMETER>,
+}
+
+impl SRootSignatureDesc {
+    pub unsafe fn d3dtype(&mut self) -> D3D12_ROOT_SIGNATURE_DESC {
+        self.d3d_parameters.clear();
+        for parameter in &self.parameters {
+            self.d3d_parameters.push(parameter.d3dtype());
+        }
+
+        D3D12_ROOT_SIGNATURE_DESC {
+            NumParameters: self.parameters.len() as u32,
+            pParameters: self.d3d_parameters.as_ptr(),
+            NumStaticSamplers: 0,
+            pStaticSamplers: ptr::null_mut(),
+            Flags: self.flags.d3dtype(),
+        }
+    }
+}
+
+pub fn serialize_root_signature(&mut SRootSignatureDesc, version: SRootSignatureVersion)
 
 // -- $$$FRK(TODO): unsupported:
 // --    + pDefines

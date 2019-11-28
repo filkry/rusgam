@@ -220,6 +220,14 @@ fn main_d3d12() -> Result<(), &'static str> {
         ),
     ];
 
+    let root_signature_flags = typeyd3d12::SRootSignatureFlags::create(&[
+        typeyd3d12::ERootSignatureFlags::AllowInputAssemblerInputLayout,
+        typeyd3d12::ERootSignatureFlags::DenyHullShaderRootAccess,
+        typeyd3d12::ERootSignatureFlags::DenyDomainShaderRootAccess,
+        typeyd3d12::ERootSignatureFlags::DenyGeometryShaderRootAccess,
+        typeyd3d12::ERootSignatureFlags::DenyPixelShaderRootAccess,
+    ]);
+
     // -- update loop
 
     let mut framecount: u64 = 0;

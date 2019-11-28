@@ -10,6 +10,7 @@ mod rustywindows;
 mod safewindows;
 mod typeyd3d12;
 
+use std::mem::{size_of};
 use std::cell::{RefCell};
 
 #[allow(dead_code)]
@@ -220,6 +221,18 @@ fn main_d3d12() -> Result<(), &'static str> {
         ),
     ];
 
+    let root_parameter = typeyd3d12::SRootParameter {
+        type_: typeyd3d12::ERootParameterType::E32BitConstants,
+        type_data: typeyd3d12::ERootParameterTypeData::Constants {
+            constants: typeyd3d12::SRootConstants {
+                shader_register: 0,
+                register_space: 0,
+                num_32_bit_values: (size_of::<SMat44>() / 4) as u32,
+            },
+        },
+        shader_visibility: typeyd3d12::EShaderVisibility::Vertex,
+    };
+
     let root_signature_flags = typeyd3d12::SRootSignatureFlags::create(&[
         typeyd3d12::ERootSignatureFlags::AllowInputAssemblerInputLayout,
         typeyd3d12::ERootSignatureFlags::DenyHullShaderRootAccess,
@@ -227,6 +240,16 @@ fn main_d3d12() -> Result<(), &'static str> {
         typeyd3d12::ERootSignatureFlags::DenyGeometryShaderRootAccess,
         typeyd3d12::ERootSignatureFlags::DenyPixelShaderRootAccess,
     ]);
+
+    let mut root_signature_desc = typeyd3d12::SRootSignatureDesc::new(root_signature_flags);
+    root_signature_desc.parameters.push(root_parameter);
+
+    let serialized_root_signature = typeyd3d12::serialize_root_signature(
+        &mut root_signature_desc,
+        typeyd3d12::ERootSignatureVersion::V1,
+    ).ok().expect("Could not serialize root signature.");
+
+    let root_signature = device.raw().create_root_signature(&serialized_root_signature)?;
 
     // -- update loop
 

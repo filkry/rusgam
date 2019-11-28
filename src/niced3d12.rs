@@ -343,6 +343,14 @@ impl SDevice {
             },
         })
     }
+
+    pub fn raw(&self) -> &typeyd3d12::SDevice {
+        &self.raw
+    }
+
+    pub fn raw_mut(&mut self) -> &mut typeyd3d12::SDevice {
+        &mut self.raw
+    }
 }
 
 // ---------------------------------------------------------------------------------------------

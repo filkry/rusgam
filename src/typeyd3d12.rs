@@ -231,6 +231,195 @@ impl SDevice {
             }
         };
     }
+
+    pub fn createcommandqueue(
+        &self,
+        type_: ECommandListType,
+    ) -> Result<SCommandQueue, &'static str> {
+        // -- $$$FRK(TODO): pass priority, flags, nodemask
+        let desc = D3D12_COMMAND_QUEUE_DESC {
+            Type: type_.d3dtype(),
+            Priority: D3D12_COMMAND_QUEUE_PRIORITY_NORMAL as i32,
+            Flags: 0,
+            NodeMask: 0,
+        };
+
+        let mut rawqueue: *mut ID3D12CommandQueue = ptr::null_mut();
+        let hr = unsafe {
+            self.device.CreateCommandQueue(
+                &desc,
+                &ID3D12CommandQueue::uuidof(),
+                &mut rawqueue as *mut *mut _ as *mut *mut c_void,
+            )
+        };
+
+        returnerrifwinerror!(hr, "Could not create command queue");
+
+        Ok(SCommandQueue {
+            queue: unsafe { ComPtr::from_raw(rawqueue) },
+        })
+    }
+
+    pub fn create_descriptor_heap(
+        &self,
+        type_: EDescriptorHeapType,
+        numdescriptors: u32,
+    ) -> Result<SDescriptorHeap, &'static str> {
+        let desc = D3D12_DESCRIPTOR_HEAP_DESC {
+            Type: type_.d3dtype(),
+            NumDescriptors: numdescriptors,
+            Flags: 0,
+            NodeMask: 0,
+        };
+
+        let mut rawheap: *mut ID3D12DescriptorHeap = ptr::null_mut();
+        let hr = unsafe {
+            self.device.CreateDescriptorHeap(
+                &desc,
+                &ID3D12DescriptorHeap::uuidof(),
+                &mut rawheap as *mut *mut _ as *mut *mut c_void,
+            )
+        };
+
+        returnerrifwinerror!(hr, "Failed to create descriptor heap");
+
+        let heap = unsafe { ComPtr::from_raw(rawheap) };
+
+        Ok(SDescriptorHeap {
+            type_: type_,
+            heap: heap,
+        })
+    }
+
+    pub fn getdescriptorhandleincrementsize(&self, type_: EDescriptorHeapType) -> usize {
+        unsafe {
+            self.device
+                .GetDescriptorHandleIncrementSize(type_.d3dtype()) as usize
+        }
+    }
+
+    // -- $$$FRK(TODO): allow pDesc parameter
+    pub fn createrendertargetview(&self, resource: &SResource, destdescriptor: &SDescriptorHandle) {
+        unsafe {
+            self.device.CreateRenderTargetView(
+                resource.resource.as_raw(),
+                ptr::null(),
+                destdescriptor.handle,
+            );
+        }
+    }
+
+    // -- $$$FRK(TODO): Wrapper for D3D12 Resource Flags?
+    pub fn createcommittedresource(
+        &self,
+        heapproperties: SHeapProperties,
+        heapflags: EHeapFlags,
+        resourcedesc: SResourceDesc,
+        initialresourcestate: EResourceStates,
+        _optimizedclearvalue: Option<u32>, // -- $$$FRK(TODO): clear value
+    ) -> Result<SResource, &'static str> {
+        unsafe {
+            let mut rawresource: *mut ID3D12Resource = ptr::null_mut();
+            let hn = self.device.CreateCommittedResource(
+                &heapproperties.raw,
+                heapflags.d3dtype(),
+                &resourcedesc.raw,
+                initialresourcestate.d3dtype(),
+                ptr::null() as *const D3D12_CLEAR_VALUE,
+                &ID3D12Resource::uuidof(), // $$$FRK(TODO): this isn't necessarily right
+                &mut rawresource as *mut *mut _ as *mut *mut c_void,
+            );
+
+            returnerrifwinerror!(hn, "Could not create committed resource.");
+            Ok(SResource {
+                resource: ComPtr::from_raw(rawresource),
+            })
+        }
+    }
+
+    pub fn createcommandallocator(
+        &self,
+        type_: ECommandListType,
+    ) -> Result<SCommandAllocator, &'static str> {
+        let mut rawca: *mut ID3D12CommandAllocator = ptr::null_mut();
+        let hn = unsafe {
+            self.device.CreateCommandAllocator(
+                type_.d3dtype(),
+                &ID3D12CommandAllocator::uuidof(),
+                &mut rawca as *mut *mut _ as *mut *mut c_void,
+            )
+        };
+
+        returnerrifwinerror!(hn, "Could not create command allocator.");
+
+        Ok(SCommandAllocator {
+            type_: type_,
+            commandallocator: unsafe { ComPtr::from_raw(rawca) },
+        })
+    }
+
+    pub fn createcommandlist(
+        &self,
+        allocator: &SCommandAllocator,
+    ) -> Result<SCommandList, &'static str> {
+        let mut rawcl: *mut ID3D12GraphicsCommandList = ptr::null_mut();
+        let hn = unsafe {
+            self.device.CreateCommandList(
+                0,
+                allocator.type_.d3dtype(),
+                allocator.commandallocator.as_raw(),
+                ptr::null_mut(),
+                &ID3D12GraphicsCommandList::uuidof(),
+                &mut rawcl as *mut *mut _ as *mut *mut c_void,
+            )
+        };
+
+        returnerrifwinerror!(hn, "Could not create command list.");
+
+        Ok(SCommandList {
+            commandlist: unsafe { ComPtr::from_raw(rawcl) },
+        })
+    }
+
+    // -- $$$FRK(TODO): think about mutable refs for lots of fns here and in safewindows
+    pub fn createfence(&self) -> Result<SFence, &'static str> {
+        let mut rawf: *mut ID3D12Fence = ptr::null_mut();
+        let hn = unsafe {
+            // -- $$$FRK(TODO): support parameters
+            self.device.CreateFence(
+                0,
+                D3D12_FENCE_FLAG_NONE,
+                &ID3D12Fence::uuidof(),
+                &mut rawf as *mut *mut _ as *mut *mut c_void,
+            )
+        };
+
+        returnerrifwinerror!(hn, "Could not create fence.");
+
+        Ok(SFence {
+            fence: unsafe { ComPtr::from_raw(rawf) },
+        })
+    }
+
+    // -- $$$FRK(TODO): support nodeMask parameter
+    pub fn create_root_signature(&self, blob_with_root_signature: &SBlob)-> Result<SRootSignature, &'static str> {
+
+        let mut raw_root_signature : *mut ID3D12RootSignature = ptr::null_mut();
+
+        let hr = unsafe { self.device.CreateRootSignature(
+            0,
+            blob_with_root_signature.raw.GetBufferPointer(),
+            blob_with_root_signature.raw.GetBufferSize(),
+            &ID3D12RootSignature::uuidof(),
+            &mut raw_root_signature as *mut *mut _ as *mut *mut c_void,
+        )};
+        returnerrifwinerror!(hr, "Could not create root signature");
+
+        let root_signature = unsafe { ComPtr::from_raw(raw_root_signature) };
+        Ok(SRootSignature{
+            raw: root_signature,
+        })
+    }
 }
 
 pub struct SInfoQueue {
@@ -324,36 +513,6 @@ impl SCommandQueueDesc {
 #[derive(Clone)]
 pub struct SCommandQueue {
     queue: ComPtr<ID3D12CommandQueue>,
-}
-
-impl SDevice {
-    pub fn createcommandqueue(
-        &self,
-        type_: ECommandListType,
-    ) -> Result<SCommandQueue, &'static str> {
-        // -- $$$FRK(TODO): pass priority, flags, nodemask
-        let desc = D3D12_COMMAND_QUEUE_DESC {
-            Type: type_.d3dtype(),
-            Priority: D3D12_COMMAND_QUEUE_PRIORITY_NORMAL as i32,
-            Flags: 0,
-            NodeMask: 0,
-        };
-
-        let mut rawqueue: *mut ID3D12CommandQueue = ptr::null_mut();
-        let hr = unsafe {
-            self.device.CreateCommandQueue(
-                &desc,
-                &ID3D12CommandQueue::uuidof(),
-                &mut rawqueue as *mut *mut _ as *mut *mut c_void,
-            )
-        };
-
-        returnerrifwinerror!(hr, "Could not create command queue");
-
-        Ok(SCommandQueue {
-            queue: unsafe { ComPtr::from_raw(rawqueue) },
-        })
-    }
 }
 
 #[derive(Clone)]
@@ -549,84 +708,6 @@ impl SDescriptorHandle {
 }
 
 // -- $$$FRK(TODO): combine impls
-impl SDevice {
-    pub fn create_descriptor_heap(
-        &self,
-        type_: EDescriptorHeapType,
-        numdescriptors: u32,
-    ) -> Result<SDescriptorHeap, &'static str> {
-        let desc = D3D12_DESCRIPTOR_HEAP_DESC {
-            Type: type_.d3dtype(),
-            NumDescriptors: numdescriptors,
-            Flags: 0,
-            NodeMask: 0,
-        };
-
-        let mut rawheap: *mut ID3D12DescriptorHeap = ptr::null_mut();
-        let hr = unsafe {
-            self.device.CreateDescriptorHeap(
-                &desc,
-                &ID3D12DescriptorHeap::uuidof(),
-                &mut rawheap as *mut *mut _ as *mut *mut c_void,
-            )
-        };
-
-        returnerrifwinerror!(hr, "Failed to create descriptor heap");
-
-        let heap = unsafe { ComPtr::from_raw(rawheap) };
-
-        Ok(SDescriptorHeap {
-            type_: type_,
-            heap: heap,
-        })
-    }
-
-    pub fn getdescriptorhandleincrementsize(&self, type_: EDescriptorHeapType) -> usize {
-        unsafe {
-            self.device
-                .GetDescriptorHandleIncrementSize(type_.d3dtype()) as usize
-        }
-    }
-
-    // -- $$$FRK(TODO): allow pDesc parameter
-    pub fn createrendertargetview(&self, resource: &SResource, destdescriptor: &SDescriptorHandle) {
-        unsafe {
-            self.device.CreateRenderTargetView(
-                resource.resource.as_raw(),
-                ptr::null(),
-                destdescriptor.handle,
-            );
-        }
-    }
-
-    // -- $$$FRK(TODO): Wrapper for D3D12 Resource Flags?
-    pub fn createcommittedresource(
-        &self,
-        heapproperties: SHeapProperties,
-        heapflags: EHeapFlags,
-        resourcedesc: SResourceDesc,
-        initialresourcestate: EResourceStates,
-        _optimizedclearvalue: Option<u32>, // -- $$$FRK(TODO): clear value
-    ) -> Result<SResource, &'static str> {
-        unsafe {
-            let mut rawresource: *mut ID3D12Resource = ptr::null_mut();
-            let hn = self.device.CreateCommittedResource(
-                &heapproperties.raw,
-                heapflags.d3dtype(),
-                &resourcedesc.raw,
-                initialresourcestate.d3dtype(),
-                ptr::null() as *const D3D12_CLEAR_VALUE,
-                &ID3D12Resource::uuidof(), // $$$FRK(TODO): this isn't necessarily right
-                &mut rawresource as *mut *mut _ as *mut *mut c_void,
-            );
-
-            returnerrifwinerror!(hn, "Could not create committed resource.");
-            Ok(SResource {
-                resource: ComPtr::from_raw(rawresource),
-            })
-        }
-    }
-}
 
 #[derive(Copy, Clone, PartialEq)]
 pub enum EHeapType {
@@ -719,7 +800,7 @@ impl<T: TD3DFlags32 + Copy> SD3DFlags32<T> {
     pub fn create(flags: &[T]) -> Self {
         let mut result = Self::none();
         for flag in flags {
-            result = result.and(*flag);
+            result = result.or(*flag);
         }
         result
     }
@@ -861,77 +942,9 @@ impl SCommandList {
     }
 }
 
-impl SDevice {
-    pub fn createcommandallocator(
-        &self,
-        type_: ECommandListType,
-    ) -> Result<SCommandAllocator, &'static str> {
-        let mut rawca: *mut ID3D12CommandAllocator = ptr::null_mut();
-        let hn = unsafe {
-            self.device.CreateCommandAllocator(
-                type_.d3dtype(),
-                &ID3D12CommandAllocator::uuidof(),
-                &mut rawca as *mut *mut _ as *mut *mut c_void,
-            )
-        };
-
-        returnerrifwinerror!(hn, "Could not create command allocator.");
-
-        Ok(SCommandAllocator {
-            type_: type_,
-            commandallocator: unsafe { ComPtr::from_raw(rawca) },
-        })
-    }
-
-    pub fn createcommandlist(
-        &self,
-        allocator: &SCommandAllocator,
-    ) -> Result<SCommandList, &'static str> {
-        let mut rawcl: *mut ID3D12GraphicsCommandList = ptr::null_mut();
-        let hn = unsafe {
-            self.device.CreateCommandList(
-                0,
-                allocator.type_.d3dtype(),
-                allocator.commandallocator.as_raw(),
-                ptr::null_mut(),
-                &ID3D12GraphicsCommandList::uuidof(),
-                &mut rawcl as *mut *mut _ as *mut *mut c_void,
-            )
-        };
-
-        returnerrifwinerror!(hn, "Could not create command list.");
-
-        Ok(SCommandList {
-            commandlist: unsafe { ComPtr::from_raw(rawcl) },
-        })
-    }
-}
-
 #[derive(Clone)]
 pub struct SFence {
     fence: ComPtr<ID3D12Fence>,
-}
-
-impl SDevice {
-    // -- $$$FRK(TODO): think about mutable refs for lots of fns here and in safewindows
-    pub fn createfence(&self) -> Result<SFence, &'static str> {
-        let mut rawf: *mut ID3D12Fence = ptr::null_mut();
-        let hn = unsafe {
-            // -- $$$FRK(TODO): support parameters
-            self.device.CreateFence(
-                0,
-                D3D12_FENCE_FLAG_NONE,
-                &ID3D12Fence::uuidof(),
-                &mut rawf as *mut *mut _ as *mut *mut c_void,
-            )
-        };
-
-        returnerrifwinerror!(hn, "Could not create fence.");
-
-        Ok(SFence {
-            fence: unsafe { ComPtr::from_raw(rawf) },
-        })
-    }
 }
 
 impl SFence {
@@ -1033,7 +1046,7 @@ impl SIndexBufferView {
 }
 
 pub struct SRootSignature {
-    rootsignature: ComPtr<ID3D12RootSignature>,
+    raw: ComPtr<ID3D12RootSignature>,
 }
 
 pub struct SPipelineState {
@@ -1320,9 +1333,9 @@ impl SDescriptorRange {
 }
 
 pub struct SRootConstants {
-    shader_register: u32,
-    register_space: u32,
-    num_32_bit_values: u32,
+    pub shader_register: u32,
+    pub register_space: u32,
+    pub num_32_bit_values: u32,
 }
 
 impl SRootConstants {
@@ -1377,14 +1390,14 @@ impl ERootParameterType {
     }
 }
 
-enum ERootParameterTypeData {
+pub enum ERootParameterTypeData {
     Constants{constants: SRootConstants},
 }
 
 pub struct SRootParameter {
-    type_: ERootParameterType,
-    type_data: ERootParameterTypeData,
-    shader_visbility: EShaderVisibility,
+    pub type_: ERootParameterType,
+    pub type_data: ERootParameterTypeData,
+    pub shader_visibility: EShaderVisibility,
 }
 
 impl SRootParameter {
@@ -1397,7 +1410,7 @@ impl SRootParameter {
                     *result.u.Constants_mut() = constants.d3dtype();
                 }
             }
-            result.ShaderVisibility = self.shader_visbility.d3dtype();
+            result.ShaderVisibility = self.shader_visibility.d3dtype();
 
             result
         }
@@ -1405,15 +1418,23 @@ impl SRootParameter {
 }
 
 pub struct SRootSignatureDesc {
-    parameters: Vec<SRootParameter>,
+    pub parameters: Vec<SRootParameter>,
     //static_samplers: Vec<SStaticSamplerDesc>,
-    flags: SRootSignatureFlags,
+    pub flags: SRootSignatureFlags,
 
     // -- for d3dtype()
     d3d_parameters: Vec<D3D12_ROOT_PARAMETER>,
 }
 
 impl SRootSignatureDesc {
+    pub fn new(flags: SRootSignatureFlags) -> Self {
+        Self {
+            parameters: Vec::new(), // $$$FRK(TODO): allocations
+            flags: flags,
+            d3d_parameters: Vec::new(),
+        }
+    }
+
     pub unsafe fn d3dtype(&mut self) -> D3D12_ROOT_SIGNATURE_DESC {
         self.d3d_parameters.clear();
         for parameter in &self.parameters {
@@ -1430,7 +1451,51 @@ impl SRootSignatureDesc {
     }
 }
 
-pub fn serialize_root_signature(&mut SRootSignatureDesc, version: SRootSignatureVersion)
+pub enum ERootSignatureVersion {
+    V1,
+    V1_0,
+    V1_1,
+}
+
+impl ERootSignatureVersion {
+    pub fn d3dtype(&self) -> D3D_ROOT_SIGNATURE_VERSION {
+        match self {
+            Self:: V1 => D3D_ROOT_SIGNATURE_VERSION_1,
+            Self:: V1_0 => D3D_ROOT_SIGNATURE_VERSION_1_0,
+            Self:: V1_1 => D3D_ROOT_SIGNATURE_VERSION_1_1,
+        }
+    }
+}
+
+pub fn serialize_root_signature(
+    root_signature: &mut SRootSignatureDesc,
+    version: ERootSignatureVersion) -> Result<SBlob, SBlob> {
+
+    let mut raw_result_blob: *mut d3dcommon::ID3DBlob = ptr::null_mut();
+    let mut raw_err_blob: *mut d3dcommon::ID3DBlob = ptr::null_mut();
+
+    let d3d_signature = unsafe { root_signature.d3dtype() };
+
+    let hr = unsafe {
+        D3D12SerializeRootSignature(
+            &d3d_signature,
+            version.d3dtype(),
+            &mut raw_result_blob,
+            &mut raw_err_blob,
+        )
+    };
+
+    if winerror::SUCCEEDED(hr) {
+        Ok(SBlob {
+            raw: unsafe { ComPtr::from_raw(raw_result_blob) },
+        })
+    }
+    else {
+        Err(SBlob {
+            raw: unsafe { ComPtr::from_raw(raw_err_blob) },
+        })
+    }
+}
 
 // -- $$$FRK(TODO): unsupported:
 // --    + pDefines

@@ -1,6 +1,7 @@
 extern crate nalgebra;
 extern crate winapi;
 extern crate wio;
+extern crate arrayvec;
 
 //mod math;
 mod collections;

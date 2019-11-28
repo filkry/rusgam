@@ -4,6 +4,8 @@ use safewindows;
 
 use std::{mem, ptr};
 
+use arrayvec::{ArrayVec};
+
 use winapi::ctypes::c_void;
 use winapi::shared::dxgi::*;
 use winapi::shared::dxgi1_2::*;
@@ -1113,6 +1115,7 @@ impl EInputClassification {
     }
 }
 
+#[derive(Copy, Clone)]
 pub struct SInputElementDesc {
     semantic_name: &'static str,
     semantic_index: u32,
@@ -1495,6 +1498,58 @@ pub fn serialize_root_signature(
             raw: unsafe { ComPtr::from_raw(raw_err_blob) },
         })
     }
+}
+
+pub struct SShaderBytecode<'a> {
+    bytecode: &'a SBlob,
+}
+
+pub struct SInputLayoutDesc {
+    pub input_element_descs: ArrayVec::<[SInputElementDesc; 16]>,
+
+    d3d_input_element_descs: ArrayVec::<[D3D12_INPUT_ELEMENT_DESC; 16]>,
+}
+
+impl SInputLayoutDesc {
+    pub unsafe fn d3dtype(&mut self) -> D3D12_INPUT_LAYOUT_DESC {
+        self.d3d_input_element_descs.clear();
+
+        for input_element_desc in &self.input_element_descs {
+            self.d3d_input_element_descs.push(input_element_desc.d3dtype());
+        }
+
+        D3D12_INPUT_LAYOUT_DESC {
+            pInputElementDescs: self.d3d_input_element_descs.as_ptr(),
+            NumElements: self.d3d_input_element_descs.len() as u32,
+        }
+    }
+}
+
+pub enum PipelineStateSubobjectType {
+    RootSignature,
+    VS,
+    PS,
+    //DS,
+    //HS,
+    //GS,
+    //CS,
+    //StreamOutput,
+    //Blend,
+    //SampleMask,
+    //Rasterizer,
+    //DepthStencil,
+    InputLayout,
+    //IBStripCutValue,
+    PrimitiveTopology,
+    RenderTargetFormats,
+    DepthStencilFormats,
+    //SampleDesc,
+    //NodeMask,
+    //CachedPSO,
+    //Flags,
+    //DepthStencil1,
+    //ViewInstancing,
+    //TypeMaskValid,
 }
 
 // -- $$$FRK(TODO): unsupported:

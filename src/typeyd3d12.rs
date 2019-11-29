@@ -768,6 +768,12 @@ pub trait TD3DFlags32 {
     fn d3dtype(&self) -> Self::TD3DType;
 }
 
+pub trait TConvertToD3DType {
+    type TD3DType;
+
+    fn d3dtype(&self) -> Self::TD3DType;
+}
+
 pub struct SD3DFlags32<T: TD3DFlags32 + Copy> {
     raw: T::TD3DType,
 }
@@ -1505,18 +1511,25 @@ pub struct SShaderBytecode<'a> {
 }
 
 pub struct SInputLayoutDesc {
-    pub input_element_descs: ArrayVec::<[SInputElementDesc; 16]>,
+    input_element_descs: ArrayVec::<[SInputElementDesc; 16]>,
 
+    generated_d3d: bool,
     d3d_input_element_descs: ArrayVec::<[D3D12_INPUT_ELEMENT_DESC; 16]>,
 }
 
 impl SInputLayoutDesc {
-    pub unsafe fn d3dtype(&mut self) -> D3D12_INPUT_LAYOUT_DESC {
+    pub unsafe fn generate_d3dtype(&mut self) {
         self.d3d_input_element_descs.clear();
 
         for input_element_desc in &self.input_element_descs {
             self.d3d_input_element_descs.push(input_element_desc.d3dtype());
         }
+
+        self.generated_d3d = true;
+    }
+
+    pub unsafe fn d3dtype(&self) -> D3D12_INPUT_LAYOUT_DESC {
+        assert!(self.generated_d3d);
 
         D3D12_INPUT_LAYOUT_DESC {
             pInputElementDescs: self.d3d_input_element_descs.as_ptr(),
@@ -1525,31 +1538,258 @@ impl SInputLayoutDesc {
     }
 }
 
-pub enum PipelineStateSubobjectType {
+#[derive(Copy, Clone, PartialEq)]
+pub enum EPrimitiveTopologyType {
+    Undefined,
+    Point,
+    Line,
+    Triangle,
+    Patch,
+}
+
+impl EPrimitiveTopologyType {
+    pub fn d3dtype(&self) -> D3D12_PRIMITIVE_TOPOLOGY_TYPE {
+        match self {
+            Self::Undefined => D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED,
+            Self::Point => D3D12_PRIMITIVE_TOPOLOGY_TYPE_POINT,
+            Self::Line => D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE,
+            Self::Triangle => D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
+            Self::Patch => D3D12_PRIMITIVE_TOPOLOGY_TYPE_PATCH
+        }
+    }
+}
+
+pub enum EDepthWriteMask {
+    Zero,
+    All,
+}
+
+impl EDepthWriteMask {
+    pub fn d3dtype(&self) -> D3D12_DEPTH_WRITE_MASK {
+        match self {
+            Self::Zero => D3D12_DEPTH_WRITE_MASK_ZERO,
+            Self::All => D3D12_DEPTH_WRITE_MASK_ALL,
+        }
+    }
+}
+
+pub enum EComparisonFunc {
+    Never,
+    Less,
+    Equal,
+    LessEqual,
+    Greater,
+    NotEqual,
+    GreaterEqual,
+    Always,
+}
+
+impl EComparisonFunc {
+    pub fn d3dtype(&self) -> D3D12_COMPARISON_FUNC {
+        match self {
+            Self::Never => D3D12_COMPARISON_FUNC_NEVER,
+            Self::Less => D3D12_COMPARISON_FUNC_LESS,
+            Self::Equal => D3D12_COMPARISON_FUNC_EQUAL,
+            Self::LessEqual => D3D12_COMPARISON_FUNC_LESS_EQUAL,
+            Self::Greater => D3D12_COMPARISON_FUNC_GREATER,
+            Self::NotEqual => D3D12_COMPARISON_FUNC_NOT_EQUAL,
+            Self::GreaterEqual => D3D12_COMPARISON_FUNC_GREATER_EQUAL,
+            Self::Always => D3D12_COMPARISON_FUNC_ALWAYS,
+        }
+    }
+}
+
+enum EStencilOp {
+    Keep,
+    Zero,
+    Replace,
+    IncrSat,
+    DecrSat,
+    Invert,
+    Incr,
+    Decr,
+}
+
+impl EStencilOp {
+    pub fn d3dtype(&self) -> D3D12_STENCIL_OP {
+        match self {
+            Self::Keep => D3D12_STENCIL_OP_KEEP,
+            Self::Zero => D3D12_STENCIL_OP_ZERO,
+            Self::Replace => D3D12_STENCIL_OP_REPLACE,
+            Self::IncrSat => D3D12_STENCIL_OP_INCR_SAT,
+            Self::DecrSat => D3D12_STENCIL_OP_DECR_SAT,
+            Self::Invert => D3D12_STENCIL_OP_INVERT,
+            Self::Incr => D3D12_STENCIL_OP_INCR,
+            Self::Decr => D3D12_STENCIL_OP_DECR,
+        }
+    }
+}
+
+pub struct SDepthStencilOpDesc {
+    stencil_fail_op: EStencilOp,
+    stencil_depth_fail_op: EStencilOp,
+    stencil_pass_op: EStencilOp,
+    stencil_func: EComparisonFunc,
+}
+
+impl SDepthStencilOpDesc {
+    pub fn d3dtype(&self) -> D3D12_DEPTH_STENCILOP_DESC {
+        D3D12_DEPTH_STENCILOP_DESC {
+            StencilFailOp: self.stencil_fail_op.d3dtype(),
+            StencilDepthFailOp: self.stencil_depth_fail_op.d3dtype(),
+            StencilPassOp: self.stencil_pass_op.d3dtype(),
+            StencilFunc: self.stencil_func.d3dtype(),
+        }
+    }
+}
+
+struct SDepthStencilDesc {
+    depth_enable: bool,
+    depth_write_mask: EDepthWriteMask,
+    depth_func: EComparisonFunc,
+    stencil_enable: bool,
+    stencil_read_mask: u8,
+    stencil_write_mask: u8,
+    front_face: SDepthStencilOpDesc,
+    back_face: SDepthStencilOpDesc,
+}
+
+// -- $$$FRK(TODO): move to another file... containers?
+pub struct SByteStream {
+    bytes: Vec<u8>,
+}
+
+impl SByteStream {
+    pub fn clear(&mut self) {
+        self.bytes.clear();
+    }
+
+    pub fn num_bytes(&self) -> usize {
+        self.bytes.len()
+    }
+
+    pub unsafe fn push_to_bytes<T: std::marker::Sized>(&mut self, value: T) {
+        let num_bytes = mem::size_of::<T>();
+        let value_bytes = mem::transmute::<&T, &u8>(&value) as *const u8;
+        for bi in 0..num_bytes {
+            self.bytes.push(*value_bytes.offset(bi as isize));
+        }
+    }
+
+    pub unsafe fn ptr(&mut self) -> *mut u8 {
+        self.bytes.as_mut_ptr()
+    }
+}
+
+pub struct SPipelineStateStreamDesc<'a> {
+    root_signature: Option<&'a SRootSignature>,
+    input_layout: Option<&'a SInputLayoutDesc>,
+    primitive_topology: Option<EPrimitiveTopologyType>,
+    vertex_shader: Option<&'a SShaderBytecode<'a>>,
+    pixel_shader: Option<&'a SShaderBytecode<'a>>,
+    depth_stencil_desc: Option<SDepthStencilDesc>,
+    rtv_formats: Option<[EDXGIFormat; 8]>,
+
+    d3dbytes: SByteStream,
+}
+
+impl<'a> SPipelineStateStreamDesc<'a> {
+    pub unsafe fn d3dtype(&mut self) -> D3D12_PIPELINE_STATE_STREAM_DESC {
+        self.d3dbytes.clear();
+
+        let mut result : D3D12_PIPELINE_STATE_STREAM_DESC = mem::uninitialized();
+
+        if let Some(rs) = self.root_signature {
+            self.d3dbytes.push_to_bytes(EPipelineStateSubobjectType::RootSignature.d3dtype());
+            let ptr : *mut ID3D12RootSignature = rs.raw.as_raw();
+            self.d3dbytes.push_to_bytes(ptr);
+        }
+
+        if let Some(il) = self.input_layout {
+            self.d3dbytes.push_to_bytes(EPipelineStateSubobjectType::InputLayout.d3dtype());
+            self.d3dbytes.push_to_bytes(il.d3dtype());
+        }
+
+        if let Some(pt) = self.primitive_topology {
+            self.d3dbytes.push_to_bytes(EPipelineStateSubobjectType::PrimitiveTopology.d3dtype());
+            self.d3dbytes.push_to_bytes(pt.d3dtype());
+        }
+
+        result.SizeInBytes = self.d3dbytes.num_bytes() as winapi::shared::basetsd::SIZE_T;
+        result.pPipelineStateSubobjectStream = self.d3dbytes.ptr() as *mut c_void;
+
+        result
+    }
+
+    /*
+    pub unsafe fn push_to_bytes<T: TConvertToD3DType>(&mut self, value: T) {
+        let d3dtype = value.d3dtype();
+        let d3dtype_bytes = mem::transmute::<T::TD3DType, [u8; mem::size_of::<T::TD3DType>]>(d3dtype);
+        for byte in &d3dtype_bytes {
+            self.d3dbytes.push(byte);
+        }
+    }
+    */
+}
+
+pub enum EPipelineStateSubobjectType {
     RootSignature,
     VS,
     PS,
-    //DS,
-    //HS,
-    //GS,
-    //CS,
-    //StreamOutput,
-    //Blend,
-    //SampleMask,
-    //Rasterizer,
-    //DepthStencil,
+    DS,
+    HS,
+    GS,
+    CS,
+    StreamOutput,
+    Blend,
+    SampleMask,
+    Rasterizer,
+    DepthStencil,
     InputLayout,
-    //IBStripCutValue,
+    IBStripCutValue,
     PrimitiveTopology,
     RenderTargetFormats,
-    DepthStencilFormats,
-    //SampleDesc,
-    //NodeMask,
-    //CachedPSO,
-    //Flags,
-    //DepthStencil1,
+    DepthStencilFormat,
+    SampleDesc,
+    NodeMask,
+    CachedPSO,
+    Flags,
+    DepthStencil1,
     //ViewInstancing,
-    //TypeMaskValid,
+    MaxValid,
+}
+
+impl TConvertToD3DType for EPipelineStateSubobjectType {
+    type TD3DType = D3D12_PIPELINE_STATE_SUBOBJECT_TYPE;
+
+    fn d3dtype(&self) -> Self::TD3DType {
+        match self {
+            Self::RootSignature => D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_ROOT_SIGNATURE,
+            Self::VS => D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_VS,
+            Self::PS => D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_PS,
+            Self::DS => D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_DS,
+            Self::HS => D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_HS,
+            Self::GS => D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_GS,
+            Self::CS => D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_CS,
+            Self::StreamOutput => D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_STREAM_OUTPUT,
+            Self::Blend => D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_BLEND,
+            Self::SampleMask => D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_SAMPLE_MASK,
+            Self::Rasterizer => D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_RASTERIZER,
+            Self::DepthStencil => D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_DEPTH_STENCIL,
+            Self::InputLayout => D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_INPUT_LAYOUT,
+            Self::IBStripCutValue => D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_IB_STRIP_CUT_VALUE,
+            Self::PrimitiveTopology => D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_PRIMITIVE_TOPOLOGY,
+            Self::RenderTargetFormats => D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_RENDER_TARGET_FORMATS,
+            Self::DepthStencilFormat => D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_DEPTH_STENCIL_FORMAT,
+            Self::SampleDesc => D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_SAMPLE_DESC,
+            Self::NodeMask => D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_NODE_MASK,
+            Self::CachedPSO => D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_CACHED_PSO,
+            Self::Flags => D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_FLAGS,
+            Self::DepthStencil1 => D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_DEPTH_STENCIL1,
+            //Self::ViewInstancing => D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_VIEW_INSTANCING,
+            Self::MaxValid => D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_MAX_VALID,
+        }
+    }
 }
 
 // -- $$$FRK(TODO): unsupported:

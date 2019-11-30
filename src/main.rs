@@ -14,6 +14,9 @@ mod typeyd3d12;
 use std::mem::{size_of};
 use std::cell::{RefCell};
 
+use typeyd3d12 as t12;
+use niced3d12 as n12;
+
 #[allow(dead_code)]
 type SMat44 = nalgebra::Matrix4<f32>;
 type SVec3 = nalgebra::Vector3<f32>;
@@ -29,23 +32,23 @@ struct SVertexPosColour {
 
 fn main_d3d12() -> Result<(), &'static str> {
     // -- initialize debug
-    let debuginterface = typeyd3d12::getdebuginterface()?;
+    let debuginterface = t12::getdebuginterface()?;
     debuginterface.enabledebuglayer();
 
     // -- setup window and command queue
     let mut winapi = rustywindows::SWinAPI::create();
     let windowclass = winapi.rawwinapi().registerclassex("rusgam").unwrap();
 
-    let mut factory = niced3d12::SFactory::create()?;
+    let mut factory = n12::SFactory::create()?;
     let mut adapter = factory.create_best_adapter()?;
     let mut device = adapter.create_device()?;
 
-    let mut commandqueue = RefCell::new(niced3d12::SCommandQueue::create(
+    let mut commandqueue = RefCell::new(n12::SCommandQueue::create(
         &mut device,
         &winapi.rawwinapi(),
-        typeyd3d12::ECommandListType::Direct,
+        t12::ECommandListType::Direct,
     )?);
-    let mut directcommandpool = niced3d12::SCommandListPool::create(
+    let mut directcommandpool = n12::SCommandListPool::create(
         &device,
         &commandqueue,
         &winapi.rawwinapi(),
@@ -53,12 +56,12 @@ fn main_d3d12() -> Result<(), &'static str> {
         2,
     )?;
 
-    let mut copycommandqueue = RefCell::new(niced3d12::SCommandQueue::create(
+    let mut copycommandqueue = RefCell::new(n12::SCommandQueue::create(
         &mut device,
         &winapi.rawwinapi(),
-        typeyd3d12::ECommandListType::Copy,
+        t12::ECommandListType::Copy,
     )?);
-    let mut copycommandpool = niced3d12::SCommandListPool::create(
+    let mut copycommandpool = n12::SCommandListPool::create(
         &device,
         &copycommandqueue,
         &winapi.rawwinapi(),
@@ -66,7 +69,7 @@ fn main_d3d12() -> Result<(), &'static str> {
         2,
     )?;
 
-    let mut window = niced3d12::created3d12window(
+    let mut window = n12::created3d12window(
         &windowclass,
         &factory,
         &mut device,
@@ -80,18 +83,18 @@ fn main_d3d12() -> Result<(), &'static str> {
     window.show();
 
     // -- tutorial2 data
-    let vertexbufferresource: Option<niced3d12::SResource> = None;
-    let vertexbufferview: Option<typeyd3d12::SVertexBufferView> = None;
-    let indexbufferresource: Option<niced3d12::SResource> = None;
-    let indexbufferview: Option<typeyd3d12::SIndexBufferView> = None;
+    let vertexbufferresource: Option<n12::SResource> = None;
+    let vertexbufferview: Option<t12::SVertexBufferView> = None;
+    let indexbufferresource: Option<n12::SResource> = None;
+    let indexbufferview: Option<t12::SIndexBufferView> = None;
 
-    let depthbufferresource: Option<niced3d12::SResource> = None;
+    let depthbufferresource: Option<n12::SResource> = None;
     let depthstencilviewheap =
-        device.create_descriptor_heap(typeyd3d12::EDescriptorHeapType::DepthStencil, 1);
+        device.create_descriptor_heap(t12::EDescriptorHeapType::DepthStencil, 1);
 
-    let rootsignature: Option<typeyd3d12::SRootSignature> = None;
-    let pipelinestate: Option<typeyd3d12::SPipelineState> = None;
-    let viewport = typeyd3d12::SViewport::new(
+    let rootsignature: Option<t12::SRootSignature> = None;
+    let pipelinestate: Option<t12::SPipelineState> = None;
+    let viewport = t12::SViewport::new(
         0.0,
         0.0,
         window.width() as f32,
@@ -99,7 +102,7 @@ fn main_d3d12() -> Result<(), &'static str> {
         None,
         None,
     );
-    let scissorrect = typeyd3d12::SRect {
+    let scissorrect = t12::SRect {
         left: 0,
         right: std::i32::MAX,
         top: 0,
@@ -171,7 +174,7 @@ fn main_d3d12() -> Result<(), &'static str> {
 
         let mut vertbufferresource = {
             let vertbufferflags =
-                typeyd3d12::SResourceFlags::from(typeyd3d12::EResourceFlags::ENone);
+                t12::SResourceFlags::from(t12::EResourceFlags::ENone);
             copycommandlist
                 .update_buffer_resource(&device, &cubeverts, vertbufferflags)
                 ?
@@ -183,74 +186,79 @@ fn main_d3d12() -> Result<(), &'static str> {
 
         let indexbufferresource = {
             let indexbufferflags =
-                typeyd3d12::SResourceFlags::from(typeyd3d12::EResourceFlags::ENone);
+                t12::SResourceFlags::from(t12::EResourceFlags::ENone);
             copycommandlist
                 .update_buffer_resource(&device, &indices, indexbufferflags)
                 ?
         };
         let _indexbufferview = indexbufferresource
             .destinationresource
-            .create_index_buffer_view(typeyd3d12::EFormat::R16UINT)
+            .create_index_buffer_view(t12::EFormat::R16UINT)
             ?;
 
         copycommandpool.execute_and_free_list(handle)?;
     }
 
     // -- load shaders
-    let vertblob = typeyd3d12::read_file_to_blob("shaders_built/vertex.cso")?;
-    let pixelblob = typeyd3d12::read_file_to_blob("shaders_built/pixel.cso")?;
+    let vertblob = t12::read_file_to_blob("shaders_built/vertex.cso")?;
+    let pixelblob = t12::read_file_to_blob("shaders_built/pixel.cso")?;
 
-    // -- input assembler stuff
+    // -- root signature stuff
     let input_element_desc = [
-        typeyd3d12::SInputElementDesc::create(
+        t12::SInputElementDesc::create(
             "POSITION",
             0,
-            typeyd3d12::EDXGIFormat::R32G32B32Float,
+            t12::EDXGIFormat::R32G32B32Float,
             0,
             winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
-            typeyd3d12::EInputClassification::PerVertexData,
+            t12::EInputClassification::PerVertexData,
             0,
         ),
-        typeyd3d12::SInputElementDesc::create(
+        t12::SInputElementDesc::create(
             "COLOR",
             0,
-            typeyd3d12::EDXGIFormat::R32G32B32Float,
+            t12::EDXGIFormat::R32G32B32Float,
             0,
             winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
-            typeyd3d12::EInputClassification::PerVertexData,
+            t12::EInputClassification::PerVertexData,
             0,
         ),
     ];
 
-    let root_parameter = typeyd3d12::SRootParameter {
-        type_: typeyd3d12::ERootParameterType::E32BitConstants,
-        type_data: typeyd3d12::ERootParameterTypeData::Constants {
-            constants: typeyd3d12::SRootConstants {
+    let root_parameter = t12::SRootParameter {
+        type_: t12::ERootParameterType::E32BitConstants,
+        type_data: t12::ERootParameterTypeData::Constants {
+            constants: t12::SRootConstants {
                 shader_register: 0,
                 register_space: 0,
                 num_32_bit_values: (size_of::<SMat44>() / 4) as u32,
             },
         },
-        shader_visibility: typeyd3d12::EShaderVisibility::Vertex,
+        shader_visibility: t12::EShaderVisibility::Vertex,
     };
 
-    let root_signature_flags = typeyd3d12::SRootSignatureFlags::create(&[
-        typeyd3d12::ERootSignatureFlags::AllowInputAssemblerInputLayout,
-        typeyd3d12::ERootSignatureFlags::DenyHullShaderRootAccess,
-        typeyd3d12::ERootSignatureFlags::DenyDomainShaderRootAccess,
-        typeyd3d12::ERootSignatureFlags::DenyGeometryShaderRootAccess,
-        typeyd3d12::ERootSignatureFlags::DenyPixelShaderRootAccess,
+    let root_signature_flags = t12::SRootSignatureFlags::create(&[
+        t12::ERootSignatureFlags::AllowInputAssemblerInputLayout,
+        t12::ERootSignatureFlags::DenyHullShaderRootAccess,
+        t12::ERootSignatureFlags::DenyDomainShaderRootAccess,
+        t12::ERootSignatureFlags::DenyGeometryShaderRootAccess,
+        t12::ERootSignatureFlags::DenyPixelShaderRootAccess,
     ]);
 
-    let mut root_signature_desc = typeyd3d12::SRootSignatureDesc::new(root_signature_flags);
+    let mut root_signature_desc = t12::SRootSignatureDesc::new(root_signature_flags);
     root_signature_desc.parameters.push(root_parameter);
 
-    let serialized_root_signature = typeyd3d12::serialize_root_signature(
+    let serialized_root_signature = t12::serialize_root_signature(
         &mut root_signature_desc,
-        typeyd3d12::ERootSignatureVersion::V1,
+        t12::ERootSignatureVersion::V1,
     ).ok().expect("Could not serialize root signature.");
 
     let root_signature = device.raw().create_root_signature(&serialized_root_signature)?;
+
+    // -- pipeline state object
+    let mut pipeline_state_stream_desc = t12::SPipelineStateStreamDesc::create_empty();
+    pipeline_state_stream_desc.root_signature = Some(&root_signature);
+    //pipeline_state_stream_desc.input_layout = Some(&input_layout);
 
     // -- update loop
 
@@ -287,8 +295,8 @@ fn main_d3d12() -> Result<(), &'static str> {
                 // -- transition to render target
                 list.transition_resource(
                     backbuffer,
-                    typeyd3d12::EResourceStates::Present,
-                    typeyd3d12::EResourceStates::RenderTarget,
+                    t12::EResourceStates::Present,
+                    t12::EResourceStates::RenderTarget,
                 )?;
 
                 // -- clear
@@ -301,8 +309,8 @@ fn main_d3d12() -> Result<(), &'static str> {
                 // -- transition to present
                 list.transition_resource(
                     backbuffer,
-                    typeyd3d12::EResourceStates::RenderTarget,
-                    typeyd3d12::EResourceStates::Present,
+                    t12::EResourceStates::RenderTarget,
+                    t12::EResourceStates::Present,
                 )?;
             }
 

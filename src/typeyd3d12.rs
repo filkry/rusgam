@@ -1510,6 +1510,15 @@ pub struct SShaderBytecode<'a> {
     bytecode: &'a SBlob,
 }
 
+impl<'a> SShaderBytecode<'a> {
+    pub unsafe fn d3dtype(&self) -> D3D12_SHADER_BYTECODE {
+        D3D12_SHADER_BYTECODE {
+            pShaderBytecode: self.bytecode.raw.GetBufferPointer(),
+            BytecodeLength: self.bytecode.raw.GetBufferSize(),
+        }
+    }
+}
+
 pub struct SInputLayoutDesc {
     input_element_descs: ArrayVec::<[SInputElementDesc; 16]>,
 
@@ -1559,6 +1568,7 @@ impl EPrimitiveTopologyType {
     }
 }
 
+#[derive(Copy, Clone, PartialEq)]
 pub enum EDepthWriteMask {
     Zero,
     All,
@@ -1573,6 +1583,7 @@ impl EDepthWriteMask {
     }
 }
 
+#[derive(Copy, Clone, PartialEq)]
 pub enum EComparisonFunc {
     Never,
     Less,
@@ -1599,6 +1610,7 @@ impl EComparisonFunc {
     }
 }
 
+#[derive(Copy, Clone, PartialEq)]
 enum EStencilOp {
     Keep,
     Zero,
@@ -1625,6 +1637,7 @@ impl EStencilOp {
     }
 }
 
+#[derive(Copy, Clone, PartialEq)]
 pub struct SDepthStencilOpDesc {
     stencil_fail_op: EStencilOp,
     stencil_depth_fail_op: EStencilOp,
@@ -1643,7 +1656,8 @@ impl SDepthStencilOpDesc {
     }
 }
 
-struct SDepthStencilDesc {
+#[derive(Copy, Clone)]
+pub struct SDepthStencilDesc {
     depth_enable: bool,
     depth_write_mask: EDepthWriteMask,
     depth_func: EComparisonFunc,
@@ -1654,12 +1668,33 @@ struct SDepthStencilDesc {
     back_face: SDepthStencilOpDesc,
 }
 
+impl SDepthStencilDesc {
+    pub fn d3dtype(&self) -> D3D12_DEPTH_STENCIL_DESC {
+        D3D12_DEPTH_STENCIL_DESC {
+            DepthEnable: self.depth_enable as BOOL,
+            DepthWriteMask: self.depth_write_mask.d3dtype(),
+            DepthFunc: self.depth_func.d3dtype(),
+            StencilEnable: self.stencil_enable as BOOL,
+            StencilReadMask: self.stencil_read_mask,
+            StencilWriteMask: self.stencil_write_mask,
+            FrontFace: self.front_face.d3dtype(),
+            BackFace: self.back_face.d3dtype(),
+        }
+    }
+}
+
 // -- $$$FRK(TODO): move to another file... containers?
 pub struct SByteStream {
     bytes: Vec<u8>,
 }
 
 impl SByteStream {
+    pub fn create() -> Self {
+        Self {
+            bytes: Vec::new(),
+        }
+    }
+
     pub fn clear(&mut self) {
         self.bytes.clear();
     }
@@ -1682,18 +1717,31 @@ impl SByteStream {
 }
 
 pub struct SPipelineStateStreamDesc<'a> {
-    root_signature: Option<&'a SRootSignature>,
-    input_layout: Option<&'a SInputLayoutDesc>,
-    primitive_topology: Option<EPrimitiveTopologyType>,
-    vertex_shader: Option<&'a SShaderBytecode<'a>>,
-    pixel_shader: Option<&'a SShaderBytecode<'a>>,
-    depth_stencil_desc: Option<SDepthStencilDesc>,
-    rtv_formats: Option<[EDXGIFormat; 8]>,
+    pub root_signature: Option<&'a SRootSignature>,
+    pub input_layout: Option<&'a SInputLayoutDesc>,
+    pub primitive_topology: Option<EPrimitiveTopologyType>,
+    pub vertex_shader: Option<&'a SShaderBytecode<'a>>,
+    pub pixel_shader: Option<&'a SShaderBytecode<'a>>,
+    pub depth_stencil_desc: Option<SDepthStencilDesc>,
+    pub rtv_formats: Option<[EDXGIFormat; 8]>,
 
     d3dbytes: SByteStream,
 }
 
 impl<'a> SPipelineStateStreamDesc<'a> {
+    pub fn create_empty() -> Self {
+        Self {
+            root_signature: None,
+            input_layout: None,
+            primitive_topology: None,
+            vertex_shader: None,
+            pixel_shader: None,
+            depth_stencil_desc: None,
+            rtv_formats: None,
+            d3dbytes: SByteStream::create(),
+        }
+    }
+
     pub unsafe fn d3dtype(&mut self) -> D3D12_PIPELINE_STATE_STREAM_DESC {
         self.d3dbytes.clear();
 
@@ -1713,6 +1761,28 @@ impl<'a> SPipelineStateStreamDesc<'a> {
         if let Some(pt) = self.primitive_topology {
             self.d3dbytes.push_to_bytes(EPipelineStateSubobjectType::PrimitiveTopology.d3dtype());
             self.d3dbytes.push_to_bytes(pt.d3dtype());
+        }
+
+        if let Some(vs) = self.vertex_shader {
+            self.d3dbytes.push_to_bytes(EPipelineStateSubobjectType::VS.d3dtype());
+            self.d3dbytes.push_to_bytes(vs.d3dtype());
+        }
+
+        if let Some(ps) = self.pixel_shader {
+            self.d3dbytes.push_to_bytes(EPipelineStateSubobjectType::PS.d3dtype());
+            self.d3dbytes.push_to_bytes(ps.d3dtype());
+        }
+
+        if let Some(ds) = self.depth_stencil_desc {
+            self.d3dbytes.push_to_bytes(EPipelineStateSubobjectType::DepthStencil.d3dtype());
+            self.d3dbytes.push_to_bytes(ds.d3dtype());
+        }
+
+        if let Some(rtvfs) = self.rtv_formats {
+            self.d3dbytes.push_to_bytes(EPipelineStateSubobjectType::RenderTargetFormats.d3dtype());
+            for rtvf in &rtvfs {
+                self.d3dbytes.push_to_bytes(rtvf.d3dtype());
+            }
         }
 
         result.SizeInBytes = self.d3dbytes.num_bytes() as winapi::shared::basetsd::SIZE_T;

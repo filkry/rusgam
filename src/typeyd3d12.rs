@@ -768,11 +768,13 @@ pub trait TD3DFlags32 {
     fn d3dtype(&self) -> Self::TD3DType;
 }
 
+/*
 pub trait TConvertToD3DType {
     type TD3DType;
 
     fn d3dtype(&self) -> Self::TD3DType;
 }
+*/
 
 pub struct SD3DFlags32<T: TD3DFlags32 + Copy> {
     raw: T::TD3DType,
@@ -1054,7 +1056,7 @@ impl SIndexBufferView {
 }
 
 pub struct SRootSignature {
-    raw: ComPtr<ID3D12RootSignature>,
+    pub raw: ComPtr<ID3D12RootSignature>,
 }
 
 pub struct SPipelineState {
@@ -1094,6 +1096,7 @@ pub enum EDXGIFormat {
     Unknown,
     R32G32B32A32Typeless,
     R32G32B32Float,
+    D32Float,
 }
 
 impl EDXGIFormat {
@@ -1102,6 +1105,7 @@ impl EDXGIFormat {
             Self::Unknown => dxgiformat::DXGI_FORMAT_UNKNOWN,
             Self::R32G32B32A32Typeless => dxgiformat::DXGI_FORMAT_R32G32B32A32_TYPELESS,
             Self::R32G32B32Float => dxgiformat::DXGI_FORMAT_R32G32B32_FLOAT,
+            Self::D32Float => dxgiformat::DXGI_FORMAT_D32_FLOAT,
         }
     }
 }
@@ -1511,6 +1515,12 @@ pub struct SShaderBytecode<'a> {
 }
 
 impl<'a> SShaderBytecode<'a> {
+    pub fn create(blob: &'a SBlob) -> Self {
+        Self {
+            bytecode: blob,
+        }
+    }
+
     pub unsafe fn d3dtype(&self) -> D3D12_SHADER_BYTECODE {
         D3D12_SHADER_BYTECODE {
             pShaderBytecode: self.bytecode.raw.GetBufferPointer(),
@@ -1522,11 +1532,26 @@ impl<'a> SShaderBytecode<'a> {
 pub struct SInputLayoutDesc {
     input_element_descs: ArrayVec::<[SInputElementDesc; 16]>,
 
+    // -- $$$FRK(TODO): This probably belongs in niced3d12
     generated_d3d: bool,
     d3d_input_element_descs: ArrayVec::<[D3D12_INPUT_ELEMENT_DESC; 16]>,
 }
 
 impl SInputLayoutDesc {
+    // -- $$$FRK(TODO): This probably belongs in niced3d12
+    pub fn create(input_element_descs: &[SInputElementDesc]) -> Self {
+        let mut result = Self {
+            input_element_descs: ArrayVec::new(),
+            generated_d3d: false,
+            d3d_input_element_descs: ArrayVec::new(),
+        };
+
+        result.input_element_descs.try_extend_from_slice(input_element_descs).unwrap();
+
+        unsafe { result.generate_d3dtype() };
+        result
+    }
+
     pub unsafe fn generate_d3dtype(&mut self) {
         self.d3d_input_element_descs.clear();
 
@@ -1683,6 +1708,23 @@ impl SDepthStencilDesc {
     }
 }
 
+pub struct SRTFormatArray {
+    pub rt_formats: [EDXGIFormat; 8],
+}
+
+impl SRTFormatArray {
+    pub fn d3dtype(&self) -> D3D12_RT_FORMAT_ARRAY {
+        let mut result : D3D12_RT_FORMAT_ARRAY = unsafe { mem::uninitialized() };
+        result.NumRenderTargets = self.rt_formats.len() as UINT;
+
+        for i in 0..self.rt_formats.len() {
+            result.RTFormats[i] = self.rt_formats[i].d3dtype();
+        }
+
+        result
+    }
+}
+
 // -- $$$FRK(TODO): move to another file... containers?
 pub struct SByteStream {
     bytes: Vec<u8>,
@@ -1711,95 +1753,28 @@ impl SByteStream {
         }
     }
 
-    pub unsafe fn ptr(&mut self) -> *mut u8 {
-        self.bytes.as_mut_ptr()
+    pub unsafe fn ptr(&self) -> *mut u8 {
+        self.bytes.as_ptr() as *mut u8
     }
 }
 
-pub struct SPipelineStateStreamDesc<'a> {
-    pub root_signature: Option<&'a SRootSignature>,
-    pub input_layout: Option<&'a SInputLayoutDesc>,
-    pub primitive_topology: Option<EPrimitiveTopologyType>,
-    pub vertex_shader: Option<&'a SShaderBytecode<'a>>,
-    pub pixel_shader: Option<&'a SShaderBytecode<'a>>,
-    pub depth_stencil_desc: Option<SDepthStencilDesc>,
-    pub rtv_formats: Option<[EDXGIFormat; 8]>,
-
-    d3dbytes: SByteStream,
+pub struct SPipelineStateStreamDesc {
+    pub pipeline_state_subobject_stream: SByteStream,
 }
 
-impl<'a> SPipelineStateStreamDesc<'a> {
-    pub fn create_empty() -> Self {
+impl SPipelineStateStreamDesc {
+    pub fn create() -> Self {
         Self {
-            root_signature: None,
-            input_layout: None,
-            primitive_topology: None,
-            vertex_shader: None,
-            pixel_shader: None,
-            depth_stencil_desc: None,
-            rtv_formats: None,
-            d3dbytes: SByteStream::create(),
+            pipeline_state_subobject_stream: SByteStream::create(),
         }
     }
 
-    pub unsafe fn d3dtype(&mut self) -> D3D12_PIPELINE_STATE_STREAM_DESC {
-        self.d3dbytes.clear();
-
+    pub unsafe fn d3dtype(&self) -> D3D12_PIPELINE_STATE_STREAM_DESC {
         let mut result : D3D12_PIPELINE_STATE_STREAM_DESC = mem::uninitialized();
-
-        if let Some(rs) = self.root_signature {
-            self.d3dbytes.push_to_bytes(EPipelineStateSubobjectType::RootSignature.d3dtype());
-            let ptr : *mut ID3D12RootSignature = rs.raw.as_raw();
-            self.d3dbytes.push_to_bytes(ptr);
-        }
-
-        if let Some(il) = self.input_layout {
-            self.d3dbytes.push_to_bytes(EPipelineStateSubobjectType::InputLayout.d3dtype());
-            self.d3dbytes.push_to_bytes(il.d3dtype());
-        }
-
-        if let Some(pt) = self.primitive_topology {
-            self.d3dbytes.push_to_bytes(EPipelineStateSubobjectType::PrimitiveTopology.d3dtype());
-            self.d3dbytes.push_to_bytes(pt.d3dtype());
-        }
-
-        if let Some(vs) = self.vertex_shader {
-            self.d3dbytes.push_to_bytes(EPipelineStateSubobjectType::VS.d3dtype());
-            self.d3dbytes.push_to_bytes(vs.d3dtype());
-        }
-
-        if let Some(ps) = self.pixel_shader {
-            self.d3dbytes.push_to_bytes(EPipelineStateSubobjectType::PS.d3dtype());
-            self.d3dbytes.push_to_bytes(ps.d3dtype());
-        }
-
-        if let Some(ds) = self.depth_stencil_desc {
-            self.d3dbytes.push_to_bytes(EPipelineStateSubobjectType::DepthStencil.d3dtype());
-            self.d3dbytes.push_to_bytes(ds.d3dtype());
-        }
-
-        if let Some(rtvfs) = self.rtv_formats {
-            self.d3dbytes.push_to_bytes(EPipelineStateSubobjectType::RenderTargetFormats.d3dtype());
-            for rtvf in &rtvfs {
-                self.d3dbytes.push_to_bytes(rtvf.d3dtype());
-            }
-        }
-
-        result.SizeInBytes = self.d3dbytes.num_bytes() as winapi::shared::basetsd::SIZE_T;
-        result.pPipelineStateSubobjectStream = self.d3dbytes.ptr() as *mut c_void;
-
+        result.SizeInBytes = self.pipeline_state_subobject_stream.num_bytes() as winapi::shared::basetsd::SIZE_T;
+        result.pPipelineStateSubobjectStream = self.pipeline_state_subobject_stream.ptr() as *mut c_void;
         result
     }
-
-    /*
-    pub unsafe fn push_to_bytes<T: TConvertToD3DType>(&mut self, value: T) {
-        let d3dtype = value.d3dtype();
-        let d3dtype_bytes = mem::transmute::<T::TD3DType, [u8; mem::size_of::<T::TD3DType>]>(d3dtype);
-        for byte in &d3dtype_bytes {
-            self.d3dbytes.push(byte);
-        }
-    }
-    */
 }
 
 pub enum EPipelineStateSubobjectType {
@@ -1829,10 +1804,8 @@ pub enum EPipelineStateSubobjectType {
     MaxValid,
 }
 
-impl TConvertToD3DType for EPipelineStateSubobjectType {
-    type TD3DType = D3D12_PIPELINE_STATE_SUBOBJECT_TYPE;
-
-    fn d3dtype(&self) -> Self::TD3DType {
+impl EPipelineStateSubobjectType {
+    pub fn d3dtype(&self) -> D3D12_PIPELINE_STATE_SUBOBJECT_TYPE {
         match self {
             Self::RootSignature => D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_ROOT_SIGNATURE,
             Self::VS => D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_VS,

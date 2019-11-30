@@ -203,27 +203,34 @@ fn main_d3d12() -> Result<(), &'static str> {
     let vertblob = t12::read_file_to_blob("shaders_built/vertex.cso")?;
     let pixelblob = t12::read_file_to_blob("shaders_built/pixel.cso")?;
 
+    let vert_byte_code = t12::SShaderBytecode::create(&vertblob);
+    let pixel_byte_code = t12::SShaderBytecode::create(&pixelblob);
+
     // -- root signature stuff
-    let input_element_desc = [
-        t12::SInputElementDesc::create(
-            "POSITION",
-            0,
-            t12::EDXGIFormat::R32G32B32Float,
-            0,
-            winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
-            t12::EInputClassification::PerVertexData,
-            0,
-        ),
-        t12::SInputElementDesc::create(
-            "COLOR",
-            0,
-            t12::EDXGIFormat::R32G32B32Float,
-            0,
-            winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
-            t12::EInputClassification::PerVertexData,
-            0,
-        ),
-    ];
+    let input_layout_desc = {
+        let input_element_desc = [
+            t12::SInputElementDesc::create(
+                "POSITION",
+                0,
+                t12::EDXGIFormat::R32G32B32Float,
+                0,
+                winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
+                t12::EInputClassification::PerVertexData,
+                0,
+            ),
+            t12::SInputElementDesc::create(
+                "COLOR",
+                0,
+                t12::EDXGIFormat::R32G32B32Float,
+                0,
+                winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
+                t12::EInputClassification::PerVertexData,
+                0,
+            ),
+        ];
+
+        t12::SInputLayoutDesc::create(&input_element_desc)
+    };
 
     let root_parameter = t12::SRootParameter {
         type_: t12::ERootParameterType::E32BitConstants,
@@ -256,9 +263,13 @@ fn main_d3d12() -> Result<(), &'static str> {
     let root_signature = device.raw().create_root_signature(&serialized_root_signature)?;
 
     // -- pipeline state object
-    let mut pipeline_state_stream_desc = t12::SPipelineStateStreamDesc::create_empty();
+    let mut pipeline_state_stream_desc = n12::SPipelineStateStreamDesc::create_empty();
     pipeline_state_stream_desc.root_signature = Some(&root_signature);
-    //pipeline_state_stream_desc.input_layout = Some(&input_layout);
+    pipeline_state_stream_desc.input_layout = Some(&input_layout_desc);
+    pipeline_state_stream_desc.primitive_topology = Some(t12::EPrimitiveTopologyType::Triangle);
+    pipeline_state_stream_desc.vertex_shader = Some(&vert_byte_code);
+    pipeline_state_stream_desc.pixel_shader = Some(&pixel_byte_code);
+    pipeline_state_stream_desc.depth_stencil_format = Some(t12::EDXGIFormat::D32Float);
 
     // -- update loop
 

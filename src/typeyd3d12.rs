@@ -422,6 +422,24 @@ impl SDevice {
             raw: root_signature,
         })
     }
+
+    pub fn create_pipeline_state(&self, desc: &SPipelineStateStreamDesc) -> Result<SPipelineState, &'static str> {
+        let mut raw_pipeline_state : *mut ID3D12PipelineState = ptr::null_mut();
+
+        let d3ddesc = unsafe { desc.d3dtype() };
+
+        let hr = unsafe { self.device.CreatePipelineState(
+            &d3ddesc,
+            &ID3D12PipelineState::uuidof(),
+            &mut raw_pipeline_state as *mut *mut _ as *mut *mut c_void,
+        )};
+        returnerrifwinerror!(hr, "Could not create pipeline state");
+
+        let pipeline_state = unsafe { ComPtr::from_raw(raw_pipeline_state) };
+        Ok(SPipelineState{
+            raw: pipeline_state,
+        })
+    }
 }
 
 pub struct SInfoQueue {
@@ -1060,7 +1078,7 @@ pub struct SRootSignature {
 }
 
 pub struct SPipelineState {
-    pipelinestate: ComPtr<ID3D12PipelineState>,
+    raw: ComPtr<ID3D12PipelineState>,
 }
 
 pub struct SViewport {

@@ -93,7 +93,6 @@ fn main_d3d12() -> Result<(), &'static str> {
         device.create_descriptor_heap(t12::EDescriptorHeapType::DepthStencil, 1);
 
     let rootsignature: Option<t12::SRootSignature> = None;
-    let pipelinestate: Option<t12::SPipelineState> = None;
     let viewport = t12::SViewport::new(
         0.0,
         0.0,
@@ -270,6 +269,8 @@ fn main_d3d12() -> Result<(), &'static str> {
     pipeline_state_stream_desc.vertex_shader = Some(&vert_byte_code);
     pipeline_state_stream_desc.pixel_shader = Some(&pixel_byte_code);
     pipeline_state_stream_desc.depth_stencil_format = Some(t12::EDXGIFormat::D32Float);
+
+    let pipelinestate = device.create_pipeline_state(&mut pipeline_state_stream_desc);
 
     // -- update loop
 

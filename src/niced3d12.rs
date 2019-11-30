@@ -364,6 +364,11 @@ impl SDevice {
     pub fn raw_mut(&mut self) -> &mut t12::SDevice {
         &mut self.raw
     }
+
+    pub fn create_pipeline_state(&self, desc: &mut SPipelineStateStreamDesc) -> Result<t12::SPipelineState, &'static str> {
+        unsafe { desc.build_bytes() };
+        self.raw.create_pipeline_state(&desc.raw)
+    }
 }
 
 // ---------------------------------------------------------------------------------------------

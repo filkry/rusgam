@@ -9,6 +9,7 @@ use t12 as t12;
 use std::cell::{RefCell};
 use std::ops::{Deref, DerefMut};
 use std::ptr;
+use std::marker::{PhantomData};
 
 // -- $$$FRK(TODO): all these imports should not exist
 use winapi::shared::minwindef::*;
@@ -736,33 +737,36 @@ impl<'a> SPipelineStateStreamRootSignature<'a> {
 }
 
 #[repr(C)]
-pub struct SPipelineStateStreamVertexShader {
+pub struct SPipelineStateStreamVertexShader<'a> {
     type_: winapi::um::d3d12::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE,
     value: winapi::um::d3d12::D3D12_SHADER_BYTECODE,
+    phantom: PhantomData<&'a t12::SShaderBytecode<'a>>,
 }
 
-impl SPipelineStateStreamVertexShader {
-    pub unsafe fn create(shader_bytecode: &t12::SShaderBytecode) -> Self {
+impl<'a> SPipelineStateStreamVertexShader<'a> {
+    pub fn create(shader_bytecode: &'a t12::SShaderBytecode) -> Self {
         // -- result keeps pointer to input!
         Self {
             type_: t12::EPipelineStateSubobjectType::VS.d3dtype(),
-            value: shader_bytecode.d3dtype(),
+            value: unsafe { shader_bytecode.d3dtype() },
+            phantom: PhantomData,
         }
     }
 }
 
 #[repr(C)]
-pub struct SPipelineStateStreamInputLayout {
+pub struct SPipelineStateStreamInputLayout<'a> {
     type_: winapi::um::d3d12::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE,
     value: winapi::um::d3d12::D3D12_INPUT_LAYOUT_DESC,
+    phantom: PhantomData<&'a t12::SInputLayoutDesc>,
 }
 
-impl SPipelineStateStreamInputLayout {
-    pub unsafe fn create(input_layout: &mut t12::SInputLayoutDesc) -> Self {
-        // -- result keeps pointer to input!
+impl<'a> SPipelineStateStreamInputLayout<'a> {
+    pub fn create(input_layout: &'a mut t12::SInputLayoutDesc) -> Self {
         Self {
             type_: t12::EPipelineStateSubobjectType::InputLayout.d3dtype(),
-            value: input_layout.d3dtype(),
+            value: unsafe { input_layout.d3dtype() },
+            phantom: PhantomData,
         }
     }
 }

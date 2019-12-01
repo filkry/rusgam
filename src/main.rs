@@ -37,8 +37,8 @@ struct SVertexPosColour {
 #[repr(C)]
 struct SPipelineStateStream<'a> {
     root_signature: n12::SPipelineStateStreamRootSignature<'a>,
-    vertex_shader: n12::SPipelineStateStreamVertexShader,
-    input_layout: n12::SPipelineStateStreamInputLayout,
+    vertex_shader: n12::SPipelineStateStreamVertexShader<'a>,
+    input_layout: n12::SPipelineStateStreamInputLayout<'a>,
     rtv_formats: n12::SPipelineStateStreamRTVFormats,
 }
 

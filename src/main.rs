@@ -11,8 +11,12 @@ mod rustywindows;
 mod safewindows;
 mod typeyd3d12;
 
+// -- std includes
 use std::mem::{size_of};
 use std::cell::{RefCell};
+
+// -- crate includes
+use arrayvec::{ArrayVec};
 
 use typeyd3d12 as t12;
 use niced3d12 as n12;
@@ -29,6 +33,14 @@ struct SVertexPosColour {
 
 #[allow(unused_variables)]
 #[allow(unused_mut)]
+
+#[repr(C)]
+struct SPipelineStateStream<'a> {
+    root_signature: n12::SPipelineStateStreamRootSignature<'a>,
+    vertex_shader: n12::SPipelineStateStreamVertexShader,
+    input_layout: n12::SPipelineStateStreamInputLayout,
+    rtv_formats: n12::SPipelineStateStreamRTVFormats,
+}
 
 fn main_d3d12() -> Result<(), &'static str> {
     // -- initialize debug
@@ -261,19 +273,33 @@ fn main_d3d12() -> Result<(), &'static str> {
 
     let root_signature = device.raw().create_root_signature(&serialized_root_signature)?;
 
+    let mut rtv_formats = t12::SRTFormatArray {
+        rt_formats: ArrayVec::new(),
+    };
+    rtv_formats.rt_formats.push(t12::EDXGIFormat::R8G8B8A8UNorm);
+
     // -- pipeline state object
-    let mut pipeline_state_stream_desc = n12::SPipelineStateStreamDesc::create_empty();
-    pipeline_state_stream_desc.root_signature = Some(&root_signature);
-    pipeline_state_stream_desc.input_layout = Some(&mut input_layout_desc);
+    //let mut pipeline_state_stream_desc = n12::SPipelineStateStreamDesc::create_empty();
+    //pipeline_state_stream_desc.root_signature = Some(&root_signature);
+    //pipeline_state_stream_desc.input_layout = Some(&mut input_layout_desc);
     //pipeline_state_stream_desc.primitive_topology = Some(t12::EPrimitiveTopologyType::Triangle);
-    pipeline_state_stream_desc.vertex_shader = Some(&vert_byte_code);
+    //pipeline_state_stream_desc.vertex_shader = Some(&vert_byte_code);
     //pipeline_state_stream_desc.pixel_shader = Some(&pixel_byte_code);
     //pipeline_state_stream_desc.depth_stencil_format = Some(t12::EDXGIFormat::D32Float);
+    //pipeline_state_stream_desc.rtv_formats = Some(rtv_formats);
 
     //unsafe { pipeline_state_stream_desc.build_bytes() };
     //let temppipelinestate = device.raw().temp_create_pipeline_state(&mut pipeline_state_stream_desc.raw, &vertblob);
-    let pipelinestate = device.create_pipeline_state(&mut pipeline_state_stream_desc);
+    //let pipelinestate = device.create_pipeline_state(&mut pipeline_state_stream_desc);
 
+    let pipeline_state_stream = SPipelineStateStream {
+        root_signature: n12::SPipelineStateStreamRootSignature::create(&root_signature),
+        vertex_shader: unsafe { n12::SPipelineStateStreamVertexShader::create(&vert_byte_code) },
+        input_layout: unsafe { n12::SPipelineStateStreamInputLayout::create(&mut input_layout_desc) },
+        rtv_formats: n12::SPipelineStateStreamRTVFormats::create(&rtv_formats),
+    };
+    let pipeline_state_stream_desc = t12::SPipelineStateStreamDesc::create(&pipeline_state_stream);
+    let pipelinestate = device.raw().create_pipeline_state(&pipeline_state_stream_desc);
 
     // -- update loop
 

@@ -81,20 +81,6 @@ pub struct SDescriptorHeap {
     //cpudescriptorhandleforstart: t12::SDescriptorHandle<'heap, 'device>,
 }
 
-pub struct SPipelineStateStreamDesc<'a> {
-    pub root_signature: Option<&'a t12::SRootSignature>,
-    pub input_layout: Option<&'a mut t12::SInputLayoutDesc>,
-    pub primitive_topology: Option<t12::EPrimitiveTopologyType>,
-    pub vertex_shader: Option<&'a t12::SShaderBytecode<'a>>,
-    pub pixel_shader: Option<&'a t12::SShaderBytecode<'a>>,
-    pub depth_stencil_desc: Option<t12::SDepthStencilDesc>,
-    pub depth_stencil_format: Option<t12::EDXGIFormat>,
-    pub rtv_formats: Option<t12::SRTFormatArray>,
-
-    // -- $$$FRK(TODO): should not be pub
-    pub raw: t12::SPipelineStateStreamDesc,
-}
-
 // =================================================================================================
 // HELPER TYPES
 // =================================================================================================
@@ -364,11 +350,6 @@ impl SDevice {
 
     pub fn raw_mut(&mut self) -> &mut t12::SDevice {
         &mut self.raw
-    }
-
-    pub fn create_pipeline_state(&self, desc: &mut SPipelineStateStreamDesc) -> Result<t12::SPipelineState, &'static str> {
-        unsafe { desc.build_bytes() };
-        self.raw.create_pipeline_state(&desc.raw)
     }
 }
 
@@ -739,80 +720,67 @@ impl SDescriptorHeap {
     }
 }
 
-impl<'a> SPipelineStateStreamDesc<'a> {
-    pub fn create_empty() -> Self {
+#[repr(C)]
+pub struct SPipelineStateStreamRootSignature<'a> {
+    type_: winapi::um::d3d12::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE,
+    value: &'a winapi::um::d3d12::ID3D12RootSignature,
+}
+
+impl<'a> SPipelineStateStreamRootSignature<'a> {
+    pub fn create(src: &'a t12::SRootSignature) -> Self {
         Self {
-            root_signature: None,
-            input_layout: None,
-            primitive_topology: None,
-            vertex_shader: None,
-            pixel_shader: None,
-            depth_stencil_desc: None,
-            depth_stencil_format: None,
-            rtv_formats: None,
-
-            raw: t12::SPipelineStateStreamDesc::create(),
+            type_: t12::EPipelineStateSubobjectType::RootSignature.d3dtype(),
+            value: src.raw.deref(),
         }
     }
+}
 
-    pub unsafe fn build_bytes(&mut self) {
-        let bytestream = &mut self.raw.pipeline_state_subobject_stream;
+#[repr(C)]
+pub struct SPipelineStateStreamVertexShader {
+    type_: winapi::um::d3d12::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE,
+    value: winapi::um::d3d12::D3D12_SHADER_BYTECODE,
+}
 
-        bytestream.clear();
-
-        if let Some(rs) = self.root_signature {
-            bytestream.push_to_bytes(t12::EPipelineStateSubobjectType::RootSignature.d3dtype());
-            let ptr : *mut winapi::um::d3d12::ID3D12RootSignature = rs.raw.as_raw();
-            bytestream.push_to_bytes(ptr);
-        }
-
-        if let Some(il) = &mut self.input_layout {
-            bytestream.push_to_bytes(t12::EPipelineStateSubobjectType::InputLayout.d3dtype());
-            let d3dil = il.d3dtype();
-            bytestream.push_to_bytes(d3dil);
-        }
-
-        if let Some(pt) = self.primitive_topology {
-            bytestream.push_to_bytes(t12::EPipelineStateSubobjectType::PrimitiveTopology.d3dtype());
-            bytestream.push_to_bytes(pt.d3dtype());
-        }
-
-        if let Some(vs) = self.vertex_shader {
-            bytestream.push_to_bytes(t12::EPipelineStateSubobjectType::VS.d3dtype());
-            let vsd3d = vs.d3dtype();
-            bytestream.push_to_bytes(vsd3d);
-        }
-
-        if let Some(ps) = self.pixel_shader {
-            bytestream.push_to_bytes(t12::EPipelineStateSubobjectType::PS.d3dtype());
-            bytestream.push_to_bytes(ps.d3dtype());
-        }
-
-        if let Some(ds) = self.depth_stencil_desc {
-            bytestream.push_to_bytes(t12::EPipelineStateSubobjectType::DepthStencil.d3dtype());
-            bytestream.push_to_bytes(ds.d3dtype());
-        }
-
-        if let Some(dsf) = self.depth_stencil_format {
-            bytestream.push_to_bytes(t12::EPipelineStateSubobjectType::DepthStencilFormat.d3dtype());
-            bytestream.push_to_bytes(dsf.d3dtype());
-        }
-
-        if let Some(rtvfs) = &self.rtv_formats {
-            bytestream.push_to_bytes(t12::EPipelineStateSubobjectType::RenderTargetFormats.d3dtype());
-            bytestream.push_to_bytes(rtvfs.d3dtype());
+impl SPipelineStateStreamVertexShader {
+    pub unsafe fn create(shader_bytecode: &t12::SShaderBytecode) -> Self {
+        // -- result keeps pointer to input!
+        Self {
+            type_: t12::EPipelineStateSubobjectType::VS.d3dtype(),
+            value: shader_bytecode.d3dtype(),
         }
     }
+}
 
-    /*
-    pub unsafe fn push_to_bytes<T: TConvertToD3DType>(&mut self, value: T) {
-        let d3dtype = value.d3dtype();
-        let d3dtype_bytes = mem::transmute::<T::TD3DType, [u8; mem::size_of::<T::TD3DType>]>(d3dtype);
-        for byte in &d3dtype_bytes {
-            self.d3dbytes.push(byte);
+#[repr(C)]
+pub struct SPipelineStateStreamInputLayout {
+    type_: winapi::um::d3d12::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE,
+    value: winapi::um::d3d12::D3D12_INPUT_LAYOUT_DESC,
+}
+
+impl SPipelineStateStreamInputLayout {
+    pub unsafe fn create(input_layout: &mut t12::SInputLayoutDesc) -> Self {
+        // -- result keeps pointer to input!
+        Self {
+            type_: t12::EPipelineStateSubobjectType::InputLayout.d3dtype(),
+            value: input_layout.d3dtype(),
         }
     }
-    */
+}
+
+#[repr(C)]
+pub struct SPipelineStateStreamRTVFormats {
+    type_: winapi::um::d3d12::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE,
+    value: winapi::um::d3d12::D3D12_RT_FORMAT_ARRAY,
+}
+
+impl SPipelineStateStreamRTVFormats {
+    pub fn create(format_array: &t12::SRTFormatArray) -> Self {
+        // -- result keeps pointer to input!
+        Self {
+            type_: t12::EPipelineStateSubobjectType::RenderTargetFormats.d3dtype(),
+            value: format_array.d3dtype(),
+        }
+    }
 }
 
 impl<'a> SCommandListPool<'a> {

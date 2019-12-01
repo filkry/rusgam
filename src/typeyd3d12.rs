@@ -423,13 +423,11 @@ impl SDevice {
         })
     }
 
-    pub fn create_pipeline_state(&self, desc: &SPipelineStateStreamDesc) -> Result<SPipelineState, &'static str> {
+    pub fn create_pipeline_state_for_raw_desc(&self, desc: &D3D12_PIPELINE_STATE_STREAM_DESC) -> Result<SPipelineState, &'static str> {
         let mut raw_pipeline_state : *mut ID3D12PipelineState = ptr::null_mut();
 
-        let d3ddesc = unsafe { desc.d3dtype() };
-
         let hr = unsafe { self.device.CreatePipelineState(
-            &d3ddesc,
+            desc,
             &ID3D12PipelineState::uuidof(),
             &mut raw_pipeline_state as *mut *mut _ as *mut *mut c_void,
         )};
@@ -439,6 +437,11 @@ impl SDevice {
         Ok(SPipelineState{
             raw: pipeline_state,
         })
+    }
+
+    pub fn create_pipeline_state<T>(&self, desc: &SPipelineStateStreamDesc<T>) -> Result<SPipelineState, &'static str> {
+        let d3ddesc = unsafe { desc.d3dtype() };
+        self.create_pipeline_state_for_raw_desc(&d3ddesc)
     }
 }
 
@@ -1115,6 +1118,7 @@ pub enum EDXGIFormat {
     R32G32B32A32Typeless,
     R32G32B32Float,
     D32Float,
+    R8G8B8A8UNorm,
 }
 
 impl EDXGIFormat {
@@ -1124,6 +1128,7 @@ impl EDXGIFormat {
             Self::R32G32B32A32Typeless => dxgiformat::DXGI_FORMAT_R32G32B32A32_TYPELESS,
             Self::R32G32B32Float => dxgiformat::DXGI_FORMAT_R32G32B32_FLOAT,
             Self::D32Float => dxgiformat::DXGI_FORMAT_D32_FLOAT,
+            Self::R8G8B8A8UNorm => dxgiformat::DXGI_FORMAT_R8G8B8A8_UNORM,
         }
     }
 }
@@ -1738,7 +1743,7 @@ impl SDepthStencilDesc {
 }
 
 pub struct SRTFormatArray {
-    pub rt_formats: [EDXGIFormat; 8],
+    pub rt_formats: ArrayVec<[EDXGIFormat; 8]>,
 }
 
 impl SRTFormatArray {
@@ -1749,76 +1754,31 @@ impl SRTFormatArray {
         for i in 0..self.rt_formats.len() {
             result.RTFormats[i] = self.rt_formats[i].d3dtype();
         }
+        for i in self.rt_formats.len()..8 {
+            result.RTFormats[i] = EDXGIFormat::Unknown.d3dtype();
+        }
 
         result
     }
 }
 
-// -- $$$FRK(TODO): move to another file... containers?
-pub struct SByteStream {
-    bytes: Vec<u8>,
+pub struct SPipelineStateStreamDesc<'a, T> {
+    stream: &'a T,
 }
 
-impl SByteStream {
-    pub fn create() -> Self {
+impl<'a, T> SPipelineStateStreamDesc<'a, T> {
+    pub fn create(stream: &'a T) -> Self {
         Self {
-            bytes: Vec::new(),
-        }
-    }
-
-    pub fn clear(&mut self) {
-        self.bytes.clear();
-    }
-
-    pub fn num_bytes(&self) -> usize {
-        self.bytes.len()
-    }
-
-    pub unsafe fn push_to_bytes<T: std::marker::Sized>(&mut self, value: T) {
-        let value2 = value;
-
-        let num_bytes = mem::size_of::<T>();
-
-        // -- $$$FRK(HACK): 8 byte alignment
-        // -- Ways to get arround this:
-        //  + Never use PipelineStateStream, always use the graphics-specific type
-        //  + some sort of macro magic to generate a repr(c) struct matching a rust struct with limited state stream members
-        while self.bytes.len() % 8 != 0 {
-            self.bytes.push(0);
-        }
-
-        let start = self.bytes.len();
-        for _ in 0..num_bytes {
-            self.bytes.push(0);
-        }
-
-        let target_mem = &mut self.bytes[start];
-        let target_type = mem::transmute::<&mut u8, &mut T>(target_mem);
-        *target_type = value2;
-        println!("test");
-    }
-
-    pub unsafe fn ptr(&self) -> *mut u8 {
-        self.bytes.as_ptr() as *mut u8
-    }
-}
-
-pub struct SPipelineStateStreamDesc {
-    pub pipeline_state_subobject_stream: SByteStream,
-}
-
-impl SPipelineStateStreamDesc {
-    pub fn create() -> Self {
-        Self {
-            pipeline_state_subobject_stream: SByteStream::create(),
+            stream: stream,
         }
     }
 
     pub unsafe fn d3dtype(&self) -> D3D12_PIPELINE_STATE_STREAM_DESC {
-        let mut result : D3D12_PIPELINE_STATE_STREAM_DESC = mem::uninitialized();
-        result.SizeInBytes = self.pipeline_state_subobject_stream.num_bytes() as winapi::shared::basetsd::SIZE_T;
-        result.pPipelineStateSubobjectStream = self.pipeline_state_subobject_stream.ptr() as *mut c_void;
-        result
+        let mut desc : D3D12_PIPELINE_STATE_STREAM_DESC = mem::uninitialized();
+        desc.SizeInBytes = mem::size_of::<T>() as winapi::shared::basetsd::SIZE_T;
+        desc.pPipelineStateSubobjectStream = self.stream as *const T as *mut c_void;
+
+        desc
     }
 }
 

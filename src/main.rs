@@ -206,7 +206,7 @@ fn main_d3d12() -> Result<(), &'static str> {
     let pixel_byte_code = t12::SShaderBytecode::create(&pixelblob);
 
     // -- root signature stuff
-    let input_layout_desc = {
+    let mut input_layout_desc = {
         let input_element_desc = [
             t12::SInputElementDesc::create(
                 "POSITION",
@@ -264,7 +264,7 @@ fn main_d3d12() -> Result<(), &'static str> {
     // -- pipeline state object
     let mut pipeline_state_stream_desc = n12::SPipelineStateStreamDesc::create_empty();
     pipeline_state_stream_desc.root_signature = Some(&root_signature);
-    pipeline_state_stream_desc.input_layout = Some(&input_layout_desc);
+    pipeline_state_stream_desc.input_layout = Some(&mut input_layout_desc);
     //pipeline_state_stream_desc.primitive_topology = Some(t12::EPrimitiveTopologyType::Triangle);
     pipeline_state_stream_desc.vertex_shader = Some(&vert_byte_code);
     //pipeline_state_stream_desc.pixel_shader = Some(&pixel_byte_code);

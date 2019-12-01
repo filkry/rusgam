@@ -1564,8 +1564,6 @@ impl<'a> SShaderBytecode<'a> {
 pub struct SInputLayoutDesc {
     input_element_descs: ArrayVec::<[SInputElementDesc; 16]>,
 
-    // -- $$$FRK(TODO): This probably belongs in niced3d12
-    generated_d3d: bool,
     d3d_input_element_descs: ArrayVec::<[D3D12_INPUT_ELEMENT_DESC; 16]>,
 }
 
@@ -1574,13 +1572,10 @@ impl SInputLayoutDesc {
     pub fn create(input_element_descs: &[SInputElementDesc]) -> Self {
         let mut result = Self {
             input_element_descs: ArrayVec::new(),
-            generated_d3d: false,
             d3d_input_element_descs: ArrayVec::new(),
         };
 
         result.input_element_descs.try_extend_from_slice(input_element_descs).unwrap();
-
-        unsafe { result.generate_d3dtype() };
         result
     }
 
@@ -1590,17 +1585,19 @@ impl SInputLayoutDesc {
         for input_element_desc in &self.input_element_descs {
             self.d3d_input_element_descs.push(input_element_desc.d3dtype());
         }
-
-        self.generated_d3d = true;
     }
 
-    pub unsafe fn d3dtype(&self) -> D3D12_INPUT_LAYOUT_DESC {
-        assert!(self.generated_d3d);
+    pub unsafe fn d3dtype(&mut self) -> D3D12_INPUT_LAYOUT_DESC {
+        // -- $$$FRK(NOTE): the generate data here is no longer valid if this moves!!!
+        // -- it contains internal references!
+        self.generate_d3dtype();
 
-        D3D12_INPUT_LAYOUT_DESC {
+        let result = D3D12_INPUT_LAYOUT_DESC {
             pInputElementDescs: self.d3d_input_element_descs.as_ptr(),
             NumElements: self.d3d_input_element_descs.len() as u32,
-        }
+        };
+
+        result
     }
 }
 
@@ -1778,6 +1775,8 @@ impl SByteStream {
     }
 
     pub unsafe fn push_to_bytes<T: std::marker::Sized>(&mut self, value: T) {
+        let value2 = value;
+
         let num_bytes = mem::size_of::<T>();
 
         // -- $$$FRK(HACK): 8 byte alignment
@@ -1795,7 +1794,7 @@ impl SByteStream {
 
         let target_mem = &mut self.bytes[start];
         let target_type = mem::transmute::<&mut u8, &mut T>(target_mem);
-        *target_type = value;
+        *target_type = value2;
         println!("test");
     }
 

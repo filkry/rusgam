@@ -83,7 +83,7 @@ pub struct SDescriptorHeap {
 
 pub struct SPipelineStateStreamDesc<'a> {
     pub root_signature: Option<&'a t12::SRootSignature>,
-    pub input_layout: Option<&'a t12::SInputLayoutDesc>,
+    pub input_layout: Option<&'a mut t12::SInputLayoutDesc>,
     pub primitive_topology: Option<t12::EPrimitiveTopologyType>,
     pub vertex_shader: Option<&'a t12::SShaderBytecode<'a>>,
     pub pixel_shader: Option<&'a t12::SShaderBytecode<'a>>,
@@ -766,9 +766,10 @@ impl<'a> SPipelineStateStreamDesc<'a> {
             bytestream.push_to_bytes(ptr);
         }
 
-        if let Some(il) = self.input_layout {
+        if let Some(il) = &mut self.input_layout {
             bytestream.push_to_bytes(t12::EPipelineStateSubobjectType::InputLayout.d3dtype());
-            bytestream.push_to_bytes(il.d3dtype());
+            let d3dil = il.d3dtype();
+            bytestream.push_to_bytes(d3dil);
         }
 
         if let Some(pt) = self.primitive_topology {

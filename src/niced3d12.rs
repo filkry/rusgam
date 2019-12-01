@@ -66,6 +66,7 @@ pub enum EResourceMetadata {
     Invalid,
     SwapChainResource,
     BufferResource { count: usize, sizeofentry: usize },
+    Texture2DResource,
 }
 
 pub struct SResource {
@@ -319,11 +320,37 @@ impl SDevice {
         })
     }
 
-    pub unsafe fn create_committed_buffer_resource<T>(
+    pub fn create_committed_texture2d_resource(
+        &self, // verified thread safe via docs
+        heap_type: t12::EHeapType,
+        width: u32,
+        height: u32,
+        array_size: u16,
+        mip_levels: u16,
+        format: t12::EDXGIFormat,
+        flags: t12::SResourceFlags,
+        initial_resource_state: t12::EResourceStates,
+    ) -> Result<SResource, &'static str> {
+
+        let destinationresource = self.raw.createcommittedresource(
+            t12::SHeapProperties::create(heap_type),
+            t12::EHeapFlags::ENone,
+            t12::SResourceDesc::create_texture_2d(width, height, array_size, mip_levels, format, flags),
+            initial_resource_state,
+            None,
+        )?;
+
+        Ok(SResource {
+            raw: destinationresource,
+            metadata: EResourceMetadata::Texture2DResource,
+        })
+    }
+
+    pub fn create_committed_buffer_resource<T>(
         &self, // verified thread safe via docs
         heaptype: t12::EHeapType,
         flags: t12::SResourceFlags,
-        resourcestates: t12::EResourceStates,
+        initial_resource_state: t12::EResourceStates,
         bufferdata: &[T],
     ) -> Result<SResource, &'static str> {
         let buffersize = bufferdata.len() * std::mem::size_of::<T>();
@@ -332,7 +359,7 @@ impl SDevice {
             t12::SHeapProperties::create(heaptype),
             t12::EHeapFlags::ENone,
             t12::SResourceDesc::createbuffer(buffersize, flags),
-            resourcestates,
+            initial_resource_state,
             None,
         )?;
 
@@ -603,40 +630,37 @@ impl SCommandList {
         flags: t12::SResourceFlags,
     ) -> Result<SCommandQueueUpdateBufferResult, &'static str> {
 
-        unsafe {
+        let mut destinationresource = device.create_committed_buffer_resource(
+            t12::EHeapType::Default,
+            flags,
+            t12::EResourceStates::CopyDest,
+            bufferdata
+        )?;
 
-            let mut destinationresource = device.create_committed_buffer_resource(
-                t12::EHeapType::Default,
-                flags,
-                t12::EResourceStates::CopyDest,
-                bufferdata
-            )?;
+        // -- resource created with Upload type MUST have state GenericRead
+        let mut intermediateresource = device.create_committed_buffer_resource(
+            t12::EHeapType::Upload,
+            flags,
+            t12::EResourceStates::GenericRead,
+            bufferdata
+        )?;
 
-            // -- resource created with Upload type MUST have state GenericRead
-            let mut intermediateresource = device.create_committed_buffer_resource(
-                t12::EHeapType::Upload,
-                flags,
-                t12::EResourceStates::GenericRead,
-                bufferdata
-            )?;
+        let mut srcdata = t12::SSubResourceData::createbuffer(bufferdata);
+        update_subresources_stack(
+            self,
+            &mut destinationresource,
+            &mut intermediateresource,
+            0,
+            0,
+            1,
+            &mut srcdata,
+        );
 
-            let mut srcdata = t12::SSubResourceData::createbuffer(bufferdata);
-            update_subresources_stack(
-                self,
-                &mut destinationresource,
-                &mut intermediateresource,
-                0,
-                0,
-                1,
-                &mut srcdata,
-            );
+        Ok(SCommandQueueUpdateBufferResult {
+            destinationresource: destinationresource,
+            intermediateresource: intermediateresource,
+        })
 
-            Ok(SCommandQueueUpdateBufferResult {
-                destinationresource: destinationresource,
-                intermediateresource: intermediateresource,
-            })
-
-        }
     }
 }
 

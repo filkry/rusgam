@@ -45,6 +45,37 @@ struct SPipelineStateStream<'a> {
     rtv_formats: n12::SPipelineStateStreamRTVFormats<'a>,
 }
 
+pub fn init_depth_texture(
+    width: u32,
+    height: u32,
+    device: &n12::SDevice,
+    direct_command_pool: &mut n12::SCommandListPool,
+    copy_command_pool: &mut n12::SCommandListPool,
+) {
+    direct_command_pool.flush_blocking().unwrap();
+    copy_command_pool.flush_blocking().unwrap();
+
+    let clear_value = t12::SClearValue{
+        format: t12::EDXGIFormat::D32Float,
+        value: t12::EClearValue::DepthStencil(t12::SDepthStencilValue {
+            depth: 1.0,
+            stencil: 0,
+        }),
+    };
+
+    // -- need to not let this be destroyed
+    let depth_texture_resource = device.create_committed_texture2d_resource(
+        t12::EHeapType::Default,
+        width,
+        height,
+        1,
+        1,
+        t12::EDXGIFormat::D32Float,
+        t12::SResourceFlags::from(t12::EResourceFlags::AllowDepthStencil),
+        t12::EResourceStates::DepthWrite,
+    );
+}
+
 fn main_d3d12() -> Result<(), &'static str> {
     // -- initialize debug
     let debuginterface = t12::getdebuginterface()?;
@@ -288,6 +319,9 @@ fn main_d3d12() -> Result<(), &'static str> {
     };
     let pipeline_state_stream_desc = t12::SPipelineStateStreamDesc::create(&pipeline_state_stream);
     let _pipelinestate = device.raw().create_pipeline_state(&pipeline_state_stream_desc);
+
+    // -- depth texture
+    init_depth_texture(window.width(), window.height(), &device, &mut directcommandpool, &mut copycommandpool);
 
     // -- update loop
 

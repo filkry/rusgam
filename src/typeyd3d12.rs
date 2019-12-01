@@ -803,7 +803,7 @@ pub struct SD3DFlags32<T: TD3DFlags32 + Copy> {
 
 impl<T: TD3DFlags32 + Copy> From<T> for SD3DFlags32<T> {
     fn from(flag: T) -> Self {
-        Self::none().and(flag)
+        Self::none().or(flag)
     }
 }
 
@@ -859,6 +859,8 @@ impl<T: TD3DFlags32 + Copy> SD3DFlags32<T> {
     }
 }
 
+// -- $$$FRK(TODO): does not follow the philosophy of this file for creating rustic types for each
+// -- D3D type. Furthermore, the helper methods belong in niced3d12
 impl SResourceDesc {
     pub fn createbuffer(buffersize: usize, flags: SResourceFlags) -> Self {
         Self {
@@ -875,6 +877,26 @@ impl SResourceDesc {
                     Quality: 0, // required
                 },
                 Layout: D3D12_TEXTURE_LAYOUT_ROW_MAJOR, // required
+                Flags: flags.d3dtype(),
+            },
+        }
+    }
+
+    pub fn create_texture_2d(width: u32, height: u32, array_size: u16, mip_levels: u16, format: EDXGIFormat, flags: SResourceFlags) -> Self {
+        Self {
+            raw: D3D12_RESOURCE_DESC {
+                Dimension: D3D12_RESOURCE_DIMENSION_TEXTURE2D,
+                Alignment: D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT as u64,
+                Width: width as u64,
+                Height: height,                // required
+                DepthOrArraySize: array_size,      // required
+                MipLevels: mip_levels,             // required
+                Format: format.d3dtype(), // required
+                SampleDesc: dxgitype::DXGI_SAMPLE_DESC {
+                    Count: 1,   // required
+                    Quality: 0, // required
+                },
+                Layout: D3D12_TEXTURE_LAYOUT_UNKNOWN, // required
                 Flags: flags.d3dtype(),
             },
         }
@@ -1129,6 +1151,44 @@ impl EDXGIFormat {
             Self::R32G32B32Float => dxgiformat::DXGI_FORMAT_R32G32B32_FLOAT,
             Self::D32Float => dxgiformat::DXGI_FORMAT_D32_FLOAT,
             Self::R8G8B8A8UNorm => dxgiformat::DXGI_FORMAT_R8G8B8A8_UNORM,
+        }
+    }
+}
+
+pub struct SDepthStencilValue {
+    pub depth: f32,
+    pub stencil: u8,
+}
+
+impl SDepthStencilValue {
+    pub fn d3dtype(&self) -> D3D12_DEPTH_STENCIL_VALUE {
+        D3D12_DEPTH_STENCIL_VALUE {
+            Depth: self.depth,
+            Stencil: self.stencil,
+        }
+    }
+}
+
+pub enum EClearValue {
+    Color([f32; 4]),
+    DepthStencil(SDepthStencilValue),
+}
+
+pub struct SClearValue {
+    pub format: EDXGIFormat,
+    pub value: EClearValue,
+}
+
+impl SClearValue {
+    pub fn d3dtype(&self) -> D3D12_CLEAR_VALUE {
+        unsafe {
+            let mut result : D3D12_CLEAR_VALUE = mem::uninitialized();
+            result.Format = self.format.d3dtype();
+            match &self.value {
+                EClearValue::Color(color) => *(result.u.Color_mut()) = *color,
+                EClearValue::DepthStencil(depth_stencil_value) => *(result.u.DepthStencil_mut()) = depth_stencil_value.d3dtype(),
+            }
+            result
         }
     }
 }

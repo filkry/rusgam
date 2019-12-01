@@ -51,6 +51,7 @@ pub fn init_depth_texture(
     device: &n12::SDevice,
     direct_command_pool: &mut n12::SCommandListPool,
     copy_command_pool: &mut n12::SCommandListPool,
+    depth_descriptor_heap: &n12::SDescriptorHeap,
 ) {
     direct_command_pool.flush_blocking().unwrap();
     copy_command_pool.flush_blocking().unwrap();
@@ -64,16 +65,31 @@ pub fn init_depth_texture(
     };
 
     // -- need to not let this be destroyed
-    let depth_texture_resource = device.create_committed_texture2d_resource(
+    let mut depth_texture_resource = device.create_committed_texture2d_resource(
         t12::EHeapType::Default,
         width,
         height,
         1,
-        1,
+        0,
         t12::EDXGIFormat::D32Float,
         t12::SResourceFlags::from(t12::EResourceFlags::AllowDepthStencil),
         t12::EResourceStates::DepthWrite,
-    );
+    ).unwrap();
+
+    let depth_stencil_view_desc = t12::SDepthStencilViewDesc {
+        format: t12::EDXGIFormat::D32Float,
+        view_dimension: t12::EDSVDimension::Texture2D,
+        flags: t12::SDSVFlags::from(t12::EDSVFlags::None),
+        data: t12::EDepthStencilViewDescData::Tex2D(t12::STex2DDSV {
+            mip_slice: 0,
+        }),
+    };
+
+    device.create_depth_stencil_view(
+        &mut depth_texture_resource,
+        &depth_stencil_view_desc,
+        depth_descriptor_heap.cpu_handle_heap_start()
+    ).unwrap();
 }
 
 fn main_d3d12() -> Result<(), &'static str> {
@@ -130,8 +146,8 @@ fn main_d3d12() -> Result<(), &'static str> {
 
     // -- tutorial2 data
     let _depthbufferresource: Option<n12::SResource> = None;
-    let _depthstencilviewheap =
-        device.create_descriptor_heap(t12::EDescriptorHeapType::DepthStencil, 1);
+    let depthstencilviewheap =
+        device.create_descriptor_heap(t12::EDescriptorHeapType::DepthStencil, 1)?;
 
     let _viewport = t12::SViewport::new(
         0.0,
@@ -321,7 +337,7 @@ fn main_d3d12() -> Result<(), &'static str> {
     let _pipelinestate = device.raw().create_pipeline_state(&pipeline_state_stream_desc);
 
     // -- depth texture
-    init_depth_texture(window.width(), window.height(), &device, &mut directcommandpool, &mut copycommandpool);
+    init_depth_texture(window.width(), window.height(), &device, &mut directcommandpool, &mut copycommandpool, &depthstencilviewheap);
 
     // -- update loop
 

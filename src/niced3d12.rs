@@ -295,16 +295,28 @@ impl SDevice {
     }
 
     pub fn create_render_target_view(
-        &mut self,
+        &self,
         render_target_resource: &mut SResource,
         dest_descriptor: &t12::SDescriptorHandle,
     ) -> Result<(), &'static str> {
+        // -- $$$FRK(TODO): assert on resource metadata
         self.raw.createrendertargetview(&render_target_resource.raw, dest_descriptor);
         Ok(())
     }
 
+    pub fn create_depth_stencil_view(
+        &self,
+        depth_texture_resource: &mut SResource,
+        desc: &t12::SDepthStencilViewDesc,
+        dest_descriptor: t12::SDescriptorHandle,
+    ) -> Result<(), &'static str> {
+        // -- $$$FRK(TODO): assert on resource metadata
+        self.raw.create_depth_stencil_view(&depth_texture_resource.raw, desc, dest_descriptor);
+        Ok(())
+    }
+
     pub fn create_descriptor_heap(
-        &mut self,
+        &self,
         type_: t12::EDescriptorHeapType,
         numdescriptors: u32,
     ) -> Result<SDescriptorHeap, &'static str> {

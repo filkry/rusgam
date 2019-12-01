@@ -265,12 +265,15 @@ fn main_d3d12() -> Result<(), &'static str> {
     let mut pipeline_state_stream_desc = n12::SPipelineStateStreamDesc::create_empty();
     pipeline_state_stream_desc.root_signature = Some(&root_signature);
     pipeline_state_stream_desc.input_layout = Some(&input_layout_desc);
-    pipeline_state_stream_desc.primitive_topology = Some(t12::EPrimitiveTopologyType::Triangle);
+    //pipeline_state_stream_desc.primitive_topology = Some(t12::EPrimitiveTopologyType::Triangle);
     pipeline_state_stream_desc.vertex_shader = Some(&vert_byte_code);
-    pipeline_state_stream_desc.pixel_shader = Some(&pixel_byte_code);
-    pipeline_state_stream_desc.depth_stencil_format = Some(t12::EDXGIFormat::D32Float);
+    //pipeline_state_stream_desc.pixel_shader = Some(&pixel_byte_code);
+    //pipeline_state_stream_desc.depth_stencil_format = Some(t12::EDXGIFormat::D32Float);
 
+    //unsafe { pipeline_state_stream_desc.build_bytes() };
+    //let temppipelinestate = device.raw().temp_create_pipeline_state(&mut pipeline_state_stream_desc.raw, &vertblob);
     let pipelinestate = device.create_pipeline_state(&mut pipeline_state_stream_desc);
+
 
     // -- update loop
 

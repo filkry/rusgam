@@ -91,7 +91,8 @@ pub struct SPipelineStateStreamDesc<'a> {
     pub depth_stencil_format: Option<t12::EDXGIFormat>,
     pub rtv_formats: Option<t12::SRTFormatArray>,
 
-    raw: t12::SPipelineStateStreamDesc,
+    // -- $$$FRK(TODO): should not be pub
+    pub raw: t12::SPipelineStateStreamDesc,
 }
 
 // =================================================================================================
@@ -777,7 +778,8 @@ impl<'a> SPipelineStateStreamDesc<'a> {
 
         if let Some(vs) = self.vertex_shader {
             bytestream.push_to_bytes(t12::EPipelineStateSubobjectType::VS.d3dtype());
-            bytestream.push_to_bytes(vs.d3dtype());
+            let vsd3d = vs.d3dtype();
+            bytestream.push_to_bytes(vsd3d);
         }
 
         if let Some(ps) = self.pixel_shader {

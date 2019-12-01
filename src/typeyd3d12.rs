@@ -1152,6 +1152,8 @@ pub struct SInputElementDesc {
     aligned_byte_offset: u32,
     input_slot_class: EInputClassification,
     instance_data_step_rate: u32,
+
+    semantic_name_null_terminated: [winapi::um::winnt::CHAR; 32],
 }
 
 impl SInputElementDesc {
@@ -1165,7 +1167,7 @@ impl SInputElementDesc {
         instance_data_step_rate: u32,
     ) -> Self {
 
-        let result = Self {
+        let mut result = Self {
             semantic_name: semantic_name,
             semantic_index: semantic_index,
             format: format,
@@ -1173,7 +1175,16 @@ impl SInputElementDesc {
             aligned_byte_offset: aligned_byte_offset,
             input_slot_class: input_slot_class,
             instance_data_step_rate: instance_data_step_rate,
+
+            semantic_name_null_terminated: [0; 32],
         };
+
+        let mut i = 0;
+        for c in semantic_name.as_bytes() {
+            result.semantic_name_null_terminated[i] = *c as i8;
+            i += 1;
+        }
+        result.semantic_name_null_terminated[i] = 0;
 
         result
     }
@@ -1181,7 +1192,7 @@ impl SInputElementDesc {
     pub unsafe fn d3dtype(&self) -> D3D12_INPUT_ELEMENT_DESC {
         D3D12_INPUT_ELEMENT_DESC {
             //SemanticName: self.semantic_name_utf16.as_ptr(),
-            SemanticName: self.semantic_name.as_ptr() as *const i8,
+            SemanticName: self.semantic_name_null_terminated.as_ptr(),
             SemanticIndex: self.semantic_index,
             Format: self.format.d3dtype(),
             InputSlot: self.input_slot,
@@ -1540,9 +1551,12 @@ impl<'a> SShaderBytecode<'a> {
     }
 
     pub unsafe fn d3dtype(&self) -> D3D12_SHADER_BYTECODE {
+        let ptr = self.bytecode.raw.GetBufferPointer();
+        let len = self.bytecode.raw.GetBufferSize();
+
         D3D12_SHADER_BYTECODE {
-            pShaderBytecode: self.bytecode.raw.GetBufferPointer(),
-            BytecodeLength: self.bytecode.raw.GetBufferSize(),
+            pShaderBytecode: ptr,
+            BytecodeLength: len,
         }
     }
 }
@@ -1765,10 +1779,24 @@ impl SByteStream {
 
     pub unsafe fn push_to_bytes<T: std::marker::Sized>(&mut self, value: T) {
         let num_bytes = mem::size_of::<T>();
-        let value_bytes = mem::transmute::<&T, &u8>(&value) as *const u8;
-        for bi in 0..num_bytes {
-            self.bytes.push(*value_bytes.offset(bi as isize));
+
+        // -- $$$FRK(HACK): 8 byte alignment
+        // -- Ways to get arround this:
+        //  + Never use PipelineStateStream, always use the graphics-specific type
+        //  + some sort of macro magic to generate a repr(c) struct matching a rust struct with limited state stream members
+        while self.bytes.len() % 8 != 0 {
+            self.bytes.push(0);
         }
+
+        let start = self.bytes.len();
+        for _ in 0..num_bytes {
+            self.bytes.push(0);
+        }
+
+        let target_mem = &mut self.bytes[start];
+        let target_type = mem::transmute::<&mut u8, &mut T>(target_mem);
+        *target_type = value;
+        println!("test");
     }
 
     pub unsafe fn ptr(&self) -> *mut u8 {
@@ -1794,6 +1822,19 @@ impl SPipelineStateStreamDesc {
         result
     }
 }
+
+/*
+pub struct SGraphicsPipelineStateDesc {
+    root_signature: &SRootSignature,
+    v_s: Option<&SShaderBytecode>,
+    p_s: Option<&SShaderBytecode>,
+    d_s: Option<&SShaderBytecode>,
+    h_s: Option<&SShaderBytecode>,
+    g_s: Option<&SShaderBytecode>,
+    stream_output: Option<SStreamOutputDesc>,
+    blend_state: Option<SBlendDesc>,
+}
+*/
 
 pub enum EPipelineStateSubobjectType {
     RootSignature,

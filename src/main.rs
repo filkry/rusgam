@@ -37,9 +37,12 @@ struct SVertexPosColour {
 #[repr(C)]
 struct SPipelineStateStream<'a> {
     root_signature: n12::SPipelineStateStreamRootSignature<'a>,
-    vertex_shader: n12::SPipelineStateStreamVertexShader<'a>,
     input_layout: n12::SPipelineStateStreamInputLayout<'a>,
-    rtv_formats: n12::SPipelineStateStreamRTVFormats,
+    primitive_topology: n12::SPipelineStateStreamPrimitiveTopology,
+    vertex_shader: n12::SPipelineStateStreamVertexShader<'a>,
+    pixel_shader: n12::SPipelineStateStreamPixelShader<'a>,
+    depth_stencil_format: n12::SPipelineStateStreamDepthStencilFormat,
+    rtv_formats: n12::SPipelineStateStreamRTVFormats<'a>,
 }
 
 fn main_d3d12() -> Result<(), &'static str> {
@@ -48,14 +51,14 @@ fn main_d3d12() -> Result<(), &'static str> {
     debuginterface.enabledebuglayer();
 
     // -- setup window and command queue
-    let mut winapi = rustywindows::SWinAPI::create();
+    let winapi = rustywindows::SWinAPI::create();
     let windowclass = winapi.rawwinapi().registerclassex("rusgam").unwrap();
 
     let mut factory = n12::SFactory::create()?;
     let mut adapter = factory.create_best_adapter()?;
     let mut device = adapter.create_device()?;
 
-    let mut commandqueue = RefCell::new(n12::SCommandQueue::create(
+    let commandqueue = RefCell::new(n12::SCommandQueue::create(
         &mut device,
         &winapi.rawwinapi(),
         t12::ECommandListType::Direct,
@@ -68,7 +71,7 @@ fn main_d3d12() -> Result<(), &'static str> {
         2,
     )?;
 
-    let mut copycommandqueue = RefCell::new(n12::SCommandQueue::create(
+    let copycommandqueue = RefCell::new(n12::SCommandQueue::create(
         &mut device,
         &winapi.rawwinapi(),
         t12::ECommandListType::Copy,
@@ -95,17 +98,11 @@ fn main_d3d12() -> Result<(), &'static str> {
     window.show();
 
     // -- tutorial2 data
-    let vertexbufferresource: Option<n12::SResource> = None;
-    let vertexbufferview: Option<t12::SVertexBufferView> = None;
-    let indexbufferresource: Option<n12::SResource> = None;
-    let indexbufferview: Option<t12::SIndexBufferView> = None;
-
-    let depthbufferresource: Option<n12::SResource> = None;
-    let depthstencilviewheap =
+    let _depthbufferresource: Option<n12::SResource> = None;
+    let _depthstencilviewheap =
         device.create_descriptor_heap(t12::EDescriptorHeapType::DepthStencil, 1);
 
-    let rootsignature: Option<t12::SRootSignature> = None;
-    let viewport = t12::SViewport::new(
+    let _viewport = t12::SViewport::new(
         0.0,
         0.0,
         window.width() as f32,
@@ -113,19 +110,19 @@ fn main_d3d12() -> Result<(), &'static str> {
         None,
         None,
     );
-    let scissorrect = t12::SRect {
+    let _scissorrect = t12::SRect {
         left: 0,
         right: std::i32::MAX,
         top: 0,
         bottom: std::i32::MAX,
     };
 
-    let fov: f32 = 45.0;
-    let modelmatrix = SMat44::identity();
-    let viewmatrix = SMat44::identity();
-    let projectionmatrix = SMat44::identity();
+    let _fov: f32 = 45.0;
+    let _modelmatrix = SMat44::identity();
+    let _viewmatrix = SMat44::identity();
+    let _projectionmatrix = SMat44::identity();
 
-    let contentloaded = false;
+    let _contentloaded = false;
 
     let cubeverts = [
         SVertexPosColour {
@@ -183,7 +180,7 @@ fn main_d3d12() -> Result<(), &'static str> {
         let handle = copycommandpool.alloc_list()?;
         let copycommandlist = copycommandpool.get_list(handle)?;
 
-        let mut vertbufferresource = {
+        let vertbufferresource = {
             let vertbufferflags =
                 t12::SResourceFlags::from(t12::EResourceFlags::ENone);
             copycommandlist
@@ -279,31 +276,21 @@ fn main_d3d12() -> Result<(), &'static str> {
     rtv_formats.rt_formats.push(t12::EDXGIFormat::R8G8B8A8UNorm);
 
     // -- pipeline state object
-    //let mut pipeline_state_stream_desc = n12::SPipelineStateStreamDesc::create_empty();
-    //pipeline_state_stream_desc.root_signature = Some(&root_signature);
-    //pipeline_state_stream_desc.input_layout = Some(&mut input_layout_desc);
-    //pipeline_state_stream_desc.primitive_topology = Some(t12::EPrimitiveTopologyType::Triangle);
-    //pipeline_state_stream_desc.vertex_shader = Some(&vert_byte_code);
-    //pipeline_state_stream_desc.pixel_shader = Some(&pixel_byte_code);
-    //pipeline_state_stream_desc.depth_stencil_format = Some(t12::EDXGIFormat::D32Float);
-    //pipeline_state_stream_desc.rtv_formats = Some(rtv_formats);
-
-    //unsafe { pipeline_state_stream_desc.build_bytes() };
-    //let temppipelinestate = device.raw().temp_create_pipeline_state(&mut pipeline_state_stream_desc.raw, &vertblob);
-    //let pipelinestate = device.create_pipeline_state(&mut pipeline_state_stream_desc);
-
     let pipeline_state_stream = SPipelineStateStream {
         root_signature: n12::SPipelineStateStreamRootSignature::create(&root_signature),
-        vertex_shader: unsafe { n12::SPipelineStateStreamVertexShader::create(&vert_byte_code) },
-        input_layout: unsafe { n12::SPipelineStateStreamInputLayout::create(&mut input_layout_desc) },
+        input_layout: n12::SPipelineStateStreamInputLayout::create(&mut input_layout_desc),
+        primitive_topology: n12::SPipelineStateStreamPrimitiveTopology::create(t12::EPrimitiveTopologyType::Triangle),
+        vertex_shader: n12::SPipelineStateStreamVertexShader::create(&vert_byte_code),
+        pixel_shader: n12::SPipelineStateStreamPixelShader::create(&pixel_byte_code),
+        depth_stencil_format: n12::SPipelineStateStreamDepthStencilFormat::create(t12::EDXGIFormat::D32Float),
         rtv_formats: n12::SPipelineStateStreamRTVFormats::create(&rtv_formats),
     };
     let pipeline_state_stream_desc = t12::SPipelineStateStreamDesc::create(&pipeline_state_stream);
-    let pipelinestate = device.raw().create_pipeline_state(&pipeline_state_stream_desc);
+    let _pipelinestate = device.raw().create_pipeline_state(&pipeline_state_stream_desc);
 
     // -- update loop
 
-    let mut framecount: u64 = 0;
+    let mut _framecount: u64 = 0;
     let mut lastframetime = winapi.curtimemicroseconds();
 
     let mut framefencevalues = [0; 2];
@@ -313,7 +300,7 @@ fn main_d3d12() -> Result<(), &'static str> {
     while !shouldquit {
         let curframetime = winapi.curtimemicroseconds();
         let dt = curframetime - lastframetime;
-        let dtms = dt as f64;
+        let _dtms = dt as f64;
 
         //println!("Frame {} time: {}us", framecount, dtms);
 
@@ -365,7 +352,7 @@ fn main_d3d12() -> Result<(), &'static str> {
         }
 
         lastframetime = curframetime;
-        framecount += 1;
+        _framecount += 1;
 
         // -- $$$FRK(TODO): framerate is uncapped
 

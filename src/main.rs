@@ -204,7 +204,8 @@ fn main_d3d12() -> Result<(), &'static str> {
             .create_index_buffer_view(t12::EFormat::R16UINT)
             ?;
 
-        copycommandpool.execute_and_free_list(handle)?;
+        let fenceval = copycommandpool.execute_and_free_list(handle)?;
+        copycommandpool.wait_for_internal_fence_value(fenceval);
     }
 
     // -- load shaders

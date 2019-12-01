@@ -444,6 +444,23 @@ impl SCommandQueue {
     pub fn internal_fence_value(&self) -> u64 {
         self.fence.raw.getcompletedvalue()
     }
+
+    pub fn signal_internal_fence(&mut self) -> Result<u64, &'static str> {
+        let result = self.fence.nextfencevalue;
+        self.raw.signal(&self.fence.raw, self.fence.nextfencevalue)?;
+        self.fence.nextfencevalue += 1;
+        Ok(result)
+    }
+
+    pub fn wait_for_internal_fence_value(&self, value: u64) {
+        self.fence.wait_for_value(value);
+    }
+
+    pub fn flush_blocking(&mut self) -> Result<(), &'static str> {
+        let lastfencevalue = self.signal_internal_fence()?;
+        self.fence.wait_for_value(lastfencevalue);
+        Ok(())
+    }
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -626,25 +643,6 @@ impl SCommandList {
 impl Default for EResourceMetadata {
     fn default() -> Self {
         EResourceMetadata::Invalid
-    }
-}
-
-impl SCommandQueue {
-    pub fn signal_internal_fence(&mut self) -> Result<u64, &'static str> {
-        let result = self.fence.nextfencevalue;
-        self.raw.signal(&self.fence.raw, self.fence.nextfencevalue)?;
-        self.fence.nextfencevalue += 1;
-        Ok(result)
-    }
-
-    pub fn wait_for_internal_fence_value(&self, value: u64) {
-        self.fence.wait_for_value(value);
-    }
-
-    pub fn flush_blocking(&mut self) -> Result<(), &'static str> {
-        let lastfencevalue = self.signal_internal_fence()?;
-        self.fence.wait_for_value(lastfencevalue);
-        Ok(())
     }
 }
 
@@ -910,7 +908,7 @@ impl<'a> SCommandListPool<'a> {
         Ok(&mut list.list)
     }
 
-    pub fn execute_and_free_list(&mut self, handle: SPoolHandle) -> Result<(), &'static str> {
+    pub fn execute_and_free_list(&mut self, handle: SPoolHandle) -> Result<u64, &'static str> {
         let allocator = {
             let list = self.lists.get_mut(handle)?;
             assert!(list.list.get_type() == self.queue.borrow().commandlisttype);
@@ -928,7 +926,15 @@ impl<'a> SCommandListPool<'a> {
             reusefencevalue: fenceval,
         });
 
-        Ok(())
+        Ok(fenceval)
+    }
+
+    pub fn wait_for_internal_fence_value(&self, value: u64) {
+        self.activefence.wait_for_value(value);
+    }
+
+    pub fn flush_blocking(&mut self) -> Result<(), &'static str> {
+        self.queue.borrow_mut().flush_blocking()
     }
 }
 

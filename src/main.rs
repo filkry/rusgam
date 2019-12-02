@@ -1,4 +1,5 @@
 extern crate nalgebra;
+extern crate nalgebra_glm as glm;
 extern crate winapi;
 extern crate wio;
 extern crate arrayvec;
@@ -375,22 +376,21 @@ fn main_d3d12() -> Result<(), &'static str> {
 
         let total_time = curframetime - start_time;
 
-        println!("total_time: {}", total_time);
-
         // -- update
         let cur_angle = ((total_time as f32) / 1_000_000.0) * (3.14159 / 4.0);
         let model_matrix = SMat44::new_rotation(rot_axis * cur_angle);
 
-        println!("Cur angle: {}", cur_angle);
-
-        let perspective_matrix = {
-            let fovy : f32 = 3.14159 / 8.0;
+        let perspective_matrix : SMat44 = {
             let aspect = (window.width() as f32) / (window.height() as f32);
+            let fovy : f32 = 3.14159 / 4.0;
             let znear = 0.1;
             let zfar = 100.0;
 
-            SMat44::new_perspective(fovy, aspect, znear, zfar)
+            //SMat44::new_perspective(aspect, fovy, znear, zfar)
+            glm::perspective_lh(aspect, fovy, znear, zfar)
         };
+
+        //println!("Perspective: {}", perspective_matrix);
 
         println!("Frame time: {}us", _dtms);
 
@@ -448,8 +448,15 @@ fn main_d3d12() -> Result<(), &'static str> {
 
                 // -- update root parameters
                 let mvp = perspective_matrix * view_matrix * model_matrix;
+                //let mvp = view_matrix * model_matrix;
                 let mvp_transpose = mvp.transpose(); // D3D12 is row major, nalgebra is column
                 list.set_graphics_root_32_bit_constants(0, &mvp_transpose, 0);
+
+                /*
+                let test_vert = SPnt3::new(1.0, 0.0, 0.0);
+                let test_vert_xformed = perspective_matrix * view_matrix * model_matrix * test_vert.to_homogeneous();
+                println!("Vert: {}", test_vert_xformed);
+                */
 
                 // -- draw
                 list.draw_indexed_instanced(indices.len() as u32, 1, 0, 0, 0);

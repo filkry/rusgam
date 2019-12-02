@@ -340,6 +340,7 @@ impl SDevice {
         array_size: u16,
         mip_levels: u16,
         format: t12::EDXGIFormat,
+        clear_value: t12::SClearValue,
         flags: t12::SResourceFlags,
         initial_resource_state: t12::EResourceStates,
     ) -> Result<SResource, &'static str> {
@@ -349,7 +350,7 @@ impl SDevice {
             t12::EHeapFlags::ENone,
             t12::SResourceDesc::create_texture_2d(width, height, array_size, mip_levels, format, flags),
             initial_resource_state,
-            None,
+            Some(clear_value),
         )?;
 
         Ok(SResource {

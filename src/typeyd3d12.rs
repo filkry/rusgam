@@ -335,16 +335,27 @@ impl SDevice {
         heapflags: EHeapFlags,
         resourcedesc: SResourceDesc,
         initialresourcestate: EResourceStates,
-        _optimizedclearvalue: Option<u32>, // -- $$$FRK(TODO): clear value
+        clear_value: Option<SClearValue>,
     ) -> Result<SResource, &'static str> {
         unsafe {
+            #[allow(unused_assignments)]
+            let mut d3dcv : D3D12_CLEAR_VALUE = mem::uninitialized();
+
+            let clear_value_ptr : * const D3D12_CLEAR_VALUE = match clear_value {
+                Some(cv) => {
+                    d3dcv = cv.d3dtype();
+                    &d3dcv
+                },
+                None => ptr::null_mut(),
+            };
+
             let mut rawresource: *mut ID3D12Resource = ptr::null_mut();
             let hn = self.device.CreateCommittedResource(
                 &heapproperties.raw,
                 heapflags.d3dtype(),
                 &resourcedesc.raw,
                 initialresourcestate.d3dtype(),
-                ptr::null() as *const D3D12_CLEAR_VALUE,
+                clear_value_ptr,
                 &ID3D12Resource::uuidof(), // $$$FRK(TODO): this isn't necessarily right
                 &mut rawresource as *mut *mut _ as *mut *mut c_void,
             );

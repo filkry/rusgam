@@ -52,7 +52,7 @@ pub fn init_depth_texture(
     direct_command_pool: &mut n12::SCommandListPool,
     copy_command_pool: &mut n12::SCommandListPool,
     depth_descriptor_heap: &n12::SDescriptorHeap,
-) {
+) -> Result<n12::SResource, &'static str> {
     direct_command_pool.flush_blocking().unwrap();
     copy_command_pool.flush_blocking().unwrap();
 
@@ -72,9 +72,10 @@ pub fn init_depth_texture(
         1,
         0,
         t12::EDXGIFormat::D32Float,
+        clear_value,
         t12::SResourceFlags::from(t12::EResourceFlags::AllowDepthStencil),
         t12::EResourceStates::DepthWrite,
-    ).unwrap();
+    )?;
 
     let depth_stencil_view_desc = t12::SDepthStencilViewDesc {
         format: t12::EDXGIFormat::D32Float,
@@ -89,7 +90,9 @@ pub fn init_depth_texture(
         &mut depth_texture_resource,
         &depth_stencil_view_desc,
         depth_descriptor_heap.cpu_handle_heap_start()
-    ).unwrap();
+    )?;
+
+    Ok(depth_texture_resource)
 }
 
 fn main_d3d12() -> Result<(), &'static str> {
@@ -145,7 +148,6 @@ fn main_d3d12() -> Result<(), &'static str> {
     window.show();
 
     // -- tutorial2 data
-    let _depthbufferresource: Option<n12::SResource> = None;
     let depthstencilviewheap =
         device.create_descriptor_heap(t12::EDescriptorHeapType::DepthStencil, 1)?;
 
@@ -337,7 +339,15 @@ fn main_d3d12() -> Result<(), &'static str> {
     let _pipelinestate = device.raw().create_pipeline_state(&pipeline_state_stream_desc);
 
     // -- depth texture
-    init_depth_texture(window.width(), window.height(), &device, &mut directcommandpool, &mut copycommandpool, &depthstencilviewheap);
+    #[allow(unused_variables)]
+    let mut depth_texture_resource = init_depth_texture(
+        window.width(),
+        window.height(),
+        &device,
+        &mut directcommandpool,
+        &mut copycommandpool,
+        &depthstencilviewheap
+    );
 
     // -- update loop
 
@@ -437,6 +447,15 @@ fn main_d3d12() -> Result<(), &'static str> {
                                 &mut device,
                             )
                             ?;
+
+                        depth_texture_resource = init_depth_texture(
+                            window.width(),
+                            window.height(),
+                            &device,
+                            &mut directcommandpool,
+                            &mut copycommandpool,
+                            &depthstencilviewheap
+                        );
 
                         // -- $$$FRK(TODO): why do we do this?
                         let maxframefencevalue =

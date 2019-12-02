@@ -442,6 +442,11 @@ fn main_d3d12() -> Result<(), &'static str> {
                 // -- setup the output merger
                 list.om_set_render_targets(&[&render_target_view], false, &depth_texture_view);
 
+                // -- update root parameters
+                let mvp = perspective_matrix * view_matrix * model_matrix;
+                let mvp_transpose = mvp.transpose(); // D3D12 is row major, nalgebra is column
+                list.set_graphics_root_32_bit_constants(0, &mvp_transpose, 0);
+
                 // -- transition to present
                 list.transition_resource(
                     backbuffer,

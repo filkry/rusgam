@@ -485,6 +485,19 @@ impl SCommandList {
         )};
     }
 
+    pub fn set_graphics_root_32_bit_constants<T: Sized>(
+        &mut self,
+        root_parameter_index: u32,
+        data: &T,
+        dest_offset_in_32_bit_values: u32,
+    ) {
+        unsafe { self.raw.set_graphics_root_32_bit_constants(
+            root_parameter_index,
+            data,
+            dest_offset_in_32_bit_values,
+        )};
+    }
+
     pub fn get_type(&self) -> t12::ECommandListType {
         self.raw.gettype()
     }

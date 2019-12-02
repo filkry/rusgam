@@ -1084,6 +1084,23 @@ impl SCommandList {
         );
     }
 
+    pub unsafe fn set_graphics_root_32_bit_constants<T: Sized>(
+        &self,
+        root_parameter_index: u32,
+        data: &T,
+        dest_offset_in_32_bit_values: u32,
+    ) {
+        let num_values = mem::size_of::<T>() / 4;
+        let src_data_ptr = data as *const T as *const c_void;
+
+        self.commandlist.SetGraphicsRoot32BitConstants(
+            root_parameter_index,
+            num_values as UINT,
+            src_data_ptr,
+            dest_offset_in_32_bit_values,
+        );
+    }
+
     pub unsafe fn close(&self) -> Result<(), &'static str> {
         let hn = self.commandlist.Close();
         returnerrifwinerror!(hn, "Could not close command list.");

@@ -447,6 +447,9 @@ fn main_d3d12() -> Result<(), &'static str> {
                 let mvp_transpose = mvp.transpose(); // D3D12 is row major, nalgebra is column
                 list.set_graphics_root_32_bit_constants(0, &mvp_transpose, 0);
 
+                // -- draw
+                list.draw_indexed_instanced(indices.len() as u32, 1, 0, 0, 0);
+
                 // -- transition to present
                 list.transition_resource(
                     backbuffer,

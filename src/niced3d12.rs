@@ -498,6 +498,23 @@ impl SCommandList {
         )};
     }
 
+    pub fn draw_indexed_instanced(
+        &mut self,
+        index_count_per_instance: u32,
+        instance_count: u32,
+        start_index_location: u32,
+        base_vertex_location: i32,
+        start_instance_location: u32
+    ) {
+        unsafe { self.raw.draw_indexed_instanced(
+            index_count_per_instance,
+            instance_count,
+            start_index_location,
+            base_vertex_location,
+            start_instance_location,
+        ) };
+    }
+
     pub fn get_type(&self) -> t12::ECommandListType {
         self.raw.gettype()
     }

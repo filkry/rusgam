@@ -1101,6 +1101,23 @@ impl SCommandList {
         );
     }
 
+    pub unsafe fn draw_indexed_instanced(
+        &self,
+        index_count_per_instance: u32,
+        instance_count: u32,
+        start_index_location: u32,
+        base_vertex_location: i32,
+        start_instance_location: u32
+    ) {
+        self.commandlist.DrawIndexedInstanced(
+            index_count_per_instance,
+            instance_count,
+            start_instance_location,
+            base_vertex_location,
+            start_instance_location,
+        );
+    }
+
     pub unsafe fn close(&self) -> Result<(), &'static str> {
         let hn = self.commandlist.Close();
         returnerrifwinerror!(hn, "Could not close command list.");

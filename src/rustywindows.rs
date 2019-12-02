@@ -14,7 +14,7 @@ impl SWinAPI {
         let pc = safewindows::SWinAPI::queryperformancecounter();
         let fc = safewindows::SWinAPI::queryperformancefrequencycounter();
 
-        pc / fc
+        pc / (fc / 1_000_000)
     }
 
     pub fn curtimemicroseconds(&self) -> i64 {
@@ -27,7 +27,9 @@ impl SWinAPI {
         SWinAPI {
             // -- $$$FRK(TODO): not very rusty
             wapi: safewindows::initwinapi().unwrap(),
-            frequency: unsafe { safewindows::SWinAPI::queryperformancefrequencycounter() },
+            frequency: unsafe {
+                safewindows::SWinAPI::queryperformancefrequencycounter() / 1_000_000
+            },
         }
     }
 

@@ -375,9 +375,13 @@ fn main_d3d12() -> Result<(), &'static str> {
 
         let total_time = curframetime - start_time;
 
+        println!("total_time: {}", total_time);
+
         // -- update
-        let cur_angle = (total_time as f32) * ((3.14 / 2.0) / 1000.0);
+        let cur_angle = ((total_time as f32) / 1_000_000.0) * (3.14159 / 4.0);
         let model_matrix = SMat44::new_rotation(rot_axis * cur_angle);
+
+        println!("Cur angle: {}", cur_angle);
 
         let perspective_matrix = {
             let fovy : f32 = 3.14159 / 8.0;
@@ -388,7 +392,7 @@ fn main_d3d12() -> Result<(), &'static str> {
             SMat44::new_perspective(fovy, aspect, znear, zfar)
         };
 
-        //println!("Frame {} time: {}us", framecount, dtms);
+        println!("Frame time: {}us", _dtms);
 
         // -- wait for buffer to be available
         commandqueue.borrow().wait_for_internal_fence_value(framefencevalues[window.currentbackbufferindex()]);

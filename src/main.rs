@@ -390,9 +390,10 @@ fn main_d3d12() -> Result<(), &'static str> {
             glm::perspective_lh(aspect, fovy, znear, zfar)
         };
 
+        //println!("View: {}", view_matrix);
         //println!("Perspective: {}", perspective_matrix);
 
-        println!("Frame time: {}us", _dtms);
+        //println!("Frame time: {}us", _dtms);
 
         // -- wait for buffer to be available
         commandqueue.borrow().wait_for_internal_fence_value(framefencevalues[window.currentbackbufferindex()]);
@@ -448,9 +449,7 @@ fn main_d3d12() -> Result<(), &'static str> {
 
                 // -- update root parameters
                 let mvp = perspective_matrix * view_matrix * model_matrix;
-                //let mvp = view_matrix * model_matrix;
-                let mvp_transpose = mvp.transpose(); // D3D12 is row major, nalgebra is column
-                list.set_graphics_root_32_bit_constants(0, &mvp_transpose, 0);
+                list.set_graphics_root_32_bit_constants(0, &mvp, 0);
 
                 /*
                 let test_vert = SPnt3::new(1.0, 0.0, 0.0);

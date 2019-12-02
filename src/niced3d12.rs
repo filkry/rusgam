@@ -472,6 +472,19 @@ impl SCommandList {
         unsafe { self.raw.rs_set_scissor_rects(scissor_rects) }
     }
 
+    pub fn om_set_render_targets(
+        &self,
+        render_target_descriptors: &[&t12::SDescriptorHandle],
+        rts_single_handle_to_descriptor_range: bool,
+        depth_target_descriptor: &t12::SDescriptorHandle) {
+
+        unsafe { self.raw.om_set_render_targets(
+            render_target_descriptors,
+            rts_single_handle_to_descriptor_range,
+            depth_target_descriptor
+        )};
+    }
+
     pub fn get_type(&self) -> t12::ECommandListType {
         self.raw.gettype()
     }

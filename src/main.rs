@@ -404,7 +404,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                 let list = directcommandpool.get_list(handle)?;
 
                 let backbuffer = window.currentbackbuffer();
-                let render_target_view = window.currentrendertargetdescriptor();
+                let render_target_view = window.currentrendertargetdescriptor()?;
                 let depth_texture_view = depthstencilviewheap.cpu_handle_heap_start();
 
                 // -- transition to render target
@@ -438,6 +438,9 @@ fn main_d3d12() -> Result<(), &'static str> {
                 // -- setup rasterizer state
                 list.rs_set_viewports(&[&viewport]);
                 list.rs_set_scissor_rects(t12::SScissorRects::create(&[&scissorrect]));
+
+                // -- setup the output merger
+                list.om_set_render_targets(&[&render_target_view], false, &depth_texture_view);
 
                 // -- transition to present
                 list.transition_resource(

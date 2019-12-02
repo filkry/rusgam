@@ -1068,6 +1068,22 @@ impl SCommandList {
         )
     }
 
+    pub unsafe fn om_set_render_targets(
+        &self,
+        render_target_descriptors: &[&SDescriptorHandle],
+        rts_single_handle_to_descriptor_range: bool,
+        depth_target_descriptor: &SDescriptorHandle) {
+
+        assert!(render_target_descriptors.len() == 1); // didn't want to implement copying d3dtype array
+
+        self.commandlist.OMSetRenderTargets(
+            render_target_descriptors.len() as u32,
+            &render_target_descriptors[0].handle,
+            rts_single_handle_to_descriptor_range as i32,
+            &depth_target_descriptor.handle,
+        );
+    }
+
     pub unsafe fn close(&self) -> Result<(), &'static str> {
         let hn = self.commandlist.Close();
         returnerrifwinerror!(hn, "Could not close command list.");

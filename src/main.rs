@@ -23,7 +23,9 @@ use niced3d12 as n12;
 
 #[allow(dead_code)]
 type SMat44 = nalgebra::Matrix4<f32>;
+type SPnt3 = nalgebra::Point3<f32>;
 type SVec3 = nalgebra::Vector3<f32>;
+type SVec4 = nalgebra::Vector4<f32>;
 
 #[allow(dead_code)]
 struct SVertexPosColour {
@@ -151,7 +153,7 @@ fn main_d3d12() -> Result<(), &'static str> {
     let depthstencilviewheap =
         device.create_descriptor_heap(t12::EDescriptorHeapType::DepthStencil, 1)?;
 
-    let _viewport = t12::SViewport::new(
+    let mut viewport = t12::SViewport::new(
         0.0,
         0.0,
         window.width() as f32,
@@ -165,11 +167,6 @@ fn main_d3d12() -> Result<(), &'static str> {
         top: 0,
         bottom: std::i32::MAX,
     };
-
-    let _fov: f32 = 45.0;
-    let _modelmatrix = SMat44::identity();
-    let _viewmatrix = SMat44::identity();
-    let _projectionmatrix = SMat44::identity();
 
     let _contentloaded = false;
 
@@ -358,10 +355,39 @@ fn main_d3d12() -> Result<(), &'static str> {
 
     let mut shouldquit = false;
 
+    let start_time = winapi.curtimemicroseconds();
+    let rot_axis = SVec3::new(0.0, 1.0, 0.0);
+
+    let view_matrix = {
+        let eye_position = SPnt3::new(0.0, 0.0, -10.0);
+        let target_position = SPnt3::new(0.0, 0.0, 0.0);
+        let up_direction = SVec3::y();
+
+        SMat44::look_at_lh(&eye_position, &target_position, &up_direction)
+    };
+
     while !shouldquit {
         let curframetime = winapi.curtimemicroseconds();
         let dt = curframetime - lastframetime;
         let _dtms = dt as f64;
+
+        let total_time = curframetime - start_time;
+
+        // -- update
+        {
+            let cur_angle = (total_time as f32) * ((3.14 / 2.0) / 1000.0);
+            let model_matrix = SMat44::new_rotation(rot_axis * cur_angle);
+
+            let perspective_matrix = {
+                let fovy : f32 = 3.14159 / 8.0;
+                let aspect = (window.width() as f32) / (window.height() as f32);
+                let znear = 0.1;
+                let zfar = 100.0;
+
+                SMat44::new_perspective(fovy, aspect, znear, zfar)
+            };
+
+        }
 
         //println!("Frame {} time: {}us", framecount, dtms);
 
@@ -455,6 +481,15 @@ fn main_d3d12() -> Result<(), &'static str> {
                             &mut directcommandpool,
                             &mut copycommandpool,
                             &depthstencilviewheap
+                        );
+
+                        viewport = t12::SViewport::new(
+                            0.0,
+                            0.0,
+                            window.width() as f32,
+                            window.height() as f32,
+                            None,
+                            None,
                         );
 
                         // -- $$$FRK(TODO): why do we do this?

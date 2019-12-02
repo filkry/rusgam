@@ -314,6 +314,7 @@ impl SWindow {
     }
 }
 
+#[derive(Copy, Clone)]
 pub struct SRect {
     pub left: i32,
     pub right: i32,

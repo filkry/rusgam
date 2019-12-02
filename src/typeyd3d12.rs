@@ -974,6 +974,28 @@ impl SCommandAllocator {
     }
 }
 
+pub struct SScissorRects {
+    rects: ArrayVec<[SRect; 16]>,
+
+    d3drects: ArrayVec<[D3D12_RECT; 16]>,
+}
+
+impl SScissorRects {
+    pub fn create(rects: &[&SRect]) -> Self {
+        let mut result = Self {
+            rects: ArrayVec::new(),
+            d3drects: ArrayVec::new(),
+        };
+
+        for rect in rects {
+            result.rects.push(**rect);
+            result.d3drects.push(rect.d3dtype());
+        }
+
+        result
+    }
+}
+
 #[derive(Clone)]
 pub struct SCommandList {
     commandlist: ComPtr<ID3D12GraphicsCommandList>,
@@ -1032,6 +1054,18 @@ impl SCommandList {
 
     pub unsafe fn ia_set_index_buffer(&self, index_buffer: &SIndexBufferView) {
         self.commandlist.IASetIndexBuffer(&index_buffer.raw)
+    }
+
+    pub unsafe fn rs_set_viewports(&self, viewports: &[&SViewport]) {
+        assert!(viewports.len() == 1); // didn't want to implement copying d3dtype array
+        self.commandlist.RSSetViewports(viewports.len() as u32, &viewports[0].viewport)
+    }
+
+    pub unsafe fn rs_set_scissor_rects(&self, scissor_rects: SScissorRects) {
+        self.commandlist.RSSetScissorRects(
+            scissor_rects.d3drects.len() as u32,
+            &scissor_rects.d3drects[0]
+        )
     }
 
     pub unsafe fn close(&self) -> Result<(), &'static str> {
@@ -1187,6 +1221,17 @@ impl SViewport {
 }
 
 pub type SRect = safewindows::SRect;
+
+impl SRect {
+    pub fn d3dtype(&self) -> D3D12_RECT {
+        D3D12_RECT {
+            left: self.left,
+            right: self.right,
+            top: self.top,
+            bottom: self.bottom,
+        }
+    }
+}
 
 #[derive(Copy, Clone, PartialEq)]
 pub enum EDXGIFormat {

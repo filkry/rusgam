@@ -456,12 +456,20 @@ impl SCommandList {
         unsafe { self.raw.ia_set_primitive_topology(primitive_topology) }
     }
 
-    pub fn ia_set_vertex_buffers(&self, start_slot: u32, vertex_buffers: &[&t12::SVertexBufferView]) {
+    pub fn ia_set_vertex_buffers(&mut self, start_slot: u32, vertex_buffers: &[&t12::SVertexBufferView]) {
         unsafe { self.raw.ia_set_vertex_buffers(start_slot, vertex_buffers) }
     }
 
-    pub fn ia_set_index_buffer(&self, index_buffer: &t12::SIndexBufferView) {
+    pub fn ia_set_index_buffer(&mut self, index_buffer: &t12::SIndexBufferView) {
         unsafe { self.raw.ia_set_index_buffer(index_buffer) }
+    }
+
+    pub fn rs_set_viewports(&mut self, viewports: &[&t12::SViewport]) {
+        unsafe { self.raw.rs_set_viewports(viewports) }
+    }
+
+    pub fn rs_set_scissor_rects(&mut self, scissor_rects: t12::SScissorRects) {
+        unsafe { self.raw.rs_set_scissor_rects(scissor_rects) }
     }
 
     pub fn get_type(&self) -> t12::ECommandListType {

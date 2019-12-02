@@ -161,7 +161,7 @@ fn main_d3d12() -> Result<(), &'static str> {
         None,
         None,
     );
-    let _scissorrect = t12::SRect {
+    let scissorrect = t12::SRect {
         left: 0,
         right: std::i32::MAX,
         top: 0,
@@ -434,6 +434,10 @@ fn main_d3d12() -> Result<(), &'static str> {
                 list.ia_set_primitive_topology(t12::EPrimitiveTopology::TriangleList);
                 list.ia_set_vertex_buffers(0, &[&vert_buffer_view]);
                 list.ia_set_index_buffer(&index_buffer_view);
+
+                // -- setup rasterizer state
+                list.rs_set_viewports(&[&viewport]);
+                list.rs_set_scissor_rects(t12::SScissorRects::create(&[&scissorrect]));
 
                 // -- transition to present
                 list.transition_resource(

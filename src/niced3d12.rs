@@ -407,8 +407,11 @@ impl SCommandAllocator {
 // Command List functions
 // ---------------------------------------------------------------------------------------------
 impl SCommandList {
+    // -- by default, unsafe blocks are here because we are guaranteeing exclusive access to
+    // -- the CommandList via the &mut self reference
+
     pub fn reset(&mut self, allocator: &mut SCommandAllocator) -> Result<(), &'static str> {
-        self.raw.reset(&allocator.raw)
+        unsafe { self.raw.reset(&allocator.raw) }
     }
 
     pub fn transition_resource(
@@ -419,7 +422,7 @@ impl SCommandList {
     ) -> Result<(), &'static str> {
         let transbarrier =
             t12::createtransitionbarrier(&resource.raw, beforestate, afterstate);
-        self.raw.resourcebarrier(1, &[transbarrier]);
+        unsafe { self.raw.resourcebarrier(1, &[transbarrier]) };
         Ok(())
     }
 
@@ -428,8 +431,37 @@ impl SCommandList {
         rtvdescriptor: t12::SDescriptorHandle,
         colour: &[f32; 4],
     ) -> Result<(), &'static str> {
-        self.raw.clearrendertargetview(rtvdescriptor, colour);
+        unsafe { self.raw.clearrendertargetview(rtvdescriptor, colour) };
         Ok(())
+    }
+
+    pub fn clear_depth_stencil_view(
+        &mut self,
+        dsv_descriptor: t12::SDescriptorHandle,
+        depth: f32,
+    ) -> Result<(), &'static str> {
+        unsafe { self.raw.clear_depth_stencil_view(dsv_descriptor, depth) };
+        Ok(())
+    }
+
+    pub fn set_pipeline_state(&mut self, pipeline_state: &t12::SPipelineState) {
+        unsafe { self.raw.set_pipeline_state(pipeline_state) }
+    }
+
+    pub fn set_graphics_root_signature(&mut self, root_signature: &t12::SRootSignature) {
+        unsafe { self.raw.set_graphics_root_signature(root_signature) }
+    }
+
+    pub fn ia_set_primitive_topology(&mut self, primitive_topology: t12::EPrimitiveTopology) {
+        unsafe { self.raw.ia_set_primitive_topology(primitive_topology) }
+    }
+
+    pub fn ia_set_vertex_buffers(&self, start_slot: u32, vertex_buffers: &[&t12::SVertexBufferView]) {
+        unsafe { self.raw.ia_set_vertex_buffers(start_slot, vertex_buffers) }
+    }
+
+    pub fn ia_set_index_buffer(&self, index_buffer: &t12::SIndexBufferView) {
+        unsafe { self.raw.ia_set_index_buffer(index_buffer) }
     }
 
     pub fn get_type(&self) -> t12::ECommandListType {
@@ -437,7 +469,47 @@ impl SCommandList {
     }
 
     pub fn close(&mut self) -> Result<(), &'static str> {
-        self.raw.close()
+        unsafe { self.raw.close() }
+    }
+
+    pub fn update_buffer_resource<T>(
+        &mut self,
+        device: &SDevice,
+        bufferdata: &[T],
+        flags: t12::SResourceFlags,
+    ) -> Result<SCommandQueueUpdateBufferResult, &'static str> {
+
+        let mut destinationresource = device.create_committed_buffer_resource(
+            t12::EHeapType::Default,
+            flags,
+            t12::EResourceStates::CopyDest,
+            bufferdata
+        )?;
+
+        // -- resource created with Upload type MUST have state GenericRead
+        let mut intermediateresource = device.create_committed_buffer_resource(
+            t12::EHeapType::Upload,
+            flags,
+            t12::EResourceStates::GenericRead,
+            bufferdata
+        )?;
+
+        let mut srcdata = t12::SSubResourceData::createbuffer(bufferdata);
+        update_subresources_stack(
+            self,
+            &mut destinationresource,
+            &mut intermediateresource,
+            0,
+            0,
+            1,
+            &mut srcdata,
+        );
+
+        Ok(SCommandQueueUpdateBufferResult {
+            destinationresource: destinationresource,
+            intermediateresource: intermediateresource,
+        })
+
     }
 }
 
@@ -466,8 +538,10 @@ impl SCommandQueue {
         &self, // -- verified thread safe in docs
         list: &mut SCommandList,
     ) -> Result<(), &'static str> {
-        list.raw.close()?;
-        unsafe { self.raw.executecommandlist(&list.raw) };
+        unsafe {
+            list.raw.close()?;
+            self.raw.executecommandlist(&list.raw)
+        };
         Ok(())
     }
 
@@ -634,48 +708,6 @@ fn update_subresources_stack(
     }
 }
 
-
-impl SCommandList {
-    pub fn update_buffer_resource<T>(
-        &mut self,
-        device: &SDevice,
-        bufferdata: &[T],
-        flags: t12::SResourceFlags,
-    ) -> Result<SCommandQueueUpdateBufferResult, &'static str> {
-
-        let mut destinationresource = device.create_committed_buffer_resource(
-            t12::EHeapType::Default,
-            flags,
-            t12::EResourceStates::CopyDest,
-            bufferdata
-        )?;
-
-        // -- resource created with Upload type MUST have state GenericRead
-        let mut intermediateresource = device.create_committed_buffer_resource(
-            t12::EHeapType::Upload,
-            flags,
-            t12::EResourceStates::GenericRead,
-            bufferdata
-        )?;
-
-        let mut srcdata = t12::SSubResourceData::createbuffer(bufferdata);
-        update_subresources_stack(
-            self,
-            &mut destinationresource,
-            &mut intermediateresource,
-            0,
-            0,
-            1,
-            &mut srcdata,
-        );
-
-        Ok(SCommandQueueUpdateBufferResult {
-            destinationresource: destinationresource,
-            intermediateresource: intermediateresource,
-        })
-
-    }
-}
 
 impl Default for EResourceMetadata {
     fn default() -> Self {
@@ -891,9 +923,9 @@ impl<'a> SCommandListPool<'a> {
         }
 
         for _ in 0..num_lists {
-            let list = unsafe { device.create_command_list(&mut allocators[0])? } ;
+            let mut list = unsafe { device.create_command_list(&mut allocators[0])? } ;
             // -- immediately close handle because we'll re-assign a new allocator from the pool when ready
-            list.raw.close()?;
+            list.close()?;
             lists.push(SCommandListPoolList{
                 list: list,
                 allocator: Default::default(),

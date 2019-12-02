@@ -222,7 +222,7 @@ fn main_d3d12() -> Result<(), &'static str> {
     ];
 
     // -- upload data to GPU
-    {
+    let (vert_buffer_resource, vert_buffer_view, index_buffer_resource, index_buffer_view) = {
         let handle = copycommandpool.alloc_list()?;
         let copycommandlist = copycommandpool.get_list(handle)?;
 
@@ -233,7 +233,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                 .update_buffer_resource(&device, &cubeverts, vertbufferflags)
                 ?
         };
-        let _vertexbufferview = vertbufferresource
+        let vertexbufferview = vertbufferresource
             .destinationresource
             .create_vertex_buffer_view()
             ?;
@@ -245,14 +245,16 @@ fn main_d3d12() -> Result<(), &'static str> {
                 .update_buffer_resource(&device, &indices, indexbufferflags)
                 ?
         };
-        let _indexbufferview = indexbufferresource
+        let indexbufferview = indexbufferresource
             .destinationresource
             .create_index_buffer_view(t12::EFormat::R16UINT)
             ?;
 
         let fenceval = copycommandpool.execute_and_free_list(handle)?;
         copycommandpool.wait_for_internal_fence_value(fenceval);
-    }
+
+        (vertbufferresource, vertexbufferview, indexbufferresource, indexbufferview)
+    };
 
     // -- load shaders
     let vertblob = t12::read_file_to_blob("shaders_built/vertex.cso")?;
@@ -333,7 +335,7 @@ fn main_d3d12() -> Result<(), &'static str> {
         rtv_formats: n12::SPipelineStateStreamRTVFormats::create(&rtv_formats),
     };
     let pipeline_state_stream_desc = t12::SPipelineStateStreamDesc::create(&pipeline_state_stream);
-    let _pipelinestate = device.raw().create_pipeline_state(&pipeline_state_stream_desc);
+    let pipeline_state = device.raw().create_pipeline_state(&pipeline_state_stream_desc)?;
 
     // -- depth texture
     #[allow(unused_variables)]
@@ -374,20 +376,17 @@ fn main_d3d12() -> Result<(), &'static str> {
         let total_time = curframetime - start_time;
 
         // -- update
-        {
-            let cur_angle = (total_time as f32) * ((3.14 / 2.0) / 1000.0);
-            let model_matrix = SMat44::new_rotation(rot_axis * cur_angle);
+        let cur_angle = (total_time as f32) * ((3.14 / 2.0) / 1000.0);
+        let model_matrix = SMat44::new_rotation(rot_axis * cur_angle);
 
-            let perspective_matrix = {
-                let fovy : f32 = 3.14159 / 8.0;
-                let aspect = (window.width() as f32) / (window.height() as f32);
-                let znear = 0.1;
-                let zfar = 100.0;
+        let perspective_matrix = {
+            let fovy : f32 = 3.14159 / 8.0;
+            let aspect = (window.width() as f32) / (window.height() as f32);
+            let znear = 0.1;
+            let zfar = 100.0;
 
-                SMat44::new_perspective(fovy, aspect, znear, zfar)
-            };
-
-        }
+            SMat44::new_perspective(fovy, aspect, znear, zfar)
+        };
 
         //println!("Frame {} time: {}us", framecount, dtms);
 
@@ -401,11 +400,12 @@ fn main_d3d12() -> Result<(), &'static str> {
 
             let handle = directcommandpool.alloc_list()?;
 
-            // -- clear the render target
             {
                 let list = directcommandpool.get_list(handle)?;
 
                 let backbuffer = window.currentbackbuffer();
+                let render_target_view = window.currentrendertargetdescriptor();
+                let depth_texture_view = depthstencilviewheap.cpu_handle_heap_start();
 
                 // -- transition to render target
                 list.transition_resource(
@@ -420,6 +420,20 @@ fn main_d3d12() -> Result<(), &'static str> {
                     window.currentrendertargetdescriptor()?,
                     &clearcolour,
                 )?;
+                list.clear_depth_stencil_view(
+                    depthstencilviewheap.cpu_handle_heap_start(),
+                    1.0,
+                )?;
+
+                // -- set up pipeline
+                list.set_pipeline_state(&pipeline_state);
+                // root signature has to be set explicitly despite being on PSO, according to tutorial
+                list.set_graphics_root_signature(&root_signature);
+
+                // -- setup input assembler
+                list.ia_set_primitive_topology(t12::EPrimitiveTopology::TriangleList);
+                list.ia_set_vertex_buffers(0, &[&vert_buffer_view]);
+                list.ia_set_index_buffer(&index_buffer_view);
 
                 // -- transition to present
                 list.transition_resource(

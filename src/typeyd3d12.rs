@@ -980,36 +980,62 @@ pub struct SCommandList {
 }
 
 impl SCommandList {
+    // -- almost everything in here is unsafe because we take shared references, but require
+    // -- exclusive access to be thread safe
+
     pub fn gettype(&self) -> ECommandListType {
         unsafe { ECommandListType::create(self.commandlist.GetType()) }
     }
 
-    pub fn reset(&self, commandallocator: &SCommandAllocator) -> Result<(), &'static str> {
-        let hn = unsafe {
-            self.commandlist
-                .Reset(commandallocator.commandallocator.as_raw(), ptr::null_mut())
-        };
+    pub unsafe fn reset(&self, commandallocator: &SCommandAllocator) -> Result<(), &'static str> {
+        let hn = self.commandlist
+            .Reset(commandallocator.commandallocator.as_raw(), ptr::null_mut());
         returnerrifwinerror!(hn, "Could not reset command list.");
         Ok(())
     }
 
-    pub fn resourcebarrier(&self, numbarriers: u32, barriers: &[SBarrier]) {
+    pub unsafe fn resourcebarrier(&self, numbarriers: u32, barriers: &[SBarrier]) {
         // -- $$$FRK(TODO): need to figure out how to make a c array from the rust slice
         // -- w/o a heap allocation...
         assert!(numbarriers == 1);
-        unsafe { self.commandlist.ResourceBarrier(1, &(barriers[0].barrier)) };
+        self.commandlist.ResourceBarrier(1, &(barriers[0].barrier));
     }
 
-    pub fn clearrendertargetview(&self, descriptor: SDescriptorHandle, colour: &[f32; 4]) {
+    pub unsafe fn clearrendertargetview(&self, descriptor: SDescriptorHandle, colour: &[f32; 4]) {
         // -- $$$FRK(TODO): support third/fourth parameter
-        unsafe {
-            self.commandlist
-                .ClearRenderTargetView(descriptor.handle, colour, 0, ptr::null());
-        }
+        self.commandlist
+            .ClearRenderTargetView(descriptor.handle, colour, 0, ptr::null());
     }
 
-    pub fn close(&self) -> Result<(), &'static str> {
-        let hn = unsafe { self.commandlist.Close() };
+    pub unsafe fn clear_depth_stencil_view(&self, descriptor: SDescriptorHandle, depth: f32) {
+        // -- $$$FRK(TODO): support ClearFlags/Stencil/NumRects/pRects
+        self.commandlist.ClearDepthStencilView(
+            descriptor.handle, D3D12_CLEAR_FLAG_DEPTH, depth, 0, 0, ptr::null());
+    }
+
+    pub unsafe fn set_pipeline_state(&self, pipeline_state: &SPipelineState) {
+        self.commandlist.SetPipelineState(pipeline_state.raw.as_raw())
+    }
+
+    pub unsafe fn set_graphics_root_signature(&self, root_signature: &SRootSignature) {
+        self.commandlist.SetGraphicsRootSignature(root_signature.raw.as_raw())
+    }
+
+    pub unsafe fn ia_set_primitive_topology(&self, primitive_topology: EPrimitiveTopology) {
+        self.commandlist.IASetPrimitiveTopology(primitive_topology.d3dtype())
+    }
+
+    pub unsafe fn ia_set_vertex_buffers(&self, start_slot: u32, vertex_buffers: &[&SVertexBufferView]) {
+        assert!(vertex_buffers.len() == 1); // didn't want to implement copying d3dtype array
+        self.commandlist.IASetVertexBuffers(start_slot, vertex_buffers.len() as u32, &vertex_buffers[0].raw)
+    }
+
+    pub unsafe fn ia_set_index_buffer(&self, index_buffer: &SIndexBufferView) {
+        self.commandlist.IASetIndexBuffer(&index_buffer.raw)
+    }
+
+    pub unsafe fn close(&self) -> Result<(), &'static str> {
+        let hn = self.commandlist.Close();
         returnerrifwinerror!(hn, "Could not close command list.");
         Ok(())
     }
@@ -1796,6 +1822,20 @@ impl EPrimitiveTopologyType {
             Self::Line => D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE,
             Self::Triangle => D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
             Self::Patch => D3D12_PRIMITIVE_TOPOLOGY_TYPE_PATCH
+        }
+    }
+}
+
+#[derive(Copy, Clone, PartialEq)]
+pub enum EPrimitiveTopology {
+    // -- not comprehensive, too many to type at once, add as needed
+    TriangleList,
+}
+
+impl EPrimitiveTopology {
+    pub fn d3dtype(&self) -> D3D12_PRIMITIVE_TOPOLOGY {
+        match self {
+            Self::TriangleList => d3dcommon::D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST,
         }
     }
 }

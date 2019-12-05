@@ -1112,7 +1112,7 @@ impl SCommandList {
         self.commandlist.DrawIndexedInstanced(
             index_count_per_instance,
             instance_count,
-            start_instance_location,
+            start_index_location,
             base_vertex_location,
             start_instance_location,
         );

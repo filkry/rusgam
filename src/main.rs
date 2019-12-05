@@ -26,7 +26,7 @@ use niced3d12 as n12;
 type SMat44 = nalgebra::Matrix4<f32>;
 type SPnt3 = nalgebra::Point3<f32>;
 type SVec3 = nalgebra::Vector3<f32>;
-type SVec4 = nalgebra::Vector4<f32>;
+//type SVec4 = nalgebra::Vector4<f32>;
 
 #[allow(dead_code)]
 struct SVertexPosColour {
@@ -137,7 +137,7 @@ fn main_d3d12() -> Result<(), &'static str> {
         2,
     )?;
 
-    let mut window = n12::created3d12window(
+    let mut window = n12::SD3D12Window::new(
         &windowclass,
         &factory,
         &mut device,
@@ -223,6 +223,7 @@ fn main_d3d12() -> Result<(), &'static str> {
     ];
 
     // -- upload data to GPU
+    #[allow(unused_variables)]
     let (vert_buffer_resource, vert_buffer_view, index_buffer_resource, index_buffer_view) = {
         let handle = copycommandpool.alloc_list()?;
         let copycommandlist = copycommandpool.get_list(handle)?;

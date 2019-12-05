@@ -56,9 +56,7 @@ impl SDevice {
 
         returnerrifwinerror!(hr, "Could not create command queue");
 
-        Ok(SCommandQueue {
-            queue: unsafe { ComPtr::from_raw(rawqueue) },
-        })
+        Ok(unsafe { SCommandQueue::new_from_raw(ComPtr::from_raw(rawqueue)) })
     }
 
     pub fn create_descriptor_heap(
@@ -84,12 +82,10 @@ impl SDevice {
 
         returnerrifwinerror!(hr, "Failed to create descriptor heap");
 
-        let heap = unsafe { ComPtr::from_raw(rawheap) };
-
-        Ok(SDescriptorHeap {
-            type_: type_,
-            heap: heap,
-        })
+        unsafe {
+            let heap = ComPtr::from_raw(rawheap);
+            Ok(SDescriptorHeap::new_from_raw(type_, heap))
+        }
     }
 
     pub fn getdescriptorhandleincrementsize(&self, type_: EDescriptorHeapType) -> usize {
@@ -105,7 +101,7 @@ impl SDevice {
             self.device.CreateRenderTargetView(
                 resource.raw().as_raw(),
                 ptr::null(),
-                destdescriptor.handle,
+                *destdescriptor.raw(),
             );
         }
     }
@@ -122,7 +118,7 @@ impl SDevice {
             self.device.CreateDepthStencilView(
                 resource.raw().as_raw(),
                 &d3ddesc,
-                dest_descriptor.handle,
+                *dest_descriptor.raw(),
             );
         }
     }
@@ -150,9 +146,9 @@ impl SDevice {
 
             let mut rawresource: *mut ID3D12Resource = ptr::null_mut();
             let hn = self.device.CreateCommittedResource(
-                &heapproperties.raw,
+                heapproperties.raw(),
                 heapflags.d3dtype(),
-                &resourcedesc.raw,
+                resourcedesc.raw(),
                 initialresourcestate.d3dtype(),
                 clear_value_ptr,
                 &ID3D12Resource::uuidof(), // $$$FRK(TODO): this isn't necessarily right
@@ -179,10 +175,7 @@ impl SDevice {
 
         returnerrifwinerror!(hn, "Could not create command allocator.");
 
-        Ok(SCommandAllocator {
-            type_: type_,
-            commandallocator: unsafe { ComPtr::from_raw(rawca) },
-        })
+        Ok(unsafe { SCommandAllocator::new_from_raw(type_, ComPtr::from_raw(rawca)) } )
     }
 
     pub fn createcommandlist(
@@ -193,8 +186,8 @@ impl SDevice {
         let hn = unsafe {
             self.device.CreateCommandList(
                 0,
-                allocator.type_.d3dtype(),
-                allocator.commandallocator.as_raw(),
+                allocator.type_().d3dtype(),
+                allocator.raw().as_raw(),
                 ptr::null_mut(),
                 &ID3D12GraphicsCommandList::uuidof(),
                 &mut rawcl as *mut *mut _ as *mut *mut c_void,
@@ -221,9 +214,7 @@ impl SDevice {
 
         returnerrifwinerror!(hn, "Could not create fence.");
 
-        Ok(SFence {
-            fence: unsafe { ComPtr::from_raw(rawf) },
-        })
+        Ok(unsafe { SFence::new_from_raw(ComPtr::from_raw(rawf)) })
     }
 
     // -- $$$FRK(TODO): support nodeMask parameter

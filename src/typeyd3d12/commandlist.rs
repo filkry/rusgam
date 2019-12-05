@@ -56,7 +56,7 @@ impl SCommandList {
 
     pub unsafe fn reset(&self, commandallocator: &SCommandAllocator) -> Result<(), &'static str> {
         let hn = self.commandlist
-            .Reset(commandallocator.commandallocator.as_raw(), ptr::null_mut());
+            .Reset(commandallocator.raw().as_raw(), ptr::null_mut());
         returnerrifwinerror!(hn, "Could not reset command list.");
         Ok(())
     }
@@ -71,13 +71,13 @@ impl SCommandList {
     pub unsafe fn clearrendertargetview(&self, descriptor: SDescriptorHandle, colour: &[f32; 4]) {
         // -- $$$FRK(TODO): support third/fourth parameter
         self.commandlist
-            .ClearRenderTargetView(descriptor.handle, colour, 0, ptr::null());
+            .ClearRenderTargetView(*descriptor.raw(), colour, 0, ptr::null());
     }
 
     pub unsafe fn clear_depth_stencil_view(&self, descriptor: SDescriptorHandle, depth: f32) {
         // -- $$$FRK(TODO): support ClearFlags/Stencil/NumRects/pRects
         self.commandlist.ClearDepthStencilView(
-            descriptor.handle, D3D12_CLEAR_FLAG_DEPTH, depth, 0, 0, ptr::null());
+            *descriptor.raw(), D3D12_CLEAR_FLAG_DEPTH, depth, 0, 0, ptr::null());
     }
 
     pub unsafe fn set_pipeline_state(&self, pipeline_state: &SPipelineState) {
@@ -123,9 +123,9 @@ impl SCommandList {
 
         self.commandlist.OMSetRenderTargets(
             render_target_descriptors.len() as u32,
-            &render_target_descriptors[0].handle,
+            render_target_descriptors[0].raw(),
             rts_single_handle_to_descriptor_range as i32,
-            &depth_target_descriptor.handle,
+            depth_target_descriptor.raw(),
         );
     }
 

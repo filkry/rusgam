@@ -15,6 +15,12 @@ mod resource;
 mod device;
 mod infoqueue;
 mod commandlist;
+mod commandqueue;
+mod commandallocator;
+mod swapchain;
+mod descriptor;
+mod heap;
+mod fence;
 
 use safewindows;
 
@@ -50,205 +56,6 @@ where
     unsafe fn asunknownptr(&self) -> *mut unknwnbase::IUnknown {
         self.as_raw() as *mut unknwnbase::IUnknown
     }
-}
-
-pub use self::debuginterface::SDebugInterface;
-pub use self::factory::SFactory;
-pub use self::adapter::SAdapter1;
-pub use self::adapter::SAdapter4;
-pub use self::resource::*;
-pub use self::device::*;
-pub use self::infoqueue::SInfoQueue;
-pub use self::commandlist::*;
-
-pub struct SBarrier {
-    barrier: D3D12_RESOURCE_BARRIER,
-}
-
-pub struct SCommandQueueDesc {
-    raw: D3D12_COMMAND_QUEUE_DESC,
-}
-
-impl SCommandQueueDesc {
-    pub fn cqtype(&self) -> ECommandListType {
-        ECommandListType::new_from_d3dtype(self.raw.Type)
-    }
-}
-
-#[derive(Clone)]
-pub struct SCommandQueue {
-    queue: ComPtr<ID3D12CommandQueue>,
-}
-
-
-#[derive(Clone)]
-pub struct SSwapChain {
-    swapchain: ComPtr<IDXGISwapChain4>,
-}
-
-impl SSwapChain {
-    pub fn present(&self, syncinterval: u32, flags: u32) -> Result<(), &'static str> {
-        let hr = unsafe { self.swapchain.Present(syncinterval, flags) };
-        returnerrifwinerror!(hr, "Couldn't present to swap chain.");
-        Ok(())
-    }
-
-    pub fn currentbackbufferindex(&self) -> usize {
-        unsafe { self.swapchain.GetCurrentBackBufferIndex() as usize }
-    }
-
-    pub fn getbuffer(&self, idx: usize) -> Result<SResource, &'static str> {
-        let mut rawbuf: *mut ID3D12Resource = ptr::null_mut();
-        let hn = unsafe {
-            self.swapchain.GetBuffer(
-                idx as u32,
-                &ID3D12Resource::uuidof(),
-                &mut rawbuf as *mut *mut _ as *mut *mut c_void,
-            )
-        };
-
-        returnerrifwinerror!(
-            hn,
-            "Couldn't get ID3D12Resource for backbuffer from swapchain."
-        );
-
-        Ok(unsafe { SResource::new_from_raw(ComPtr::from_raw(rawbuf)) })
-    }
-
-    pub fn getdesc(&self) -> Result<SSwapChainDesc, &'static str> {
-        unsafe {
-            let mut desc: DXGI_SWAP_CHAIN_DESC = mem::zeroed();
-            let hr = self.swapchain.GetDesc(&mut desc as *mut _);
-            returnerrifwinerror!(hr, "Couldn't get swap chain desc.");
-            Ok(SSwapChainDesc { desc: desc })
-        }
-    }
-
-    // -- $$$FRK(TODO): support correct params
-    pub fn resizebuffers(
-        &self,
-        buffercount: u32,
-        width: u32,
-        height: u32,
-        olddesc: &SSwapChainDesc,
-    ) -> Result<(), &'static str> {
-        unsafe {
-            let hr = self.swapchain.ResizeBuffers(
-                buffercount,
-                width,
-                height,
-                olddesc.desc.BufferDesc.Format,
-                olddesc.desc.Flags,
-            );
-            returnerrifwinerror!(hr, "Couldn't resize buffers.");
-        }
-        Ok(())
-    }
-}
-
-pub struct SSwapChainDesc {
-    desc: DXGI_SWAP_CHAIN_DESC,
-}
-
-#[derive(Copy, Clone)]
-pub enum EDescriptorHeapType {
-    ConstantBufferShaderResourceUnorderedAccess,
-    Sampler,
-    RenderTarget,
-    DepthStencil,
-}
-
-impl EDescriptorHeapType {
-    pub fn d3dtype(&self) -> u32 {
-        match self {
-            EDescriptorHeapType::ConstantBufferShaderResourceUnorderedAccess => {
-                D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV
-            }
-            EDescriptorHeapType::Sampler => D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER,
-            EDescriptorHeapType::RenderTarget => D3D12_DESCRIPTOR_HEAP_TYPE_RTV,
-            EDescriptorHeapType::DepthStencil => D3D12_DESCRIPTOR_HEAP_TYPE_DSV,
-        }
-    }
-}
-
-#[derive(Clone)]
-pub struct SDescriptorHeap {
-    pub type_: EDescriptorHeapType,
-    heap: ComPtr<ID3D12DescriptorHeap>,
-}
-
-impl SDescriptorHeap {
-    pub fn getcpudescriptorhandleforheapstart(&self) -> SDescriptorHandle {
-        let start = unsafe { self.heap.GetCPUDescriptorHandleForHeapStart() };
-        SDescriptorHandle { handle: start }
-    }
-}
-
-pub struct SDescriptorHandle {
-    handle: D3D12_CPU_DESCRIPTOR_HANDLE,
-}
-
-impl SDescriptorHandle {
-    pub unsafe fn offset(&self, bytes: usize) -> SDescriptorHandle {
-        SDescriptorHandle {
-            handle: D3D12_CPU_DESCRIPTOR_HANDLE {
-                ptr: self.handle.ptr + bytes,
-            },
-        }
-    }
-}
-
-// -- $$$FRK(TODO): combine impls
-
-#[derive(Copy, Clone, PartialEq)]
-pub enum EHeapType {
-    Default,
-    Upload,
-}
-
-impl EHeapType {
-    pub fn d3dtype(&self) -> D3D12_HEAP_TYPE {
-        match self {
-            EHeapType::Default => D3D12_HEAP_TYPE_DEFAULT,
-            EHeapType::Upload => D3D12_HEAP_TYPE_UPLOAD,
-        }
-    }
-}
-
-pub struct SHeapProperties {
-    raw: D3D12_HEAP_PROPERTIES,
-}
-
-impl SHeapProperties {
-    pub fn create(type_: EHeapType) -> Self {
-        Self {
-            raw: D3D12_HEAP_PROPERTIES {
-                Type: type_.d3dtype(),
-                CPUPageProperty: D3D12_CPU_PAGE_PROPERTY_UNKNOWN,
-                MemoryPoolPreference: D3D12_MEMORY_POOL_UNKNOWN,
-                CreationNodeMask: 1,
-                VisibleNodeMask: 1,
-            },
-        }
-    }
-}
-
-#[derive(Copy, Clone, PartialEq)]
-pub enum EHeapFlags {
-    ENone,
-}
-
-impl TD3DFlags32 for EHeapFlags {
-    type TD3DType = D3D12_HEAP_FLAGS;
-
-    fn d3dtype(&self) -> Self::TD3DType {
-        match self {
-            EHeapFlags::ENone => D3D12_HEAP_FLAG_NONE,
-        }
-    }
-}
-pub struct SResourceDesc {
-    raw: D3D12_RESOURCE_DESC,
 }
 
 pub trait TD3DFlags32 {
@@ -319,92 +126,26 @@ impl<T: TD3DFlags32 + Copy> SD3DFlags32<T> {
     }
 }
 
-// -- $$$FRK(TODO): does not follow the philosophy of this file for creating rustic types for each
-// -- D3D type. Furthermore, the helper methods belong in niced3d12
-impl SResourceDesc {
-    pub fn createbuffer(buffersize: usize, flags: SResourceFlags) -> Self {
-        Self {
-            raw: D3D12_RESOURCE_DESC {
-                Dimension: D3D12_RESOURCE_DIMENSION_BUFFER,
-                Alignment: D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT as u64,
-                Width: buffersize as u64, // seems like this is used as the main dimension for a 1D resource
-                Height: 1,                // required
-                DepthOrArraySize: 1,      // required
-                MipLevels: 1,             // required
-                Format: dxgiformat::DXGI_FORMAT_UNKNOWN, // required
-                SampleDesc: dxgitype::DXGI_SAMPLE_DESC {
-                    Count: 1,   // required
-                    Quality: 0, // required
-                },
-                Layout: D3D12_TEXTURE_LAYOUT_ROW_MAJOR, // required
-                Flags: flags.d3dtype(),
-            },
-        }
-    }
+pub use self::debuginterface::SDebugInterface;
+pub use self::factory::SFactory;
+pub use self::adapter::SAdapter1;
+pub use self::adapter::SAdapter4;
+pub use self::resource::*;
+pub use self::device::*;
+pub use self::infoqueue::SInfoQueue;
+pub use self::commandlist::*;
+pub use self::commandqueue::*;
+pub use self::commandallocator::*;
+pub use self::swapchain::*;
+pub use self::descriptor::*;
+pub use self::heap::*;
+pub use self::fence::SFence;
 
-    pub fn create_texture_2d(width: u32, height: u32, array_size: u16, mip_levels: u16, format: EDXGIFormat, flags: SResourceFlags) -> Self {
-        Self {
-            raw: D3D12_RESOURCE_DESC {
-                Dimension: D3D12_RESOURCE_DIMENSION_TEXTURE2D,
-                Alignment: D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT as u64,
-                Width: width as u64,
-                Height: height,                // required
-                DepthOrArraySize: array_size,      // required
-                MipLevels: mip_levels,             // required
-                Format: format.d3dtype(), // required
-                SampleDesc: dxgitype::DXGI_SAMPLE_DESC {
-                    Count: 1,   // required
-                    Quality: 0, // required
-                },
-                Layout: D3D12_TEXTURE_LAYOUT_UNKNOWN, // required
-                Flags: flags.d3dtype(),
-            },
-        }
-    }
+pub struct SBarrier {
+    barrier: D3D12_RESOURCE_BARRIER,
 }
 
-#[derive(Copy, Clone, PartialEq)]
-pub enum EResourceFlags {
-    ENone,
-    AllowRenderTarget,
-    AllowDepthStencil,
-    AllowUnorderedAccess,
-    DenyShaderResource,
-    AllowCrossAdapter,
-    AllowSimultaneousAccess,
-}
-
-impl TD3DFlags32 for EResourceFlags {
-    type TD3DType = D3D12_HEAP_FLAGS;
-
-    fn d3dtype(&self) -> Self::TD3DType {
-        match self {
-            EResourceFlags::ENone => D3D12_RESOURCE_FLAG_NONE,
-            EResourceFlags::AllowRenderTarget => D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET,
-            EResourceFlags::AllowDepthStencil => D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL,
-            EResourceFlags::AllowUnorderedAccess => D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
-            EResourceFlags::DenyShaderResource => D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE,
-            EResourceFlags::AllowCrossAdapter => D3D12_RESOURCE_FLAG_ALLOW_CROSS_ADAPTER,
-            EResourceFlags::AllowSimultaneousAccess => {
-                D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS
-            }
-        }
-    }
-}
-
-pub type SResourceFlags = SD3DFlags32<EResourceFlags>;
-
-#[derive(Clone)]
-pub struct SCommandAllocator {
-    type_: ECommandListType,
-    commandallocator: ComPtr<ID3D12CommandAllocator>,
-}
-
-impl SCommandAllocator {
-    pub fn reset(&self) {
-        unsafe { self.commandallocator.Reset() };
-    }
-}
+// -- $$$FRK(TODO): combine impls
 
 pub struct SScissorRects {
     rects: ArrayVec<[SRect; 16]>,
@@ -425,50 +166,6 @@ impl SScissorRects {
         }
 
         result
-    }
-}
-
-#[derive(Clone)]
-pub struct SFence {
-    fence: ComPtr<ID3D12Fence>,
-}
-
-impl SFence {
-    pub fn getcompletedvalue(&self) -> u64 {
-        unsafe { self.fence.GetCompletedValue() }
-    }
-
-    pub fn seteventoncompletion(
-        &self,
-        val: u64,
-        event: &safewindows::SEventHandle,
-    ) -> Result<(), &'static str> {
-        let hn = unsafe { self.fence.SetEventOnCompletion(val, event.raw()) };
-        returnerrifwinerror!(hn, "Could not set fence event on completion");
-        Ok(())
-    }
-}
-
-impl SCommandQueue {
-    pub fn getdesc(&self) -> SCommandQueueDesc {
-        SCommandQueueDesc {
-            raw: unsafe { self.queue.GetDesc() },
-        }
-    }
-
-    // -- $$$FRK(TODO): revisit this after I understand how I'm going to be using this fence
-    pub fn signal(&self, fence: &SFence, val: u64) -> Result<u64, &'static str> {
-        let hn = unsafe { self.queue.Signal(fence.fence.as_raw(), val) };
-
-        returnerrifwinerror!(hn, "Could not push signal.");
-
-        Ok(val)
-    }
-
-    // -- $$$FRK(TODO): support listS
-    pub unsafe fn executecommandlist(&self, list: &SCommandList) {
-        self.queue
-            .ExecuteCommandLists(1, &(list.raw().as_raw() as *mut ID3D12CommandList));
     }
 }
 

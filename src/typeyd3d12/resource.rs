@@ -51,6 +51,90 @@ impl EResourceStates {
     }
 }
 
+pub struct SResourceDesc {
+    raw: D3D12_RESOURCE_DESC,
+}
+
+// -- $$$FRK(TODO): does not follow the philosophy of this file for creating rustic types for each
+// -- D3D type. Furthermore, the helper methods belong in niced3d12
+impl SResourceDesc {
+    pub unsafe fn raw(&self) -> &D3D12_RESOURCE_DESC {
+        &self.raw
+    }
+
+    pub fn createbuffer(buffersize: usize, flags: SResourceFlags) -> Self {
+        Self {
+            raw: D3D12_RESOURCE_DESC {
+                Dimension: D3D12_RESOURCE_DIMENSION_BUFFER,
+                Alignment: D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT as u64,
+                Width: buffersize as u64, // seems like this is used as the main dimension for a 1D resource
+                Height: 1,                // required
+                DepthOrArraySize: 1,      // required
+                MipLevels: 1,             // required
+                Format: dxgiformat::DXGI_FORMAT_UNKNOWN, // required
+                SampleDesc: dxgitype::DXGI_SAMPLE_DESC {
+                    Count: 1,   // required
+                    Quality: 0, // required
+                },
+                Layout: D3D12_TEXTURE_LAYOUT_ROW_MAJOR, // required
+                Flags: flags.d3dtype(),
+            },
+        }
+    }
+
+    pub fn create_texture_2d(width: u32, height: u32, array_size: u16, mip_levels: u16, format: EDXGIFormat, flags: SResourceFlags) -> Self {
+        Self {
+            raw: D3D12_RESOURCE_DESC {
+                Dimension: D3D12_RESOURCE_DIMENSION_TEXTURE2D,
+                Alignment: D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT as u64,
+                Width: width as u64,
+                Height: height,                // required
+                DepthOrArraySize: array_size,      // required
+                MipLevels: mip_levels,             // required
+                Format: format.d3dtype(), // required
+                SampleDesc: dxgitype::DXGI_SAMPLE_DESC {
+                    Count: 1,   // required
+                    Quality: 0, // required
+                },
+                Layout: D3D12_TEXTURE_LAYOUT_UNKNOWN, // required
+                Flags: flags.d3dtype(),
+            },
+        }
+    }
+}
+
+#[derive(Copy, Clone, PartialEq)]
+pub enum EResourceFlags {
+    ENone,
+    AllowRenderTarget,
+    AllowDepthStencil,
+    AllowUnorderedAccess,
+    DenyShaderResource,
+    AllowCrossAdapter,
+    AllowSimultaneousAccess,
+}
+
+impl TD3DFlags32 for EResourceFlags {
+    type TD3DType = D3D12_HEAP_FLAGS;
+
+    fn d3dtype(&self) -> Self::TD3DType {
+        match self {
+            EResourceFlags::ENone => D3D12_RESOURCE_FLAG_NONE,
+            EResourceFlags::AllowRenderTarget => D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET,
+            EResourceFlags::AllowDepthStencil => D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL,
+            EResourceFlags::AllowUnorderedAccess => D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
+            EResourceFlags::DenyShaderResource => D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE,
+            EResourceFlags::AllowCrossAdapter => D3D12_RESOURCE_FLAG_ALLOW_CROSS_ADAPTER,
+            EResourceFlags::AllowSimultaneousAccess => {
+                D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS
+            }
+        }
+    }
+}
+
+pub type SResourceFlags = SD3DFlags32<EResourceFlags>;
+
+
 #[derive(Clone)]
 pub struct SResource {
     resource: ComPtr<ID3D12Resource>,

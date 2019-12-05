@@ -64,7 +64,7 @@ impl SFactory {
         let mut rawswapchain: *mut IDXGISwapChain1 = ptr::null_mut();
 
         let hr = self.factory.CreateSwapChainForHwnd(
-            commandqueue.queue.asunknownptr(),
+            commandqueue.raw().asunknownptr(),
             window.raw(),
             &desc,
             ptr::null(),
@@ -77,7 +77,7 @@ impl SFactory {
         let swapchain = ComPtr::from_raw(rawswapchain);
 
         match swapchain.cast::<IDXGISwapChain4>() {
-            Ok(sc4) => Ok(SSwapChain { swapchain: sc4 }),
+            Ok(sc4) => Ok(SSwapChain::new_from_raw(sc4)),
             _ => Err("Swap chain could not be case to SwapChain4"),
         }
     }

@@ -100,7 +100,7 @@ pub fn init_depth_texture(
 
 fn main_d3d12() -> Result<(), &'static str> {
     // -- initialize debug
-    let debuginterface = t12::getdebuginterface()?;
+    let debuginterface = t12::SDebugInterface::new()?;
     debuginterface.enabledebuglayer();
 
     // -- setup window and command queue

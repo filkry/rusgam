@@ -1,5 +1,21 @@
 #![allow(dead_code)]
 
+macro_rules! returnerrifwinerror {
+    ($hn:expr, $err:expr) => {
+        if !winerror::SUCCEEDED($hn) {
+            return Err($err);
+        }
+    };
+}
+
+mod debuginterface;
+mod factory;
+mod adapter;
+mod resource;
+mod device;
+mod infoqueue;
+mod commandlist;
+
 use safewindows;
 
 use std::{mem, ptr};
@@ -36,519 +52,17 @@ where
     }
 }
 
-macro_rules! returnerrifwinerror {
-    ($hn:expr, $err:expr) => {
-        if !winerror::SUCCEEDED($hn) {
-            return Err($err);
-        }
-    };
-}
-
-pub struct SDebugInterface {
-    debuginterface: ComPtr<ID3D12Debug>,
-}
-
-pub fn getdebuginterface() -> Result<SDebugInterface, &'static str> {
-    unsafe {
-        let mut result: SDebugInterface = mem::uninitialized();
-
-        let riid = ID3D12Debug::uuidof();
-        let voidcasted: *mut *mut c_void = &mut result.debuginterface as *mut _ as *mut *mut c_void;
-
-        let hresult = D3D12GetDebugInterface(&riid, voidcasted);
-        if winerror::SUCCEEDED(hresult) {
-            Ok(result)
-        } else {
-            Err("D3D12GetDebugInterface gave an error.")
-        }
-    }
-}
-
-impl SDebugInterface {
-    pub fn enabledebuglayer(&self) -> () {
-        unsafe {
-            self.debuginterface.EnableDebugLayer();
-        }
-    }
-}
-
-pub struct SFactory {
-    factory: ComPtr<IDXGIFactory4>,
-}
-
-pub fn createdxgifactory4() -> Result<SFactory, &'static str> {
-    let mut rawfactory: *mut IDXGIFactory4 = ptr::null_mut();
-    let createfactoryresult = unsafe {
-        CreateDXGIFactory2(
-            DXGI_CREATE_FACTORY_DEBUG,
-            &IDXGIFactory4::uuidof(),
-            &mut rawfactory as *mut *mut _ as *mut *mut c_void,
-        )
-    };
-    if winerror::SUCCEEDED(createfactoryresult) {
-        return Ok(SFactory {
-            factory: unsafe { ComPtr::from_raw(rawfactory) },
-        });
-    }
-
-    Err("Couldn't get D3D12 factory.")
-}
-
-pub struct SAdapter1 {
-    adapter: ComPtr<IDXGIAdapter1>,
-}
-
-impl SAdapter1 {
-    pub fn getdesc(&self) -> DXGI_ADAPTER_DESC1 {
-        let mut adapterdesc: DXGI_ADAPTER_DESC1 = unsafe { mem::uninitialized() };
-        unsafe { self.adapter.GetDesc1(&mut adapterdesc) };
-        return adapterdesc;
-    }
-
-    pub fn castadapter4(&self) -> Option<SAdapter4> {
-        match self.adapter.cast::<IDXGIAdapter4>() {
-            Ok(a) => {
-                return Some(SAdapter4 { adapter: a });
-            }
-            Err(_) => {
-                return None;
-            }
-        };
-    }
-
-    pub unsafe fn d3d12createdevice(&self) -> Result<SDevice, &'static str> {
-        d3d12createdevice(self.adapter.asunknownptr())
-    }
-}
-
-#[derive(Clone)]
-pub struct SAdapter4 {
-    adapter: ComPtr<IDXGIAdapter4>,
-}
-
-#[derive(Copy, Clone, PartialEq)]
-pub enum EResourceStates {
-    Common,
-    VertexAndConstantBuffer,
-    IndexBuffer,
-    RenderTarget,
-    UnorderedAccess,
-    DepthWrite,
-    DepthRead,
-    NonPixelShaderResource,
-    PixelShaderResource,
-    StreamOut,
-    IndirectArgument,
-    CopyDest,
-    CopySource,
-    ResolveDest,
-    ResolveSource,
-    GenericRead,
-    Present,
-    Predication,
-}
-
-impl EResourceStates {
-    fn d3dtype(&self) -> D3D12_RESOURCE_STATES {
-        match self {
-            EResourceStates::Common => D3D12_RESOURCE_STATE_COMMON,
-            EResourceStates::VertexAndConstantBuffer => {
-                D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER
-            }
-            EResourceStates::IndexBuffer => D3D12_RESOURCE_STATE_INDEX_BUFFER,
-            EResourceStates::RenderTarget => D3D12_RESOURCE_STATE_RENDER_TARGET,
-            EResourceStates::UnorderedAccess => D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-            EResourceStates::DepthWrite => D3D12_RESOURCE_STATE_DEPTH_WRITE,
-            EResourceStates::DepthRead => D3D12_RESOURCE_STATE_DEPTH_READ,
-            EResourceStates::NonPixelShaderResource => {
-                D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE
-            }
-            EResourceStates::PixelShaderResource => D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
-            EResourceStates::StreamOut => D3D12_RESOURCE_STATE_STREAM_OUT,
-            EResourceStates::IndirectArgument => D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT,
-            EResourceStates::CopyDest => D3D12_RESOURCE_STATE_COPY_DEST,
-            EResourceStates::CopySource => D3D12_RESOURCE_STATE_COPY_SOURCE,
-            EResourceStates::ResolveDest => D3D12_RESOURCE_STATE_RESOLVE_DEST,
-            EResourceStates::ResolveSource => D3D12_RESOURCE_STATE_RESOLVE_SOURCE,
-            EResourceStates::GenericRead => D3D12_RESOURCE_STATE_GENERIC_READ,
-            EResourceStates::Present => D3D12_RESOURCE_STATE_PRESENT,
-            EResourceStates::Predication => D3D12_RESOURCE_STATE_PREDICATION,
-        }
-    }
-}
+pub use self::debuginterface::SDebugInterface;
+pub use self::factory::SFactory;
+pub use self::adapter::SAdapter1;
+pub use self::adapter::SAdapter4;
+pub use self::resource::*;
+pub use self::device::*;
+pub use self::infoqueue::SInfoQueue;
+pub use self::commandlist::*;
 
 pub struct SBarrier {
     barrier: D3D12_RESOURCE_BARRIER,
-}
-
-impl SFactory {
-    pub fn enumadapters(&self, adapteridx: u32) -> Option<SAdapter1> {
-        let mut rawadapter1: *mut IDXGIAdapter1 = ptr::null_mut();
-
-        if unsafe { self.factory.EnumAdapters1(adapteridx, &mut rawadapter1) }
-            == winerror::DXGI_ERROR_NOT_FOUND
-        {
-            return None;
-        }
-
-        let adapter1: ComPtr<IDXGIAdapter1> = unsafe { ComPtr::from_raw(rawadapter1) };
-        Some(SAdapter1 { adapter: adapter1 })
-    }
-}
-
-pub fn createtransitionbarrier(
-    resource: &SResource,
-    beforestate: EResourceStates,
-    afterstate: EResourceStates,
-) -> SBarrier {
-    let mut barrier = D3D12_RESOURCE_BARRIER {
-        Type: D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
-        Flags: D3D12_RESOURCE_BARRIER_FLAG_NONE,
-        u: unsafe { mem::zeroed() },
-    };
-
-    *unsafe { barrier.u.Transition_mut() } = D3D12_RESOURCE_TRANSITION_BARRIER {
-        pResource: resource.resource.as_raw(),
-        Subresource: D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES,
-        StateBefore: beforestate.d3dtype(),
-        StateAfter: afterstate.d3dtype(),
-    };
-
-    SBarrier { barrier: barrier }
-}
-
-#[derive(Clone)]
-pub struct SDevice {
-    device: ComPtr<ID3D12Device2>,
-}
-
-impl SDevice {
-    pub fn castinfoqueue(&self) -> Option<SInfoQueue> {
-        match self.device.cast::<ID3D12InfoQueue>() {
-            Ok(a) => {
-                return Some(SInfoQueue { infoqueue: a });
-            }
-            Err(_) => {
-                return None;
-            }
-        };
-    }
-
-    pub fn createcommandqueue(
-        &self,
-        type_: ECommandListType,
-    ) -> Result<SCommandQueue, &'static str> {
-        // -- $$$FRK(TODO): pass priority, flags, nodemask
-        let desc = D3D12_COMMAND_QUEUE_DESC {
-            Type: type_.d3dtype(),
-            Priority: D3D12_COMMAND_QUEUE_PRIORITY_NORMAL as i32,
-            Flags: 0,
-            NodeMask: 0,
-        };
-
-        let mut rawqueue: *mut ID3D12CommandQueue = ptr::null_mut();
-        let hr = unsafe {
-            self.device.CreateCommandQueue(
-                &desc,
-                &ID3D12CommandQueue::uuidof(),
-                &mut rawqueue as *mut *mut _ as *mut *mut c_void,
-            )
-        };
-
-        returnerrifwinerror!(hr, "Could not create command queue");
-
-        Ok(SCommandQueue {
-            queue: unsafe { ComPtr::from_raw(rawqueue) },
-        })
-    }
-
-    pub fn create_descriptor_heap(
-        &self,
-        type_: EDescriptorHeapType,
-        numdescriptors: u32,
-    ) -> Result<SDescriptorHeap, &'static str> {
-        let desc = D3D12_DESCRIPTOR_HEAP_DESC {
-            Type: type_.d3dtype(),
-            NumDescriptors: numdescriptors,
-            Flags: 0,
-            NodeMask: 0,
-        };
-
-        let mut rawheap: *mut ID3D12DescriptorHeap = ptr::null_mut();
-        let hr = unsafe {
-            self.device.CreateDescriptorHeap(
-                &desc,
-                &ID3D12DescriptorHeap::uuidof(),
-                &mut rawheap as *mut *mut _ as *mut *mut c_void,
-            )
-        };
-
-        returnerrifwinerror!(hr, "Failed to create descriptor heap");
-
-        let heap = unsafe { ComPtr::from_raw(rawheap) };
-
-        Ok(SDescriptorHeap {
-            type_: type_,
-            heap: heap,
-        })
-    }
-
-    pub fn getdescriptorhandleincrementsize(&self, type_: EDescriptorHeapType) -> usize {
-        unsafe {
-            self.device
-                .GetDescriptorHandleIncrementSize(type_.d3dtype()) as usize
-        }
-    }
-
-    // -- $$$FRK(TODO): allow pDesc parameter
-    pub fn createrendertargetview(&self, resource: &SResource, destdescriptor: &SDescriptorHandle) {
-        unsafe {
-            self.device.CreateRenderTargetView(
-                resource.resource.as_raw(),
-                ptr::null(),
-                destdescriptor.handle,
-            );
-        }
-    }
-
-    pub fn create_depth_stencil_view(
-        &self,
-        resource: &SResource,
-        desc: &SDepthStencilViewDesc,
-        dest_descriptor: SDescriptorHandle,
-    ) {
-        unsafe {
-            let d3ddesc = desc.d3dtype();
-
-            self.device.CreateDepthStencilView(
-                resource.resource.as_raw(),
-                &d3ddesc,
-                dest_descriptor.handle,
-            );
-        }
-    }
-
-    // -- $$$FRK(TODO): Wrapper for D3D12 Resource Flags?
-    pub fn createcommittedresource(
-        &self,
-        heapproperties: SHeapProperties,
-        heapflags: EHeapFlags,
-        resourcedesc: SResourceDesc,
-        initialresourcestate: EResourceStates,
-        clear_value: Option<SClearValue>,
-    ) -> Result<SResource, &'static str> {
-        unsafe {
-            #[allow(unused_assignments)]
-            let mut d3dcv : D3D12_CLEAR_VALUE = mem::uninitialized();
-
-            let clear_value_ptr : * const D3D12_CLEAR_VALUE = match clear_value {
-                Some(cv) => {
-                    d3dcv = cv.d3dtype();
-                    &d3dcv
-                },
-                None => ptr::null_mut(),
-            };
-
-            let mut rawresource: *mut ID3D12Resource = ptr::null_mut();
-            let hn = self.device.CreateCommittedResource(
-                &heapproperties.raw,
-                heapflags.d3dtype(),
-                &resourcedesc.raw,
-                initialresourcestate.d3dtype(),
-                clear_value_ptr,
-                &ID3D12Resource::uuidof(), // $$$FRK(TODO): this isn't necessarily right
-                &mut rawresource as *mut *mut _ as *mut *mut c_void,
-            );
-
-            returnerrifwinerror!(hn, "Could not create committed resource.");
-            Ok(SResource {
-                resource: ComPtr::from_raw(rawresource),
-            })
-        }
-    }
-
-    pub fn createcommandallocator(
-        &self,
-        type_: ECommandListType,
-    ) -> Result<SCommandAllocator, &'static str> {
-        let mut rawca: *mut ID3D12CommandAllocator = ptr::null_mut();
-        let hn = unsafe {
-            self.device.CreateCommandAllocator(
-                type_.d3dtype(),
-                &ID3D12CommandAllocator::uuidof(),
-                &mut rawca as *mut *mut _ as *mut *mut c_void,
-            )
-        };
-
-        returnerrifwinerror!(hn, "Could not create command allocator.");
-
-        Ok(SCommandAllocator {
-            type_: type_,
-            commandallocator: unsafe { ComPtr::from_raw(rawca) },
-        })
-    }
-
-    pub fn createcommandlist(
-        &self,
-        allocator: &SCommandAllocator,
-    ) -> Result<SCommandList, &'static str> {
-        let mut rawcl: *mut ID3D12GraphicsCommandList = ptr::null_mut();
-        let hn = unsafe {
-            self.device.CreateCommandList(
-                0,
-                allocator.type_.d3dtype(),
-                allocator.commandallocator.as_raw(),
-                ptr::null_mut(),
-                &ID3D12GraphicsCommandList::uuidof(),
-                &mut rawcl as *mut *mut _ as *mut *mut c_void,
-            )
-        };
-
-        returnerrifwinerror!(hn, "Could not create command list.");
-
-        Ok(SCommandList {
-            commandlist: unsafe { ComPtr::from_raw(rawcl) },
-        })
-    }
-
-    // -- $$$FRK(TODO): think about mutable refs for lots of fns here and in safewindows
-    pub fn createfence(&self) -> Result<SFence, &'static str> {
-        let mut rawf: *mut ID3D12Fence = ptr::null_mut();
-        let hn = unsafe {
-            // -- $$$FRK(TODO): support parameters
-            self.device.CreateFence(
-                0,
-                D3D12_FENCE_FLAG_NONE,
-                &ID3D12Fence::uuidof(),
-                &mut rawf as *mut *mut _ as *mut *mut c_void,
-            )
-        };
-
-        returnerrifwinerror!(hn, "Could not create fence.");
-
-        Ok(SFence {
-            fence: unsafe { ComPtr::from_raw(rawf) },
-        })
-    }
-
-    // -- $$$FRK(TODO): support nodeMask parameter
-    pub fn create_root_signature(&self, blob_with_root_signature: &SBlob)-> Result<SRootSignature, &'static str> {
-
-        let mut raw_root_signature : *mut ID3D12RootSignature = ptr::null_mut();
-
-        let hr = unsafe { self.device.CreateRootSignature(
-            0,
-            blob_with_root_signature.raw.GetBufferPointer(),
-            blob_with_root_signature.raw.GetBufferSize(),
-            &ID3D12RootSignature::uuidof(),
-            &mut raw_root_signature as *mut *mut _ as *mut *mut c_void,
-        )};
-        returnerrifwinerror!(hr, "Could not create root signature");
-
-        let root_signature = unsafe { ComPtr::from_raw(raw_root_signature) };
-        Ok(SRootSignature{
-            raw: root_signature,
-        })
-    }
-
-    pub fn create_pipeline_state_for_raw_desc(&self, desc: &D3D12_PIPELINE_STATE_STREAM_DESC) -> Result<SPipelineState, &'static str> {
-        let mut raw_pipeline_state : *mut ID3D12PipelineState = ptr::null_mut();
-
-        let hr = unsafe { self.device.CreatePipelineState(
-            desc,
-            &ID3D12PipelineState::uuidof(),
-            &mut raw_pipeline_state as *mut *mut _ as *mut *mut c_void,
-        )};
-        returnerrifwinerror!(hr, "Could not create pipeline state");
-
-        let pipeline_state = unsafe { ComPtr::from_raw(raw_pipeline_state) };
-        Ok(SPipelineState{
-            raw: pipeline_state,
-        })
-    }
-
-    pub fn create_pipeline_state<T>(&self, desc: &SPipelineStateStreamDesc<T>) -> Result<SPipelineState, &'static str> {
-        let d3ddesc = unsafe { desc.d3dtype() };
-        self.create_pipeline_state_for_raw_desc(&d3ddesc)
-    }
-}
-
-pub struct SInfoQueue {
-    infoqueue: ComPtr<ID3D12InfoQueue>,
-}
-
-impl SInfoQueue {
-    pub fn setbreakonseverity(&self, id: D3D12_MESSAGE_ID, val: BOOL) {
-        unsafe {
-            self.infoqueue.SetBreakOnSeverity(id, val);
-        }
-    }
-
-    pub fn pushstoragefilter(
-        &self,
-        filter: &mut D3D12_INFO_QUEUE_FILTER,
-    ) -> Result<(), &'static str> {
-        let hn = unsafe { self.infoqueue.PushStorageFilter(filter) };
-        returnerrifwinerror!(hn, "Could not push storage filter on infoqueue.");
-        Ok(())
-    }
-}
-
-fn d3d12createdevice(adapter: *mut unknwnbase::IUnknown) -> Result<SDevice, &'static str> {
-    let mut rawdevice: *mut ID3D12Device2 = ptr::null_mut();
-    let hn = unsafe {
-        D3D12CreateDevice(
-            adapter, //self.adapter.asunknownptr(),
-            d3dcommon::D3D_FEATURE_LEVEL_11_0,
-            &ID3D12Device2::uuidof(),
-            &mut rawdevice as *mut *mut _ as *mut *mut c_void,
-        )
-    };
-    returnerrifwinerror!(hn, "Could not create device on adapter.");
-
-    let device = unsafe { ComPtr::from_raw(rawdevice) };
-    Ok(SDevice { device: device })
-}
-
-impl SAdapter4 {
-    pub unsafe fn d3d12createdevice(&self) -> Result<SDevice, &'static str> {
-        d3d12createdevice(self.adapter.asunknownptr())
-    }
-}
-
-#[derive(Copy, Clone, PartialEq)]
-pub enum ECommandListType {
-    Invalid,
-    Direct,
-    Bundle,
-    Compute,
-    Copy,
-    //VideoDecode,
-    //VideoProcess,
-}
-
-impl ECommandListType {
-    fn d3dtype(&self) -> D3D12_COMMAND_LIST_TYPE {
-        match self {
-            ECommandListType::Invalid => D3D12_COMMAND_LIST_TYPE_DIRECT, // $$$FRK(TODO): obviously wrong, this needs to return an option I guess
-            ECommandListType::Direct => D3D12_COMMAND_LIST_TYPE_DIRECT,
-            ECommandListType::Bundle => D3D12_COMMAND_LIST_TYPE_BUNDLE,
-            ECommandListType::Compute => D3D12_COMMAND_LIST_TYPE_COMPUTE,
-            ECommandListType::Copy => D3D12_COMMAND_LIST_TYPE_COPY,
-            //VideoDecode => D3D12_COMMAND_LIST_TYPE_VIDEO_DECODE ,
-            //VideoProcess => D3D12_COMMAND_LIST_TYPE_VIDEO_PROCESS ,
-        }
-    }
-
-    fn create(d3dtype: D3D12_COMMAND_LIST_TYPE) -> Self {
-        match d3dtype {
-            D3D12_COMMAND_LIST_TYPE_DIRECT => ECommandListType::Direct,
-            D3D12_COMMAND_LIST_TYPE_BUNDLE => ECommandListType::Bundle,
-            D3D12_COMMAND_LIST_TYPE_COMPUTE => ECommandListType::Compute,
-            D3D12_COMMAND_LIST_TYPE_COPY => ECommandListType::Copy,
-            _ => ECommandListType::Invalid,
-        }
-    }
 }
 
 pub struct SCommandQueueDesc {
@@ -557,7 +71,7 @@ pub struct SCommandQueueDesc {
 
 impl SCommandQueueDesc {
     pub fn cqtype(&self) -> ECommandListType {
-        ECommandListType::create(self.raw.Type)
+        ECommandListType::new_from_d3dtype(self.raw.Type)
     }
 }
 
@@ -566,30 +80,6 @@ pub struct SCommandQueue {
     queue: ComPtr<ID3D12CommandQueue>,
 }
 
-#[derive(Clone)]
-pub struct SResource {
-    resource: ComPtr<ID3D12Resource>,
-}
-
-impl std::cmp::PartialEq for SResource {
-    fn eq(&self, other: &Self) -> bool {
-        self.resource == other.resource
-    }
-}
-
-impl SResource {
-    pub unsafe fn raw_mut(&mut self) -> &mut ComPtr<ID3D12Resource> {
-        &mut self.resource
-    }
-
-    pub fn getgpuvirtualaddress(&self) -> SGPUVirtualAddress {
-        unsafe {
-            SGPUVirtualAddress {
-                raw: self.resource.GetGPUVirtualAddress(),
-            }
-        }
-    }
-}
 
 #[derive(Clone)]
 pub struct SSwapChain {
@@ -622,9 +112,7 @@ impl SSwapChain {
             "Couldn't get ID3D12Resource for backbuffer from swapchain."
         );
 
-        Ok(SResource {
-            resource: unsafe { ComPtr::from_raw(rawbuf) },
-        })
+        Ok(unsafe { SResource::new_from_raw(ComPtr::from_raw(rawbuf)) })
     }
 
     pub fn getdesc(&self) -> Result<SSwapChainDesc, &'static str> {
@@ -660,54 +148,6 @@ impl SSwapChain {
 
 pub struct SSwapChainDesc {
     desc: DXGI_SWAP_CHAIN_DESC,
-}
-
-impl SFactory {
-    pub unsafe fn createswapchainforwindow(
-        &self,
-        window: &safewindows::SWindow,
-        commandqueue: &SCommandQueue,
-        width: u32,
-        height: u32,
-    ) -> Result<SSwapChain, &'static str> {
-        let buffercount = 2;
-
-        let desc = DXGI_SWAP_CHAIN_DESC1 {
-            Width: width,
-            Height: height,
-            Format: dxgiformat::DXGI_FORMAT_R8G8B8A8_UNORM, // $$$FRK(TODO): I have no idea why I'm picking this format
-            Stereo: FALSE,
-            SampleDesc: dxgitype::DXGI_SAMPLE_DESC {
-                Count: 1,
-                Quality: 0,
-            }, // $$$FRK(TODO): ???
-            BufferUsage: dxgitype::DXGI_USAGE_RENDER_TARGET_OUTPUT,
-            BufferCount: buffercount,
-            Scaling: DXGI_SCALING_STRETCH,
-            SwapEffect: DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL,
-            AlphaMode: DXGI_ALPHA_MODE_UNSPECIFIED,
-            Flags: 0,
-        };
-        let mut rawswapchain: *mut IDXGISwapChain1 = ptr::null_mut();
-
-        let hr = self.factory.CreateSwapChainForHwnd(
-            commandqueue.queue.asunknownptr(),
-            window.raw(),
-            &desc,
-            ptr::null(),
-            ptr::null_mut(),
-            &mut rawswapchain as *mut *mut _ as *mut *mut IDXGISwapChain1,
-        );
-
-        returnerrifwinerror!(hr, "Failed to create swap chain");
-
-        let swapchain = ComPtr::from_raw(rawswapchain);
-
-        match swapchain.cast::<IDXGISwapChain4>() {
-            Ok(sc4) => Ok(SSwapChain { swapchain: sc4 }),
-            _ => Err("Swap chain could not be case to SwapChain4"),
-        }
-    }
 }
 
 #[derive(Copy, Clone)]
@@ -816,14 +256,6 @@ pub trait TD3DFlags32 {
 
     fn d3dtype(&self) -> Self::TD3DType;
 }
-
-/*
-pub trait TConvertToD3DType {
-    type TD3DType;
-
-    fn d3dtype(&self) -> Self::TD3DType;
-}
-*/
 
 pub struct SD3DFlags32<T: TD3DFlags32 + Copy> {
     raw: T::TD3DType,
@@ -997,143 +429,6 @@ impl SScissorRects {
 }
 
 #[derive(Clone)]
-pub struct SCommandList {
-    commandlist: ComPtr<ID3D12GraphicsCommandList>,
-}
-
-impl SCommandList {
-    // -- almost everything in here is unsafe because we take shared references, but require
-    // -- exclusive access to be thread safe
-
-    pub fn gettype(&self) -> ECommandListType {
-        unsafe { ECommandListType::create(self.commandlist.GetType()) }
-    }
-
-    pub unsafe fn reset(&self, commandallocator: &SCommandAllocator) -> Result<(), &'static str> {
-        let hn = self.commandlist
-            .Reset(commandallocator.commandallocator.as_raw(), ptr::null_mut());
-        returnerrifwinerror!(hn, "Could not reset command list.");
-        Ok(())
-    }
-
-    pub unsafe fn resourcebarrier(&self, numbarriers: u32, barriers: &[SBarrier]) {
-        // -- $$$FRK(TODO): need to figure out how to make a c array from the rust slice
-        // -- w/o a heap allocation...
-        assert!(numbarriers == 1);
-        self.commandlist.ResourceBarrier(1, &(barriers[0].barrier));
-    }
-
-    pub unsafe fn clearrendertargetview(&self, descriptor: SDescriptorHandle, colour: &[f32; 4]) {
-        // -- $$$FRK(TODO): support third/fourth parameter
-        self.commandlist
-            .ClearRenderTargetView(descriptor.handle, colour, 0, ptr::null());
-    }
-
-    pub unsafe fn clear_depth_stencil_view(&self, descriptor: SDescriptorHandle, depth: f32) {
-        // -- $$$FRK(TODO): support ClearFlags/Stencil/NumRects/pRects
-        self.commandlist.ClearDepthStencilView(
-            descriptor.handle, D3D12_CLEAR_FLAG_DEPTH, depth, 0, 0, ptr::null());
-    }
-
-    pub unsafe fn set_pipeline_state(&self, pipeline_state: &SPipelineState) {
-        self.commandlist.SetPipelineState(pipeline_state.raw.as_raw())
-    }
-
-    pub unsafe fn set_graphics_root_signature(&self, root_signature: &SRootSignature) {
-        self.commandlist.SetGraphicsRootSignature(root_signature.raw.as_raw())
-    }
-
-    pub unsafe fn ia_set_primitive_topology(&self, primitive_topology: EPrimitiveTopology) {
-        self.commandlist.IASetPrimitiveTopology(primitive_topology.d3dtype())
-    }
-
-    pub unsafe fn ia_set_vertex_buffers(&self, start_slot: u32, vertex_buffers: &[&SVertexBufferView]) {
-        assert!(vertex_buffers.len() == 1); // didn't want to implement copying d3dtype array
-        self.commandlist.IASetVertexBuffers(start_slot, vertex_buffers.len() as u32, &vertex_buffers[0].raw)
-    }
-
-    pub unsafe fn ia_set_index_buffer(&self, index_buffer: &SIndexBufferView) {
-        self.commandlist.IASetIndexBuffer(&index_buffer.raw)
-    }
-
-    pub unsafe fn rs_set_viewports(&self, viewports: &[&SViewport]) {
-        assert!(viewports.len() == 1); // didn't want to implement copying d3dtype array
-        self.commandlist.RSSetViewports(viewports.len() as u32, &viewports[0].viewport)
-    }
-
-    pub unsafe fn rs_set_scissor_rects(&self, scissor_rects: SScissorRects) {
-        self.commandlist.RSSetScissorRects(
-            scissor_rects.d3drects.len() as u32,
-            &scissor_rects.d3drects[0]
-        )
-    }
-
-    pub unsafe fn om_set_render_targets(
-        &self,
-        render_target_descriptors: &[&SDescriptorHandle],
-        rts_single_handle_to_descriptor_range: bool,
-        depth_target_descriptor: &SDescriptorHandle) {
-
-        assert!(render_target_descriptors.len() == 1); // didn't want to implement copying d3dtype array
-
-        self.commandlist.OMSetRenderTargets(
-            render_target_descriptors.len() as u32,
-            &render_target_descriptors[0].handle,
-            rts_single_handle_to_descriptor_range as i32,
-            &depth_target_descriptor.handle,
-        );
-    }
-
-    pub unsafe fn set_graphics_root_32_bit_constants<T: Sized>(
-        &self,
-        root_parameter_index: u32,
-        data: &T,
-        dest_offset_in_32_bit_values: u32,
-    ) {
-        let num_values = mem::size_of::<T>() / 4;
-        let src_data_ptr = data as *const T as *const c_void;
-
-        self.commandlist.SetGraphicsRoot32BitConstants(
-            root_parameter_index,
-            num_values as UINT,
-            src_data_ptr,
-            dest_offset_in_32_bit_values,
-        );
-    }
-
-    pub unsafe fn draw_indexed_instanced(
-        &self,
-        index_count_per_instance: u32,
-        instance_count: u32,
-        start_index_location: u32,
-        base_vertex_location: i32,
-        start_instance_location: u32
-    ) {
-        self.commandlist.DrawIndexedInstanced(
-            index_count_per_instance,
-            instance_count,
-            start_index_location,
-            base_vertex_location,
-            start_instance_location,
-        );
-    }
-
-    pub unsafe fn close(&self) -> Result<(), &'static str> {
-        let hn = self.commandlist.Close();
-        returnerrifwinerror!(hn, "Could not close command list.");
-        Ok(())
-    }
-
-    pub unsafe fn raw(&self) -> &ComPtr<ID3D12GraphicsCommandList> {
-        &self.commandlist
-    }
-
-    pub unsafe fn rawmut(&mut self) -> &mut ComPtr<ID3D12GraphicsCommandList> {
-        &mut self.commandlist
-    }
-}
-
-#[derive(Clone)]
 pub struct SFence {
     fence: ComPtr<ID3D12Fence>,
 }
@@ -1173,7 +468,7 @@ impl SCommandQueue {
     // -- $$$FRK(TODO): support listS
     pub unsafe fn executecommandlist(&self, list: &SCommandList) {
         self.queue
-            .ExecuteCommandLists(1, &(list.commandlist.as_raw() as *mut ID3D12CommandList));
+            .ExecuteCommandLists(1, &(list.raw().as_raw() as *mut ID3D12CommandList));
     }
 }
 

@@ -123,7 +123,7 @@ pub struct SCommandListPool<'a> {
 impl SFactory {
     pub fn create() -> Result<Self, &'static str> {
         Ok(Self {
-            raw: t12::createdxgifactory4()?,
+            raw: t12::SFactory::new()?,
         })
     }
 
@@ -414,7 +414,7 @@ impl SCommandList {
         afterstate: t12::EResourceStates,
     ) -> Result<(), &'static str> {
         let transbarrier =
-            t12::createtransitionbarrier(&resource.raw, beforestate, afterstate);
+            t12::create_transition_barrier(&resource.raw, beforestate, afterstate);
         unsafe { self.raw.resourcebarrier(1, &[transbarrier]) };
         Ok(())
     }

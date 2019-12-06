@@ -14,11 +14,7 @@ impl SDevice {
     pub fn create_command_queue(&self, winapi: &safewindows::SWinAPI, type_: t12::ECommandListType) -> Result<SCommandQueue, &'static str> {
         let qresult = self.raw.createcommandqueue(type_)?;
 
-        Ok(SCommandQueue {
-            raw: qresult,
-            fence: self.create_fence(winapi)?,
-            commandlisttype: type_,
-        })
+        Ok(SCommandQueue::new_from_raw(qresult, self.create_fence(winapi)?, type_))
     }
 
     pub fn create_command_allocator(
@@ -26,7 +22,7 @@ impl SDevice {
         type_: t12::ECommandListType,
     ) -> Result<SCommandAllocator, &'static str> {
         let raw = self.raw.createcommandallocator(type_)?;
-        Ok(SCommandAllocator{ raw: raw })
+        Ok(unsafe { SCommandAllocator::new_from_raw(raw) } )
     }
 
     // -- NOTE: This is unsafe because it initializes the list to an allocator which we don't
@@ -35,7 +31,7 @@ impl SDevice {
         &self,
         allocator: &mut SCommandAllocator,
     ) -> Result<SCommandList, &'static str> {
-        let raw = self.raw.createcommandlist(&allocator.raw)?;
+        let raw = self.raw.createcommandlist(&allocator.raw())?;
         Ok(SCommandList::new_from_raw(raw))
     }
 
@@ -45,11 +41,7 @@ impl SDevice {
     ) -> Result<SFence, &'static str> {
 
         let fence = self.raw.createfence()?;
-        Ok(SFence {
-            raw: fence,
-            fenceevent: winapi.createeventhandle().unwrap(),
-            nextfencevalue: 0,
-        })
+        Ok(SFence::new_from_raw(fence, winapi.createeventhandle().unwrap()))
     }
 
     pub fn create_render_target_view(

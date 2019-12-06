@@ -20,7 +20,7 @@ impl SCommandList {
     // -- the CommandList via the &mut self reference
 
     pub fn reset(&mut self, allocator: &mut SCommandAllocator) -> Result<(), &'static str> {
-        unsafe { self.raw.reset(&allocator.raw) }
+        unsafe { self.raw.reset(&allocator.raw()) }
     }
 
     pub fn transition_resource(
@@ -172,3 +172,9 @@ impl SCommandList {
 
     }
 }
+
+pub struct SCommandQueueUpdateBufferResult {
+    pub destinationresource: SResource,
+    pub intermediateresource: SResource,
+}
+

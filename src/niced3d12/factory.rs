@@ -67,7 +67,7 @@ impl SFactory {
 
         let newsc = unsafe { self
             .raw
-            .createswapchainforwindow(window, &commandqueue.raw, width, height)? };
+            .createswapchainforwindow(window, commandqueue.raw(), width, height)? };
 
         Ok(SSwapChain::new_from_raw(newsc, 2))
     }

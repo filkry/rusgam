@@ -293,3 +293,70 @@ impl EComparisonFunc {
         }
     }
 }
+
+// -- $$$FRK(TODO): unsupported:
+// --    + pDefines
+// --    + pInclude
+// --    + flags2
+pub fn d3dcompilefromfile(
+    file: &str,
+    entrypoint: &str,
+    target: &str,
+    flags1: SCompile,
+) -> Result<SBlob, &'static str> {
+    // -- $$$FRK(TODO): allocations :(
+    let mut fileparam: Vec<u16> = file.encode_utf16().collect();
+    fileparam.push('\0' as u16);
+
+    let mut entrypointparam: Vec<char> = entrypoint.chars().collect();
+    entrypointparam.push('\0');
+
+    let mut targetparam: Vec<char> = target.chars().collect();
+    targetparam.push('\0');
+
+    let mut rawcodeblob: *mut d3dcommon::ID3DBlob = ptr::null_mut();
+    let mut errormsgsblob: *mut d3dcommon::ID3DBlob = ptr::null_mut();
+
+    let hr = unsafe {
+        d3dcompiler::D3DCompileFromFile(
+            fileparam.as_ptr(),
+            ptr::null_mut(),
+            ptr::null_mut(),
+            entrypointparam.as_ptr() as *const i8,
+            targetparam.as_ptr() as *const i8,
+            flags1.d3dtype(),
+            0,
+            &mut rawcodeblob,
+            &mut errormsgsblob,
+        )
+    };
+
+    returnerrifwinerror!(hr, "failed to compile shader");
+    // -- $$$FRK(TODO): use error messages blob
+
+    Ok(SBlob {
+        raw: unsafe { ComPtr::from_raw(rawcodeblob) },
+    })
+}
+
+pub fn read_file_to_blob(
+    file: &str,
+) -> Result<SBlob, &'static str> {
+    let mut fileparam: Vec<u16> = file.encode_utf16().collect();
+    fileparam.push('\0' as u16);
+
+    let mut resultblob: *mut d3dcommon::ID3DBlob = ptr::null_mut();
+
+    let hr = unsafe {
+        d3dcompiler::D3DReadFileToBlob(
+            fileparam.as_ptr(),
+            &mut resultblob,
+        )
+    };
+
+    returnerrifwinerror!(hr, "failed to load shader");
+
+    Ok(SBlob {
+        raw: unsafe { ComPtr::from_raw(resultblob) },
+    })
+}

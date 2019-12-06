@@ -111,8 +111,7 @@ fn main_d3d12() -> Result<(), &'static str> {
     let mut adapter = factory.create_best_adapter()?;
     let mut device = adapter.create_device()?;
 
-    let commandqueue = RefCell::new(n12::SCommandQueue::create(
-        &mut device,
+    let commandqueue = RefCell::new(device.create_command_queue(
         &winapi.rawwinapi(),
         t12::ECommandListType::Direct,
     )?);
@@ -124,8 +123,7 @@ fn main_d3d12() -> Result<(), &'static str> {
         2,
     )?;
 
-    let copycommandqueue = RefCell::new(n12::SCommandQueue::create(
-        &mut device,
+    let copycommandqueue = RefCell::new(device.create_command_queue(
         &winapi.rawwinapi(),
         t12::ECommandListType::Copy,
     )?);

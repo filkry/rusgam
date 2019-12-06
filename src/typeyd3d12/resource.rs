@@ -190,3 +190,24 @@ pub fn create_transition_barrier(
 
     SBarrier { barrier: barrier }
 }
+
+pub struct SSubResourceData {
+    raw: D3D12_SUBRESOURCE_DATA,
+}
+
+impl SSubResourceData {
+    pub unsafe fn create<T>(data: *const T, rowpitch: usize, slicepitch: usize) -> Self {
+        let subresourcedata = D3D12_SUBRESOURCE_DATA {
+            pData: data as *const c_void,
+            RowPitch: rowpitch as isize,
+            SlicePitch: slicepitch as isize,
+        };
+        SSubResourceData {
+            raw: subresourcedata,
+        }
+    }
+
+    pub unsafe fn raw_mut(&mut self) -> &mut D3D12_SUBRESOURCE_DATA {
+        &mut self.raw
+    }
+}

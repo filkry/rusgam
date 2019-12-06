@@ -249,7 +249,7 @@ fn main_d3d12() -> Result<(), &'static str> {
         };
         let indexbufferview = indexbufferresource
             .destinationresource
-            .create_index_buffer_view(t12::EFormat::R16UINT)
+            .create_index_buffer_view(t12::EDXGIFormat::R16UINT)
             ?;
 
         let fenceval = copycommandpool.execute_and_free_list(handle)?;

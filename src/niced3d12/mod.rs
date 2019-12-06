@@ -686,7 +686,7 @@ impl SResource {
 
     pub fn create_index_buffer_view(
         &self,
-        format: t12::EFormat,
+        format: t12::EDXGIFormat,
     ) -> Result<t12::SIndexBufferView, &'static str> {
         if let EResourceMetadata::BufferResource { count, sizeofentry } = self.metadata {
             Ok(t12::SIndexBufferView::create(

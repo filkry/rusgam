@@ -247,10 +247,10 @@ impl SDevice {
         )};
         returnerrifwinerror!(hr, "Could not create pipeline state");
 
-        let pipeline_state = unsafe { ComPtr::from_raw(raw_pipeline_state) };
-        Ok(SPipelineState{
-            raw: pipeline_state,
-        })
+        unsafe {
+            let pipeline_state = ComPtr::from_raw(raw_pipeline_state);
+            Ok(SPipelineState::new_from_raw(pipeline_state))
+        }
     }
 
     pub fn create_pipeline_state<T>(&self, desc: &SPipelineStateStreamDesc<T>) -> Result<SPipelineState, &'static str> {

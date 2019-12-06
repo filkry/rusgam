@@ -81,7 +81,7 @@ impl SCommandList {
     }
 
     pub unsafe fn set_pipeline_state(&self, pipeline_state: &SPipelineState) {
-        self.commandlist.SetPipelineState(pipeline_state.raw.as_raw())
+        self.commandlist.SetPipelineState(pipeline_state.raw().as_raw())
     }
 
     pub unsafe fn set_graphics_root_signature(&self, root_signature: &SRootSignature) {
@@ -94,11 +94,11 @@ impl SCommandList {
 
     pub unsafe fn ia_set_vertex_buffers(&self, start_slot: u32, vertex_buffers: &[&SVertexBufferView]) {
         assert!(vertex_buffers.len() == 1); // didn't want to implement copying d3dtype array
-        self.commandlist.IASetVertexBuffers(start_slot, vertex_buffers.len() as u32, &vertex_buffers[0].raw)
+        self.commandlist.IASetVertexBuffers(start_slot, vertex_buffers.len() as u32, vertex_buffers[0].raw())
     }
 
     pub unsafe fn ia_set_index_buffer(&self, index_buffer: &SIndexBufferView) {
-        self.commandlist.IASetIndexBuffer(&index_buffer.raw)
+        self.commandlist.IASetIndexBuffer(index_buffer.raw())
     }
 
     pub unsafe fn rs_set_viewports(&self, viewports: &[&SViewport]) {

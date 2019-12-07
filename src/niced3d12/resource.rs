@@ -14,10 +14,7 @@ pub struct SResource {
 }
 
 impl SResource {
-
-    pub fn create_vertex_buffer_view(
-        &self,
-    ) -> Result<t12::SVertexBufferView, &'static str> {
+    pub fn create_vertex_buffer_view(&self) -> Result<t12::SVertexBufferView, &'static str> {
         if let EResourceMetadata::BufferResource { count, sizeofentry } = self.metadata {
             Ok(t12::SVertexBufferView::create(
                 self.raw.getgpuvirtualaddress(),
@@ -43,7 +40,6 @@ impl SResource {
             Err("Trying to create indexbufferview for non-buffer resource")
         }
     }
-
 }
 
 pub(super) fn update_subresources_stack(
@@ -80,6 +76,3 @@ impl t12::SSubResourceData {
         unsafe { Self::create(data.as_ptr(), buffersize, buffersize) }
     }
 }
-
-
-

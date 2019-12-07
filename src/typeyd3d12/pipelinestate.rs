@@ -38,7 +38,6 @@ impl SInputElementDesc {
         input_slot_class: EInputClassification,
         instance_data_step_rate: u32,
     ) -> Self {
-
         let mut result = Self {
             semantic_name: semantic_name,
             semantic_index: semantic_index,
@@ -81,9 +80,7 @@ pub struct SPipelineState {
 
 impl SPipelineState {
     pub unsafe fn new_from_raw(raw: ComPtr<ID3D12PipelineState>) -> Self {
-        Self {
-            raw: raw,
-        }
+        Self { raw: raw }
     }
 
     pub unsafe fn raw(&self) -> &ComPtr<ID3D12PipelineState> {
@@ -92,9 +89,9 @@ impl SPipelineState {
 }
 
 pub struct SInputLayoutDesc {
-    input_element_descs: ArrayVec::<[SInputElementDesc; 16]>,
+    input_element_descs: ArrayVec<[SInputElementDesc; 16]>,
 
-    d3d_input_element_descs: ArrayVec::<[D3D12_INPUT_ELEMENT_DESC; 16]>,
+    d3d_input_element_descs: ArrayVec<[D3D12_INPUT_ELEMENT_DESC; 16]>,
 }
 
 impl SInputLayoutDesc {
@@ -105,7 +102,10 @@ impl SInputLayoutDesc {
             d3d_input_element_descs: ArrayVec::new(),
         };
 
-        result.input_element_descs.try_extend_from_slice(input_element_descs).unwrap();
+        result
+            .input_element_descs
+            .try_extend_from_slice(input_element_descs)
+            .unwrap();
         result
     }
 
@@ -113,7 +113,8 @@ impl SInputLayoutDesc {
         self.d3d_input_element_descs.clear();
 
         for input_element_desc in &self.input_element_descs {
-            self.d3d_input_element_descs.push(input_element_desc.d3dtype());
+            self.d3d_input_element_descs
+                .push(input_element_desc.d3dtype());
         }
     }
 
@@ -147,7 +148,7 @@ impl EPrimitiveTopologyType {
             Self::Point => D3D12_PRIMITIVE_TOPOLOGY_TYPE_POINT,
             Self::Line => D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE,
             Self::Triangle => D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
-            Self::Patch => D3D12_PRIMITIVE_TOPOLOGY_TYPE_PATCH
+            Self::Patch => D3D12_PRIMITIVE_TOPOLOGY_TYPE_PATCH,
         }
     }
 }
@@ -172,7 +173,7 @@ pub struct SRTFormatArray {
 
 impl SRTFormatArray {
     pub fn d3dtype(&self) -> D3D12_RT_FORMAT_ARRAY {
-        let mut result : D3D12_RT_FORMAT_ARRAY = unsafe { mem::uninitialized() };
+        let mut result: D3D12_RT_FORMAT_ARRAY = unsafe { mem::uninitialized() };
         result.NumRenderTargets = self.rt_formats.len() as UINT;
 
         for i in 0..self.rt_formats.len() {
@@ -192,13 +193,11 @@ pub struct SPipelineStateStreamDesc<'a, T> {
 
 impl<'a, T> SPipelineStateStreamDesc<'a, T> {
     pub fn create(stream: &'a T) -> Self {
-        Self {
-            stream: stream,
-        }
+        Self { stream: stream }
     }
 
     pub unsafe fn d3dtype(&self) -> D3D12_PIPELINE_STATE_STREAM_DESC {
-        let mut desc : D3D12_PIPELINE_STATE_STREAM_DESC = mem::uninitialized();
+        let mut desc: D3D12_PIPELINE_STATE_STREAM_DESC = mem::uninitialized();
         desc.SizeInBytes = mem::size_of::<T>() as winapi::shared::basetsd::SIZE_T;
         desc.pPipelineStateSubobjectStream = self.stream as *const T as *mut c_void;
 
@@ -263,4 +262,3 @@ impl EPipelineStateSubobjectType {
         }
     }
 }
-

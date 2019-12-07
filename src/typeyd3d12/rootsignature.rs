@@ -19,12 +19,24 @@ impl TD3DFlags32 for ERootSignatureFlags {
     fn d3dtype(&self) -> Self::TD3DType {
         match self {
             Self::ENone => D3D12_ROOT_SIGNATURE_FLAG_NONE,
-            Self::AllowInputAssemblerInputLayout => D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT,
-            Self::DenyVertexShaderRootAccess => D3D12_ROOT_SIGNATURE_FLAG_DENY_VERTEX_SHADER_ROOT_ACCESS,
-            Self::DenyHullShaderRootAccess => D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS,
-            Self::DenyDomainShaderRootAccess => D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS,
-            Self::DenyGeometryShaderRootAccess => D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS,
-            Self::DenyPixelShaderRootAccess => D3D12_ROOT_SIGNATURE_FLAG_DENY_PIXEL_SHADER_ROOT_ACCESS,
+            Self::AllowInputAssemblerInputLayout => {
+                D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT
+            }
+            Self::DenyVertexShaderRootAccess => {
+                D3D12_ROOT_SIGNATURE_FLAG_DENY_VERTEX_SHADER_ROOT_ACCESS
+            }
+            Self::DenyHullShaderRootAccess => {
+                D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS
+            }
+            Self::DenyDomainShaderRootAccess => {
+                D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS
+            }
+            Self::DenyGeometryShaderRootAccess => {
+                D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS
+            }
+            Self::DenyPixelShaderRootAccess => {
+                D3D12_ROOT_SIGNATURE_FLAG_DENY_PIXEL_SHADER_ROOT_ACCESS
+            }
             Self::AllowStreamOutput => D3D12_ROOT_SIGNATURE_FLAG_ALLOW_STREAM_OUTPUT,
             //Self::LocalRootSignature => D3D12_ROOT_SIGNATURE_FLAG_LOCAL_ROOT_SIGNATURE
         }
@@ -32,7 +44,6 @@ impl TD3DFlags32 for ERootSignatureFlags {
 }
 
 pub type SRootSignatureFlags = SD3DFlags32<ERootSignatureFlags>;
-
 
 pub struct SRootSignature {
     pub raw: ComPtr<ID3D12RootSignature>,
@@ -81,17 +92,17 @@ pub enum ERootSignatureVersion {
 impl ERootSignatureVersion {
     pub fn d3dtype(&self) -> D3D_ROOT_SIGNATURE_VERSION {
         match self {
-            Self:: V1 => D3D_ROOT_SIGNATURE_VERSION_1,
-            Self:: V1_0 => D3D_ROOT_SIGNATURE_VERSION_1_0,
-            Self:: V1_1 => D3D_ROOT_SIGNATURE_VERSION_1_1,
+            Self::V1 => D3D_ROOT_SIGNATURE_VERSION_1,
+            Self::V1_0 => D3D_ROOT_SIGNATURE_VERSION_1_0,
+            Self::V1_1 => D3D_ROOT_SIGNATURE_VERSION_1_1,
         }
     }
 }
 
 pub fn serialize_root_signature(
     root_signature: &mut SRootSignatureDesc,
-    version: ERootSignatureVersion) -> Result<SBlob, SBlob> {
-
+    version: ERootSignatureVersion,
+) -> Result<SBlob, SBlob> {
     let mut raw_result_blob: *mut d3dcommon::ID3DBlob = ptr::null_mut();
     let mut raw_err_blob: *mut d3dcommon::ID3DBlob = ptr::null_mut();
 
@@ -110,8 +121,7 @@ pub fn serialize_root_signature(
         Ok(SBlob {
             raw: unsafe { ComPtr::from_raw(raw_result_blob) },
         })
-    }
-    else {
+    } else {
         Err(SBlob {
             raw: unsafe { ComPtr::from_raw(raw_err_blob) },
         })
@@ -149,13 +159,13 @@ impl ERootParameterType {
             Self::E32BitConstants => D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS,
             Self::CBV => D3D12_ROOT_PARAMETER_TYPE_CBV,
             Self::SRV => D3D12_ROOT_PARAMETER_TYPE_SRV,
-            Self::UAV => D3D12_ROOT_PARAMETER_TYPE_UAV
+            Self::UAV => D3D12_ROOT_PARAMETER_TYPE_UAV,
         }
     }
 }
 
 pub enum ERootParameterTypeData {
-    Constants{constants: SRootConstants},
+    Constants { constants: SRootConstants },
 }
 
 pub struct SRootParameter {
@@ -167,10 +177,10 @@ pub struct SRootParameter {
 impl SRootParameter {
     pub fn d3dtype(&self) -> D3D12_ROOT_PARAMETER {
         unsafe {
-            let mut result : D3D12_ROOT_PARAMETER = mem::uninitialized();
+            let mut result: D3D12_ROOT_PARAMETER = mem::uninitialized();
             result.ParameterType = self.type_.d3dtype();
             match &self.type_data {
-                ERootParameterTypeData::Constants{constants} => {
+                ERootParameterTypeData::Constants { constants } => {
                     *result.u.Constants_mut() = constants.d3dtype();
                 }
             }
@@ -180,6 +190,3 @@ impl SRootParameter {
         }
     }
 }
-
-
-

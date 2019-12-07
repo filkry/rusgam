@@ -42,9 +42,7 @@ pub struct SCommandList {
 
 impl SCommandList {
     pub unsafe fn new_from_raw(raw: ComPtr<ID3D12GraphicsCommandList>) -> Self {
-        Self {
-            commandlist: raw,
-        }
+        Self { commandlist: raw }
     }
 
     // -- almost everything in here is unsafe because we take shared references, but require
@@ -55,7 +53,8 @@ impl SCommandList {
     }
 
     pub unsafe fn reset(&self, commandallocator: &SCommandAllocator) -> Result<(), &'static str> {
-        let hn = self.commandlist
+        let hn = self
+            .commandlist
             .Reset(commandallocator.raw().as_raw(), ptr::null_mut());
         returnerrifwinerror!(hn, "Could not reset command list.");
         Ok(())
@@ -77,24 +76,41 @@ impl SCommandList {
     pub unsafe fn clear_depth_stencil_view(&self, descriptor: SDescriptorHandle, depth: f32) {
         // -- $$$FRK(TODO): support ClearFlags/Stencil/NumRects/pRects
         self.commandlist.ClearDepthStencilView(
-            *descriptor.raw(), D3D12_CLEAR_FLAG_DEPTH, depth, 0, 0, ptr::null());
+            *descriptor.raw(),
+            D3D12_CLEAR_FLAG_DEPTH,
+            depth,
+            0,
+            0,
+            ptr::null(),
+        );
     }
 
     pub unsafe fn set_pipeline_state(&self, pipeline_state: &SPipelineState) {
-        self.commandlist.SetPipelineState(pipeline_state.raw().as_raw())
+        self.commandlist
+            .SetPipelineState(pipeline_state.raw().as_raw())
     }
 
     pub unsafe fn set_graphics_root_signature(&self, root_signature: &SRootSignature) {
-        self.commandlist.SetGraphicsRootSignature(root_signature.raw.as_raw())
+        self.commandlist
+            .SetGraphicsRootSignature(root_signature.raw.as_raw())
     }
 
     pub unsafe fn ia_set_primitive_topology(&self, primitive_topology: EPrimitiveTopology) {
-        self.commandlist.IASetPrimitiveTopology(primitive_topology.d3dtype())
+        self.commandlist
+            .IASetPrimitiveTopology(primitive_topology.d3dtype())
     }
 
-    pub unsafe fn ia_set_vertex_buffers(&self, start_slot: u32, vertex_buffers: &[&SVertexBufferView]) {
+    pub unsafe fn ia_set_vertex_buffers(
+        &self,
+        start_slot: u32,
+        vertex_buffers: &[&SVertexBufferView],
+    ) {
         assert!(vertex_buffers.len() == 1); // didn't want to implement copying d3dtype array
-        self.commandlist.IASetVertexBuffers(start_slot, vertex_buffers.len() as u32, vertex_buffers[0].raw())
+        self.commandlist.IASetVertexBuffers(
+            start_slot,
+            vertex_buffers.len() as u32,
+            vertex_buffers[0].raw(),
+        )
     }
 
     pub unsafe fn ia_set_index_buffer(&self, index_buffer: &SIndexBufferView) {
@@ -103,13 +119,14 @@ impl SCommandList {
 
     pub unsafe fn rs_set_viewports(&self, viewports: &[&SViewport]) {
         assert!(viewports.len() == 1); // didn't want to implement copying d3dtype array
-        self.commandlist.RSSetViewports(viewports.len() as u32, &viewports[0].viewport)
+        self.commandlist
+            .RSSetViewports(viewports.len() as u32, &viewports[0].viewport)
     }
 
     pub unsafe fn rs_set_scissor_rects(&self, scissor_rects: SScissorRects) {
         self.commandlist.RSSetScissorRects(
             scissor_rects.d3drects.len() as u32,
-            &scissor_rects.d3drects[0]
+            &scissor_rects.d3drects[0],
         )
     }
 
@@ -117,8 +134,8 @@ impl SCommandList {
         &self,
         render_target_descriptors: &[&SDescriptorHandle],
         rts_single_handle_to_descriptor_range: bool,
-        depth_target_descriptor: &SDescriptorHandle) {
-
+        depth_target_descriptor: &SDescriptorHandle,
+    ) {
         assert!(render_target_descriptors.len() == 1); // didn't want to implement copying d3dtype array
 
         self.commandlist.OMSetRenderTargets(
@@ -152,7 +169,7 @@ impl SCommandList {
         instance_count: u32,
         start_index_location: u32,
         base_vertex_location: i32,
-        start_instance_location: u32
+        start_instance_location: u32,
     ) {
         self.commandlist.DrawIndexedInstanced(
             index_count_per_instance,

@@ -7,9 +7,7 @@ pub struct SFence {
 
 impl SFence {
     pub unsafe fn new_from_raw(raw: ComPtr<ID3D12Fence>) -> Self {
-        Self {
-            fence: raw,
-        }
+        Self { fence: raw }
     }
 
     pub unsafe fn raw(&self) -> &ComPtr<ID3D12Fence> {

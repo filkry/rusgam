@@ -6,9 +6,7 @@ pub struct SAdapter1 {
 
 impl SAdapter1 {
     pub unsafe fn new_from_raw(raw: ComPtr<IDXGIAdapter1>) -> Self {
-        Self {
-            adapter: raw,
-        }
+        Self { adapter: raw }
     }
 
     pub fn getdesc(&self) -> DXGI_ADAPTER_DESC1 {
@@ -42,4 +40,3 @@ impl SAdapter4 {
         d3d12createdevice(self.adapter.asunknownptr())
     }
 }
-

@@ -26,8 +26,8 @@ impl<'a> SCommandListPool<'a> {
         queue: &'a RefCell<SCommandQueue>,
         winapi: &safewindows::SWinAPI,
         num_lists: u16,
-        num_allocators: u16) -> Result<Self, &'static str> {
-
+        num_allocators: u16,
+    ) -> Result<Self, &'static str> {
         assert!(num_allocators > 0 && num_lists > 0);
 
         let type_ = queue.borrow().type_();
@@ -40,10 +40,10 @@ impl<'a> SCommandListPool<'a> {
         }
 
         for _ in 0..num_lists {
-            let mut list = unsafe { device.create_command_list(&mut allocators[0])? } ;
+            let mut list = unsafe { device.create_command_list(&mut allocators[0])? };
             // -- immediately close handle because we'll re-assign a new allocator from the pool when ready
             list.close()?;
-            lists.push(SCommandListPoolList{
+            lists.push(SCommandListPoolList {
                 list: list,
                 allocator: Default::default(),
             });
@@ -54,7 +54,9 @@ impl<'a> SCommandListPool<'a> {
             allocators: SPool::<SCommandAllocator>::create_from_vec(0, num_allocators, allocators),
             lists: SPool::<SCommandListPoolList>::create_from_vec(1, num_lists, lists),
             activefence: device.create_fence(winapi)?,
-            activeallocators: Vec::<SCommandListPoolActiveAllocator>::with_capacity(num_allocators as usize),
+            activeallocators: Vec::<SCommandListPoolActiveAllocator>::with_capacity(
+                num_allocators as usize,
+            ),
         })
     }
 

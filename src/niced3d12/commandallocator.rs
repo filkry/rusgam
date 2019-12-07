@@ -6,9 +6,7 @@ pub struct SCommandAllocator {
 
 impl SCommandAllocator {
     pub unsafe fn new_from_raw(raw: t12::SCommandAllocator) -> Self {
-        Self {
-            raw: raw,
-        }
+        Self { raw: raw }
     }
 
     pub unsafe fn raw(&self) -> &t12::SCommandAllocator {
@@ -19,4 +17,3 @@ impl SCommandAllocator {
         self.raw.reset();
     }
 }
-

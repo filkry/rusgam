@@ -10,7 +10,8 @@ impl SDebugInterface {
             let mut result: SDebugInterface = mem::uninitialized();
 
             let riid = ID3D12Debug::uuidof();
-            let voidcasted: *mut *mut c_void = &mut result.debuginterface as *mut _ as *mut *mut c_void;
+            let voidcasted: *mut *mut c_void =
+                &mut result.debuginterface as *mut _ as *mut *mut c_void;
 
             let hresult = D3D12GetDebugInterface(&riid, voidcasted);
             if winerror::SUCCEEDED(hresult) {
@@ -27,5 +28,3 @@ impl SDebugInterface {
         }
     }
 }
-
-

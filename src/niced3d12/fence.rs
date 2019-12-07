@@ -20,18 +20,12 @@ impl SFence {
         &self.raw
     }
 
-    pub fn wait_for_value(
-        &self,
-        val: u64,
-    ) {
-        self.wait_for_value_duration(val, <u64>::max_value()).unwrap();
+    pub fn wait_for_value(&self, val: u64) {
+        self.wait_for_value_duration(val, <u64>::max_value())
+            .unwrap();
     }
 
-    pub fn wait_for_value_duration(
-        &self,
-        val: u64,
-        duration: u64,
-    ) -> Result<(), &'static str> {
+    pub fn wait_for_value_duration(&self, val: u64, duration: u64) -> Result<(), &'static str> {
         if self.raw.getcompletedvalue() < val {
             self.raw.seteventoncompletion(val, &self.fenceevent)?;
             self.fenceevent.waitforsingleobject(duration);
@@ -39,5 +33,4 @@ impl SFence {
 
         Ok(())
     }
-
 }

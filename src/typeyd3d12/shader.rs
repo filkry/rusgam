@@ -78,7 +78,7 @@ impl EShaderVisibility {
             Self::Hull => D3D12_SHADER_VISIBILITY_HULL,
             Self::Domain => D3D12_SHADER_VISIBILITY_DOMAIN,
             Self::Geometry => D3D12_SHADER_VISIBILITY_GEOMETRY,
-            Self::Pixel => D3D12_SHADER_VISIBILITY_PIXEL
+            Self::Pixel => D3D12_SHADER_VISIBILITY_PIXEL,
         }
     }
 }
@@ -89,9 +89,7 @@ pub struct SShaderBytecode<'a> {
 
 impl<'a> SShaderBytecode<'a> {
     pub fn create(blob: &'a SBlob) -> Self {
-        Self {
-            bytecode: blob,
-        }
+        Self { bytecode: blob }
     }
 
     pub unsafe fn d3dtype(&self) -> D3D12_SHADER_BYTECODE {
@@ -150,20 +148,13 @@ pub fn d3dcompilefromfile(
     })
 }
 
-pub fn read_file_to_blob(
-    file: &str,
-) -> Result<SBlob, &'static str> {
+pub fn read_file_to_blob(file: &str) -> Result<SBlob, &'static str> {
     let mut fileparam: Vec<u16> = file.encode_utf16().collect();
     fileparam.push('\0' as u16);
 
     let mut resultblob: *mut d3dcommon::ID3DBlob = ptr::null_mut();
 
-    let hr = unsafe {
-        d3dcompiler::D3DReadFileToBlob(
-            fileparam.as_ptr(),
-            &mut resultblob,
-        )
-    };
+    let hr = unsafe { d3dcompiler::D3DReadFileToBlob(fileparam.as_ptr(), &mut resultblob) };
 
     returnerrifwinerror!(hr, "failed to load shader");
 

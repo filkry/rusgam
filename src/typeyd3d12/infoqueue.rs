@@ -6,9 +6,7 @@ pub struct SInfoQueue {
 
 impl SInfoQueue {
     pub unsafe fn new_from_raw(raw: ComPtr<ID3D12InfoQueue>) -> Self {
-        Self {
-            infoqueue: raw,
-        }
+        Self { infoqueue: raw }
     }
 
     pub fn setbreakonseverity(&self, id: D3D12_MESSAGE_ID, val: BOOL) {

@@ -7,9 +7,7 @@ pub struct SCommandList {
 
 impl SCommandList {
     pub fn new_from_raw(raw: t12::SCommandList) -> Self {
-        Self {
-            raw: raw,
-        }
+        Self { raw: raw }
     }
 
     pub fn raw(&self) -> &t12::SCommandList {
@@ -29,8 +27,7 @@ impl SCommandList {
         beforestate: t12::EResourceStates,
         afterstate: t12::EResourceStates,
     ) -> Result<(), &'static str> {
-        let transbarrier =
-            t12::create_transition_barrier(&resource.raw, beforestate, afterstate);
+        let transbarrier = t12::create_transition_barrier(&resource.raw, beforestate, afterstate);
         unsafe { self.raw.resourcebarrier(1, &[transbarrier]) };
         Ok(())
     }
@@ -65,7 +62,11 @@ impl SCommandList {
         unsafe { self.raw.ia_set_primitive_topology(primitive_topology) }
     }
 
-    pub fn ia_set_vertex_buffers(&mut self, start_slot: u32, vertex_buffers: &[&t12::SVertexBufferView]) {
+    pub fn ia_set_vertex_buffers(
+        &mut self,
+        start_slot: u32,
+        vertex_buffers: &[&t12::SVertexBufferView],
+    ) {
         unsafe { self.raw.ia_set_vertex_buffers(start_slot, vertex_buffers) }
     }
 
@@ -85,13 +86,15 @@ impl SCommandList {
         &self,
         render_target_descriptors: &[&t12::SDescriptorHandle],
         rts_single_handle_to_descriptor_range: bool,
-        depth_target_descriptor: &t12::SDescriptorHandle) {
-
-        unsafe { self.raw.om_set_render_targets(
-            render_target_descriptors,
-            rts_single_handle_to_descriptor_range,
-            depth_target_descriptor
-        )};
+        depth_target_descriptor: &t12::SDescriptorHandle,
+    ) {
+        unsafe {
+            self.raw.om_set_render_targets(
+                render_target_descriptors,
+                rts_single_handle_to_descriptor_range,
+                depth_target_descriptor,
+            )
+        };
     }
 
     pub fn set_graphics_root_32_bit_constants<T: Sized>(
@@ -100,11 +103,13 @@ impl SCommandList {
         data: &T,
         dest_offset_in_32_bit_values: u32,
     ) {
-        unsafe { self.raw.set_graphics_root_32_bit_constants(
-            root_parameter_index,
-            data,
-            dest_offset_in_32_bit_values,
-        )};
+        unsafe {
+            self.raw.set_graphics_root_32_bit_constants(
+                root_parameter_index,
+                data,
+                dest_offset_in_32_bit_values,
+            )
+        };
     }
 
     pub fn draw_indexed_instanced(
@@ -113,15 +118,17 @@ impl SCommandList {
         instance_count: u32,
         start_index_location: u32,
         base_vertex_location: i32,
-        start_instance_location: u32
+        start_instance_location: u32,
     ) {
-        unsafe { self.raw.draw_indexed_instanced(
-            index_count_per_instance,
-            instance_count,
-            start_index_location,
-            base_vertex_location,
-            start_instance_location,
-        ) };
+        unsafe {
+            self.raw.draw_indexed_instanced(
+                index_count_per_instance,
+                instance_count,
+                start_index_location,
+                base_vertex_location,
+                start_instance_location,
+            )
+        };
     }
 
     pub fn get_type(&self) -> t12::ECommandListType {
@@ -138,12 +145,11 @@ impl SCommandList {
         bufferdata: &[T],
         flags: t12::SResourceFlags,
     ) -> Result<SCommandQueueUpdateBufferResult, &'static str> {
-
         let mut destinationresource = device.create_committed_buffer_resource(
             t12::EHeapType::Default,
             flags,
             t12::EResourceStates::CopyDest,
-            bufferdata
+            bufferdata,
         )?;
 
         // -- resource created with Upload type MUST have state GenericRead
@@ -151,7 +157,7 @@ impl SCommandList {
             t12::EHeapType::Upload,
             flags,
             t12::EResourceStates::GenericRead,
-            bufferdata
+            bufferdata,
         )?;
 
         let mut srcdata = t12::SSubResourceData::createbuffer(bufferdata);
@@ -169,7 +175,6 @@ impl SCommandList {
             destinationresource: destinationresource,
             intermediateresource: intermediateresource,
         })
-
     }
 }
 
@@ -177,4 +182,3 @@ pub struct SCommandQueueUpdateBufferResult {
     pub destinationresource: SResource,
     pub intermediateresource: SResource,
 }
-

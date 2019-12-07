@@ -82,16 +82,23 @@ impl SResourceDesc {
         }
     }
 
-    pub fn create_texture_2d(width: u32, height: u32, array_size: u16, mip_levels: u16, format: EDXGIFormat, flags: SResourceFlags) -> Self {
+    pub fn create_texture_2d(
+        width: u32,
+        height: u32,
+        array_size: u16,
+        mip_levels: u16,
+        format: EDXGIFormat,
+        flags: SResourceFlags,
+    ) -> Self {
         Self {
             raw: D3D12_RESOURCE_DESC {
                 Dimension: D3D12_RESOURCE_DIMENSION_TEXTURE2D,
                 Alignment: D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT as u64,
                 Width: width as u64,
-                Height: height,                // required
-                DepthOrArraySize: array_size,      // required
-                MipLevels: mip_levels,             // required
-                Format: format.d3dtype(), // required
+                Height: height,               // required
+                DepthOrArraySize: array_size, // required
+                MipLevels: mip_levels,        // required
+                Format: format.d3dtype(),     // required
                 SampleDesc: dxgitype::DXGI_SAMPLE_DESC {
                     Count: 1,   // required
                     Quality: 0, // required
@@ -134,7 +141,6 @@ impl TD3DFlags32 for EResourceFlags {
 
 pub type SResourceFlags = SD3DFlags32<EResourceFlags>;
 
-
 #[derive(Clone)]
 pub struct SResource {
     resource: ComPtr<ID3D12Resource>,
@@ -148,9 +154,7 @@ impl std::cmp::PartialEq for SResource {
 
 impl SResource {
     pub unsafe fn new_from_raw(raw: ComPtr<ID3D12Resource>) -> Self {
-        Self {
-            resource: raw,
-        }
+        Self { resource: raw }
     }
 
     pub unsafe fn raw(&self) -> &ComPtr<ID3D12Resource> {

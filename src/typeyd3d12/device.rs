@@ -25,7 +25,7 @@ impl SDevice {
     pub fn castinfoqueue(&self) -> Option<SInfoQueue> {
         match self.device.cast::<ID3D12InfoQueue>() {
             Ok(a) => {
-                return Some(unsafe { SInfoQueue::new_from_raw(a) } );
+                return Some(unsafe { SInfoQueue::new_from_raw(a) });
             }
             Err(_) => {
                 return None;
@@ -134,13 +134,13 @@ impl SDevice {
     ) -> Result<SResource, &'static str> {
         unsafe {
             #[allow(unused_assignments)]
-            let mut d3dcv : D3D12_CLEAR_VALUE = mem::uninitialized();
+            let mut d3dcv: D3D12_CLEAR_VALUE = mem::uninitialized();
 
-            let clear_value_ptr : * const D3D12_CLEAR_VALUE = match clear_value {
+            let clear_value_ptr: *const D3D12_CLEAR_VALUE = match clear_value {
                 Some(cv) => {
                     d3dcv = cv.d3dtype();
                     &d3dcv
-                },
+                }
                 None => ptr::null_mut(),
             };
 
@@ -175,7 +175,7 @@ impl SDevice {
 
         returnerrifwinerror!(hn, "Could not create command allocator.");
 
-        Ok(unsafe { SCommandAllocator::new_from_raw(type_, ComPtr::from_raw(rawca)) } )
+        Ok(unsafe { SCommandAllocator::new_from_raw(type_, ComPtr::from_raw(rawca)) })
     }
 
     pub fn createcommandlist(
@@ -196,7 +196,7 @@ impl SDevice {
 
         returnerrifwinerror!(hn, "Could not create command list.");
 
-        Ok(unsafe {SCommandList::new_from_raw(ComPtr::from_raw(rawcl))})
+        Ok(unsafe { SCommandList::new_from_raw(ComPtr::from_raw(rawcl)) })
     }
 
     // -- $$$FRK(TODO): think about mutable refs for lots of fns here and in safewindows
@@ -218,33 +218,42 @@ impl SDevice {
     }
 
     // -- $$$FRK(TODO): support nodeMask parameter
-    pub fn create_root_signature(&self, blob_with_root_signature: &SBlob)-> Result<SRootSignature, &'static str> {
+    pub fn create_root_signature(
+        &self,
+        blob_with_root_signature: &SBlob,
+    ) -> Result<SRootSignature, &'static str> {
+        let mut raw_root_signature: *mut ID3D12RootSignature = ptr::null_mut();
 
-        let mut raw_root_signature : *mut ID3D12RootSignature = ptr::null_mut();
-
-        let hr = unsafe { self.device.CreateRootSignature(
-            0,
-            blob_with_root_signature.raw.GetBufferPointer(),
-            blob_with_root_signature.raw.GetBufferSize(),
-            &ID3D12RootSignature::uuidof(),
-            &mut raw_root_signature as *mut *mut _ as *mut *mut c_void,
-        )};
+        let hr = unsafe {
+            self.device.CreateRootSignature(
+                0,
+                blob_with_root_signature.raw.GetBufferPointer(),
+                blob_with_root_signature.raw.GetBufferSize(),
+                &ID3D12RootSignature::uuidof(),
+                &mut raw_root_signature as *mut *mut _ as *mut *mut c_void,
+            )
+        };
         returnerrifwinerror!(hr, "Could not create root signature");
 
         let root_signature = unsafe { ComPtr::from_raw(raw_root_signature) };
-        Ok(SRootSignature{
+        Ok(SRootSignature {
             raw: root_signature,
         })
     }
 
-    pub fn create_pipeline_state_for_raw_desc(&self, desc: &D3D12_PIPELINE_STATE_STREAM_DESC) -> Result<SPipelineState, &'static str> {
-        let mut raw_pipeline_state : *mut ID3D12PipelineState = ptr::null_mut();
+    pub fn create_pipeline_state_for_raw_desc(
+        &self,
+        desc: &D3D12_PIPELINE_STATE_STREAM_DESC,
+    ) -> Result<SPipelineState, &'static str> {
+        let mut raw_pipeline_state: *mut ID3D12PipelineState = ptr::null_mut();
 
-        let hr = unsafe { self.device.CreatePipelineState(
-            desc,
-            &ID3D12PipelineState::uuidof(),
-            &mut raw_pipeline_state as *mut *mut _ as *mut *mut c_void,
-        )};
+        let hr = unsafe {
+            self.device.CreatePipelineState(
+                desc,
+                &ID3D12PipelineState::uuidof(),
+                &mut raw_pipeline_state as *mut *mut _ as *mut *mut c_void,
+            )
+        };
         returnerrifwinerror!(hr, "Could not create pipeline state");
 
         unsafe {
@@ -253,7 +262,10 @@ impl SDevice {
         }
     }
 
-    pub fn create_pipeline_state<T>(&self, desc: &SPipelineStateStreamDesc<T>) -> Result<SPipelineState, &'static str> {
+    pub fn create_pipeline_state<T>(
+        &self,
+        desc: &SPipelineStateStreamDesc<T>,
+    ) -> Result<SPipelineState, &'static str> {
         let d3ddesc = unsafe { desc.d3dtype() };
         self.create_pipeline_state_for_raw_desc(&d3ddesc)
     }

@@ -64,10 +64,10 @@ impl SFactory {
         width: u32,
         height: u32,
     ) -> Result<SSwapChain, &'static str> {
-
-        let newsc = unsafe { self
-            .raw
-            .createswapchainforwindow(window, commandqueue.raw(), width, height)? };
+        let newsc = unsafe {
+            self.raw
+                .createswapchainforwindow(window, commandqueue.raw(), width, height)?
+        };
 
         Ok(SSwapChain::new_from_raw(newsc, 2))
     }

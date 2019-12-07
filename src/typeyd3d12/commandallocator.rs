@@ -7,7 +7,10 @@ pub struct SCommandAllocator {
 }
 
 impl SCommandAllocator {
-    pub unsafe fn new_from_raw(type_: ECommandListType, raw: ComPtr<ID3D12CommandAllocator>) -> Self {
+    pub unsafe fn new_from_raw(
+        type_: ECommandListType,
+        raw: ComPtr<ID3D12CommandAllocator>,
+    ) -> Self {
         Self {
             type_: type_,
             commandallocator: raw,

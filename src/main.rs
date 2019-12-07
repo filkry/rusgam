@@ -1,8 +1,8 @@
+extern crate arrayvec;
 extern crate nalgebra;
 extern crate nalgebra_glm as glm;
 extern crate winapi;
 extern crate wio;
-extern crate arrayvec;
 
 //mod math;
 mod collections;
@@ -13,14 +13,14 @@ mod safewindows;
 mod typeyd3d12;
 
 // -- std includes
-use std::mem::{size_of};
-use std::cell::{RefCell};
+use std::cell::RefCell;
+use std::mem::size_of;
 
 // -- crate includes
-use arrayvec::{ArrayVec};
+use arrayvec::ArrayVec;
 
-use typeyd3d12 as t12;
 use niced3d12 as n12;
+use typeyd3d12 as t12;
 
 #[allow(dead_code)]
 type SMat44 = nalgebra::Matrix4<f32>;
@@ -36,7 +36,6 @@ struct SVertexPosColour {
 
 #[allow(unused_variables)]
 #[allow(unused_mut)]
-
 #[repr(C)]
 struct SPipelineStateStream<'a> {
     root_signature: n12::SPipelineStateStreamRootSignature<'a>,
@@ -59,7 +58,7 @@ pub fn init_depth_texture(
     direct_command_pool.flush_blocking().unwrap();
     copy_command_pool.flush_blocking().unwrap();
 
-    let clear_value = t12::SClearValue{
+    let clear_value = t12::SClearValue {
         format: t12::EDXGIFormat::D32Float,
         value: t12::EClearValue::DepthStencil(t12::SDepthStencilValue {
             depth: 1.0,
@@ -84,15 +83,13 @@ pub fn init_depth_texture(
         format: t12::EDXGIFormat::D32Float,
         view_dimension: t12::EDSVDimension::Texture2D,
         flags: t12::SDSVFlags::from(t12::EDSVFlags::None),
-        data: t12::EDepthStencilViewDescData::Tex2D(t12::STex2DDSV {
-            mip_slice: 0,
-        }),
+        data: t12::EDepthStencilViewDescData::Tex2D(t12::STex2DDSV { mip_slice: 0 }),
     };
 
     device.create_depth_stencil_view(
         &mut depth_texture_resource,
         &depth_stencil_view_desc,
-        depth_descriptor_heap.cpu_handle_heap_start()
+        depth_descriptor_heap.cpu_handle_heap_start(),
     )?;
 
     Ok(depth_texture_resource)
@@ -111,29 +108,17 @@ fn main_d3d12() -> Result<(), &'static str> {
     let mut adapter = factory.create_best_adapter()?;
     let mut device = adapter.create_device()?;
 
-    let commandqueue = RefCell::new(device.create_command_queue(
-        &winapi.rawwinapi(),
-        t12::ECommandListType::Direct,
-    )?);
-    let mut directcommandpool = n12::SCommandListPool::create(
-        &device,
-        &commandqueue,
-        &winapi.rawwinapi(),
-        1,
-        2,
-    )?;
+    let commandqueue = RefCell::new(
+        device.create_command_queue(&winapi.rawwinapi(), t12::ECommandListType::Direct)?,
+    );
+    let mut directcommandpool =
+        n12::SCommandListPool::create(&device, &commandqueue, &winapi.rawwinapi(), 1, 2)?;
 
-    let copycommandqueue = RefCell::new(device.create_command_queue(
-        &winapi.rawwinapi(),
-        t12::ECommandListType::Copy,
-    )?);
-    let mut copycommandpool = n12::SCommandListPool::create(
-        &device,
-        &copycommandqueue,
-        &winapi.rawwinapi(),
-        1,
-        2,
-    )?;
+    let copycommandqueue = RefCell::new(
+        device.create_command_queue(&winapi.rawwinapi(), t12::ECommandListType::Copy)?,
+    );
+    let mut copycommandpool =
+        n12::SCommandListPool::create(&device, &copycommandqueue, &winapi.rawwinapi(), 1, 2)?;
 
     let mut window = n12::SD3D12Window::new(
         &windowclass,
@@ -227,33 +212,30 @@ fn main_d3d12() -> Result<(), &'static str> {
         let copycommandlist = copycommandpool.get_list(handle)?;
 
         let vertbufferresource = {
-            let vertbufferflags =
-                t12::SResourceFlags::from(t12::EResourceFlags::ENone);
-            copycommandlist
-                .update_buffer_resource(&device, &cubeverts, vertbufferflags)
-                ?
+            let vertbufferflags = t12::SResourceFlags::from(t12::EResourceFlags::ENone);
+            copycommandlist.update_buffer_resource(&device, &cubeverts, vertbufferflags)?
         };
         let vertexbufferview = vertbufferresource
             .destinationresource
-            .create_vertex_buffer_view()
-            ?;
+            .create_vertex_buffer_view()?;
 
         let indexbufferresource = {
-            let indexbufferflags =
-                t12::SResourceFlags::from(t12::EResourceFlags::ENone);
-            copycommandlist
-                .update_buffer_resource(&device, &indices, indexbufferflags)
-                ?
+            let indexbufferflags = t12::SResourceFlags::from(t12::EResourceFlags::ENone);
+            copycommandlist.update_buffer_resource(&device, &indices, indexbufferflags)?
         };
         let indexbufferview = indexbufferresource
             .destinationresource
-            .create_index_buffer_view(t12::EDXGIFormat::R16UINT)
-            ?;
+            .create_index_buffer_view(t12::EDXGIFormat::R16UINT)?;
 
         let fenceval = copycommandpool.execute_and_free_list(handle)?;
         copycommandpool.wait_for_internal_fence_value(fenceval);
 
-        (vertbufferresource, vertexbufferview, indexbufferresource, indexbufferview)
+        (
+            vertbufferresource,
+            vertexbufferview,
+            indexbufferresource,
+            indexbufferview,
+        )
     };
 
     // -- load shaders
@@ -312,12 +294,14 @@ fn main_d3d12() -> Result<(), &'static str> {
     let mut root_signature_desc = t12::SRootSignatureDesc::new(root_signature_flags);
     root_signature_desc.parameters.push(root_parameter);
 
-    let serialized_root_signature = t12::serialize_root_signature(
-        &mut root_signature_desc,
-        t12::ERootSignatureVersion::V1,
-    ).ok().expect("Could not serialize root signature.");
+    let serialized_root_signature =
+        t12::serialize_root_signature(&mut root_signature_desc, t12::ERootSignatureVersion::V1)
+            .ok()
+            .expect("Could not serialize root signature.");
 
-    let root_signature = device.raw().create_root_signature(&serialized_root_signature)?;
+    let root_signature = device
+        .raw()
+        .create_root_signature(&serialized_root_signature)?;
 
     let mut rtv_formats = t12::SRTFormatArray {
         rt_formats: ArrayVec::new(),
@@ -328,14 +312,20 @@ fn main_d3d12() -> Result<(), &'static str> {
     let pipeline_state_stream = SPipelineStateStream {
         root_signature: n12::SPipelineStateStreamRootSignature::create(&root_signature),
         input_layout: n12::SPipelineStateStreamInputLayout::create(&mut input_layout_desc),
-        primitive_topology: n12::SPipelineStateStreamPrimitiveTopology::create(t12::EPrimitiveTopologyType::Triangle),
+        primitive_topology: n12::SPipelineStateStreamPrimitiveTopology::create(
+            t12::EPrimitiveTopologyType::Triangle,
+        ),
         vertex_shader: n12::SPipelineStateStreamVertexShader::create(&vert_byte_code),
         pixel_shader: n12::SPipelineStateStreamPixelShader::create(&pixel_byte_code),
-        depth_stencil_format: n12::SPipelineStateStreamDepthStencilFormat::create(t12::EDXGIFormat::D32Float),
+        depth_stencil_format: n12::SPipelineStateStreamDepthStencilFormat::create(
+            t12::EDXGIFormat::D32Float,
+        ),
         rtv_formats: n12::SPipelineStateStreamRTVFormats::create(&rtv_formats),
     };
     let pipeline_state_stream_desc = t12::SPipelineStateStreamDesc::create(&pipeline_state_stream);
-    let pipeline_state = device.raw().create_pipeline_state(&pipeline_state_stream_desc)?;
+    let pipeline_state = device
+        .raw()
+        .create_pipeline_state(&pipeline_state_stream_desc)?;
 
     // -- depth texture
     #[allow(unused_variables)]
@@ -345,7 +335,7 @@ fn main_d3d12() -> Result<(), &'static str> {
         &device,
         &mut directcommandpool,
         &mut copycommandpool,
-        &depthstencilviewheap
+        &depthstencilviewheap,
     );
 
     // -- update loop
@@ -379,9 +369,9 @@ fn main_d3d12() -> Result<(), &'static str> {
         let cur_angle = ((total_time as f32) / 1_000_000.0) * (3.14159 / 4.0);
         let model_matrix = SMat44::new_rotation(rot_axis * cur_angle);
 
-        let perspective_matrix : SMat44 = {
+        let perspective_matrix: SMat44 = {
             let aspect = (window.width() as f32) / (window.height() as f32);
-            let fovy : f32 = 3.14159 / 4.0;
+            let fovy: f32 = 3.14159 / 4.0;
             let znear = 0.1;
             let zfar = 100.0;
 
@@ -395,7 +385,9 @@ fn main_d3d12() -> Result<(), &'static str> {
         //println!("Frame time: {}us", _dtms);
 
         // -- wait for buffer to be available
-        commandqueue.borrow().wait_for_internal_fence_value(framefencevalues[window.currentbackbufferindex()]);
+        commandqueue
+            .borrow()
+            .wait_for_internal_fence_value(framefencevalues[window.currentbackbufferindex()]);
 
         // -- render
         {
@@ -424,10 +416,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                     window.currentrendertargetdescriptor()?,
                     &clearcolour,
                 )?;
-                list.clear_depth_stencil_view(
-                    depthstencilviewheap.cpu_handle_heap_start(),
-                    1.0,
-                )?;
+                list.clear_depth_stencil_view(depthstencilviewheap.cpu_handle_heap_start(), 1.0)?;
 
                 // -- set up pipeline
                 list.set_pipeline_state(&pipeline_state);
@@ -470,7 +459,8 @@ fn main_d3d12() -> Result<(), &'static str> {
             // -- execute on the queue
             assert_eq!(window.currentbackbufferindex(), backbufferidx);
             directcommandpool.execute_and_free_list(handle)?;
-            framefencevalues[window.currentbackbufferindex()] = commandqueue.borrow_mut().signal_internal_fence()?;
+            framefencevalues[window.currentbackbufferindex()] =
+                commandqueue.borrow_mut().signal_internal_fence()?;
 
             // -- present the swap chain and switch to next buffer in swap chain
             window.present()?;
@@ -503,14 +493,12 @@ fn main_d3d12() -> Result<(), &'static str> {
                         let newwidth = rect.right - rect.left;
                         let newheight = rect.bottom - rect.top;
 
-                        window
-                            .resize(
-                                newwidth as u32,
-                                newheight as u32,
-                                &mut commandqueue.borrow_mut(),
-                                &mut device,
-                            )
-                            ?;
+                        window.resize(
+                            newwidth as u32,
+                            newheight as u32,
+                            &mut commandqueue.borrow_mut(),
+                            &mut device,
+                        )?;
 
                         depth_texture_resource = init_depth_texture(
                             window.width(),
@@ -518,7 +506,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                             &device,
                             &mut directcommandpool,
                             &mut copycommandpool,
-                            &depthstencilviewheap
+                            &depthstencilviewheap,
                         );
 
                         viewport = t12::SViewport::new(

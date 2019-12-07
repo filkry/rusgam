@@ -1,7 +1,7 @@
 use std::ops::{Deref, DerefMut};
 
-use safewindows;
 use rustywindows;
+use safewindows;
 use typeyd3d12 as t12;
 
 pub struct SD3D12Window {
@@ -29,7 +29,6 @@ impl DerefMut for SD3D12Window {
 }
 
 impl SD3D12Window {
-
     pub fn new(
         windowclass: &safewindows::SWindowClass,
         factory: &super::SFactory,
@@ -41,18 +40,11 @@ impl SD3D12Window {
     ) -> Result<Self, &'static str> {
         let window = rustywindows::SWindow::create(windowclass, title, width, height).unwrap(); // $$$FRK(TODO): this panics, need to unify error handling
 
-        let swap_chain = factory.create_swap_chain(
-            &window.raw(),
-            commandqueue,
-            width,
-            height
-        )?;
+        let swap_chain = factory.create_swap_chain(&window.raw(), commandqueue, width, height)?;
         let cur_buffer = swap_chain.current_backbuffer_index();
 
-        let descriptor_heap = device.create_descriptor_heap(
-            t12::EDescriptorHeapType::RenderTarget,
-            10
-        )?;
+        let descriptor_heap =
+            device.create_descriptor_heap(t12::EDescriptorHeapType::RenderTarget, 10)?;
 
         Ok(Self {
             window: window,
@@ -64,7 +56,10 @@ impl SD3D12Window {
         })
     }
 
-    pub fn init_render_target_views(&mut self, device: &mut super::SDevice) -> Result<(), &'static str> {
+    pub fn init_render_target_views(
+        &mut self,
+        device: &mut super::SDevice,
+    ) -> Result<(), &'static str> {
         device.init_render_target_views(&mut self.swapchain, &mut self.rtvdescriptorheap)?;
         Ok(())
     }
@@ -78,9 +73,7 @@ impl SD3D12Window {
         self.curbuffer
     }
 
-    pub fn currentrendertargetdescriptor(
-        &self,
-    ) -> Result<t12::SDescriptorHandle, &'static str> {
+    pub fn currentrendertargetdescriptor(&self) -> Result<t12::SDescriptorHandle, &'static str> {
         self.rtvdescriptorheap.cpu_handle(self.curbuffer)
     }
 
@@ -118,12 +111,8 @@ impl SD3D12Window {
             self.swapchain.backbuffers.clear();
 
             let desc = self.swapchain.get_desc()?;
-            self.swapchain.resize_buffers(
-                2,
-                newwidth,
-                newheight,
-                &desc,
-            )?;
+            self.swapchain
+                .resize_buffers(2, newwidth, newheight, &desc)?;
 
             self.curbuffer = self.swapchain.current_backbuffer_index();
             self.init_render_target_views(device)?;

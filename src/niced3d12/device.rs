@@ -6,15 +6,21 @@ pub struct SDevice {
 
 impl SDevice {
     pub fn new_from_raw(raw: t12::SDevice) -> Self {
-        Self {
-            raw: raw,
-        }
+        Self { raw: raw }
     }
 
-    pub fn create_command_queue(&self, winapi: &safewindows::SWinAPI, type_: t12::ECommandListType) -> Result<SCommandQueue, &'static str> {
+    pub fn create_command_queue(
+        &self,
+        winapi: &safewindows::SWinAPI,
+        type_: t12::ECommandListType,
+    ) -> Result<SCommandQueue, &'static str> {
         let qresult = self.raw.createcommandqueue(type_)?;
 
-        Ok(SCommandQueue::new_from_raw(qresult, self.create_fence(winapi)?, type_))
+        Ok(SCommandQueue::new_from_raw(
+            qresult,
+            self.create_fence(winapi)?,
+            type_,
+        ))
     }
 
     pub fn create_command_allocator(
@@ -22,7 +28,7 @@ impl SDevice {
         type_: t12::ECommandListType,
     ) -> Result<SCommandAllocator, &'static str> {
         let raw = self.raw.createcommandallocator(type_)?;
-        Ok(unsafe { SCommandAllocator::new_from_raw(raw) } )
+        Ok(unsafe { SCommandAllocator::new_from_raw(raw) })
     }
 
     // -- NOTE: This is unsafe because it initializes the list to an allocator which we don't
@@ -35,13 +41,12 @@ impl SDevice {
         Ok(SCommandList::new_from_raw(raw))
     }
 
-    pub fn create_fence(
-        &self,
-        winapi: &safewindows::SWinAPI,
-    ) -> Result<SFence, &'static str> {
-
+    pub fn create_fence(&self, winapi: &safewindows::SWinAPI) -> Result<SFence, &'static str> {
         let fence = self.raw.createfence()?;
-        Ok(SFence::new_from_raw(fence, winapi.createeventhandle().unwrap()))
+        Ok(SFence::new_from_raw(
+            fence,
+            winapi.createeventhandle().unwrap(),
+        ))
     }
 
     pub fn create_render_target_view(
@@ -50,7 +55,8 @@ impl SDevice {
         dest_descriptor: &t12::SDescriptorHandle,
     ) -> Result<(), &'static str> {
         // -- $$$FRK(TODO): assert on resource metadata
-        self.raw.createrendertargetview(&render_target_resource.raw, dest_descriptor);
+        self.raw
+            .createrendertargetview(&render_target_resource.raw, dest_descriptor);
         Ok(())
     }
 
@@ -61,7 +67,8 @@ impl SDevice {
         dest_descriptor: t12::SDescriptorHandle,
     ) -> Result<(), &'static str> {
         // -- $$$FRK(TODO): assert on resource metadata
-        self.raw.create_depth_stencil_view(&depth_texture_resource.raw, desc, dest_descriptor);
+        self.raw
+            .create_depth_stencil_view(&depth_texture_resource.raw, desc, dest_descriptor);
         Ok(())
     }
 
@@ -94,11 +101,12 @@ impl SDevice {
         flags: t12::SResourceFlags,
         initial_resource_state: t12::EResourceStates,
     ) -> Result<SResource, &'static str> {
-
         let destinationresource = self.raw.createcommittedresource(
             t12::SHeapProperties::create(heap_type),
             t12::EHeapFlags::ENone,
-            t12::SResourceDesc::create_texture_2d(width, height, array_size, mip_levels, format, flags),
+            t12::SResourceDesc::create_texture_2d(
+                width, height, array_size, mip_levels, format, flags,
+            ),
             initial_resource_state,
             Some(clear_value),
         )?;
@@ -152,11 +160,10 @@ impl SDevice {
 
         match descriptor_heap.type_() {
             t12::EDescriptorHeapType::RenderTarget => {
-
                 for backbuffidx in 0usize..2usize {
                     let rawresource = swap_chain.raw().getbuffer(backbuffidx)?;
 
-                    let resource = SResource{
+                    let resource = SResource {
                         raw: rawresource,
                         metadata: EResourceMetadata::SwapChainResource,
                     };

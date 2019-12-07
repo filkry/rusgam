@@ -28,7 +28,10 @@ pub struct SDescriptorHeap {
 }
 
 impl SDescriptorHeap {
-    pub unsafe fn new_from_raw(type_: EDescriptorHeapType, raw: ComPtr<ID3D12DescriptorHeap>) -> Self {
+    pub unsafe fn new_from_raw(
+        type_: EDescriptorHeapType,
+        raw: ComPtr<ID3D12DescriptorHeap>,
+    ) -> Self {
         Self {
             type_: type_,
             heap: raw,
@@ -78,14 +81,14 @@ impl EDescriptorRangeType {
 
 pub enum EDescriptorRangeOffset {
     EAppend,
-    ENumDecriptors{ num: u32 },
+    ENumDecriptors { num: u32 },
 }
 
 impl EDescriptorRangeOffset {
     pub fn d3dtype(&self) -> u32 {
         match self {
             Self::EAppend => D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND,
-            Self::ENumDecriptors{num} => *num,
+            Self::ENumDecriptors { num } => *num,
         }
     }
 }
@@ -105,9 +108,9 @@ impl SDescriptorRange {
             NumDescriptors: self.num_descriptors,
             BaseShaderRegister: self.base_shader_register,
             RegisterSpace: self.register_space,
-            OffsetInDescriptorsFromTableStart: self.offset_in_descriptors_from_table_start.d3dtype(),
+            OffsetInDescriptorsFromTableStart: self
+                .offset_in_descriptors_from_table_start
+                .d3dtype(),
         }
     }
 }
-
-

@@ -8,29 +8,29 @@ macro_rules! returnerrifwinerror {
     };
 }
 
-mod debuginterface;
-mod factory;
 mod adapter;
-mod resource;
-mod device;
-mod infoqueue;
+mod commandallocator;
 mod commandlist;
 mod commandqueue;
-mod commandallocator;
-mod swapchain;
+mod debuginterface;
 mod descriptor;
-mod heap;
+mod device;
+mod factory;
 mod fence;
-mod view;
-mod rootsignature;
+mod heap;
+mod infoqueue;
 mod pipelinestate;
+mod resource;
+mod rootsignature;
 mod shader;
+mod swapchain;
+mod view;
 
 use safewindows;
 
 use std::{mem, ptr};
 
-use arrayvec::{ArrayVec};
+use arrayvec::ArrayVec;
 
 use winapi::ctypes::c_void;
 use winapi::shared::dxgi::*;
@@ -130,24 +130,24 @@ impl<T: TD3DFlags32 + Copy> SD3DFlags32<T> {
     }
 }
 
-pub use self::debuginterface::SDebugInterface;
-pub use self::factory::SFactory;
 pub use self::adapter::SAdapter1;
 pub use self::adapter::SAdapter4;
-pub use self::resource::*;
-pub use self::device::*;
-pub use self::infoqueue::SInfoQueue;
+pub use self::commandallocator::*;
 pub use self::commandlist::*;
 pub use self::commandqueue::*;
-pub use self::commandallocator::*;
-pub use self::swapchain::*;
+pub use self::debuginterface::SDebugInterface;
 pub use self::descriptor::*;
-pub use self::heap::*;
+pub use self::device::*;
+pub use self::factory::SFactory;
 pub use self::fence::SFence;
-pub use self::view::*;
-pub use self::rootsignature::*;
+pub use self::heap::*;
+pub use self::infoqueue::SInfoQueue;
 pub use self::pipelinestate::*;
+pub use self::resource::*;
+pub use self::rootsignature::*;
 pub use self::shader::*;
+pub use self::swapchain::*;
+pub use self::view::*;
 
 pub struct SBarrier {
     barrier: D3D12_RESOURCE_BARRIER,
@@ -339,20 +339,13 @@ pub fn d3dcompilefromfile(
     })
 }
 
-pub fn read_file_to_blob(
-    file: &str,
-) -> Result<SBlob, &'static str> {
+pub fn read_file_to_blob(file: &str) -> Result<SBlob, &'static str> {
     let mut fileparam: Vec<u16> = file.encode_utf16().collect();
     fileparam.push('\0' as u16);
 
     let mut resultblob: *mut d3dcommon::ID3DBlob = ptr::null_mut();
 
-    let hr = unsafe {
-        d3dcompiler::D3DReadFileToBlob(
-            fileparam.as_ptr(),
-            &mut resultblob,
-        )
-    };
+    let hr = unsafe { d3dcompiler::D3DReadFileToBlob(fileparam.as_ptr(), &mut resultblob) };
 
     returnerrifwinerror!(hr, "failed to load shader");
 

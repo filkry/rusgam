@@ -6,9 +6,7 @@ pub struct SAdapter {
 
 impl SAdapter {
     pub fn new_from_raw(raw: t12::SAdapter4) -> Self {
-        Self {
-            raw: raw,
-        }
+        Self { raw: raw }
     }
 
     pub fn create_device(&mut self) -> Result<SDevice, &'static str> {
@@ -65,4 +63,3 @@ impl SAdapter {
         Ok(SDevice::new_from_raw(device))
     }
 }
-

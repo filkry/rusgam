@@ -17,9 +17,7 @@ pub struct SCommandQueue {
 
 impl SCommandQueue {
     pub unsafe fn new_from_raw(raw: ComPtr<ID3D12CommandQueue>) -> Self {
-        Self {
-            queue: raw,
-        }
+        Self { queue: raw }
     }
 
     pub unsafe fn raw(&self) -> &ComPtr<ID3D12CommandQueue> {

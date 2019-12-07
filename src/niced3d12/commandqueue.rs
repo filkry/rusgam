@@ -9,7 +9,11 @@ pub struct SCommandQueue {
 }
 
 impl SCommandQueue {
-    pub fn new_from_raw(raw: t12::SCommandQueue, fence: SFence, type_: t12::ECommandListType) -> Self {
+    pub fn new_from_raw(
+        raw: t12::SCommandQueue,
+        fence: SFence,
+        type_: t12::ECommandListType,
+    ) -> Self {
         Self {
             raw: raw,
             fence: fence,
@@ -41,20 +45,20 @@ impl SCommandQueue {
         fence: &mut SFence,
     ) -> Result<u64, &'static str> {
         let result = fence.nextfencevalue;
-        self.raw.signal(unsafe { fence.raw() }, fence.nextfencevalue)?;
+        self.raw
+            .signal(unsafe { fence.raw() }, fence.nextfencevalue)?;
         fence.nextfencevalue += 1;
         Ok(result)
     }
 
     pub fn internal_fence_value(&self) -> u64 {
-        unsafe {
-            self.fence.raw().getcompletedvalue()
-        }
+        unsafe { self.fence.raw().getcompletedvalue() }
     }
 
     pub fn signal_internal_fence(&mut self) -> Result<u64, &'static str> {
         let result = self.fence.nextfencevalue;
-        self.raw.signal(unsafe { self.fence.raw() }, self.fence.nextfencevalue)?;
+        self.raw
+            .signal(unsafe { self.fence.raw() }, self.fence.nextfencevalue)?;
         self.fence.nextfencevalue += 1;
         Ok(result)
     }

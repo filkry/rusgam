@@ -1,6 +1,6 @@
 use super::*;
 
-use arrayvec::{ArrayVec};
+use arrayvec::ArrayVec;
 
 pub struct SSwapChain {
     raw: t12::SSwapChain,

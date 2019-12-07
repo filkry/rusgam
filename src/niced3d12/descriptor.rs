@@ -13,18 +13,13 @@ impl SDescriptorHeap {
         self.raw.type_
     }
 
-    pub fn cpu_handle_heap_start(
-        &self,
-    ) -> t12::SDescriptorHandle {
+    pub fn cpu_handle_heap_start(&self) -> t12::SDescriptorHandle {
         self.raw.getcpudescriptorhandleforheapstart()
     }
 }
 
 impl SDescriptorHeap {
-    pub fn cpu_handle(
-        &self,
-        index: usize,
-    ) -> Result<t12::SDescriptorHandle, &'static str> {
+    pub fn cpu_handle(&self, index: usize) -> Result<t12::SDescriptorHandle, &'static str> {
         if index < self.numdescriptors as usize {
             let offsetbytes: usize = (index * self.descriptorsize) as usize;
             let starthandle = self.cpu_handle_heap_start();
@@ -34,6 +29,3 @@ impl SDescriptorHeap {
         }
     }
 }
-
-
-

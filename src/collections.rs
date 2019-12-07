@@ -174,9 +174,10 @@ pub struct SPool<T> {
 impl<T> SPool<T> {
     // -- $$$FRK(TODO): I'd like to make these IDs either really smart, or just random
     pub fn create<F>(id: u64, max: u16, init_func: F) -> Self
-        where F: Fn() -> T,
+    where
+        F: Fn() -> T,
     {
-        let mut result = Self{
+        let mut result = Self {
             id: id,
             buffer: Vec::with_capacity(max as usize),
             generations: Vec::with_capacity(max as usize),
@@ -194,9 +195,8 @@ impl<T> SPool<T> {
         result
     }
 
-    pub fn create_from_vec(id: u64, max: u16, contents: Vec<T>) -> Self
-    {
-        let mut result = Self{
+    pub fn create_from_vec(id: u64, max: u16, contents: Vec<T>) -> Self {
+        let mut result = Self {
             id: id,
             buffer: contents,
             generations: Vec::with_capacity(max as usize),
@@ -290,7 +290,7 @@ impl<T> SPool<T> {
 
 impl<T: Clone> SPool<T> {
     pub fn create_from_val(id: u64, max: u16, default_val: T) -> Self {
-        let mut result = Self{
+        let mut result = Self {
             id: id,
             buffer: Vec::new(),
             generations: Vec::new(),
@@ -307,7 +307,6 @@ impl<T: Clone> SPool<T> {
 
         result
     }
-
 }
 
 impl<T: Default> SPool<T> {
@@ -317,19 +316,19 @@ impl<T: Default> SPool<T> {
 }
 
 pub struct SStoragePool<T> {
-    pool: SPool<Option<T>> // -- $$$FRK(TODO): this could be unitialized mem that we use unsafety to construct/destruct in
+    pool: SPool<Option<T>>, // -- $$$FRK(TODO): this could be unitialized mem that we use unsafety to construct/destruct in
 }
 
 impl<T> SStoragePool<T> {
     pub fn create(id: u64, max: u16) -> Self {
-        Self{
+        Self {
             pool: SPool::<Option<T>>::create_default(id, max),
         }
     }
 
     pub fn insert_val(&mut self, val: T) -> Result<SPoolHandle, &'static str> {
         let handle = self.pool.alloc()?;
-        let data : &mut Option<T> = self.pool.get_mut(handle).unwrap();
+        let data: &mut Option<T> = self.pool.get_mut(handle).unwrap();
         *data = Some(val);
         Ok(handle)
     }
@@ -360,7 +359,7 @@ impl<T> SStoragePool<T> {
 impl<T: Clone> SStoragePool<T> {
     pub fn insert_ref(&mut self, val: &T) -> Result<SPoolHandle, &'static str> {
         let handle = self.pool.alloc()?;
-        let data : &mut Option<T> = self.pool.get_mut(handle).unwrap();
+        let data: &mut Option<T> = self.pool.get_mut(handle).unwrap();
         *data = Some(val.clone());
         Ok(handle)
     }

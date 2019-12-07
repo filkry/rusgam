@@ -7,9 +7,7 @@ pub struct SSwapChain {
 
 impl SSwapChain {
     pub unsafe fn new_from_raw(raw: ComPtr<IDXGISwapChain4>) -> Self {
-        Self {
-            swapchain: raw,
-        }
+        Self { swapchain: raw }
     }
 
     pub fn present(&self, syncinterval: u32, flags: u32) -> Result<(), &'static str> {

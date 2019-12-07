@@ -29,7 +29,11 @@ pub struct SIndexBufferView {
 }
 
 impl SIndexBufferView {
-    pub fn create(bufferlocation: SGPUVirtualAddress, format: EDXGIFormat, sizeinbytes: u32) -> Self {
+    pub fn create(
+        bufferlocation: SGPUVirtualAddress,
+        format: EDXGIFormat,
+        sizeinbytes: u32,
+    ) -> Self {
         Self {
             raw: D3D12_INDEX_BUFFER_VIEW {
                 BufferLocation: bufferlocation.raw(),
@@ -58,13 +62,15 @@ pub struct SDepthStencilViewDesc {
 impl SDepthStencilViewDesc {
     pub fn d3dtype(&self) -> D3D12_DEPTH_STENCIL_VIEW_DESC {
         unsafe {
-            let mut result : D3D12_DEPTH_STENCIL_VIEW_DESC = mem::uninitialized();
+            let mut result: D3D12_DEPTH_STENCIL_VIEW_DESC = mem::uninitialized();
             result.Format = self.format.d3dtype();
             result.ViewDimension = self.view_dimension.d3dtype();
             result.Flags = self.flags.d3dtype();
 
             match &self.data {
-                EDepthStencilViewDescData::Tex2D(tex2d_dsv) => *(result.u.Texture2D_mut()) = tex2d_dsv.d3dtype(),
+                EDepthStencilViewDescData::Tex2D(tex2d_dsv) => {
+                    *(result.u.Texture2D_mut()) = tex2d_dsv.d3dtype()
+                }
             }
 
             result
@@ -99,11 +105,13 @@ pub struct SClearValue {
 impl SClearValue {
     pub fn d3dtype(&self) -> D3D12_CLEAR_VALUE {
         unsafe {
-            let mut result : D3D12_CLEAR_VALUE = mem::uninitialized();
+            let mut result: D3D12_CLEAR_VALUE = mem::uninitialized();
             result.Format = self.format.d3dtype();
             match &self.value {
                 EClearValue::Color(color) => *(result.u.Color_mut()) = *color,
-                EClearValue::DepthStencil(depth_stencil_value) => *(result.u.DepthStencil_mut()) = depth_stencil_value.d3dtype(),
+                EClearValue::DepthStencil(depth_stencil_value) => {
+                    *(result.u.DepthStencil_mut()) = depth_stencil_value.d3dtype()
+                }
             }
             result
         }
@@ -130,7 +138,7 @@ impl EDSVDimension {
             Self::Texture2D => D3D12_DSV_DIMENSION_TEXTURE2D,
             Self::Texture2DArray => D3D12_DSV_DIMENSION_TEXTURE2DARRAY,
             Self::Texture2DMS => D3D12_DSV_DIMENSION_TEXTURE2DMS,
-            Self::Texture2DMSArray => D3D12_DSV_DIMENSION_TEXTURE2DMSARRAY
+            Self::Texture2DMSArray => D3D12_DSV_DIMENSION_TEXTURE2DMSARRAY,
         }
     }
 }
@@ -149,7 +157,7 @@ impl TD3DFlags32 for EDSVFlags {
         match self {
             Self::None => D3D12_DSV_FLAG_NONE,
             Self::ReadOnlyDepth => D3D12_DSV_FLAG_READ_ONLY_DEPTH,
-            Self::ReadOnlyStencil => D3D12_DSV_FLAG_READ_ONLY_STENCIL
+            Self::ReadOnlyStencil => D3D12_DSV_FLAG_READ_ONLY_STENCIL,
         }
     }
 }

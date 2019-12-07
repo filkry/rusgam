@@ -123,7 +123,6 @@ impl SDevice {
         }
     }
 
-    // -- $$$FRK(TODO): Wrapper for D3D12 Resource Flags?
     pub fn createcommittedresource(
         &self,
         heapproperties: SHeapProperties,
@@ -134,13 +133,14 @@ impl SDevice {
     ) -> Result<SResource, &'static str> {
         unsafe {
             #[allow(unused_assignments)]
-            let mut d3dcv: D3D12_CLEAR_VALUE = mem::uninitialized();
 
-            let clear_value_ptr: *const D3D12_CLEAR_VALUE = match clear_value {
-                Some(cv) => {
-                    d3dcv = cv.d3dtype();
-                    &d3dcv
-                }
+            let d3dcv = match clear_value {
+                Some(cv) => Some(cv.d3dtype()),
+                None => None,
+            };
+
+            let clear_value_ptr = match d3dcv {
+                Some(v) => &v,
                 None => ptr::null_mut(),
             };
 

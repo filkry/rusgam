@@ -111,8 +111,8 @@ impl SEventHandle {
 
 impl SWinAPI {
     pub fn queryperformancecounter() -> i64 {
-        let mut result: winnt::LARGE_INTEGER = unsafe { mem::uninitialized() };
-        let success = unsafe { profileapi::QueryPerformanceCounter(&mut result) };
+        let mut result = unsafe { mem::MaybeUninit::<winnt::LARGE_INTEGER>::uninit() };
+        let success = unsafe { profileapi::QueryPerformanceCounter(result.as_mut_ptr()) };
         if success == 0 {
             panic!("Can't query performance.");
         }
@@ -121,8 +121,8 @@ impl SWinAPI {
     }
 
     pub unsafe fn queryperformancefrequencycounter() -> i64 {
-        let mut result: winnt::LARGE_INTEGER = mem::uninitialized();
-        let success = profileapi::QueryPerformanceFrequency(&mut result);
+        let mut result = mem::MaybeUninit::<winnt::LARGE_INTEGER>::uninit();
+        let success = profileapi::QueryPerformanceFrequency(result.as_mut_ptr());
         if success == 0 {
             panic!("Can't query performance.");
         }
@@ -186,7 +186,7 @@ impl SMSG {
     pub fn createempty() -> SMSG {
         unsafe {
             SMSG {
-                msg: mem::uninitialized(),
+                msg: mem::MaybeUninit::<winapi::um::winuser::MSG>::zeroed(),
             }
         }
     }
@@ -204,16 +204,16 @@ impl SWindow {
     pub fn beginpaint(&mut self) {
         unsafe {
             // -- $$$FRK(TODO): real paintstruct
-            let mut paintstruct: winapi::um::winuser::PAINTSTRUCT = mem::uninitialized();
-            winapi::um::winuser::BeginPaint(self.window, &mut paintstruct);
+            let mut paintstruct = mem::MaybeUninit::<winapi::um::winuser::PAINTSTRUCT>::uninit();
+            winapi::um::winuser::BeginPaint(self.window, paintstruct.as_mut_ptr());
         }
     }
 
     pub fn endpaint(&mut self) {
         unsafe {
             // -- $$$FRK(TODO): real paintstruct
-            let mut paintstruct: winapi::um::winuser::PAINTSTRUCT = mem::uninitialized();
-            winapi::um::winuser::EndPaint(self.window, &mut paintstruct);
+            let mut paintstruct = mem::MaybeUninit::<winapi::um::winuser::PAINTSTRUCT>::uninit();
+            winapi::um::winuser::EndPaint(self.window, paintstruct.as_mut_ptr());
         }
     }
 

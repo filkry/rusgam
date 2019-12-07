@@ -173,7 +173,7 @@ pub struct SRTFormatArray {
 
 impl SRTFormatArray {
     pub fn d3dtype(&self) -> D3D12_RT_FORMAT_ARRAY {
-        let mut result: D3D12_RT_FORMAT_ARRAY = unsafe { mem::uninitialized() };
+        let mut result = unsafe { mem::MaybeUninit::<D3D12_RT_FORMAT_ARRAY>::zeroed() };
         result.NumRenderTargets = self.rt_formats.len() as UINT;
 
         for i in 0..self.rt_formats.len() {
@@ -197,11 +197,10 @@ impl<'a, T> SPipelineStateStreamDesc<'a, T> {
     }
 
     pub unsafe fn d3dtype(&self) -> D3D12_PIPELINE_STATE_STREAM_DESC {
-        let mut desc: D3D12_PIPELINE_STATE_STREAM_DESC = mem::uninitialized();
-        desc.SizeInBytes = mem::size_of::<T>() as winapi::shared::basetsd::SIZE_T;
-        desc.pPipelineStateSubobjectStream = self.stream as *const T as *mut c_void;
-
-        desc
+        D3D12_PIPELINE_STATE_STREAM_DESC {
+            SizeInBytes: mem::size_of::<T>() as winapi::shared::basetsd::SIZE_T,
+            pPipelineStateSubobjectStream: self.stream as *const T as *mut c_void,
+        }
     }
 }
 

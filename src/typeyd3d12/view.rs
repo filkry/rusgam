@@ -62,7 +62,7 @@ pub struct SDepthStencilViewDesc {
 impl SDepthStencilViewDesc {
     pub fn d3dtype(&self) -> D3D12_DEPTH_STENCIL_VIEW_DESC {
         unsafe {
-            let mut result: D3D12_DEPTH_STENCIL_VIEW_DESC = mem::uninitialized();
+            let mut result = mem::MaybeUninit::<D3D12_DEPTH_STENCIL_VIEW_DESC>::zeroed();
             result.Format = self.format.d3dtype();
             result.ViewDimension = self.view_dimension.d3dtype();
             result.Flags = self.flags.d3dtype();
@@ -105,7 +105,7 @@ pub struct SClearValue {
 impl SClearValue {
     pub fn d3dtype(&self) -> D3D12_CLEAR_VALUE {
         unsafe {
-            let mut result: D3D12_CLEAR_VALUE = mem::uninitialized();
+            let mut result = mem::MaybeUninit::<D3D12_CLEAR_VALUE >::zeroed();
             result.Format = self.format.d3dtype();
             match &self.value {
                 EClearValue::Color(color) => *(result.u.Color_mut()) = *color,

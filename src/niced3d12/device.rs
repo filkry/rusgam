@@ -117,19 +117,19 @@ impl SDevice {
         })
     }
 
-    pub fn create_committed_buffer_resource<T>(
+    pub fn create_committed_buffer_resource(
         &self, // verified thread safe via docs
-        heaptype: t12::EHeapType,
+        heap_type: t12::EHeapType,
+        heap_flags: t12::EHeapFlags,
         flags: t12::SResourceFlags,
         initial_resource_state: t12::EResourceStates,
-        bufferdata: &[T],
+        num_items: usize,
+        size_of_item: usize,
     ) -> Result<SResource, &'static str> {
-        let buffersize = bufferdata.len() * std::mem::size_of::<T>();
-
         let destinationresource = self.raw.createcommittedresource(
-            t12::SHeapProperties::create(heaptype),
+            t12::SHeapProperties::create(heap_type),
             t12::EHeapFlags::ENone,
-            t12::SResourceDesc::createbuffer(buffersize, flags),
+            t12::SResourceDesc::createbuffer(num_items * size_of_item, flags),
             initial_resource_state,
             None,
         )?;
@@ -137,10 +137,28 @@ impl SDevice {
         Ok(SResource {
             raw: destinationresource,
             metadata: EResourceMetadata::BufferResource {
-                count: bufferdata.len(),
-                sizeofentry: std::mem::size_of::<T>(),
+                count: num_items,
+                sizeofentry: size_of_item,
             },
         })
+    }
+
+
+    pub fn create_committed_buffer_resource_for_data<T>(
+        &self, // verified thread safe via docs
+        heaptype: t12::EHeapType,
+        flags: t12::SResourceFlags,
+        initial_resource_state: t12::EResourceStates,
+        bufferdata: &[T],
+    ) -> Result<SResource, &'static str> {
+        self.create_committed_buffer_resource(
+            heaptype,
+            t12::EHeapFlags::ENone,
+            flags,
+            initial_resource_state,
+            bufferdata.len(),
+            std::mem::size_of::<T>(),
+        )
     }
 
     pub fn raw(&self) -> &t12::SDevice {

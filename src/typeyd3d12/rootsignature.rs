@@ -177,7 +177,7 @@ pub struct SRootParameter {
 impl SRootParameter {
     pub fn d3dtype(&self) -> D3D12_ROOT_PARAMETER {
         unsafe {
-            let mut result: D3D12_ROOT_PARAMETER = mem::uninitialized();
+            let mut result = mem::MaybeUninit::<D3D12_ROOT_PARAMETER>::zeroed();
             result.ParameterType = self.type_.d3dtype();
             match &self.type_data {
                 ERootParameterTypeData::Constants { constants } => {

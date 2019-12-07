@@ -145,7 +145,7 @@ impl SCommandList {
         bufferdata: &[T],
         flags: t12::SResourceFlags,
     ) -> Result<SCommandQueueUpdateBufferResult, &'static str> {
-        let mut destinationresource = device.create_committed_buffer_resource(
+        let mut destinationresource = device.create_committed_buffer_resource_for_data(
             t12::EHeapType::Default,
             flags,
             t12::EResourceStates::CopyDest,
@@ -153,7 +153,7 @@ impl SCommandList {
         )?;
 
         // -- resource created with Upload type MUST have state GenericRead
-        let mut intermediateresource = device.create_committed_buffer_resource(
+        let mut intermediateresource = device.create_committed_buffer_resource_for_data(
             t12::EHeapType::Upload,
             flags,
             t12::EResourceStates::GenericRead,

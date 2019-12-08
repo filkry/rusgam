@@ -183,6 +183,12 @@ impl SGPUVirtualAddress {
     pub fn raw(&self) -> D3D12_GPU_VIRTUAL_ADDRESS {
         self.raw
     }
+
+    pub fn add(&self, offset: usize) -> SGPUVirtualAddress {
+        SGPUVirtualAddress {
+            raw: self.raw + (offset as u64),
+        }
+    }
 }
 
 pub struct SViewport {
@@ -277,6 +283,20 @@ pub enum EComparisonFunc {
     NotEqual,
     GreaterEqual,
     Always,
+}
+
+pub struct SRange {
+    begin: usize,
+    end: usize,
+}
+
+impl SRange {
+    pub fn d3dtype(&self) -> D3D12_RANGE {
+        D3D12_RANGE {
+            Begin: self.begin,
+            End: self.end,
+        }
+    }
 }
 
 impl EComparisonFunc {

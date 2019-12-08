@@ -178,15 +178,15 @@ impl SRootParameter {
     pub fn d3dtype(&self) -> D3D12_ROOT_PARAMETER {
         unsafe {
             let mut result = mem::MaybeUninit::<D3D12_ROOT_PARAMETER>::zeroed();
-            result.ParameterType = self.type_.d3dtype();
+            (*result.as_mut_ptr()).ParameterType = self.type_.d3dtype();
             match &self.type_data {
                 ERootParameterTypeData::Constants { constants } => {
-                    *result.u.Constants_mut() = constants.d3dtype();
+                    *(*result.as_mut_ptr()).u.Constants_mut() = constants.d3dtype();
                 }
             }
-            result.ShaderVisibility = self.shader_visibility.d3dtype();
+            (*result.as_mut_ptr()).ShaderVisibility = self.shader_visibility.d3dtype();
 
-            result
+            result.assume_init()
         }
     }
 }

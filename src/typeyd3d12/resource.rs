@@ -172,6 +172,23 @@ impl SResource {
             }
         }
     }
+
+    pub unsafe fn map(
+        &self,
+        subresource: u32,
+        read_range: Option<SRange>,
+    ) -> Result<*mut u8, &'static str> {
+        let read_range_d3d = read_range.map(|r| r.d3dtype());
+        let read_range_d3d_ptr = read_range_d3d.as_ref().map_or(std::ptr::null(), |r| r);
+
+        let mut raw_result = std::ptr::null_mut() as *mut c_void;
+        let hr = self
+            .resource
+            .Map(subresource, read_range_d3d_ptr, &mut raw_result);
+        returnerrifwinerror!(hr, "Failed to map subresource.");
+
+        Ok(raw_result as *mut u8)
+    }
 }
 
 pub fn create_transition_barrier(

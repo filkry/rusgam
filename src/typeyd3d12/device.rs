@@ -133,16 +133,8 @@ impl SDevice {
     ) -> Result<SResource, &'static str> {
         unsafe {
             #[allow(unused_assignments)]
-
-            let d3dcv = match clear_value {
-                Some(cv) => Some(cv.d3dtype()),
-                None => None,
-            };
-
-            let clear_value_ptr = match d3dcv {
-                Some(v) => &v,
-                None => ptr::null_mut(),
-            };
+            let d3dcv = clear_value.map(|cv| cv.d3dtype());
+            let d3dcv_ptr = d3dcv.as_ref().map_or(ptr::null(), |cv| cv);
 
             let mut rawresource: *mut ID3D12Resource = ptr::null_mut();
             let hn = self.device.CreateCommittedResource(
@@ -150,7 +142,7 @@ impl SDevice {
                 heapflags.d3dtype(),
                 resourcedesc.raw(),
                 initialresourcestate.d3dtype(),
-                clear_value_ptr,
+                d3dcv_ptr,
                 &ID3D12Resource::uuidof(), // $$$FRK(TODO): this isn't necessarily right
                 &mut rawresource as *mut *mut _ as *mut *mut c_void,
             );

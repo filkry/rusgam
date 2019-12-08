@@ -9,11 +9,11 @@ mod descriptor;
 mod device;
 mod factory;
 mod fence;
+mod linearuploadbuffer;
 mod pipelinestate;
 mod resource;
 mod swapchain;
 mod window;
-mod linearuploadbuffer;
 
 use collections::{SPool, SPoolHandle};
 use directxgraphicssamples;

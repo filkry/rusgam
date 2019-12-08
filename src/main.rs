@@ -11,6 +11,7 @@ mod niced3d12;
 mod rustywindows;
 mod safewindows;
 mod typeyd3d12;
+mod utils;
 
 // -- std includes
 use std::cell::RefCell;
@@ -67,7 +68,7 @@ pub fn init_depth_texture(
     };
 
     // -- need to not let this be destroyed
-    let mut depth_texture_resource = device.create_committed_texture2d_resource(
+    let mut _depth_texture_resource = device.create_committed_texture2d_resource(
         t12::EHeapType::Default,
         width,
         height,
@@ -87,12 +88,12 @@ pub fn init_depth_texture(
     };
 
     device.create_depth_stencil_view(
-        &mut depth_texture_resource,
+        &mut _depth_texture_resource,
         &depth_stencil_view_desc,
         depth_descriptor_heap.cpu_handle_heap_start(),
     )?;
 
-    Ok(depth_texture_resource)
+    Ok(_depth_texture_resource)
 }
 
 fn main_d3d12() -> Result<(), &'static str> {
@@ -329,7 +330,7 @@ fn main_d3d12() -> Result<(), &'static str> {
 
     // -- depth texture
     #[allow(unused_variables)]
-    let mut depth_texture_resource = init_depth_texture(
+    let mut _depth_texture_resource = init_depth_texture(
         window.width(),
         window.height(),
         &device,
@@ -500,7 +501,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                             &mut device,
                         )?;
 
-                        depth_texture_resource = init_depth_texture(
+                        _depth_texture_resource = init_depth_texture(
                             window.width(),
                             window.height(),
                             &device,

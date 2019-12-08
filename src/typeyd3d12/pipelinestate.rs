@@ -173,17 +173,19 @@ pub struct SRTFormatArray {
 
 impl SRTFormatArray {
     pub fn d3dtype(&self) -> D3D12_RT_FORMAT_ARRAY {
-        let mut result = unsafe { mem::MaybeUninit::<D3D12_RT_FORMAT_ARRAY>::zeroed() };
-        result.NumRenderTargets = self.rt_formats.len() as UINT;
+        unsafe {
+            let mut result = mem::MaybeUninit::<D3D12_RT_FORMAT_ARRAY>::zeroed();
+            (*result.as_mut_ptr()).NumRenderTargets = self.rt_formats.len() as UINT;
 
-        for i in 0..self.rt_formats.len() {
-            result.RTFormats[i] = self.rt_formats[i].d3dtype();
-        }
-        for i in self.rt_formats.len()..8 {
-            result.RTFormats[i] = EDXGIFormat::Unknown.d3dtype();
-        }
+            for i in 0..self.rt_formats.len() {
+                (*result.as_mut_ptr()).RTFormats[i] = self.rt_formats[i].d3dtype();
+            }
+            for i in self.rt_formats.len()..8 {
+                (*result.as_mut_ptr()).RTFormats[i] = EDXGIFormat::Unknown.d3dtype();
+            }
 
-        result
+            result.assume_init()
+        }
     }
 }
 

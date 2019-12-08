@@ -128,7 +128,7 @@ impl SDevice {
     ) -> Result<SResource, &'static str> {
         let destinationresource = self.raw.createcommittedresource(
             t12::SHeapProperties::create(heap_type),
-            t12::EHeapFlags::ENone,
+            heap_flags,
             t12::SResourceDesc::createbuffer(num_items * size_of_item, flags),
             initial_resource_state,
             None,
@@ -142,7 +142,6 @@ impl SDevice {
             },
         })
     }
-
 
     pub fn create_committed_buffer_resource_for_data<T>(
         &self, // verified thread safe via docs

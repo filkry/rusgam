@@ -14,6 +14,14 @@ pub struct SResource {
 }
 
 impl SResource {
+    pub fn raw(&self) -> &t12::SResource {
+        &self.raw
+    }
+
+    pub fn raw_mut(&mut self) -> &mut t12::SResource {
+        &mut self.raw
+    }
+
     pub fn create_vertex_buffer_view(&self) -> Result<t12::SVertexBufferView, &'static str> {
         if let EResourceMetadata::BufferResource { count, sizeofentry } = self.metadata {
             Ok(t12::SVertexBufferView::create(

@@ -1,5 +1,7 @@
 use super::*;
 
+use utils::align_up;
+
 use std::mem;
 
 struct SLinearUploadBufferAllocation<T> {
@@ -27,9 +29,9 @@ impl SLinearUploadBufferPage {
             page_size,
         )?;
 
-        Ok(Self{
+        Ok(Self {
             page_size: page_size,
-            base_cpu_mem: ,
+            base_cpu_mem: unsafe { resource.raw().map(0, None)? },
             base_gpu_mem: resource.raw().getgpuvirtualaddress(),
             first_free_byte_offset: 0,
             resource: resource,
@@ -37,19 +39,39 @@ impl SLinearUploadBufferPage {
     }
 
     fn has_space<T>(&self, alignment: usize) -> bool {
+        let aligned_size = align_up(mem::size_of::<T>(), alignment);
+        let aligned_offset = align_up(self.first_free_byte_offset, alignment);
 
+        (aligned_offset + aligned_size) < self.page_size
     }
 
     fn allocate<T>(
         &mut self,
-        alignment : usize,
+        alignment: usize,
+        generation: u64,
     ) -> Result<SLinearUploadBufferAllocation<T>, &'static str> {
+        if !self.has_space::<T>(alignment) {
+            return Err("Not enough space to allocate from this page.");
+        }
 
+        let aligned_size = align_up(mem::size_of::<T>(), alignment);
+        self.first_free_byte_offset = align_up(self.first_free_byte_offset, alignment);
+
+        let ptr = unsafe { self.base_cpu_mem.add(self.first_free_byte_offset) };
+        let t_ptr = ptr as *mut T;
+
+        let result = SLinearUploadBufferAllocation::<T> {
+            cpu_mem: t_ptr,
+            gpu_mem: self.base_gpu_mem.add(self.first_free_byte_offset),
+            generation: generation,
+        };
+
+        self.first_free_byte_offset += aligned_size;
+
+        Ok(result)
     }
 
-    fn reset(&mut self) {
-
-    }
+    fn reset(&mut self) {}
 }
 
 struct SLinearUploadBuffer<'a> {
@@ -63,7 +85,20 @@ struct SLinearUploadBuffer<'a> {
 }
 
 impl<'a> SLinearUploadBuffer<'a> {
-    pub fn new() -> Self {
+    pub fn new(device: &'a SDevice, page_size: usize) -> Result<Self, &'static str> {
+        let mut result = SLinearUploadBuffer {
+            page_size: page_size,
+            generation: 0,
+            page_pool: Vec::new(),
+            cur_page: 0,
+            device: device,
+        };
+
+        result
+            .page_pool
+            .push(SLinearUploadBufferPage::new(device, page_size)?);
+
+        Ok(result)
     }
 
     pub fn page_size(&self) -> usize {
@@ -72,23 +107,27 @@ impl<'a> SLinearUploadBuffer<'a> {
 
     pub fn allocate<T>(
         &mut self,
-        alignment : usize,
+        alignment: usize,
     ) -> Result<SLinearUploadBufferAllocation<T>, &'static str> {
         if mem::size_of::<T>() > self.page_size {
             return Err("Requested allocation larger than page size.");
         }
 
         if !self.page_pool[self.cur_page].has_space::<T>(alignment) {
-            self.page_pool.push(SLinearUploadBufferPage::new());
+            if let None = self.page_pool.get(self.cur_page + 1) {
+                self.page_pool
+                    .push(SLinearUploadBufferPage::new(self.device, self.page_size)?);
+            }
             self.cur_page += 1
         }
 
-        self.page_pool[self.cur_page].allocate::<T>(alignment)
+        self.page_pool[self.cur_page].allocate::<T>(alignment, self.generation)
     }
 
     pub fn reset(&mut self) {
+        self.generation += 1;
         self.cur_page = 0;
-        for page in &self.page_pool {
+        for page in &mut self.page_pool {
             page.reset();
         }
     }

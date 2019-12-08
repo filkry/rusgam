@@ -111,23 +111,23 @@ impl SEventHandle {
 
 impl SWinAPI {
     pub fn queryperformancecounter() -> i64 {
-        let mut result = unsafe { mem::MaybeUninit::<winnt::LARGE_INTEGER>::uninit() };
+        let mut result = mem::MaybeUninit::<winnt::LARGE_INTEGER>::zeroed();
         let success = unsafe { profileapi::QueryPerformanceCounter(result.as_mut_ptr()) };
         if success == 0 {
             panic!("Can't query performance.");
         }
 
-        unsafe { *result.QuadPart() }
+        unsafe { *result.assume_init().QuadPart() }
     }
 
     pub unsafe fn queryperformancefrequencycounter() -> i64 {
-        let mut result = mem::MaybeUninit::<winnt::LARGE_INTEGER>::uninit();
+        let mut result = mem::MaybeUninit::<winnt::LARGE_INTEGER>::zeroed();
         let success = profileapi::QueryPerformanceFrequency(result.as_mut_ptr());
         if success == 0 {
             panic!("Can't query performance.");
         }
 
-        *result.QuadPart()
+        *result.assume_init().QuadPart()
     }
 
     pub fn registerclassex(&self, windowclassname: &'static str) -> Result<SWindowClass, SErr> {
@@ -180,16 +180,6 @@ pub struct SWindow {
 
 pub struct SMSG {
     msg: winapi::um::winuser::MSG,
-}
-
-impl SMSG {
-    pub fn createempty() -> SMSG {
-        unsafe {
-            SMSG {
-                msg: mem::MaybeUninit::<winapi::um::winuser::MSG>::zeroed(),
-            }
-        }
-    }
 }
 
 impl SWindow {
@@ -257,12 +247,12 @@ impl SWindow {
                 self.registeruserdata();
             }
 
-            let mut msg = SMSG::createempty();
+            let mut raw_msg = mem::MaybeUninit::<winapi::um::winuser::MSG>::zeroed();
 
             self.setwindowproc(windowproc);
             // -- $$$FRK(TODO): this can take a lot more options, but we're hardcoding for now
             let foundmessage = winapi::um::winuser::PeekMessageW(
-                &mut msg.msg,
+                raw_msg.as_mut_ptr(),
                 self.window,
                 0,
                 0,
@@ -271,7 +261,9 @@ impl SWindow {
             self.clearwindowproc();
 
             if foundmessage > 0 {
-                Some(msg)
+                Some(SMSG {
+                    msg: raw_msg.assume_init(),
+                })
             } else {
                 None
             }

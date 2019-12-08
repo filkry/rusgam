@@ -10,9 +10,11 @@ impl SAdapter1 {
     }
 
     pub fn getdesc(&self) -> DXGI_ADAPTER_DESC1 {
-        let mut adapterdesc = unsafe { mem::MaybeUninit::<DXGI_ADAPTER_DESC1 >::uninit() };
-        unsafe { self.adapter.GetDesc1(adapterdesc.as_mut_ptr()) };
-        return adapterdesc;
+        let mut adapterdesc = mem::MaybeUninit::<DXGI_ADAPTER_DESC1>::uninit();
+        unsafe {
+            self.adapter.GetDesc1(adapterdesc.as_mut_ptr());
+            return adapterdesc.assume_init();
+        };
     }
 
     pub fn castadapter4(&self) -> Option<SAdapter4> {

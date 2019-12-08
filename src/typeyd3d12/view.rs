@@ -63,17 +63,17 @@ impl SDepthStencilViewDesc {
     pub fn d3dtype(&self) -> D3D12_DEPTH_STENCIL_VIEW_DESC {
         unsafe {
             let mut result = mem::MaybeUninit::<D3D12_DEPTH_STENCIL_VIEW_DESC>::zeroed();
-            result.Format = self.format.d3dtype();
-            result.ViewDimension = self.view_dimension.d3dtype();
-            result.Flags = self.flags.d3dtype();
+            (*result.as_mut_ptr()).Format = self.format.d3dtype();
+            (*result.as_mut_ptr()).ViewDimension = self.view_dimension.d3dtype();
+            (*result.as_mut_ptr()).Flags = self.flags.d3dtype();
 
             match &self.data {
                 EDepthStencilViewDescData::Tex2D(tex2d_dsv) => {
-                    *(result.u.Texture2D_mut()) = tex2d_dsv.d3dtype()
+                    *((*result.as_mut_ptr()).u.Texture2D_mut()) = tex2d_dsv.d3dtype()
                 }
             }
 
-            result
+            result.assume_init()
         }
     }
 }
@@ -105,15 +105,15 @@ pub struct SClearValue {
 impl SClearValue {
     pub fn d3dtype(&self) -> D3D12_CLEAR_VALUE {
         unsafe {
-            let mut result = mem::MaybeUninit::<D3D12_CLEAR_VALUE >::zeroed();
-            result.Format = self.format.d3dtype();
+            let mut result = mem::MaybeUninit::<D3D12_CLEAR_VALUE>::zeroed();
+            (*result.as_mut_ptr()).Format = self.format.d3dtype();
             match &self.value {
-                EClearValue::Color(color) => *(result.u.Color_mut()) = *color,
+                EClearValue::Color(color) => *((*result.as_mut_ptr()).u.Color_mut()) = *color,
                 EClearValue::DepthStencil(depth_stencil_value) => {
-                    *(result.u.DepthStencil_mut()) = depth_stencil_value.d3dtype()
+                    *((*result.as_mut_ptr()).u.DepthStencil_mut()) = depth_stencil_value.d3dtype()
                 }
             }
-            result
+            result.assume_init()
         }
     }
 }

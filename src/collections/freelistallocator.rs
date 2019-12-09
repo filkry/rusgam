@@ -2,6 +2,7 @@
 mod manager {
     use utils::{align_up};
 
+    #[derive(Debug)]
     pub struct SAllocation {
         start_offset: usize,
         size: usize,
@@ -15,12 +16,14 @@ mod manager {
 
     pub struct SManager {
         free_chunks: Vec<SFreeChunk>,
+        size: usize,
     }
 
     impl SManager {
         pub fn new(size: usize) -> Self {
             let mut result = Self {
                 free_chunks: Vec::new(),
+                size: size,
             };
 
             result.free_chunks.push(SFreeChunk {
@@ -37,7 +40,7 @@ mod manager {
             let mut chunk_idx_res = Err("No chunk large enough for allocation");
             for (i, chunk) in (&self.free_chunks).iter().enumerate() {
                 let start = align_up(chunk.start_offset, alignment);
-                if (start + aligned_size) < (chunk.start_offset + chunk.size) {
+                if (start + aligned_size) <= (chunk.start_offset + chunk.size) {
                     chunk_idx_res = Ok(i);
                     break;
                 }
@@ -90,7 +93,7 @@ mod manager {
         }
 
         pub fn free(&mut self, alloc: SAllocation) {
-            let mut chunk_idx = 0;
+            let mut chunk_idx = self.free_chunks.len();
             for (i, chunk) in (&self.free_chunks).iter().enumerate() {
                 if chunk.start_offset > alloc.start_offset {
                     chunk_idx = i;
@@ -139,6 +142,15 @@ mod manager {
         }
     }
 
+    impl Drop for SManager {
+        fn drop(&mut self) {
+            // -- entire buffer should be free on drop
+            assert_eq!(self.free_chunks.len(), 1);
+            assert_eq!(self.free_chunks[0].start_offset, 0);
+            assert_eq!(self.free_chunks[0].size, self.size);
+        }
+    }
+
     #[test]
     fn test_basic() {
         let mut allocator = SManager::new(100);
@@ -148,9 +160,77 @@ mod manager {
         assert_eq!(allocation.size, 1);
 
         allocator.free(allocation);
-        println!("{:?}", allocator.free_chunks);
         assert_eq!(allocator.free_chunks.len(), 1);
         assert_eq!(allocator.free_chunks[0].start_offset, 0);
         assert_eq!(allocator.free_chunks[0].size, 100);
     }
+
+    #[test]
+    fn test_multiple() {
+        let mut allocator = SManager::new(10);
+        let allocation1 = allocator.alloc(3, 1).unwrap();
+        println!("allocation1: {:?}", allocation1);
+        assert_eq!(allocator.free_chunks[0].start_offset, 3);
+        assert_eq!(allocator.free_chunks[0].size, 7);
+
+        let allocation2 = allocator.alloc(6, 1).unwrap();
+        println!("allocation2: {:?}", allocation2);
+        assert_eq!(allocator.free_chunks[0].start_offset, 9);
+        assert_eq!(allocator.free_chunks[0].size, 1);
+
+        let allocation3 = allocator.alloc(1, 1).unwrap();
+        println!("allocation3: {:?}", allocation3);
+        assert_eq!(allocator.free_chunks.len(), 0);
+
+        let allocation_fail = allocator.alloc(1, 1);
+        assert!(allocation_fail.is_err());
+
+        println!("=== free test ===");
+        allocator.free(allocation1);
+        println!("free_chunks: {:?}", allocator.free_chunks);
+        allocator.free(allocation3);
+
+        assert_eq!(allocator.free_chunks.len(), 2);
+        assert!(allocator.free_chunks[0].start_offset < allocator.free_chunks[1].start_offset);
+
+        println!("=== Merge test ===");
+        println!("free_chunks: {:?}", allocator.free_chunks);
+        allocator.free(allocation2);
+
+        assert_eq!(allocator.free_chunks.len(), 1);
+        assert_eq!(allocator.free_chunks[0].start_offset, 0);
+        assert_eq!(allocator.free_chunks[0].size, 10);
+    }
+
+    #[test]
+    fn test_align() {
+        let mut allocator = SManager::new(32);
+
+        let allocation1 = allocator.alloc(4, 4).unwrap();
+        assert_eq!(allocation1.start_offset, 0);
+        assert_eq!(allocation1.size, 4);
+
+        let allocation2 = allocator.alloc(8, 8).unwrap();
+        assert_eq!(allocation2.start_offset, 8);
+        assert_eq!(allocation2.size, 8);
+
+        assert_eq!(allocator.free_chunks.len(), 2);
+
+        assert_eq!(allocator.free_chunks[0].start_offset, 4);
+        assert_eq!(allocator.free_chunks[0].size, 4);
+        assert_eq!(allocator.free_chunks[1].start_offset, 16);
+        assert_eq!(allocator.free_chunks[1].size, 16);
+
+        allocator.free(allocation1);
+
+        assert_eq!(allocator.free_chunks.len(), 2);
+        assert_eq!(allocator.free_chunks[0].start_offset, 0);
+        assert_eq!(allocator.free_chunks[0].size, 8);
+        assert_eq!(allocator.free_chunks[1].start_offset, 16);
+        assert_eq!(allocator.free_chunks[1].size, 16);
+
+        allocator.free(allocation2);
+        assert_eq!(allocator.free_chunks.len(), 1);
+    }
+
 }

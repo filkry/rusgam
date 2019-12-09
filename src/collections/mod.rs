@@ -3,7 +3,7 @@
 use std::collections::VecDeque;
 //use std::cell::{RefCell, Ref, RefMut};
 
-mod freelistallocator;
+pub mod freelistallocator;
 
 #[derive(Copy, Clone)]
 pub struct SPoolHandle {

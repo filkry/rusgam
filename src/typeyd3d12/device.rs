@@ -96,7 +96,7 @@ impl SDevice {
     }
 
     // -- $$$FRK(TODO): allow pDesc parameter
-    pub fn createrendertargetview(&self, resource: &SResource, destdescriptor: &SDescriptorHandle) {
+    pub fn createrendertargetview(&self, resource: &SResource, destdescriptor: &SCPUDescriptorHandle) {
         unsafe {
             self.device.CreateRenderTargetView(
                 resource.raw().as_raw(),
@@ -110,7 +110,7 @@ impl SDevice {
         &self,
         resource: &SResource,
         desc: &SDepthStencilViewDesc,
-        dest_descriptor: SDescriptorHandle,
+        dest_descriptor: SCPUDescriptorHandle,
     ) {
         unsafe {
             let d3ddesc = desc.d3dtype();

@@ -34,7 +34,7 @@ impl SCommandList {
 
     pub fn clear_render_target_view(
         &mut self,
-        rtvdescriptor: t12::SDescriptorHandle,
+        rtvdescriptor: t12::SCPUDescriptorHandle,
         colour: &[f32; 4],
     ) -> Result<(), &'static str> {
         unsafe { self.raw.clearrendertargetview(rtvdescriptor, colour) };
@@ -43,7 +43,7 @@ impl SCommandList {
 
     pub fn clear_depth_stencil_view(
         &mut self,
-        dsv_descriptor: t12::SDescriptorHandle,
+        dsv_descriptor: t12::SCPUDescriptorHandle,
         depth: f32,
     ) -> Result<(), &'static str> {
         unsafe { self.raw.clear_depth_stencil_view(dsv_descriptor, depth) };
@@ -84,9 +84,9 @@ impl SCommandList {
 
     pub fn om_set_render_targets(
         &self,
-        render_target_descriptors: &[&t12::SDescriptorHandle],
+        render_target_descriptors: &[&t12::SCPUDescriptorHandle],
         rts_single_handle_to_descriptor_range: bool,
-        depth_target_descriptor: &t12::SDescriptorHandle,
+        depth_target_descriptor: &t12::SCPUDescriptorHandle,
     ) {
         unsafe {
             self.raw.om_set_render_targets(

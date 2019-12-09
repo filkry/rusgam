@@ -52,7 +52,7 @@ impl SDevice {
     pub fn create_render_target_view(
         &self,
         render_target_resource: &mut SResource,
-        dest_descriptor: &t12::SDescriptorHandle,
+        dest_descriptor: &t12::SCPUDescriptorHandle,
     ) -> Result<(), &'static str> {
         // -- $$$FRK(TODO): assert on resource metadata
         self.raw
@@ -64,7 +64,7 @@ impl SDevice {
         &self,
         depth_texture_resource: &mut SResource,
         desc: &t12::SDepthStencilViewDesc,
-        dest_descriptor: t12::SDescriptorHandle,
+        dest_descriptor: t12::SCPUDescriptorHandle,
     ) -> Result<(), &'static str> {
         // -- $$$FRK(TODO): assert on resource metadata
         self.raw

@@ -6,6 +6,7 @@ mod commandlist;
 mod commandlistpool;
 mod commandqueue;
 mod descriptor;
+mod descriptorallocator;
 mod device;
 mod factory;
 mod fence;

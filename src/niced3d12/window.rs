@@ -73,7 +73,7 @@ impl SD3D12Window {
         self.curbuffer
     }
 
-    pub fn currentrendertargetdescriptor(&self) -> Result<t12::SDescriptorHandle, &'static str> {
+    pub fn currentrendertargetdescriptor(&self) -> Result<t12::SCPUDescriptorHandle, &'static str> {
         self.rtvdescriptorheap.cpu_handle(self.curbuffer)
     }
 

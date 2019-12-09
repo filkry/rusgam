@@ -67,13 +67,13 @@ impl SCommandList {
         self.commandlist.ResourceBarrier(1, &(barriers[0].barrier));
     }
 
-    pub unsafe fn clearrendertargetview(&self, descriptor: SDescriptorHandle, colour: &[f32; 4]) {
+    pub unsafe fn clearrendertargetview(&self, descriptor: SCPUDescriptorHandle, colour: &[f32; 4]) {
         // -- $$$FRK(TODO): support third/fourth parameter
         self.commandlist
             .ClearRenderTargetView(*descriptor.raw(), colour, 0, ptr::null());
     }
 
-    pub unsafe fn clear_depth_stencil_view(&self, descriptor: SDescriptorHandle, depth: f32) {
+    pub unsafe fn clear_depth_stencil_view(&self, descriptor: SCPUDescriptorHandle, depth: f32) {
         // -- $$$FRK(TODO): support ClearFlags/Stencil/NumRects/pRects
         self.commandlist.ClearDepthStencilView(
             *descriptor.raw(),
@@ -132,9 +132,9 @@ impl SCommandList {
 
     pub unsafe fn om_set_render_targets(
         &self,
-        render_target_descriptors: &[&SDescriptorHandle],
+        render_target_descriptors: &[&SCPUDescriptorHandle],
         rts_single_handle_to_descriptor_range: bool,
-        depth_target_descriptor: &SDescriptorHandle,
+        depth_target_descriptor: &SCPUDescriptorHandle,
     ) {
         assert!(render_target_descriptors.len() == 1); // didn't want to implement copying d3dtype array
 

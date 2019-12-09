@@ -1,5 +1,5 @@
 
-mod manager {
+pub mod manager {
     use utils::{align_up};
 
     #[derive(Debug)]

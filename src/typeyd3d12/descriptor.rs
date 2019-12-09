@@ -38,23 +38,23 @@ impl SDescriptorHeap {
         }
     }
 
-    pub fn getcpudescriptorhandleforheapstart(&self) -> SDescriptorHandle {
+    pub fn getcpudescriptorhandleforheapstart(&self) -> SCPUDescriptorHandle {
         let start = unsafe { self.heap.GetCPUDescriptorHandleForHeapStart() };
-        SDescriptorHandle { handle: start }
+        SCPUDescriptorHandle { handle: start }
     }
 }
 
-pub struct SDescriptorHandle {
+pub struct SCPUDescriptorHandle {
     handle: D3D12_CPU_DESCRIPTOR_HANDLE,
 }
 
-impl SDescriptorHandle {
+impl SCPUDescriptorHandle {
     pub unsafe fn raw(&self) -> &D3D12_CPU_DESCRIPTOR_HANDLE {
         &self.handle
     }
 
-    pub unsafe fn offset(&self, bytes: usize) -> SDescriptorHandle {
-        SDescriptorHandle {
+    pub unsafe fn offset(&self, bytes: usize) -> Self {
+        SCPUDescriptorHandle {
             handle: D3D12_CPU_DESCRIPTOR_HANDLE {
                 ptr: self.handle.ptr + bytes,
             },

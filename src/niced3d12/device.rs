@@ -74,17 +74,16 @@ impl SDevice {
 
     pub fn create_descriptor_heap(
         &self,
-        type_: t12::EDescriptorHeapType,
-        numdescriptors: u32,
+        desc: &t12::SDescriptorHeapDesc,
     ) -> Result<SDescriptorHeap, &'static str> {
         //let raw = self.d.createdescriptorheap(type_, numdescriptors)?;
 
-        let dh = self.raw.create_descriptor_heap(type_, numdescriptors)?;
+        let dh = self.raw.create_descriptor_heap(desc)?;
 
         Ok(SDescriptorHeap {
             raw: dh,
-            numdescriptors: numdescriptors,
-            descriptorsize: self.raw.getdescriptorhandleincrementsize(type_),
+            numdescriptors: desc.num_descriptors,
+            descriptorsize: self.raw.getdescriptorhandleincrementsize(desc.type_),
             //cpudescriptorhandleforstart: raw.getcpudescriptorhandleforheapstart(),
         })
     }

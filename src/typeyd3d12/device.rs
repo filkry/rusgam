@@ -61,20 +61,14 @@ impl SDevice {
 
     pub fn create_descriptor_heap(
         &self,
-        type_: EDescriptorHeapType,
-        numdescriptors: u32,
+        desc: &SDescriptorHeapDesc,
     ) -> Result<SDescriptorHeap, &'static str> {
-        let desc = D3D12_DESCRIPTOR_HEAP_DESC {
-            Type: type_.d3dtype(),
-            NumDescriptors: numdescriptors,
-            Flags: 0,
-            NodeMask: 0,
-        };
+        let d3ddesc = desc.d3dtype();
 
         let mut rawheap: *mut ID3D12DescriptorHeap = ptr::null_mut();
         let hr = unsafe {
             self.device.CreateDescriptorHeap(
-                &desc,
+                &d3ddesc,
                 &ID3D12DescriptorHeap::uuidof(),
                 &mut rawheap as *mut *mut _ as *mut *mut c_void,
             )
@@ -84,7 +78,7 @@ impl SDevice {
 
         unsafe {
             let heap = ComPtr::from_raw(rawheap);
-            Ok(SDescriptorHeap::new_from_raw(type_, heap))
+            Ok(SDescriptorHeap::new_from_raw(desc.type_, heap))
         }
     }
 
@@ -96,7 +90,11 @@ impl SDevice {
     }
 
     // -- $$$FRK(TODO): allow pDesc parameter
-    pub fn createrendertargetview(&self, resource: &SResource, destdescriptor: &SCPUDescriptorHandle) {
+    pub fn createrendertargetview(
+        &self,
+        resource: &SResource,
+        destdescriptor: &SCPUDescriptorHandle,
+    ) {
         unsafe {
             self.device.CreateRenderTargetView(
                 resource.raw().as_raw(),

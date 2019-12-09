@@ -134,9 +134,14 @@ fn main_d3d12() -> Result<(), &'static str> {
     window.init_render_target_views(&mut device)?;
     window.show();
 
+    let desc = t12::SDescriptorHeapDesc {
+        type_: t12::EDescriptorHeapType::DepthStencil,
+        num_descriptors: 1,
+        flags: t12::SDescriptorHeapFlags::from(t12::EDescriptorHeapFlags::None),
+    };
+
     // -- tutorial2 data
-    let depthstencilviewheap =
-        device.create_descriptor_heap(t12::EDescriptorHeapType::DepthStencil, 1)?;
+    let depthstencilviewheap = device.create_descriptor_heap(&desc)?;
 
     let mut viewport = t12::SViewport::new(
         0.0,

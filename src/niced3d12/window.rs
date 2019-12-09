@@ -43,8 +43,13 @@ impl SD3D12Window {
         let swap_chain = factory.create_swap_chain(&window.raw(), commandqueue, width, height)?;
         let cur_buffer = swap_chain.current_backbuffer_index();
 
-        let descriptor_heap =
-            device.create_descriptor_heap(t12::EDescriptorHeapType::RenderTarget, 10)?;
+        let desc = t12::SDescriptorHeapDesc {
+            type_: t12::EDescriptorHeapType::RenderTarget,
+            num_descriptors: 10,
+            flags: t12::SDescriptorHeapFlags::from(t12::EDescriptorHeapFlags::None),
+        };
+
+        let descriptor_heap = device.create_descriptor_heap(&desc)?;
 
         Ok(Self {
             window: window,

@@ -6,6 +6,23 @@ pub mod manager {
     pub struct SAllocation {
         start_offset: usize,
         size: usize,
+        freed: bool, // for debug purposes, if we drop while not freed we assert
+    }
+
+    impl Drop for SAllocation {
+        fn drop(&mut self) {
+            assert!(self.freed);
+        }
+    }
+
+    impl SAllocation {
+        pub fn start_offset(&self) -> usize {
+            self.start_offset
+        }
+
+        pub fn size(&self) -> usize {
+            self.size
+        }
     }
 
     #[derive(Copy, Clone, Debug)]
@@ -17,13 +34,15 @@ pub mod manager {
     pub struct SManager {
         free_chunks: Vec<SFreeChunk>,
         size: usize,
+        free_space: usize, // total, could be fragmented
     }
 
     impl SManager {
         pub fn new(size: usize) -> Self {
             let mut result = Self {
-                free_chunks: Vec::new(),
+                free_chunks: Vec::with_capacity(size / 10),
                 size: size,
+                free_space: size,
             };
 
             result.free_chunks.push(SFreeChunk {
@@ -54,6 +73,7 @@ pub mod manager {
             let allocation = SAllocation {
                 start_offset: align_up(old_chunk.start_offset, alignment),
                 size: aligned_size,
+                freed: false,
             };
 
             // -- insert new chunk for unused memory before allocation
@@ -89,10 +109,12 @@ pub mod manager {
                 self.free_chunks.remove(chunk_idx);
             }
 
+            self.free_space -= allocation.size;
+
             Ok(allocation)
         }
 
-        pub fn free(&mut self, alloc: SAllocation) {
+        pub fn free(&mut self, mut alloc: SAllocation) {
             let mut chunk_idx = self.free_chunks.len();
             for (i, chunk) in (&self.free_chunks).iter().enumerate() {
                 if chunk.start_offset > alloc.start_offset {
@@ -139,6 +161,9 @@ pub mod manager {
                     size: alloc.size,
                 });
             }
+
+            self.free_space += alloc.size;
+            alloc.freed = true;
         }
     }
 

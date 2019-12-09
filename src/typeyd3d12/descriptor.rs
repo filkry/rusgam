@@ -21,6 +21,43 @@ impl EDescriptorHeapType {
     }
 }
 
+#[derive(Copy, Clone)]
+pub enum EDescriptorHeapFlags {
+    None,
+    ShaderVisible,
+}
+
+impl TD3DFlags32 for EDescriptorHeapFlags {
+    type TD3DType = D3D12_DESCRIPTOR_HEAP_FLAGS;
+
+    fn d3dtype(&self) -> Self::TD3DType {
+        match self {
+            Self::None => D3D12_DESCRIPTOR_HEAP_FLAG_NONE,
+            Self::ShaderVisible => D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE,
+        }
+    }
+}
+
+pub type SDescriptorHeapFlags = SD3DFlags32<EDescriptorHeapFlags>;
+
+pub struct SDescriptorHeapDesc {
+    pub type_: EDescriptorHeapType,
+    pub num_descriptors: usize,
+    pub flags: SDescriptorHeapFlags,
+    //node_mask: u32,
+}
+
+impl SDescriptorHeapDesc {
+    pub fn d3dtype(&self) -> D3D12_DESCRIPTOR_HEAP_DESC {
+        D3D12_DESCRIPTOR_HEAP_DESC {
+            Type: self.type_.d3dtype(),
+            NumDescriptors: self. num_descriptors as UINT,
+            Flags: self.flags.d3dtype(),
+            NodeMask: 0,
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct SDescriptorHeap {
     pub type_: EDescriptorHeapType,

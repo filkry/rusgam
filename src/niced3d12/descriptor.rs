@@ -3,7 +3,7 @@ use super::*;
 pub struct SDescriptorHeap {
     pub(super) raw: t12::SDescriptorHeap,
 
-    pub(super) numdescriptors: u32,
+    pub(super) numdescriptors: usize,
     pub(super) descriptorsize: usize,
     //cpudescriptorhandleforstart: t12::SDescriptorHandle<'heap, 'device>,
 }

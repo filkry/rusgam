@@ -5,6 +5,7 @@ extern crate winapi;
 extern crate wio;
 
 //mod math;
+mod allocate;
 mod collections;
 mod directxgraphicssamples;
 mod niced3d12;

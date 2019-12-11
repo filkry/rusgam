@@ -51,7 +51,7 @@ impl SDescriptorHeapDesc {
     pub fn d3dtype(&self) -> D3D12_DESCRIPTOR_HEAP_DESC {
         D3D12_DESCRIPTOR_HEAP_DESC {
             Type: self.type_.d3dtype(),
-            NumDescriptors: self. num_descriptors as UINT,
+            NumDescriptors: self.num_descriptors as UINT,
             Flags: self.flags.d3dtype(),
             NodeMask: 0,
         }

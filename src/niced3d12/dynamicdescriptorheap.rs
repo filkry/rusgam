@@ -38,7 +38,6 @@ impl SDynamicDescriptorHeap {
     */
 
     pub fn parse_root_signature(&mut self, root_signature: &SRootSignature) {
-
         for cache in self.descriptor_table_caches.iter_mut() {
             cache.in_root_signature = false;
         }
@@ -46,7 +45,9 @@ impl SDynamicDescriptorHeap {
         let mut current_offset = 0;
         for (i, parameter) in root_signature.desc().parameters.iter().enumerate() {
             if let t12::ERootParameterType::DescriptorTable = parameter.type_ {
-                if let t12::ERootParameterTypeData::DescriptorTable{ref table} = parameter.type_data {
+                if let t12::ERootParameterTypeData::DescriptorTable { ref table } =
+                    parameter.type_data
+                {
                     assert!(table.descriptor_ranges.len() == 1); // for simplicity for now
                     let range = &table.descriptor_ranges[0];
 
@@ -56,8 +57,7 @@ impl SDynamicDescriptorHeap {
                     cache.in_root_signature = true;
 
                     current_offset += cache.num_descriptors;
-                }
-                else {
+                } else {
                     // -- $$$FRK(TODO): pair these two enums in typey
                     assert!(false);
                 }
@@ -70,14 +70,14 @@ impl SDynamicDescriptorHeap {
         root_parameter_index: usize,
         offset_into_descriptor_table: usize,
         num_descriptors: usize,
-        start_cpu_descriptor: &t12:: SCPUDescriptorHandle,
+        start_cpu_descriptor: &t12::SCPUDescriptorHandle,
     ) -> Result<(), &'static str> {
         if num_descriptors > self.num_free_descriptors {
-            return Err("Can't allocate this many descriptors.")
+            return Err("Can't allocate this many descriptors.");
         }
 
         if root_parameter_index > self.descriptor_table_caches.len() {
-            return Err("More descriptor tables than we're prepared to hanlde.")
+            return Err("More descriptor tables than we're prepared to hanlde.");
         }
 
         let cache = &mut self.descriptor_table_caches[root_parameter_index];

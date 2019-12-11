@@ -204,7 +204,7 @@ impl SRootParameter {
             match &mut self.type_data {
                 ERootParameterTypeData::Constants { constants } => {
                     *(*result.as_mut_ptr()).u.Constants_mut() = constants.d3dtype();
-                },
+                }
                 ERootParameterTypeData::DescriptorTable { table } => {
                     *(*result.as_mut_ptr()).u.DescriptorTable_mut() = table.d3dtype();
                 }

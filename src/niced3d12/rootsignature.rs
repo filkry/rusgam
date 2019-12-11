@@ -12,7 +12,7 @@ impl SDevice {
     pub fn create_root_signature(
         &self,
         mut desc: t12::SRootSignatureDesc,
-        version: t12::ERootSignatureVersion
+        version: t12::ERootSignatureVersion,
     ) -> Result<SRootSignature, &'static str> {
         let serialized_blob = t12::serialize_root_signature(&mut desc, version)
             .ok()
@@ -26,7 +26,6 @@ impl SDevice {
             serialized_blob: serialized_blob,
         })
     }
-
 }
 
 impl SRootSignature {

@@ -67,7 +67,11 @@ impl SCommandList {
         self.commandlist.ResourceBarrier(1, &(barriers[0].barrier));
     }
 
-    pub unsafe fn clearrendertargetview(&self, descriptor: SCPUDescriptorHandle, colour: &[f32; 4]) {
+    pub unsafe fn clearrendertargetview(
+        &self,
+        descriptor: SCPUDescriptorHandle,
+        colour: &[f32; 4],
+    ) {
         // -- $$$FRK(TODO): support third/fourth parameter
         self.commandlist
             .ClearRenderTargetView(*descriptor.raw(), colour, 0, ptr::null());

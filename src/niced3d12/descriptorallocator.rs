@@ -26,7 +26,7 @@ impl SDescriptorAllocator {
     pub fn new(
         device: &SDevice,
         num_descriptors: usize,
-        descriptor_type: t12::EDescriptorHeapType
+        descriptor_type: t12::EDescriptorHeapType,
     ) -> Result<Self, &'static str> {
         let desc = t12::SDescriptorHeapDesc {
             type_: descriptor_type,
@@ -55,17 +55,13 @@ impl SDescriptorAllocator {
         let allocation = self.allocator.alloc(num_descriptors, 1)?;
         let base_handle = self.descriptor_heap.cpu_handle(allocation.start_offset())?;
 
-        Ok(SDescriptorAllocatorAllocation{
+        Ok(SDescriptorAllocatorAllocation {
             allocation: allocation,
             base_handle: base_handle,
         })
     }
 
-    pub fn free_on_signal(
-        &mut self,
-        allocation: SDescriptorAllocatorAllocation,
-        signal: u64,
-    ) {
+    pub fn free_on_signal(&mut self, allocation: SDescriptorAllocatorAllocation, signal: u64) {
         if let Some(s) = self.last_signal {
             if signal <= s {
                 self.allocator.free(allocation.allocation);
@@ -73,25 +69,22 @@ impl SDescriptorAllocator {
             }
         }
 
-        let pf = SDescriptorAllocatorPendingFree{
+        let pf = SDescriptorAllocatorPendingFree {
             allocation: allocation.allocation,
             signal: signal,
         };
         self.pending_frees.push(pf);
     }
 
-    pub fn signal(
-        &mut self,
-        signal: u64,
-    ) {
+    pub fn signal(&mut self, signal: u64) {
         assert!(signal >= self.last_signal.unwrap_or(0));
 
         let mut idx = 0;
         while idx < self.pending_frees.len() {
             if self.pending_frees[idx].signal <= signal {
-                self.allocator.free(self.pending_frees.swap_remove(idx).allocation);
-            }
-            else {
+                self.allocator
+                    .free(self.pending_frees.swap_remove(idx).allocation);
+            } else {
                 idx += 1;
             }
         }

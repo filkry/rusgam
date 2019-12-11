@@ -1,6 +1,5 @@
-
 pub mod manager {
-    use utils::{align_up};
+    use utils::align_up;
 
     #[derive(Debug)]
     pub struct SAllocation {
@@ -53,7 +52,11 @@ pub mod manager {
             result
         }
 
-        pub fn alloc(&mut self, size: usize, alignment: usize) -> Result<SAllocation, &'static str> {
+        pub fn alloc(
+            &mut self,
+            size: usize,
+            alignment: usize,
+        ) -> Result<SAllocation, &'static str> {
             let aligned_size = align_up(size, alignment);
 
             let mut chunk_idx_res = Err("No chunk large enough for allocation");
@@ -98,8 +101,7 @@ pub mod manager {
                 if !used_idx {
                     self.free_chunks[chunk_idx] = new_chunk;
                     used_idx = true;
-                }
-                else {
+                } else {
                     self.free_chunks.insert(chunk_idx + 1, new_chunk);
                 }
             }
@@ -129,25 +131,28 @@ pub mod manager {
             let prev = {
                 if chunk_idx > 0 {
                     chunk_idx - 1
-                }
-                else {
+                } else {
                     0
                 }
             };
-            if chunk_idx > 0 && (self.free_chunks[prev].start_offset + self.free_chunks[prev].size) == alloc.start_offset {
+            if chunk_idx > 0
+                && (self.free_chunks[prev].start_offset + self.free_chunks[prev].size)
+                    == alloc.start_offset
+            {
                 self.free_chunks[prev].size += alloc.size;
                 merged = true;
             }
 
             // -- merge with next in list
             let next = chunk_idx;
-            if next < self.free_chunks.len() && (alloc.start_offset + alloc.size) == self.free_chunks[next].start_offset {
+            if next < self.free_chunks.len()
+                && (alloc.start_offset + alloc.size) == self.free_chunks[next].start_offset
+            {
                 if !merged {
                     self.free_chunks[next].start_offset = alloc.start_offset;
                     self.free_chunks[next].size += alloc.size;
                     merged = true;
-                }
-                else {
+                } else {
                     // -- merge prev with next
                     self.free_chunks[prev].size += self.free_chunks[next].size;
                     self.free_chunks.remove(next);
@@ -156,10 +161,13 @@ pub mod manager {
 
             // -- need to insert new entry
             if !merged {
-                self.free_chunks.insert(chunk_idx, SFreeChunk {
-                    start_offset: alloc.start_offset,
-                    size: alloc.size,
-                });
+                self.free_chunks.insert(
+                    chunk_idx,
+                    SFreeChunk {
+                        start_offset: alloc.start_offset,
+                        size: alloc.size,
+                    },
+                );
             }
 
             self.free_space += alloc.size;
@@ -257,5 +265,4 @@ pub mod manager {
         allocator.free(allocation2);
         assert_eq!(allocator.free_chunks.len(), 1);
     }
-
 }

@@ -301,8 +301,8 @@ fn main_d3d12() -> Result<(), &'static str> {
     let mut root_signature_desc = t12::SRootSignatureDesc::new(root_signature_flags);
     root_signature_desc.parameters.push(root_parameter);
 
-    let root_signature = device.
-        create_root_signature(root_signature_desc, t12::ERootSignatureVersion::V1)?;
+    let root_signature =
+        device.create_root_signature(root_signature_desc, t12::ERootSignatureVersion::V1)?;
 
     let mut rtv_formats = t12::SRTFormatArray {
         rt_formats: ArrayVec::new(),
@@ -540,6 +540,11 @@ fn main_d3d12() -> Result<(), &'static str> {
     Ok(())
 }
 
+fn debug_test() {
+}
+
 fn main() {
+    debug_test();
+
     main_d3d12().unwrap();
 }

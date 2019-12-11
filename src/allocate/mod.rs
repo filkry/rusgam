@@ -1,30 +1,37 @@
 #![allow(dead_code)]
 
-use std::mem::{size_of};
+//use std::iter::IntoIterator;
+use std::mem::size_of;
+use std::cell::{RefCell};
 use std::ops::{Deref, DerefMut, Index, IndexMut};
+
+use utils::{align_up};
 
 pub trait TMemAllocator {
     // -- things implementing TMemAllocator should rely on internal mutability, since their
     // -- allocations will have a reference to them
     fn alloc(&self, size: usize, align: usize) -> Result<SMem, &'static str>;
     fn realloc(&self, existing_allocation: SMem, new_size: usize) -> Result<SMem, &'static str>;
+
+    // -- unsafe because it doesn't consume the SMem
     fn free(&self, existing_allocation: SMem) -> Result<(), &'static str>;
+    unsafe fn free_unsafe(&self, existing_allocation: &mut SMem) -> Result<(), &'static str>;
+
+    unsafe fn reset(&self);
 }
 
-pub struct SSystemAllocator {
-
-}
+pub struct SSystemAllocator {}
 
 impl TMemAllocator for SSystemAllocator {
     fn alloc(&self, size: usize, align: usize) -> Result<SMem, &'static str> {
         let layout = std::alloc::Layout::from_size_align(size, align).unwrap();
-        let data = unsafe { std::alloc::alloc(layout) as *mut u8};
+        let data = unsafe { std::alloc::alloc(layout) as *mut u8 };
 
         if data == std::ptr::null_mut() {
             return Err("failed to allocate");
         }
 
-        Ok(SMem{
+        Ok(SMem {
             data: data,
             size: size,
             alignment: align,
@@ -33,8 +40,13 @@ impl TMemAllocator for SSystemAllocator {
     }
 
     fn realloc(&self, existing_allocation: SMem, new_size: usize) -> Result<SMem, &'static str> {
-        let layout = std::alloc::Layout::from_size_align(existing_allocation.size, existing_allocation.alignment).unwrap();
-        let data = unsafe { std::alloc::realloc(existing_allocation.data, layout, new_size) as *mut u8};
+        let layout = std::alloc::Layout::from_size_align(
+            existing_allocation.size,
+            existing_allocation.alignment,
+        )
+        .unwrap();
+        let data =
+            unsafe { std::alloc::realloc(existing_allocation.data, layout, new_size) as *mut u8 };
 
         if data == std::ptr::null_mut() {
             // -- failed to re-alloc, free memory and run
@@ -42,7 +54,7 @@ impl TMemAllocator for SSystemAllocator {
             return Err("failed to re-alloc");
         }
 
-        Ok(SMem{
+        Ok(SMem {
             data: data,
             size: new_size,
             alignment: existing_allocation.alignment,
@@ -50,11 +62,104 @@ impl TMemAllocator for SSystemAllocator {
         })
     }
 
-    fn free(&self, existing_allocation: SMem) -> Result<(), &'static str> {
-        let layout = std::alloc::Layout::from_size_align(existing_allocation.size, existing_allocation.alignment).unwrap();
-        unsafe { std::alloc::dealloc(existing_allocation.data, layout) };
+    unsafe fn free_unsafe(&self, existing_allocation: &mut SMem) -> Result<(), &'static str> {
+        let layout = std::alloc::Layout::from_size_align(
+            existing_allocation.size,
+            existing_allocation.alignment,
+        )
+        .unwrap();
+
+        println!("maybe?");
+
+        std::alloc::dealloc(existing_allocation.data, layout);
+
+        existing_allocation.data = std::ptr::null_mut();
+        existing_allocation.size = 0;
 
         Ok(())
+    }
+
+    fn free(&self, mut existing_allocation: SMem) -> Result<(), &'static str> {
+        unsafe { self.free_unsafe(&mut existing_allocation) }
+    }
+
+    unsafe fn reset(&self) {
+
+    }
+}
+
+struct SLinearAllocatorData<'a> {
+    raw: SMem<'a>,
+    cur_offset: usize,
+    allow_realloc: bool,
+}
+
+pub struct SLinearAllocator<'a> {
+    data: RefCell<SLinearAllocatorData<'a>>,
+}
+
+impl<'a> SLinearAllocator<'a> {
+    pub fn new(parent: &'a dyn TMemAllocator, size: usize, align: usize) -> Result<Self, &'static str> {
+        Ok(Self {
+            data: RefCell::new(SLinearAllocatorData {
+                raw: parent.alloc(size, align)?,
+                cur_offset: 0,
+                allow_realloc: false,
+            }),
+        })
+    }
+}
+
+impl<'a> TMemAllocator for SLinearAllocator<'a> {
+    fn alloc(&self, size: usize, align: usize) -> Result<SMem, &'static str> {
+
+        let mut data = self.data.borrow_mut();
+
+        if (data.raw.data as usize) % align != 0 {
+            panic!("Currently don't support different alignments.");
+        }
+
+        let aligned_offset = align_up(data.cur_offset, align);
+        let aligned_size = align_up(size, align);
+
+        if (aligned_offset + aligned_size) > data.raw.size {
+            return Err("Out of memory");
+        }
+
+        let result = SMem {
+            data: unsafe { data.raw.data.add(aligned_offset) },
+            size: size,
+            alignment: align,
+            allocator: self,
+        };
+
+        data.cur_offset = aligned_offset + aligned_size;
+
+        Ok(result)
+    }
+
+    fn realloc(&self, _existing_allocation: SMem, _new_size: usize) -> Result<SMem, &'static str> {
+        let data = self.data.borrow_mut();
+
+        if data.allow_realloc {
+            panic!("Not implemented.")
+        }
+
+        Err("Does not allow realloc.")
+    }
+
+    unsafe fn free_unsafe(&self, _existing_allocation: &mut SMem) -> Result<(), &'static str> {
+        Ok(())
+    }
+
+    fn free(&self, mut _existing_allocation: SMem) -> Result<(), &'static str> {
+        Ok(())
+    }
+
+    unsafe fn reset(&self) {
+        let mut data = self.data.borrow_mut();
+
+        data.cur_offset = 0;
     }
 }
 
@@ -68,17 +173,7 @@ pub struct SMem<'a> {
 impl<'a> Drop for SMem<'a> {
     fn drop(&mut self) {
         let allocator = self.allocator;
-
-        // -- this is the only safe place to copy an SMem, as we know we are dropping
-        // -- it immediately. We do this so we can enforce move on free in TMemAllocator
-        let copied = SMem{
-            data: self.data,
-            size: self.size,
-            alignment: self.alignment,
-            allocator: self.allocator,
-        };
-
-        allocator.free(copied).unwrap();
+        unsafe { allocator.free_unsafe(self).unwrap() };
     }
 }
 
@@ -92,7 +187,11 @@ pub struct SMemVec<'a, T> {
 }
 
 impl<'a, T> SMemVec<'a, T> {
-    pub fn new(allocator: &'a dyn TMemAllocator, initial_capacity: usize, grow_capacity: usize) -> Result<Self, &'static str> {
+    pub fn new(
+        allocator: &'a dyn TMemAllocator,
+        initial_capacity: usize,
+        grow_capacity: usize,
+    ) -> Result<Self, &'static str> {
         let num_bytes = initial_capacity * size_of::<T>();
 
         Ok(Self {
@@ -104,6 +203,18 @@ impl<'a, T> SMemVec<'a, T> {
         })
     }
 
+    pub fn new_genned(
+        allocator: &'a SGenAllocator,
+        initial_capacity: usize,
+        grow_capacity: usize,
+    ) -> Result<SGenAllocation<'a, Self>, &'static str> {
+        Ok(SGenAllocation {
+            raw: Self::new(allocator.raw, initial_capacity, grow_capacity)?,
+            generation: allocator.generation,
+            temp_allocator: allocator,
+        })
+    }
+
     fn data(&self) -> *mut T {
         self.mem.data as *mut T
     }
@@ -112,13 +223,16 @@ impl<'a, T> SMemVec<'a, T> {
         self.len
     }
 
+    pub fn capacity(&self) -> usize {
+        self.capacity
+    }
+
     pub fn push(&mut self, value: T) {
         if self.len == self.capacity {
             if self.grow_capacity == 0 {
                 assert!(false, "Out of space, not pushing.");
                 return;
-            }
-            else {
+            } else {
                 panic!("Grow not implemented!")
             }
         }
@@ -133,17 +247,13 @@ impl<'a, T> Deref for SMemVec<'a, T> {
     type Target = [T];
 
     fn deref(&self) -> &[T] {
-        unsafe {
-            std::slice::from_raw_parts(self.data(), self.len)
-        }
+        unsafe { std::slice::from_raw_parts(self.data(), self.len) }
     }
 }
 
 impl<'a, T> DerefMut for SMemVec<'a, T> {
     fn deref_mut(&mut self) -> &mut [T] {
-        unsafe {
-            std::slice::from_raw_parts_mut(self.data(), self.len)
-        }
+        unsafe { std::slice::from_raw_parts_mut(self.data(), self.len) }
     }
 }
 
@@ -172,18 +282,128 @@ impl<'a, T> IndexMut<isize> for SMemVec<'a, T> {
     }
 }
 
+// -- this generation'd allocation wrapping is still unsafe because the generation could
+// -- change while we're looking at the data - we don't guard every touch of the memory
+pub struct SGenAllocator<'a> {
+    raw: &'a dyn TMemAllocator,
+    generation: u32,
+}
+
+impl<'a> SGenAllocator<'a> {
+    pub fn new(raw: &'a dyn TMemAllocator) -> Self {
+        Self {
+            raw: raw,
+            generation: 0,
+        }
+    }
+
+    pub unsafe fn reset(&mut self) {
+        self.generation += 1;
+        self.raw.reset();
+    }
+}
+
+pub struct SGenAllocation<'a, T> {
+    raw: T,
+    generation: u32,
+    temp_allocator: &'a SGenAllocator<'a>,
+}
+
+impl<'a, T> SGenAllocation<'a, T> {
+    pub unsafe fn unwrap(&self) -> &T {
+        if self.generation != self.temp_allocator.generation {
+            panic!("Kept a GenAllocation around after reset!");
+        }
+
+        &self.raw
+    }
+
+    pub unsafe fn unwrap_mut(&mut self) -> &mut T {
+        if self.generation != self.temp_allocator.generation {
+            panic!("Kept a GenAllocation around after reset!");
+        }
+
+        &mut self.raw
+    }
+}
+
 /*
-#[test]
-fn test_basic() {
-    let allocator = SManager::new(100);
+impl<'a, 'b, T> IntoIterator for &'a SMemVec<'b, T> {
+    type Item = &'a T;
+    type IntoIter = std::slice::Iter<'a, T>;
 
-    let allocation = allocator.alloc(1, 1).unwrap();
-    assert_eq!(allocation.start_offset, 0);
-    assert_eq!(allocation.size, 1);
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
 
-    allocator.free(allocation);
-    assert_eq!(allocator.free_chunks.len(), 1);
-    assert_eq!(allocator.free_chunks[0].start_offset, 0);
-    assert_eq!(allocator.free_chunks[0].size, 100);
+impl<'a, 'b, T> IntoIterator for &'a mut SMemVec<'b, T> {
+    type Item = &'a mut T;
+    type IntoIter = std::slice::IterMut<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter_mut()
+    }
 }
 */
+
+/* NOTES
+
+I would really like to support some sort of temporary allocator that is reset at a frame, with
+guarded access, but I don't think that's possible to do in a way that creates a generic allocation
+result without one of:
+a. unsafety
+b. huge performance overhead
+
+Maybe I can wrap allocations from it in some sort of TempAlloc struct?
+
+I NEED TO WRITE BOTH VERSIONS FIRST, then find commonalities
+*/
+
+#[test]
+fn test_basic() {
+    let allocator = SSystemAllocator {};
+
+    let mut vec = SMemVec::<u32>::new(&allocator, 5, 0).unwrap();
+    assert_eq!(vec.len(), 0);
+    assert_eq!(vec.capacity(), 5);
+
+    vec.push(33);
+    assert_eq!(vec[0], 33);
+    assert_eq!(vec.len(), 1);
+
+    vec.push(21);
+    assert_eq!(vec[0], 33);
+    assert_eq!(vec[1], 21);
+    assert_eq!(vec.len(), 2);
+
+    vec.push(9);
+    assert_eq!(vec[0], 33);
+    assert_eq!(vec[1], 21);
+    assert_eq!(vec[2], 9);
+    assert_eq!(vec.len(), 3);
+}
+
+#[test]
+fn test_iter() {
+    let allocator = SSystemAllocator {};
+
+    let mut vec = SMemVec::<u32>::new(&allocator, 5, 0).unwrap();
+    vec.push(0);
+    vec.push(1);
+    vec.push(2);
+    vec.push(3);
+    vec.push(4);
+
+    /*
+    let num_entries = 0;
+    for v in vec {
+        num_entries += 1;
+    }
+    assert_eq!(num_entries, vec.len());
+    */
+
+    for (i, v) in vec.iter().enumerate() {
+        assert_eq!(i as u32, *v);
+    }
+}

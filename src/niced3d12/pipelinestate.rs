@@ -7,10 +7,10 @@ pub struct SPipelineStateStreamRootSignature<'a> {
 }
 
 impl<'a> SPipelineStateStreamRootSignature<'a> {
-    pub fn create(src: &'a t12::SRootSignature) -> Self {
+    pub fn create(src: &'a SRootSignature) -> Self {
         Self {
             type_: t12::EPipelineStateSubobjectType::RootSignature.d3dtype(),
-            value: src.raw.deref(),
+            value: src.raw().raw.deref(),
         }
     }
 }

@@ -1,5 +1,18 @@
 use super::*;
 
+impl t12::EDescriptorHeapType {
+    pub const COUNT: usize = 4;
+
+    pub fn index(&self) -> usize {
+        match self {
+            Self::ConstantBufferShaderResourceUnorderedAccess => 0,
+            Self::Sampler => 1,
+            Self::RenderTarget => 2,
+            Self::DepthStencil => 3,
+        }
+    }
+}
+
 pub struct SDescriptorHeap {
     pub(super) raw: t12::SDescriptorHeap,
 
@@ -27,5 +40,11 @@ impl SDescriptorHeap {
         } else {
             Err("Descripter handle index past number of descriptors.")
         }
+    }
+}
+
+impl t12::SCPUDescriptorHandle {
+    pub fn add(&self, count: usize, descriptor_size: usize) -> t12::SCPUDescriptorHandle {
+        unsafe { self.offset(count * descriptor_size) }
     }
 }

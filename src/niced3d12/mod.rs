@@ -16,6 +16,7 @@ mod pipelinestate;
 mod resource;
 mod swapchain;
 mod window;
+mod rootsignature;
 
 use collections::{SPool, SPoolHandle};
 use directxgraphicssamples;
@@ -43,4 +44,5 @@ pub use self::fence::*;
 pub use self::pipelinestate::*;
 pub use self::resource::*;
 pub use self::swapchain::*;
+pub use self::rootsignature::*;
 pub use self::window::SD3D12Window;

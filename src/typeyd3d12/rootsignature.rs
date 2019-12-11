@@ -69,7 +69,7 @@ impl SRootSignatureDesc {
 
     pub unsafe fn d3dtype(&mut self) -> D3D12_ROOT_SIGNATURE_DESC {
         self.d3d_parameters.clear();
-        for parameter in &self.parameters {
+        for parameter in &mut self.parameters {
             self.d3d_parameters.push(parameter.d3dtype());
         }
 
@@ -144,6 +144,27 @@ impl SRootConstants {
     }
 }
 
+pub struct SRootDescriptorTable {
+    pub descriptor_ranges: ArrayVec<[SDescriptorRange; 16]>,
+
+    // -- for d3dtype()
+    d3d_descriptor_ranges: ArrayVec<[D3D12_DESCRIPTOR_RANGE; 16]>,
+}
+
+impl SRootDescriptorTable {
+    pub unsafe fn d3dtype(&mut self) -> D3D12_ROOT_DESCRIPTOR_TABLE {
+        self.d3d_descriptor_ranges.clear();
+        for dr in &self.descriptor_ranges {
+            self.d3d_descriptor_ranges.push(dr.d3dtype());
+        }
+
+        D3D12_ROOT_DESCRIPTOR_TABLE {
+            NumDescriptorRanges: self.d3d_descriptor_ranges.len() as u32,
+            pDescriptorRanges: self.d3d_descriptor_ranges.as_ptr(),
+        }
+    }
+}
+
 pub enum ERootParameterType {
     DescriptorTable,
     E32BitConstants,
@@ -166,6 +187,7 @@ impl ERootParameterType {
 
 pub enum ERootParameterTypeData {
     Constants { constants: SRootConstants },
+    DescriptorTable { table: SRootDescriptorTable },
 }
 
 pub struct SRootParameter {
@@ -175,13 +197,16 @@ pub struct SRootParameter {
 }
 
 impl SRootParameter {
-    pub fn d3dtype(&self) -> D3D12_ROOT_PARAMETER {
+    pub fn d3dtype(&mut self) -> D3D12_ROOT_PARAMETER {
         unsafe {
             let mut result = mem::MaybeUninit::<D3D12_ROOT_PARAMETER>::zeroed();
             (*result.as_mut_ptr()).ParameterType = self.type_.d3dtype();
-            match &self.type_data {
+            match &mut self.type_data {
                 ERootParameterTypeData::Constants { constants } => {
                     *(*result.as_mut_ptr()).u.Constants_mut() = constants.d3dtype();
+                },
+                ERootParameterTypeData::DescriptorTable { table } => {
+                    *(*result.as_mut_ptr()).u.DescriptorTable_mut() = table.d3dtype();
                 }
             }
             (*result.as_mut_ptr()).ShaderVisibility = self.shader_visibility.d3dtype();

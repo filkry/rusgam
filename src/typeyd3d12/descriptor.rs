@@ -131,11 +131,11 @@ impl EDescriptorRangeOffset {
 }
 
 pub struct SDescriptorRange {
-    range_type: EDescriptorRangeType,
-    num_descriptors: u32,
-    base_shader_register: u32,
-    register_space: u32,
-    offset_in_descriptors_from_table_start: EDescriptorRangeOffset,
+    pub range_type: EDescriptorRangeType,
+    pub num_descriptors: u32,
+    pub base_shader_register: u32,
+    pub register_space: u32,
+    pub offset_in_descriptors_from_table_start: EDescriptorRangeOffset,
 }
 
 impl SDescriptorRange {

@@ -300,14 +300,8 @@ fn main_d3d12() -> Result<(), &'static str> {
     let mut root_signature_desc = t12::SRootSignatureDesc::new(root_signature_flags);
     root_signature_desc.parameters.push(root_parameter);
 
-    let serialized_root_signature =
-        t12::serialize_root_signature(&mut root_signature_desc, t12::ERootSignatureVersion::V1)
-            .ok()
-            .expect("Could not serialize root signature.");
-
-    let root_signature = device
-        .raw()
-        .create_root_signature(&serialized_root_signature)?;
+    let root_signature = device.
+        create_root_signature(root_signature_desc, t12::ERootSignatureVersion::V1)?;
 
     let mut rtv_formats = t12::SRTFormatArray {
         rt_formats: ArrayVec::new(),
@@ -427,7 +421,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                 // -- set up pipeline
                 list.set_pipeline_state(&pipeline_state);
                 // root signature has to be set explicitly despite being on PSO, according to tutorial
-                list.set_graphics_root_signature(&root_signature);
+                list.set_graphics_root_signature(&root_signature.raw());
 
                 // -- setup input assembler
                 list.ia_set_primitive_topology(t12::EPrimitiveTopology::TriangleList);

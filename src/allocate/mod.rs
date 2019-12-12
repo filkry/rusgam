@@ -203,14 +203,14 @@ impl<'a, T> SMemVec<'a, T> {
         })
     }
 
-    pub fn new_genned(
-        allocator: &'a SGenAllocator,
+    pub fn new_genned<A: TMemAllocator>(
+        allocator: &'a SGenAllocator<A>,
         initial_capacity: usize,
         grow_capacity: usize,
-    ) -> Result<SGenAllocation<'a, Self>, &'static str> {
+    ) -> Result<SGenAllocation<'a, Self, A>, &'static str> {
         Ok(SGenAllocation {
-            raw: Self::new(allocator.raw, initial_capacity, grow_capacity)?,
-            generation: allocator.generation,
+            raw: Self::new(&allocator.raw, initial_capacity, grow_capacity)?,
+            generation: allocator.generation(),
             temp_allocator: allocator,
         })
     }
@@ -284,34 +284,42 @@ impl<'a, T> IndexMut<isize> for SMemVec<'a, T> {
 
 // -- this generation'd allocation wrapping is still unsafe because the generation could
 // -- change while we're looking at the data - we don't guard every touch of the memory
-pub struct SGenAllocator<'a> {
-    raw: &'a dyn TMemAllocator,
-    generation: u32,
+pub struct SGenAllocator<A: TMemAllocator> {
+    raw: A,
+    generation: RefCell<u32>,
 }
 
-impl<'a> SGenAllocator<'a> {
-    pub fn new(raw: &'a dyn TMemAllocator) -> Self {
+impl<A: TMemAllocator> SGenAllocator<A> {
+    pub fn new(raw: A) -> Self {
         Self {
             raw: raw,
-            generation: 0,
+            generation: RefCell::new(0),
         }
     }
 
-    pub unsafe fn reset(&mut self) {
-        self.generation += 1;
+    pub fn generation(&self) -> u32 {
+        *self.generation.borrow()
+    }
+
+    pub unsafe fn reset(&self) {
+        *self.generation.borrow_mut() += 1;
         self.raw.reset();
     }
 }
 
-pub struct SGenAllocation<'a, T> {
+pub struct SGenAllocation<'a, T, A: TMemAllocator> {
     raw: T,
     generation: u32,
-    temp_allocator: &'a SGenAllocator<'a>,
+    temp_allocator: &'a SGenAllocator<A>,
 }
 
-impl<'a, T> SGenAllocation<'a, T> {
+impl<'a, T, A: TMemAllocator> SGenAllocation<'a, T, A> {
+    pub fn valid(&self) -> bool {
+        self.generation == self.temp_allocator.generation()
+    }
+
     pub unsafe fn unwrap(&self) -> &T {
-        if self.generation != self.temp_allocator.generation {
+        if !self.valid() {
             panic!("Kept a GenAllocation around after reset!");
         }
 
@@ -319,7 +327,7 @@ impl<'a, T> SGenAllocation<'a, T> {
     }
 
     pub unsafe fn unwrap_mut(&mut self) -> &mut T {
-        if self.generation != self.temp_allocator.generation {
+        if !self.valid() {
             panic!("Kept a GenAllocation around after reset!");
         }
 
@@ -395,15 +403,55 @@ fn test_iter() {
     vec.push(3);
     vec.push(4);
 
-    /*
-    let num_entries = 0;
-    for v in vec {
-        num_entries += 1;
-    }
-    assert_eq!(num_entries, vec.len());
-    */
-
     for (i, v) in vec.iter().enumerate() {
         assert_eq!(i as u32, *v);
+    }
+}
+
+#[test]
+fn test_genned() {
+    let sys_allocator = SSystemAllocator {};
+    let lin_allocator = SLinearAllocator::new(&sys_allocator, 1024, 8).unwrap();
+    let gen_allocator = SGenAllocator::new(lin_allocator);
+
+    let mut vec = SMemVec::<u32>::new_genned(&gen_allocator, 5, 0).unwrap();
+    {
+        let internal = unsafe { vec.unwrap() };
+        assert_eq!(internal.len(), 0);
+        assert_eq!(internal.capacity(), 5);
+    }
+
+    {
+        let internal = unsafe { vec.unwrap_mut() };
+
+        internal.push(33);
+        assert_eq!(internal[0], 33);
+        assert_eq!(internal.len(), 1);
+    }
+}
+
+#[test]
+#[should_panic]
+fn test_genned_should_panic() {
+    let sys_allocator = SSystemAllocator {};
+    let lin_allocator = SLinearAllocator::new(&sys_allocator, 1024, 8).unwrap();
+    let gen_allocator = SGenAllocator::new(lin_allocator);
+
+    let mut vec = SMemVec::<u32>::new_genned(&gen_allocator, 5, 0).unwrap();
+    {
+        let internal = unsafe { vec.unwrap() };
+        assert_eq!(internal.len(), 0);
+        assert_eq!(internal.capacity(), 5);
+    }
+
+    unsafe { gen_allocator.reset() };
+
+    {
+        let internal = unsafe { vec.unwrap_mut() };
+
+        internal.push(21);
+        assert_eq!(internal[0], 33);
+        assert_eq!(internal[1], 21);
+        assert_eq!(internal.len(), 2);
     }
 }

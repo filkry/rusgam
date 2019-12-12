@@ -540,8 +540,7 @@ fn main_d3d12() -> Result<(), &'static str> {
     Ok(())
 }
 
-fn debug_test() {
-}
+fn debug_test() {}
 
 fn main() {
     debug_test();

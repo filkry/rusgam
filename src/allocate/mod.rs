@@ -1,13 +1,13 @@
 #![allow(dead_code)]
 
 //use std::iter::IntoIterator;
+use std::cell::RefCell;
 use std::mem::size_of;
-use std::cell::{RefCell};
 use std::ops::{Deref, DerefMut, Index, IndexMut};
 
-use utils::{align_up};
+use utils::align_up;
 
-pub static SYSTEM_ALLOCATOR : SSystemAllocator = SSystemAllocator{};
+pub static SYSTEM_ALLOCATOR: SSystemAllocator = SSystemAllocator {};
 
 thread_local! {
     pub static TEMP_ALLOCATOR : RefCell<SGenAllocator<SLinearAllocator<'static>>> =
@@ -15,7 +15,6 @@ thread_local! {
             SGenAllocator::new(
                 SLinearAllocator::new(&SYSTEM_ALLOCATOR, 4 * 1024 * 1024, 8).unwrap()));
 }
-
 
 pub trait TMemAllocator {
     // -- things implementing TMemAllocator should rely on internal mutability, since their
@@ -93,9 +92,7 @@ impl TMemAllocator for SSystemAllocator {
         unsafe { self.free_unsafe(&mut existing_allocation) }
     }
 
-    unsafe fn reset(&self) {
-
-    }
+    unsafe fn reset(&self) {}
 }
 
 struct SLinearAllocatorData<'a> {
@@ -109,7 +106,11 @@ pub struct SLinearAllocator<'a> {
 }
 
 impl<'a> SLinearAllocator<'a> {
-    pub fn new(parent: &'a dyn TMemAllocator, size: usize, align: usize) -> Result<Self, &'static str> {
+    pub fn new(
+        parent: &'a dyn TMemAllocator,
+        size: usize,
+        align: usize,
+    ) -> Result<Self, &'static str> {
         Ok(Self {
             data: RefCell::new(SLinearAllocatorData {
                 raw: parent.alloc(size, align)?,
@@ -122,7 +123,6 @@ impl<'a> SLinearAllocator<'a> {
 
 impl<'a> TMemAllocator for SLinearAllocator<'a> {
     fn alloc(&self, size: usize, align: usize) -> Result<SMem, &'static str> {
-
         let mut data = self.data.borrow_mut();
 
         if (data.raw.data as usize) % align != 0 {
@@ -138,7 +138,7 @@ impl<'a> TMemAllocator for SLinearAllocator<'a> {
 
         let result = SMem {
             data: unsafe { data.raw.data.add(aligned_offset) },
-            size: size,
+            size: aligned_size,
             alignment: align,
             allocator: self,
         };
@@ -173,11 +173,99 @@ impl<'a> TMemAllocator for SLinearAllocator<'a> {
     }
 }
 
+struct SStackAllocatorData<'a> {
+    raw: SMem<'a>,
+    top_offset: usize,
+}
+
+pub struct SStackAllocator<'a> {
+    data: RefCell<SStackAllocatorData<'a>>,
+}
+
+impl<'a> SStackAllocator<'a> {
+    pub fn new(
+        parent: &'a dyn TMemAllocator,
+        size: usize,
+        align: usize,
+    ) -> Result<Self, &'static str> {
+        Ok(Self {
+            data: RefCell::new(SStackAllocatorData {
+                raw: parent.alloc(size, align)?,
+                top_offset: 0,
+            }),
+        })
+    }
+}
+
+// -- $$$FRK(TODO): allocators should check if they own the mem when they free!
+impl<'a> TMemAllocator for SStackAllocator<'a> {
+    fn alloc(&self, size: usize, align: usize) -> Result<SMem, &'static str> {
+        let mut data = self.data.borrow_mut();
+
+        if (data.raw.data as usize) % align != 0 {
+            panic!("Currently don't support different alignments.");
+        }
+
+        let aligned_offset = align_up(data.top_offset, align);
+        let aligned_size = align_up(size, align);
+
+        if (aligned_offset + aligned_size) > data.raw.size {
+            return Err("Out of memory");
+        }
+
+        let result = SMem {
+            data: unsafe { data.raw.data.add(aligned_offset) },
+            size: aligned_size,
+            alignment: align,
+            allocator: self,
+        };
+
+        data.top_offset = aligned_offset + aligned_size;
+
+        Ok(result)
+    }
+
+    fn realloc(&self, _existing_allocation: SMem, _new_size: usize) -> Result<SMem, &'static str> {
+        panic!("Cannot re-alloc in stack allocator.")
+    }
+
+    unsafe fn free_unsafe(&self, existing_allocation: &mut SMem) -> Result<(), &'static str> {
+        let mut data = self.data.borrow_mut();
+
+        let ea_top = existing_allocation.data.add(existing_allocation.size);
+        let self_top = data.raw.data.add(data.top_offset);
+        if ea_top != self_top {
+            panic!("Trying to free from the stack array, but not the top.");
+        }
+
+        data.top_offset = (existing_allocation.data as usize) - (data.raw.data as usize);
+        existing_allocation.invalidate();
+
+        Ok(())
+    }
+
+    fn free(&self, mut existing_allocation: SMem) -> Result<(), &'static str> {
+        unsafe { self.free_unsafe(&mut existing_allocation) }
+    }
+
+    unsafe fn reset(&self) {
+        panic!("Stack allocator does not handle reset!");
+    }
+}
+
 pub struct SMem<'a> {
     data: *mut u8,
     size: usize,
     alignment: usize,
     allocator: &'a dyn TMemAllocator,
+}
+
+impl<'a> SMem<'a> {
+    fn invalidate(&mut self) {
+        self.data = std::ptr::null_mut();
+        self.size = 0;
+        self.alignment = 0;
+    }
 }
 
 impl<'a> Drop for SMem<'a> {
@@ -403,6 +491,27 @@ fn test_basic() {
 }
 
 #[test]
+fn test_multiple_allocations() {
+    let allocator = SSystemAllocator {};
+
+    let mut vec = SMemVec::<u32>::new(&allocator, 5, 0).unwrap();
+    assert_eq!(vec.len(), 0);
+    assert_eq!(vec.capacity(), 5);
+
+    vec.push(33);
+    assert_eq!(vec[0], 33);
+    assert_eq!(vec.len(), 1);
+
+    let mut vec2 = SMemVec::<u32>::new(&allocator, 15, 0).unwrap();
+    assert_eq!(vec2.len(), 0);
+    assert_eq!(vec2.capacity(), 15);
+
+    vec2.push(333);
+    assert_eq!(vec2[0], 333);
+    assert_eq!(vec2.len(), 1);
+}
+
+#[test]
 fn test_iter() {
     let allocator = SSystemAllocator {};
 
@@ -464,4 +573,25 @@ fn test_genned_should_panic() {
         assert_eq!(internal[1], 21);
         assert_eq!(internal.len(), 2);
     }
+}
+
+#[test]
+fn test_stack_allocator() {
+    let stack_allocator = SStackAllocator::new(&SYSTEM_ALLOCATOR, 1024, 8).unwrap();
+
+    let mut vec = SMemVec::<u32>::new(&stack_allocator, 5, 0).unwrap();
+    assert_eq!(vec.len(), 0);
+    assert_eq!(vec.capacity(), 5);
+
+    vec.push(33);
+    assert_eq!(vec[0], 33);
+    assert_eq!(vec.len(), 1);
+
+    let mut vec2 = SMemVec::<u32>::new(&stack_allocator, 15, 0).unwrap();
+    assert_eq!(vec2.len(), 0);
+    assert_eq!(vec2.capacity(), 15);
+
+    vec2.push(333);
+    assert_eq!(vec2[0], 333);
+    assert_eq!(vec2.len(), 1);
 }

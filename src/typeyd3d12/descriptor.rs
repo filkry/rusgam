@@ -81,6 +81,7 @@ impl SDescriptorHeap {
     }
 }
 
+#[repr(C)]
 pub struct SCPUDescriptorHandle {
     handle: D3D12_CPU_DESCRIPTOR_HANDLE,
 }
@@ -96,6 +97,10 @@ impl SCPUDescriptorHandle {
                 ptr: self.handle.ptr + bytes,
             },
         }
+    }
+
+    pub fn d3dtype(&self) -> D3D12_CPU_DESCRIPTOR_HANDLE {
+        self.handle
     }
 }
 pub enum EDescriptorRangeType {

@@ -14,6 +14,9 @@ thread_local! {
         RefCell::new(
             SGenAllocator::new(
                 SLinearAllocator::new(&SYSTEM_ALLOCATOR, 4 * 1024 * 1024, 8).unwrap()));
+
+    pub static STACK_ALLOCATOR : SStackAllocator<'static> =
+        SStackAllocator::new(&SYSTEM_ALLOCATOR, 4 * 1024 * 1024, 8).unwrap();
 }
 
 pub trait TMemAllocator {

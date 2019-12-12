@@ -125,10 +125,13 @@ impl SDynamicDescriptorHeap {
                 assert!(self.num_free_descriptors >= cache.num_descriptors);
 
                 //let base_descriptor = self.cached_external_cpu_descriptors[cache.base_cached_cpu_descriptor];
+
+
                 let first = cache.base_cached_cpu_descriptor;
                 let last = cache.base_cached_cpu_descriptor + cache.num_descriptors;
                 let slice = &self.cached_external_cpu_descriptors[first..last];
-                device.copy_descriptors(slice, self.current_descriptor);
+
+                device.copy_descriptor_slice_to_single_range(slice, self.current_internal_cpu_descriptor);
 
                 command_list.set_graphics_root_descriptor_table(root_index, self.current_internal_gpu_descriptor);
 

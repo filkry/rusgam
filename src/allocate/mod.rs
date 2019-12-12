@@ -7,6 +7,16 @@ use std::ops::{Deref, DerefMut, Index, IndexMut};
 
 use utils::{align_up};
 
+pub static SYSTEM_ALLOCATOR : SSystemAllocator = SSystemAllocator{};
+
+thread_local! {
+    pub static TEMP_ALLOCATOR : RefCell<SGenAllocator<SLinearAllocator<'static>>> =
+        RefCell::new(
+            SGenAllocator::new(
+                SLinearAllocator::new(&SYSTEM_ALLOCATOR, 4 * 1024 * 1024, 8).unwrap()));
+}
+
+
 pub trait TMemAllocator {
     // -- things implementing TMemAllocator should rely on internal mutability, since their
     // -- allocations will have a reference to them

@@ -159,7 +159,6 @@ impl SDevice {
         )
     }
 
-    /*
     pub fn copy_descriptor_slice_to_single_range(
         &self,
         src_descriptors: &[t12::SCPUDescriptorHandle],
@@ -167,23 +166,22 @@ impl SDevice {
         type_: t12::EDescriptorHeapType,
     ) {
 
-        let src_sizes = ::allocate::STACK_ALLOCATOR.with(|sa| {
-            ::allocate::SMemVec::<u32>::new(sa, src_descriptors.len(), 0)
-        }).unwrap();
-        for desc in src_descriptors {
-            src_sizes.push(1);
-        }
+        ::allocate::STACK_ALLOCATOR.with(|sa| {
+            let mut src_sizes = ::allocate::SMemVec::<u32>::new(sa, src_descriptors.len(), 0).unwrap();
 
-        self.raw.copy_descriptors(
-            &[start_of_dst_range],
-            &[src_descriptors.len() as u32],
-            src_descriptors,
-            src_sizes.deref(),
-            type_,
-        );
+            for _ in src_descriptors {
+                src_sizes.push(1);
+            }
+
+            self.raw.copy_descriptors(
+                &[start_of_dst_range],
+                &[src_descriptors.len() as u32],
+                src_descriptors,
+                src_sizes.deref(),
+                type_,
+            );
+        });
     }
-    */
-
 
     pub fn raw(&self) -> &t12::SDevice {
         &self.raw

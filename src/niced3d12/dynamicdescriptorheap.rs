@@ -6,7 +6,6 @@ struct SDynamicDescriptorHeap {
 
     max_descriptors: usize,
     num_free_descriptors: usize,
-    descriptor_size: usize,
 
     descriptor_table_caches: [SDescriptorTableCache; 32],
     cached_external_cpu_descriptors: [Option<t12::SCPUDescriptorHandle>; 1024],
@@ -22,24 +21,43 @@ struct SDescriptorTableCache {
     base_cached_cpu_descriptor: usize,
 }
 
+impl Default for SDescriptorTableCache {
+    fn default() -> Self {
+        Self {
+            in_root_signature: false,
+            needs_commit: false,
+            num_descriptors: 0,
+            base_cached_cpu_descriptor: 0,
+        }
+    }
+}
+
 impl SDynamicDescriptorHeap {
-    /*
     pub fn new(device: &SDevice, heap_type: t12::EDescriptorHeapType, max_descriptors: usize) -> Result<Self, &'static str> {
         let desc = t12::SDescriptorHeapDesc {
-            type_ = heap_type,
-            num_descriptors = max_descriptors,
+            type_: heap_type,
+            num_descriptors: max_descriptors,
             flags: t12::SDescriptorHeapFlags::from(t12::EDescriptorHeapFlags::ShaderVisible),
         };
 
-        let descriptor_heap = device.create_descriptor_heap(desc)?;
+        let descriptor_heap = device.create_descriptor_heap(&desc)?;
+        let cpu_start = descriptor_heap.cpu_handle_heap_start();
+        let gpu_start = descriptor_heap.gpu_handle_heap_start();
 
         Ok(Self {
             heap_type: heap_type,
             descriptor_heap: descriptor_heap,
+
             max_descriptors: max_descriptors,
+            num_free_descriptors: max_descriptors,
+
+            descriptor_table_caches: Default::default(),
+            cached_external_cpu_descriptors: [None; 1024],
+
+            current_internal_cpu_descriptor: cpu_start,
+            current_internal_gpu_descriptor: gpu_start,
         })
     }
-    */
 
     pub fn parse_root_signature(&mut self, root_signature: &SRootSignature) {
         for cache in self.descriptor_table_caches.iter_mut() {
@@ -151,8 +169,8 @@ impl SDynamicDescriptorHeap {
 
                 command_list.set_graphics_root_descriptor_table(root_index, &self.current_internal_gpu_descriptor);
 
-                self.current_internal_cpu_descriptor.add(cache.num_descriptors, self.descriptor_size);
-                self.current_internal_gpu_descriptor.add(cache.num_descriptors, self.descriptor_size);
+                self.current_internal_cpu_descriptor.add(cache.num_descriptors, self.descriptor_heap.descriptorsize);
+                self.current_internal_gpu_descriptor.add(cache.num_descriptors, self.descriptor_heap.descriptorsize);
 
                 self.num_free_descriptors -= cache.num_descriptors;
             }

@@ -27,7 +27,11 @@ impl SDescriptorHeap {
     }
 
     pub fn cpu_handle_heap_start(&self) -> t12::SCPUDescriptorHandle {
-        self.raw.getcpudescriptorhandleforheapstart()
+        self.raw.get_cpu_descriptor_handle_for_heap_start()
+    }
+
+    pub fn gpu_handle_heap_start(&self) -> t12::SGPUDescriptorHandle {
+        self.raw.get_gpu_descriptor_handle_for_heap_start()
     }
 }
 

@@ -159,16 +159,14 @@ impl SDynamicDescriptorHeap {
         }
     }
 
-    /*
     pub fn reset(&mut self) {
         self.current_internal_cpu_descriptor = self.descriptor_heap.cpu_handle_heap_start();
         self.current_internal_gpu_descriptor = self.descriptor_heap.gpu_handle_heap_start();
         self.num_free_descriptors = self.max_descriptors;
 
-        for cache in self.descriptor_table_caches {
+        for cache in self.descriptor_table_caches.iter_mut() {
             cache.in_root_signature = false;
             cache.needs_commit = false;
         }
     }
-    */
 }

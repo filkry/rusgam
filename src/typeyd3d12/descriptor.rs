@@ -75,9 +75,14 @@ impl SDescriptorHeap {
         }
     }
 
-    pub fn getcpudescriptorhandleforheapstart(&self) -> SCPUDescriptorHandle {
+    pub fn get_cpu_descriptor_handle_for_heap_start(&self) -> SCPUDescriptorHandle {
         let start = unsafe { self.heap.GetCPUDescriptorHandleForHeapStart() };
         SCPUDescriptorHandle { handle: start }
+    }
+
+    pub fn get_gpu_descriptor_handle_for_heap_start(&self) -> SGPUDescriptorHandle {
+        let start = unsafe { self.heap.GetGPUDescriptorHandleForHeapStart() };
+        SGPUDescriptorHandle { handle: start }
     }
 }
 

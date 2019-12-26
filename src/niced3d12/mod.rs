@@ -27,6 +27,7 @@ use std::cell::RefCell;
 use std::marker::PhantomData;
 use std::ops::Deref;
 use std::ptr;
+use std::fs::File;
 
 // -- $$$FRK(TODO): all these imports should not exist
 use winapi::shared::minwindef::*;
@@ -46,3 +47,7 @@ pub use self::resource::*;
 pub use self::rootsignature::*;
 pub use self::swapchain::*;
 pub use self::window::SD3D12Window;
+
+pub fn load_texture(cl: &mut SCommandList, file_path: &'static str) {
+    let f = File::open(file_path);
+}

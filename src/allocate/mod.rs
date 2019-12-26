@@ -339,7 +339,7 @@ impl<'a, T> SMemVec<'a, T> {
         }
 
         self.len += 1;
-        let idx = (self.len - 1) as isize;
+        let idx = self.len - 1;
         self[idx] = value;
     }
 }
@@ -358,28 +358,21 @@ impl<'a, T> DerefMut for SMemVec<'a, T> {
     }
 }
 
-impl<'a, T> Index<isize> for SMemVec<'a, T> {
-    type Output = T;
-    fn index(&self, index: isize) -> &T {
-        if index < 0 || index >= (self.len() as isize) {
-            panic!("Trying to get invalid index into SMemVec.");
-        }
+impl<'a, T, I: std::slice::SliceIndex<[T]>> Index<I> for SMemVec<'a, T> {
+    type Output = I::Output;
 
-        unsafe {
-            return self.data().offset(index).as_ref().unwrap();
-        }
+    #[inline]
+    fn index(&self, index: I) -> &Self::Output {
+        //Index::index(&**self, index)
+        Index::index(self.deref(), index) // relying on Index implementation of &[T]
     }
 }
 
-impl<'a, T> IndexMut<isize> for SMemVec<'a, T> {
-    fn index_mut(&mut self, index: isize) -> &mut T {
-        if index < 0 || index >= (self.len() as isize) {
-            panic!("Trying to get invalid index into SMemVec.");
-        }
-
-        unsafe {
-            return self.data().offset(index).as_mut().unwrap();
-        }
+impl<'a, T, I: std::slice::SliceIndex<[T]>> IndexMut<I> for SMemVec<'a, T> {
+    #[inline]
+    fn index_mut(&mut self, index: I) -> &mut Self::Output {
+        //IndexMut::index_mut(&mut **self, index)
+        IndexMut::index_mut(self.deref_mut(), index)
     }
 }
 
@@ -597,4 +590,17 @@ fn test_stack_allocator() {
     vec2.push(333);
     assert_eq!(vec2[0], 333);
     assert_eq!(vec2.len(), 1);
+}
+
+#[test]
+fn test_slice() {
+    let allocator = SSystemAllocator {};
+
+    let mut vec = SMemVec::<u32>::new(&allocator, 5, 0).unwrap();
+    vec.push(33);
+    vec.push(333);
+
+    let vec_slice = &vec[..];
+    assert_eq!(vec_slice[0], 33);
+    assert_eq!(vec_slice[1], 333);
 }

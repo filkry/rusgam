@@ -139,6 +139,14 @@ impl SCommandList {
         unsafe { self.raw.close() }
     }
 
+    pub fn set_graphics_root_descriptor_table(
+        &mut self,
+        root_parameter_index: usize,
+        base_descriptor: &t12::SGPUDescriptorHandle
+    ) {
+        unsafe { self.raw.set_graphics_root_descriptor_table(root_parameter_index, base_descriptor) };
+    }
+
     pub fn update_buffer_resource<T>(
         &mut self,
         device: &SDevice,

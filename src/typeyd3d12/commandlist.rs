@@ -190,6 +190,14 @@ impl SCommandList {
         Ok(())
     }
 
+    pub unsafe fn set_graphics_root_descriptor_table(
+        &self,
+        root_parameter_index: usize,
+        base_descriptor: &SGPUDescriptorHandle
+    ) {
+        self.commandlist.SetGraphicsRootDescriptorTable(root_parameter_index as UINT, base_descriptor.d3dtype());
+    }
+
     pub unsafe fn raw(&self) -> &ComPtr<ID3D12GraphicsCommandList> {
         &self.commandlist
     }

@@ -82,6 +82,7 @@ impl SDescriptorHeap {
 }
 
 #[repr(C)]
+#[derive(Copy, Clone)]
 pub struct SCPUDescriptorHandle {
     handle: D3D12_CPU_DESCRIPTOR_HANDLE,
 }
@@ -103,6 +104,30 @@ impl SCPUDescriptorHandle {
         self.handle
     }
 }
+
+#[repr(C)]
+pub struct SGPUDescriptorHandle {
+    handle: D3D12_GPU_DESCRIPTOR_HANDLE,
+}
+
+impl SGPUDescriptorHandle {
+    pub unsafe fn raw(&self) -> &D3D12_GPU_DESCRIPTOR_HANDLE {
+        &self.handle
+    }
+
+    pub unsafe fn offset(&self, bytes: usize) -> Self {
+        SGPUDescriptorHandle {
+            handle: D3D12_GPU_DESCRIPTOR_HANDLE {
+                ptr: self.handle.ptr + (bytes as u64),
+            },
+        }
+    }
+
+    pub fn d3dtype(&self) -> D3D12_GPU_DESCRIPTOR_HANDLE {
+        self.handle
+    }
+}
+
 pub enum EDescriptorRangeType {
     SRV,
     UAV,

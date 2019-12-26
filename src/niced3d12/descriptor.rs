@@ -48,3 +48,9 @@ impl t12::SCPUDescriptorHandle {
         unsafe { self.offset(count * descriptor_size) }
     }
 }
+
+impl t12::SGPUDescriptorHandle {
+    pub fn add(&self, count: usize, descriptor_size: usize) -> t12::SGPUDescriptorHandle {
+        unsafe { self.offset(count * descriptor_size) }
+    }
+}

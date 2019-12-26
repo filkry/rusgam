@@ -6,9 +6,13 @@ struct SDynamicDescriptorHeap {
 
     max_descriptors: usize,
     num_free_descriptors: usize,
+    descriptor_size: usize,
 
     descriptor_table_caches: [SDescriptorTableCache; 32],
     cached_external_cpu_descriptors: [Option<t12::SCPUDescriptorHandle>; 1024],
+
+    current_internal_cpu_descriptor: t12::SCPUDescriptorHandle,
+    current_internal_gpu_descriptor: t12::SGPUDescriptorHandle,
 }
 
 struct SDescriptorTableCache {
@@ -87,6 +91,8 @@ impl SDynamicDescriptorHeap {
             return Err("Trying to put descriptors past the end of the table.");
         }
 
+        assert!(offset_into_descriptor_table == 0, "Didn't offset base cpu descriptor yet.");
+
         // -- $$$FRK(TODO): we could copy these over as ranges instead, since we assume
         // -- the sources are contiguous
         for i in 0..num_descriptors {
@@ -109,13 +115,12 @@ impl SDynamicDescriptorHeap {
         count
     }
 
-    /*
-    pub fn commit_stages_descriptors_for_draw(&mut self, command_list: &mut SCommandList, device: &SDevice) {
+    pub fn commit_staged_descriptors_for_draw(&mut self, command_list: &mut SCommandList, device: &SDevice) {
         if self.compute_stale_descriptor_count() == 0 {
             return;
         }
 
-        // -- $$$FRK(TODO): can't keep references to all the haps in the command list,
+        // -- $$$FRK(TODO): can't keep references to all the heaps in the command list,
         // -- so need to find another way to set up heaps
         assert!(false);
         //command_list.set_descriptor_heap(self.heap_type, self.descriptor_heap);
@@ -131,9 +136,20 @@ impl SDynamicDescriptorHeap {
                 let last = cache.base_cached_cpu_descriptor + cache.num_descriptors;
                 let slice = &self.cached_external_cpu_descriptors[first..last];
 
-                device.copy_descriptor_slice_to_single_range(slice, self.current_internal_cpu_descriptor);
+                ::allocate::STACK_ALLOCATOR.with(|sa| {
+                    let mut unwrapped_handles = ::allocate::SMemVec::<t12::SCPUDescriptorHandle>::new(sa, cache.num_descriptors, 0).unwrap();
 
-                command_list.set_graphics_root_descriptor_table(root_index, self.current_internal_gpu_descriptor);
+                    for opt in slice {
+                        match opt {
+                            Some(cpu_handle) => unwrapped_handles.push(*cpu_handle),
+                            None => panic!("committing unstaged descriptor"),
+                        }
+                    }
+
+                    device.copy_descriptor_slice_to_single_range(&unwrapped_handles[..], self.current_internal_cpu_descriptor, self.heap_type);
+                });
+
+                command_list.set_graphics_root_descriptor_table(root_index, &self.current_internal_gpu_descriptor);
 
                 self.current_internal_cpu_descriptor.add(cache.num_descriptors, self.descriptor_size);
                 self.current_internal_gpu_descriptor.add(cache.num_descriptors, self.descriptor_size);
@@ -142,7 +158,6 @@ impl SDynamicDescriptorHeap {
             }
         }
     }
-    */
 
     /*
     pub fn reset(&mut self) {

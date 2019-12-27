@@ -136,14 +136,31 @@ fn main_d3d12() -> Result<(), &'static str> {
     window.init_render_target_views(&mut device)?;
     window.show();
 
-    let desc = t12::SDescriptorHeapDesc {
-        type_: t12::EDescriptorHeapType::DepthStencil,
-        num_descriptors: 1,
-        flags: t12::SDescriptorHeapFlags::from(t12::EDescriptorHeapFlags::None),
+    let depthstencilviewheap = {
+        let desc = t12::SDescriptorHeapDesc {
+            type_: t12::EDescriptorHeapType::DepthStencil,
+            num_descriptors: 1,
+            flags: t12::SDescriptorHeapFlags::from(t12::EDescriptorHeapFlags::None),
+        };
+
+        device.create_descriptor_heap(&desc)?
     };
 
-    // -- tutorial2 data
-    let depthstencilviewheap = device.create_descriptor_heap(&desc)?;
+    let mut srv_heap = n12::descriptorallocator::SDescriptorAllocator::new(
+        &device,
+        32,
+        t12::EDescriptorHeapType::ConstantBufferShaderResourceUnorderedAccess
+    )?;
+
+    /*{
+        let desc = t12::SDescriptorHeapDesc {
+            type_: t12::EDescriptorHeapType::ConstantBufferShaderResourceUnorderedAccess,
+            num_descriptors: 32,
+            flags: t12::SDescriptorHeapFlags::from(t12::EDescriptorHeapFlags::None),
+        };
+
+        device.create_descriptor_heap(&desc)?
+    };*/
 
     let mut viewport = t12::SViewport::new(
         0.0,
@@ -160,62 +177,60 @@ fn main_d3d12() -> Result<(), &'static str> {
         bottom: std::i32::MAX,
     };
 
-    let _contentloaded = false;
+    // -- get vertex and index data into resources/views
+    let (_vert_buffer_resource, vert_buffer_view, _index_buffer_resource, index_buffer_view, indiceslen) = {
+        let cubeverts = [
+            SVertexPosColour {
+                position: SVec3::new(-1.0, -1.0, -1.0),
+                colour: SVec3::new(0.0, 0.0, 0.0),
+            },
+            SVertexPosColour {
+                position: SVec3::new(-1.0, 1.0, -1.0),
+                colour: SVec3::new(0.0, 1.0, 0.0),
+            },
+            SVertexPosColour {
+                position: SVec3::new(1.0, 1.0, -1.0),
+                colour: SVec3::new(1.0, 1.0, 0.0),
+            },
+            SVertexPosColour {
+                position: SVec3::new(1.0, -1.0, -1.0),
+                colour: SVec3::new(1.0, 0.0, 0.0),
+            },
+            SVertexPosColour {
+                position: SVec3::new(-1.0, -1.0, 1.0),
+                colour: SVec3::new(0.0, 0.0, 1.0),
+            },
+            SVertexPosColour {
+                position: SVec3::new(-1.0, 1.0, 1.0),
+                colour: SVec3::new(0.0, 1.0, 1.0),
+            },
+            SVertexPosColour {
+                position: SVec3::new(1.0, 1.0, 1.0),
+                colour: SVec3::new(1.0, 1.0, 1.0),
+            },
+            SVertexPosColour {
+                position: SVec3::new(1.0, -1.0, 1.0),
+                colour: SVec3::new(1.0, 0.0, 1.0),
+            },
+        ];
 
-    let cubeverts = [
-        SVertexPosColour {
-            position: SVec3::new(-1.0, -1.0, -1.0),
-            colour: SVec3::new(0.0, 0.0, 0.0),
-        },
-        SVertexPosColour {
-            position: SVec3::new(-1.0, 1.0, -1.0),
-            colour: SVec3::new(0.0, 1.0, 0.0),
-        },
-        SVertexPosColour {
-            position: SVec3::new(1.0, 1.0, -1.0),
-            colour: SVec3::new(1.0, 1.0, 0.0),
-        },
-        SVertexPosColour {
-            position: SVec3::new(1.0, -1.0, -1.0),
-            colour: SVec3::new(1.0, 0.0, 0.0),
-        },
-        SVertexPosColour {
-            position: SVec3::new(-1.0, -1.0, 1.0),
-            colour: SVec3::new(0.0, 0.0, 1.0),
-        },
-        SVertexPosColour {
-            position: SVec3::new(-1.0, 1.0, 1.0),
-            colour: SVec3::new(0.0, 1.0, 1.0),
-        },
-        SVertexPosColour {
-            position: SVec3::new(1.0, 1.0, 1.0),
-            colour: SVec3::new(1.0, 1.0, 1.0),
-        },
-        SVertexPosColour {
-            position: SVec3::new(1.0, -1.0, 1.0),
-            colour: SVec3::new(1.0, 0.0, 1.0),
-        },
-    ];
+        #[rustfmt::skip]
+        let indices : [u16; 36] = [
+            0, 1, 2,
+            0, 2, 3,
+            4, 6, 5,
+            4, 7, 6,
+            4, 5, 1,
+            4, 1, 0,
+            3, 2, 6,
+            3, 6, 7,
+            1, 5, 6,
+            1, 6, 2,
+            4, 0, 3,
+            4, 3, 7
+        ];
 
-    #[rustfmt::skip]
-    let indices : [u16; 36] = [
-        0, 1, 2,
-        0, 2, 3,
-        4, 6, 5,
-        4, 7, 6,
-        4, 5, 1,
-        4, 1, 0,
-        3, 2, 6,
-        3, 6, 7,
-        1, 5, 6,
-        1, 6, 2,
-        4, 0, 3,
-        4, 3, 7
-    ];
-
-    // -- upload data to GPU
-    #[allow(unused_variables)]
-    let (vert_buffer_resource, vert_buffer_view, index_buffer_resource, index_buffer_view) = {
+        // -- upload data to GPU
         let handle = copycommandpool.alloc_list()?;
         let copycommandlist = copycommandpool.get_list(handle)?;
 
@@ -243,7 +258,51 @@ fn main_d3d12() -> Result<(), &'static str> {
             vertexbufferview,
             indexbufferresource,
             indexbufferview,
+            indices.len(),
         )
+    };
+
+    // -- load texture resource
+    let texture_resource = {
+        let handle = copycommandpool.alloc_list()?;
+        let copycommandlist = copycommandpool.get_list(handle)?;
+
+        let resource = n12::load_texture(&device, copycommandlist, "assets/first_test_texture.tga");
+
+        let fenceval = copycommandpool.execute_and_free_list(handle)?;
+        copycommandpool.wait_for_internal_fence_value(fenceval);
+
+        resource
+    };
+
+    // -- transition texture to PixelShaderResource
+    {
+        let handle = directcommandpool.alloc_list()?;
+        let list = directcommandpool.get_list(handle)?;
+
+        list.transition_resource(&texture_resource, t12::EResourceStates::CopyDest, t12::EResourceStates::PixelShaderResource).unwrap();
+
+        let fenceval = directcommandpool.execute_and_free_list(handle)?;
+        directcommandpool.wait_for_internal_fence_value(fenceval);
+    }
+
+    // -- get texture SRV
+    let _texture_srv = {
+
+        let srv_desc = t12::SShaderResourceViewDesc{
+            format: t12::EDXGIFormat::R8G8B8A8UNorm,
+            view: t12::ESRV::Texture2D{
+                data: t12::STex2DSRV {
+                    mip_levels: 1,
+                    ..Default::default()
+                }
+            }
+        };
+
+        let descriptors = srv_heap.alloc(1)?;
+        device.create_shader_resource_view(&texture_resource, &srv_desc, descriptors.descriptor(0))?;
+
+        descriptors
     };
 
     // -- load shaders
@@ -448,7 +507,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                 */
 
                 // -- draw
-                list.draw_indexed_instanced(indices.len() as u32, 1, 0, 0, 0);
+                list.draw_indexed_instanced(indiceslen as u32, 1, 0, 0, 0);
 
                 // -- transition to present
                 list.transition_resource(

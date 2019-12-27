@@ -5,6 +5,20 @@ use collections::freelistallocator;
 pub struct SDescriptorAllocatorAllocation {
     allocation: freelistallocator::manager::SAllocation,
     base_handle: t12::SCPUDescriptorHandle,
+    num_handles: usize,
+}
+
+impl SDescriptorAllocatorAllocation {
+
+    // -- $$$FRK(TODO): maybe this should work like the thread-local storage in rust, where you
+    // -- have to pass a function, and a reference can't escape the scope of that function?
+    pub fn descriptor(&self, idx: usize) -> t12::SCPUDescriptorHandle {
+        if idx >= self.num_handles {
+            panic!("Index out of bounds!");
+        }
+
+        unsafe { self.base_handle.offset(idx) }
+    }
 }
 
 struct SDescriptorAllocatorPendingFree {
@@ -31,7 +45,7 @@ impl SDescriptorAllocator {
         let desc = t12::SDescriptorHeapDesc {
             type_: descriptor_type,
             num_descriptors: num_descriptors,
-            flags: t12::SDescriptorHeapFlags::from(t12::EDescriptorHeapFlags::None),
+            flags: t12::SDescriptorHeapFlags::none(),
         };
 
         let descriptor_heap = device.create_descriptor_heap(&desc)?;
@@ -58,6 +72,7 @@ impl SDescriptorAllocator {
         Ok(SDescriptorAllocatorAllocation {
             allocation: allocation,
             base_handle: base_handle,
+            num_handles: num_descriptors,
         })
     }
 

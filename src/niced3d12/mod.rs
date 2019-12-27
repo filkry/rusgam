@@ -6,7 +6,7 @@ mod commandlist;
 mod commandlistpool;
 mod commandqueue;
 mod descriptor;
-mod descriptorallocator;
+pub mod descriptorallocator;
 mod device;
 mod dynamicdescriptorheap;
 mod factory;
@@ -47,7 +47,7 @@ pub use self::rootsignature::*;
 pub use self::swapchain::*;
 pub use self::window::SD3D12Window;
 
-pub fn load_texture(device: &SDevice, cl: &mut SCommandList, file_path: &'static str) {
+pub fn load_texture(device: &SDevice, cl: &mut SCommandList, file_path: &'static str) -> SResource {
     // $$$FRK(TODO): allocates
     let bytes = std::fs::read(file_path).unwrap();
     let tga = tinytga::Tga::from_slice(bytes.as_slice()).unwrap();
@@ -88,17 +88,6 @@ pub fn load_texture(device: &SDevice, cl: &mut SCommandList, file_path: &'static
         &mut data,
     );
 
-    cl.transition_resource(&resource, t12::EResourceStates::CopyDest, t12::EResourceStates::PixelShaderResource).unwrap();
 
-    let srv_desc = t12::SShaderResourceViewDesc{
-        format: t12::EDXGIFormat::R8G8B8A8UNorm,
-        view: t12::ESRV::Texture2D{
-            data: t12::STex2DSRV {
-                mip_levels: 1,
-                ..Default::default()
-            }
-        }
-    };
-
-    device.create_shader_resource_view(&resource, &srv_desc, srv_heap_handle);
+    resource
 }

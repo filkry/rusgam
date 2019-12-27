@@ -51,7 +51,7 @@ impl SDevice {
 
     pub fn create_render_target_view(
         &self,
-        render_target_resource: &mut SResource,
+        render_target_resource: &SResource,
         dest_descriptor: &t12::SCPUDescriptorHandle,
     ) -> Result<(), &'static str> {
         // -- $$$FRK(TODO): assert on resource metadata
@@ -62,7 +62,7 @@ impl SDevice {
 
     pub fn create_depth_stencil_view(
         &self,
-        depth_texture_resource: &mut SResource,
+        depth_texture_resource: &SResource,
         desc: &t12::SDepthStencilViewDesc,
         dest_descriptor: t12::SCPUDescriptorHandle,
     ) -> Result<(), &'static str> {
@@ -86,6 +86,18 @@ impl SDevice {
             descriptorsize: self.raw.getdescriptorhandleincrementsize(desc.type_),
             //cpudescriptorhandleforstart: raw.getcpudescriptorhandleforheapstart(),
         })
+    }
+
+    pub fn create_shader_resource_view(
+        &self,
+        resource: &SResource,
+        desc: &t12::SShaderResourceViewDesc,
+        dest_descriptor: t12::SCPUDescriptorHandle,
+    ) -> Result<(), &'static str> {
+        // -- $$$FRK(TODO): assert on resource metadata
+        self.raw
+            .create_shader_resource_view(&resource.raw, desc, dest_descriptor);
+        Ok(())
     }
 
     pub fn create_committed_texture2d_resource(

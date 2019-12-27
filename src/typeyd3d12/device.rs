@@ -121,6 +121,23 @@ impl SDevice {
         }
     }
 
+    pub fn create_shader_resource_view(
+        &self,
+        resource: &SResource,
+        desc: &SShaderResourceViewDesc,
+        dest_descriptor: SCPUDescriptorHandle,
+    ) {
+        unsafe {
+            let d3ddesc = desc.d3dtype();
+
+            self.device.CreateShaderResourceView(
+                resource.raw().as_raw(),
+                &d3ddesc,
+                *dest_descriptor.raw(),
+            );
+        }
+    }
+
     pub fn create_committed_resource(
         &self,
         heapproperties: SHeapProperties,

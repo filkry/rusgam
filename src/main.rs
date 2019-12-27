@@ -274,7 +274,7 @@ fn main_d3d12() -> Result<(), &'static str> {
         let handle = copycommandpool.alloc_list()?;
         let copycommandlist = copycommandpool.get_list(handle)?;
 
-        let resource = n12::load_texture(&device, copycommandlist, "assets/first_test_texture.tga");
+        let (_intermediate_resource, resource) = n12::load_texture(&device, copycommandlist, "assets/first_test_texture.tga");
 
         let fenceval = copycommandpool.execute_and_free_list(handle)?;
         copycommandpool.wait_for_internal_fence_value(fenceval);

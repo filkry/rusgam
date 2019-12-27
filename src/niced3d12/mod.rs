@@ -47,13 +47,18 @@ pub use self::rootsignature::*;
 pub use self::swapchain::*;
 pub use self::window::SD3D12Window;
 
-pub fn load_texture(device: &SDevice, cl: &mut SCommandList, file_path: &'static str) -> SResource {
+pub fn load_texture(device: &SDevice, cl: &mut SCommandList, file_path: &'static str) -> (SResource, SResource) {
     // $$$FRK(TODO): allocates
     let bytes = std::fs::read(file_path).unwrap();
     let tga = tinytga::Tga::from_slice(bytes.as_slice()).unwrap();
 
     // -- $$$FRK(TODO): allocates
-    let pixels = tga.into_iter().collect::<Vec<u32>>();
+    let mut pixels = Vec::new();
+
+    for mut pixel in tga.into_iter() {
+        pixel = pixel | (0xff << 24); // $$$FRK(HACK): max alpha
+        pixels.push(pixel);
+    }
 
     let mut resource = device
         .create_committed_texture2d_resource(
@@ -76,7 +81,7 @@ pub fn load_texture(device: &SDevice, cl: &mut SCommandList, file_path: &'static
     )
     .unwrap();
 
-    let requiredsize = bytes.len(); // almost certainly wrong! look into d3d12.h GetIntermediateSize
+    let requiredsize = resource.get_required_intermediate_size(); // almost certainly wrong! look into d3d12.h GetIntermediateSize
 
     let mut intermediate_resource = device
         .create_committed_buffer_resource(
@@ -105,5 +110,5 @@ pub fn load_texture(device: &SDevice, cl: &mut SCommandList, file_path: &'static
         &mut data,
     );
 
-    resource
+    (intermediate_resource, resource)
 }

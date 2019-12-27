@@ -48,6 +48,14 @@ impl SResource {
             Err("Trying to create indexbufferview for non-buffer resource")
         }
     }
+
+    pub fn get_required_intermediate_size(
+        &self
+    ) -> usize {
+        unsafe {
+            directxgraphicssamples::get_required_intermediate_size(self.raw.raw().as_raw(), 0, 1) as usize
+        }
+    }
 }
 
 pub(super) fn update_subresources_stack(

@@ -93,13 +93,13 @@ pub unsafe fn UpdateSubresources(
     let cond3 = destinationdesc.Dimension == D3D12_RESOURCE_DIMENSION_BUFFER
         && (firstsubresource != 0 || numsubresources != 1);
     if cond1 || cond2 || cond3 {
-        return 0;
+        panic!("No Err here yet");
     }
 
     let mut data: *mut BYTE = ptr::null_mut();
     let hr = (*intermediate).Map(0, ptr::null(), &mut data as *mut *mut _ as *mut *mut c_void);
     if winerror::FAILED(hr) {
-        return 0;
+        panic!("No Err here yet");
     }
 
     for i in 0..numsubresources {
@@ -222,4 +222,30 @@ impl CD3DX12_TEXTURE_COPY_LOCATION {
         *(result.u.SubresourceIndex_mut()) = sub;
         result
     }
+}
+
+
+pub unsafe fn get_required_intermediate_size(
+    destination_resource: *mut ID3D12Resource,
+    first_subresource: UINT,
+    num_subresources: UINT,
+) -> u64 {
+    let desc = destination_resource.as_ref().unwrap().GetDesc();
+    let mut required_size = 0;
+
+    let mut device : *mut ID3D12Device = std::ptr::null_mut();
+    destination_resource.as_ref().unwrap().GetDevice(&ID3D12Device::uuidof(), &mut device as *mut *mut _ as *mut *mut c_void);
+    device.as_ref().unwrap().GetCopyableFootprints(
+        &desc,
+        first_subresource,
+        num_subresources,
+        0,
+        std::ptr::null_mut(),
+        std::ptr::null_mut(),
+        std::ptr::null_mut(),
+        &mut required_size,
+    );
+    device.as_ref().unwrap().Release();
+
+    return required_size;
 }

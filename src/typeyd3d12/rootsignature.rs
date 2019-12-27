@@ -51,19 +51,22 @@ pub struct SRootSignature {
 
 pub struct SRootSignatureDesc {
     pub parameters: Vec<SRootParameter>,
-    //static_samplers: Vec<SStaticSamplerDesc>,
+    pub static_samplers: Vec<SStaticSamplerDesc>,
     pub flags: SRootSignatureFlags,
 
     // -- for d3dtype()
     d3d_parameters: Vec<D3D12_ROOT_PARAMETER>,
+    d3d_static_samplers: Vec<D3D12_STATIC_SAMPLER_DESC>,
 }
 
 impl SRootSignatureDesc {
     pub fn new(flags: SRootSignatureFlags) -> Self {
         Self {
-            parameters: Vec::new(), // $$$FRK(TODO): allocations
+            parameters: Vec::new(),      // $$$FRK(TODO): allocations
+            static_samplers: Vec::new(), // $$$FRK(TODO): allocations
             flags: flags,
             d3d_parameters: Vec::new(),
+            d3d_static_samplers: Vec::new(),
         }
     }
 
@@ -73,11 +76,16 @@ impl SRootSignatureDesc {
             self.d3d_parameters.push(parameter.d3dtype());
         }
 
+        self.d3d_static_samplers.clear();
+        for sampler in &self.static_samplers {
+            self.d3d_static_samplers.push(sampler.d3dtype());
+        }
+
         D3D12_ROOT_SIGNATURE_DESC {
             NumParameters: self.parameters.len() as u32,
             pParameters: self.d3d_parameters.as_ptr(),
-            NumStaticSamplers: 0,
-            pStaticSamplers: ptr::null_mut(),
+            NumStaticSamplers: self.static_samplers.len() as u32,
+            pStaticSamplers: self.d3d_static_samplers.as_ptr(),
             Flags: self.flags.d3dtype(),
         }
     }
@@ -152,6 +160,13 @@ pub struct SRootDescriptorTable {
 }
 
 impl SRootDescriptorTable {
+    pub fn new() -> Self {
+        Self {
+            descriptor_ranges: ArrayVec::new(),
+            d3d_descriptor_ranges: ArrayVec::new(),
+        }
+    }
+
     pub unsafe fn d3dtype(&mut self) -> D3D12_ROOT_DESCRIPTOR_TABLE {
         self.d3d_descriptor_ranges.clear();
         for dr in &self.descriptor_ranges {

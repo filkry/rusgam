@@ -150,6 +150,18 @@ impl SCommandList {
         );
     }
 
+    pub unsafe fn set_descriptor_heaps(&self, heaps: &[&SDescriptorHeap]) {
+        if heaps.len() > 0 {
+            let mut raw_heaps = [ptr::null_mut(); 4]; // only 4 heap types
+            for (i, heap) in heaps.iter().enumerate() {
+                raw_heaps[i] = heap.heap.as_raw();
+            }
+
+            self.commandlist
+                .SetDescriptorHeaps(heaps.len() as u32, &mut raw_heaps[0]);
+        }
+    }
+
     pub unsafe fn set_graphics_root_32_bit_constants<T: Sized>(
         &self,
         root_parameter_index: u32,
@@ -166,6 +178,19 @@ impl SCommandList {
             dest_offset_in_32_bit_values,
         );
     }
+
+    /*
+    pub unsafe fn set_graphics_root_shader_resource_view(
+        &self,
+        root_parameter_index: u32,
+        buffer_location: SGPUDescriptorHandle,
+    ) {
+        self.commandlist.SetGraphicsRootShaderResourceView(
+            root_parameter_index,
+            buffer_location.raw(),
+        );
+    }
+    */
 
     pub unsafe fn draw_indexed_instanced(
         &self,
@@ -193,9 +218,12 @@ impl SCommandList {
     pub unsafe fn set_graphics_root_descriptor_table(
         &self,
         root_parameter_index: usize,
-        base_descriptor: &SGPUDescriptorHandle
+        base_descriptor: &SGPUDescriptorHandle,
     ) {
-        self.commandlist.SetGraphicsRootDescriptorTable(root_parameter_index as UINT, base_descriptor.d3dtype());
+        self.commandlist.SetGraphicsRootDescriptorTable(
+            root_parameter_index as UINT,
+            base_descriptor.d3dtype(),
+        );
     }
 
     pub unsafe fn raw(&self) -> &ComPtr<ID3D12GraphicsCommandList> {

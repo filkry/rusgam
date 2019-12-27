@@ -22,10 +22,10 @@ mod infoqueue;
 mod pipelinestate;
 mod resource;
 mod rootsignature;
+mod sampler;
 mod shader;
 mod swapchain;
 mod view;
-mod sampler;
 
 use safewindows;
 
@@ -146,10 +146,10 @@ pub use self::infoqueue::SInfoQueue;
 pub use self::pipelinestate::*;
 pub use self::resource::*;
 pub use self::rootsignature::*;
+pub use self::sampler::*;
 pub use self::shader::*;
 pub use self::swapchain::*;
 pub use self::view::*;
-pub use self::sampler::*;
 
 pub struct SBarrier {
     barrier: D3D12_RESOURCE_BARRIER,

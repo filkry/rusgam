@@ -1,9 +1,9 @@
 extern crate arrayvec;
 extern crate nalgebra;
 extern crate nalgebra_glm as glm;
+extern crate tinytga;
 extern crate winapi;
 extern crate wio;
-extern crate tinytga;
 
 //mod math;
 mod allocate;
@@ -149,7 +149,8 @@ fn main_d3d12() -> Result<(), &'static str> {
     let mut srv_heap = n12::descriptorallocator::SDescriptorAllocator::new(
         &device,
         32,
-        t12::EDescriptorHeapType::ConstantBufferShaderResourceUnorderedAccess
+        t12::EDescriptorHeapType::ConstantBufferShaderResourceUnorderedAccess,
+        t12::SDescriptorHeapFlags::from(t12::EDescriptorHeapFlags::ShaderVisible),
     )?;
 
     let mut viewport = t12::SViewport::new(
@@ -168,7 +169,13 @@ fn main_d3d12() -> Result<(), &'static str> {
     };
 
     // -- get vertex and index data into resources/views
-    let (_vert_buffer_resource, vert_buffer_view, _index_buffer_resource, index_buffer_view, indiceslen) = {
+    let (
+        _vert_buffer_resource,
+        vert_buffer_view,
+        _index_buffer_resource,
+        index_buffer_view,
+        indiceslen,
+    ) = {
         let cubeverts = [
             SVertexPosColour {
                 position: SVec3::new(-1.0, -1.0, -1.0),
@@ -270,7 +277,12 @@ fn main_d3d12() -> Result<(), &'static str> {
         let handle = directcommandpool.alloc_list()?;
         let list = directcommandpool.get_list(handle)?;
 
-        list.transition_resource(&texture_resource, t12::EResourceStates::CopyDest, t12::EResourceStates::PixelShaderResource).unwrap();
+        list.transition_resource(
+            &texture_resource,
+            t12::EResourceStates::CopyDest,
+            t12::EResourceStates::PixelShaderResource,
+        )
+        .unwrap();
 
         let fenceval = directcommandpool.execute_and_free_list(handle)?;
         directcommandpool.wait_for_internal_fence_value(fenceval);
@@ -278,19 +290,22 @@ fn main_d3d12() -> Result<(), &'static str> {
 
     // -- get texture SRV
     let texture_srv = {
-
-        let srv_desc = t12::SShaderResourceViewDesc{
+        let srv_desc = t12::SShaderResourceViewDesc {
             format: t12::EDXGIFormat::R8G8B8A8UNorm,
-            view: t12::ESRV::Texture2D{
+            view: t12::ESRV::Texture2D {
                 data: t12::STex2DSRV {
                     mip_levels: 1,
                     ..Default::default()
-                }
-            }
+                },
+            },
         };
 
         let descriptors = srv_heap.alloc(1)?;
-        device.create_shader_resource_view(&texture_resource, &srv_desc, descriptors.descriptor(0))?;
+        device.create_shader_resource_view(
+            &texture_resource,
+            &srv_desc,
+            descriptors.cpu_descriptor(0),
+        )?;
 
         descriptors
     };
@@ -340,14 +355,42 @@ fn main_d3d12() -> Result<(), &'static str> {
         shader_visibility: t12::EShaderVisibility::Vertex,
     };
 
-    let texture_root_parameter = t12::SRootParameter {
-        type_: t12::ERootParameterType::SRV,
-        type_data: t12::ERootParameterTypeData::Descriptor {
-            descriptor: t12::SRootDescriptor {
-                shader_register: 0,
-                register_space: 0,
+    let texture_root_parameter = {
+        let descriptor_range = t12::SDescriptorRange {
+            range_type: t12::EDescriptorRangeType::SRV,
+            num_descriptors: 1,
+            base_shader_register: 0,
+            register_space: 0,
+            offset_in_descriptors_from_table_start: t12::EDescriptorRangeOffset::EAppend,
+        };
+
+        let mut root_descriptor_table = t12::SRootDescriptorTable::new();
+        root_descriptor_table
+            .descriptor_ranges
+            .push(descriptor_range);
+
+        t12::SRootParameter {
+            type_: t12::ERootParameterType::DescriptorTable,
+            type_data: t12::ERootParameterTypeData::DescriptorTable {
+                table: root_descriptor_table,
             },
-        },
+            shader_visibility: t12::EShaderVisibility::Pixel,
+        }
+    };
+
+    let sampler = t12::SStaticSamplerDesc {
+        filter: t12::EFilter::MinMagMipPoint,
+        address_u: t12::ETextureAddressMode::Border,
+        address_v: t12::ETextureAddressMode::Border,
+        address_w: t12::ETextureAddressMode::Border,
+        mip_lod_bias: 0.0,
+        max_anisotropy: 0,
+        comparison_func: t12::EComparisonFunc::Never,
+        border_color: t12::EStaticBorderColor::OpaqueWhite,
+        min_lod: 0.0,
+        max_lod: std::f32::MAX,
+        shader_register: 0,
+        register_space: 0,
         shader_visibility: t12::EShaderVisibility::Pixel,
     };
 
@@ -362,6 +405,7 @@ fn main_d3d12() -> Result<(), &'static str> {
     let mut root_signature_desc = t12::SRootSignatureDesc::new(root_signature_flags);
     root_signature_desc.parameters.push(mvp_root_parameter);
     root_signature_desc.parameters.push(texture_root_parameter);
+    root_signature_desc.static_samplers.push(sampler);
 
     let root_signature =
         device.create_root_signature(root_signature_desc, t12::ERootSignatureVersion::V1)?;
@@ -501,6 +545,9 @@ fn main_d3d12() -> Result<(), &'static str> {
                 // -- update root parameters
                 let mvp = perspective_matrix * view_matrix * model_matrix;
                 list.set_graphics_root_32_bit_constants(0, &mvp, 0);
+
+                list.set_descriptor_heaps(&[&srv_heap.raw_heap()]);
+                list.set_graphics_root_descriptor_table(1, &texture_srv.gpu_descriptor(0));
 
                 /*
                 let test_vert = SPnt3::new(1.0, 0.0, 0.0);

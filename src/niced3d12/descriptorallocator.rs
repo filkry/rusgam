@@ -4,20 +4,28 @@ use collections::freelistallocator;
 
 pub struct SDescriptorAllocatorAllocation {
     allocation: freelistallocator::manager::SAllocation,
-    base_handle: t12::SCPUDescriptorHandle,
+    base_cpu_handle: t12::SCPUDescriptorHandle,
+    base_gpu_handle: t12::SGPUDescriptorHandle,
     num_handles: usize,
 }
 
 impl SDescriptorAllocatorAllocation {
-
     // -- $$$FRK(TODO): maybe this should work like the thread-local storage in rust, where you
     // -- have to pass a function, and a reference can't escape the scope of that function?
-    pub fn descriptor(&self, idx: usize) -> t12::SCPUDescriptorHandle {
+    pub fn cpu_descriptor(&self, idx: usize) -> t12::SCPUDescriptorHandle {
         if idx >= self.num_handles {
             panic!("Index out of bounds!");
         }
 
-        unsafe { self.base_handle.offset(idx) }
+        unsafe { self.base_cpu_handle.offset(idx) }
+    }
+
+    pub fn gpu_descriptor(&self, idx: usize) -> t12::SGPUDescriptorHandle {
+        if idx >= self.num_handles {
+            panic!("Index out of bounds!");
+        }
+
+        unsafe { self.base_gpu_handle.offset(idx) }
     }
 }
 
@@ -41,11 +49,12 @@ impl SDescriptorAllocator {
         device: &SDevice,
         num_descriptors: usize,
         descriptor_type: t12::EDescriptorHeapType,
+        flags: t12::SDescriptorHeapFlags,
     ) -> Result<Self, &'static str> {
         let desc = t12::SDescriptorHeapDesc {
             type_: descriptor_type,
             num_descriptors: num_descriptors,
-            flags: t12::SDescriptorHeapFlags::none(),
+            flags: flags,
         };
 
         let descriptor_heap = device.create_descriptor_heap(&desc)?;
@@ -62,16 +71,22 @@ impl SDescriptorAllocator {
         })
     }
 
+    pub fn raw_heap(&self) -> &SDescriptorHeap {
+        &self.descriptor_heap
+    }
+
     pub fn alloc(
         &mut self,
         num_descriptors: usize,
     ) -> Result<SDescriptorAllocatorAllocation, &'static str> {
         let allocation = self.allocator.alloc(num_descriptors, 1)?;
-        let base_handle = self.descriptor_heap.cpu_handle(allocation.start_offset())?;
+        let base_cpu_handle = self.descriptor_heap.cpu_handle(allocation.start_offset())?;
+        let base_gpu_handle = self.descriptor_heap.gpu_handle(allocation.start_offset())?;
 
         Ok(SDescriptorAllocatorAllocation {
             allocation: allocation,
-            base_handle: base_handle,
+            base_cpu_handle: base_cpu_handle,
+            base_gpu_handle: base_gpu_handle,
             num_handles: num_descriptors,
         })
     }

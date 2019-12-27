@@ -287,15 +287,23 @@ impl SDevice {
     ) {
         use std::mem::size_of;
 
-        assert_eq!(dest_descriptor_range_starts.len(), dest_descriptor_range_sizes.len());
-        assert_eq!(src_descriptor_range_starts.len(), src_descriptor_range_sizes.len());
-        assert_eq!(size_of::<D3D12_CPU_DESCRIPTOR_HANDLE>(),
-                   size_of::<SCPUDescriptorHandle>());
+        assert_eq!(
+            dest_descriptor_range_starts.len(),
+            dest_descriptor_range_sizes.len()
+        );
+        assert_eq!(
+            src_descriptor_range_starts.len(),
+            src_descriptor_range_sizes.len()
+        );
+        assert_eq!(
+            size_of::<D3D12_CPU_DESCRIPTOR_HANDLE>(),
+            size_of::<SCPUDescriptorHandle>()
+        );
         assert_eq!(size_of::<UINT>(), size_of::<u32>());
 
         // -- Note: SCPUDescriptorHandle is repr(C) and just holds a D3D12_CPU_HANDLE...
 
-        let dest_starts_ptr : *const SCPUDescriptorHandle = dest_descriptor_range_starts.as_ptr();
+        let dest_starts_ptr: *const SCPUDescriptorHandle = dest_descriptor_range_starts.as_ptr();
 
         unsafe {
             self.device.CopyDescriptors(
@@ -305,7 +313,7 @@ impl SDevice {
                 src_descriptor_range_sizes.len() as UINT,
                 src_descriptor_range_starts.as_ptr() as *const D3D12_CPU_DESCRIPTOR_HANDLE,
                 src_descriptor_range_sizes.as_ptr(),
-                type_.d3dtype()
+                type_.d3dtype(),
             );
         }
     }

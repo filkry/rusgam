@@ -1,5 +1,7 @@
 use super::*;
 
+use arrayvec::ArrayVec;
+
 pub struct SCommandList {
     raw: t12::SCommandList,
     //allocator: &RefCell<t12::SCommandAllocator>,
@@ -97,6 +99,18 @@ impl SCommandList {
         };
     }
 
+    pub fn set_descriptor_heaps(&mut self, heaps: &[&SDescriptorHeap]) {
+        let mut raw_heaps = ArrayVec::<[&t12::SDescriptorHeap; 4]>::new();
+
+        for heap in heaps {
+            raw_heaps.push(&heap.raw);
+        }
+
+        unsafe {
+            self.raw.set_descriptor_heaps(&raw_heaps[..]);
+        }
+    }
+
     pub fn set_graphics_root_32_bit_constants<T: Sized>(
         &mut self,
         root_parameter_index: u32,
@@ -111,6 +125,21 @@ impl SCommandList {
             )
         };
     }
+
+    /*
+    pub fn set_graphics_root_shader_resource_view(
+        &mut self,
+        root_parameter_index: u32,
+        buffer_location: t12::SGPUDescriptorHandle,
+    ) {
+        unsafe {
+            self.raw.set_graphics_root_shader_resource_view(
+                root_parameter_index,
+                buffer_location,
+            )
+        };
+    }
+    */
 
     pub fn draw_indexed_instanced(
         &mut self,
@@ -142,9 +171,12 @@ impl SCommandList {
     pub fn set_graphics_root_descriptor_table(
         &mut self,
         root_parameter_index: usize,
-        base_descriptor: &t12::SGPUDescriptorHandle
+        base_descriptor: &t12::SGPUDescriptorHandle,
     ) {
-        unsafe { self.raw.set_graphics_root_descriptor_table(root_parameter_index, base_descriptor) };
+        unsafe {
+            self.raw
+                .set_graphics_root_descriptor_table(root_parameter_index, base_descriptor)
+        };
     }
 
     pub fn update_buffer_resource<T>(

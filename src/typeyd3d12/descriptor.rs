@@ -61,7 +61,7 @@ impl SDescriptorHeapDesc {
 #[derive(Clone)]
 pub struct SDescriptorHeap {
     pub type_: EDescriptorHeapType,
-    heap: ComPtr<ID3D12DescriptorHeap>,
+    pub(super) heap: ComPtr<ID3D12DescriptorHeap>,
 }
 
 impl SDescriptorHeap {
@@ -173,6 +173,7 @@ pub struct SDescriptorRange {
     pub offset_in_descriptors_from_table_start: EDescriptorRangeOffset,
 }
 
+// $$$FRK(TODO): consider switching to D3D12_DESCRIPTOR_RANGE1
 impl SDescriptorRange {
     pub fn d3dtype(&self) -> D3D12_DESCRIPTOR_RANGE {
         D3D12_DESCRIPTOR_RANGE {

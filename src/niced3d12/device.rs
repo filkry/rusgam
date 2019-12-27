@@ -177,9 +177,9 @@ impl SDevice {
         start_of_dst_range: t12::SCPUDescriptorHandle,
         type_: t12::EDescriptorHeapType,
     ) {
-
         ::allocate::STACK_ALLOCATOR.with(|sa| {
-            let mut src_sizes = ::allocate::SMemVec::<u32>::new(sa, src_descriptors.len(), 0).unwrap();
+            let mut src_sizes =
+                ::allocate::SMemVec::<u32>::new(sa, src_descriptors.len(), 0).unwrap();
 
             for _ in src_descriptors {
                 src_sizes.push(1);

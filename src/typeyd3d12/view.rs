@@ -183,7 +183,6 @@ pub struct STex2DSRV {
 }
 
 impl Default for STex2DSRV {
-
     fn default() -> Self {
         STex2DSRV {
             most_detailed_mip: 0,
@@ -206,15 +205,13 @@ impl STex2DSRV {
 }
 
 pub enum ESRV {
-    Texture2D {
-        data: STex2DSRV,
-    }
+    Texture2D { data: STex2DSRV },
 }
 
 impl ESRV {
     pub fn d3d_view_dimension(&self) -> D3D12_SRV_DIMENSION {
         match self {
-            Self::Texture2D{..} => D3D12_SRV_DIMENSION_TEXTURE2D,
+            Self::Texture2D { .. } => D3D12_SRV_DIMENSION_TEXTURE2D,
         }
     }
 }
@@ -222,7 +219,7 @@ impl ESRV {
 pub struct SShaderResourceViewDesc {
     pub format: EDXGIFormat,
     pub view: ESRV, // combines view_dimension with the underlying data
-    //shader_4_component_mapping: u32, $$$FRK(TODO): only support default currently
+                    //shader_4_component_mapping: u32, $$$FRK(TODO): only support default currently
 }
 
 impl SShaderResourceViewDesc {
@@ -232,13 +229,13 @@ impl SShaderResourceViewDesc {
             (*result.as_mut_ptr()).Format = self.format.d3dtype();
             (*result.as_mut_ptr()).ViewDimension = self.view.d3d_view_dimension();
             match &self.view {
-                ESRV::Texture2D{data} => {
+                ESRV::Texture2D { data } => {
                     *(*result.as_mut_ptr()).u.Texture2D_mut() = data.d3dtype();
                 }
             }
 
             // -- recreating D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING
-            let mut mapping : u32 = 0;
+            let mut mapping: u32 = 0;
             let bit_shift = 3;
             mapping = mapping | (0 << 0);
             mapping = mapping | (1 << bit_shift);

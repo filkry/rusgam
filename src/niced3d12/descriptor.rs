@@ -45,6 +45,16 @@ impl SDescriptorHeap {
             Err("Descripter handle index past number of descriptors.")
         }
     }
+
+    pub fn gpu_handle(&self, index: usize) -> Result<t12::SGPUDescriptorHandle, &'static str> {
+        if index < self.numdescriptors as usize {
+            let offsetbytes: usize = (index * self.descriptorsize) as usize;
+            let starthandle = self.gpu_handle_heap_start();
+            Ok(unsafe { starthandle.offset(offsetbytes) })
+        } else {
+            Err("Descripter handle index past number of descriptors.")
+        }
+    }
 }
 
 impl t12::SCPUDescriptorHandle {

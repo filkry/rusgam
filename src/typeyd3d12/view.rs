@@ -174,3 +174,34 @@ impl STex2DDSV {
         }
     }
 }
+
+pub struct STex2DSRV {
+    pub most_detailed_mip: u32,
+    pub mip_levels: u32,
+    pub plane_slice: u32,
+    pub resource_min_lod_clamp: f32,
+}
+
+impl Default for STex2DSRV {
+
+    fn default() -> Self {
+        STex2DSRV {
+            most_detailed_mip: 0,
+            mip_levels: 0,
+            plane_slice: 1,
+            resource_min_lod_clamp: 0.0,
+        }
+    }
+}
+
+pub enum ESRV {
+    Texture2D {
+        data: STex2DSRV,
+    }
+}
+
+pub struct SShaderResourceViewDesc {
+    pub format: EDXGIFormat,
+    pub view: ESRV, // combines view_dimension with the underlying data
+    //shader_4_component_mapping: u32, $$$FRK(TODO): only support default currently
+}

@@ -96,18 +96,18 @@ impl SDevice {
         array_size: u16,
         mip_levels: u16,
         format: t12::EDXGIFormat,
-        clear_value: t12::SClearValue,
+        clear_value: Option<t12::SClearValue>,
         flags: t12::SResourceFlags,
         initial_resource_state: t12::EResourceStates,
     ) -> Result<SResource, &'static str> {
-        let destinationresource = self.raw.createcommittedresource(
+        let destinationresource = self.raw.create_committed_resource(
             t12::SHeapProperties::create(heap_type),
             t12::EHeapFlags::ENone,
             t12::SResourceDesc::create_texture_2d(
                 width, height, array_size, mip_levels, format, flags,
             ),
             initial_resource_state,
-            Some(clear_value),
+            clear_value,
         )?;
 
         Ok(SResource {
@@ -125,7 +125,7 @@ impl SDevice {
         num_items: usize,
         size_of_item: usize,
     ) -> Result<SResource, &'static str> {
-        let destinationresource = self.raw.createcommittedresource(
+        let destinationresource = self.raw.create_committed_resource(
             t12::SHeapProperties::create(heap_type),
             heap_flags,
             t12::SResourceDesc::createbuffer(num_items * size_of_item, flags),

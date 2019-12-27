@@ -3,6 +3,7 @@ extern crate nalgebra;
 extern crate nalgebra_glm as glm;
 extern crate winapi;
 extern crate wio;
+extern crate tinytga;
 
 //mod math;
 mod allocate;
@@ -76,7 +77,7 @@ pub fn init_depth_texture(
         1,
         0,
         t12::EDXGIFormat::D32Float,
-        clear_value,
+        Some(clear_value),
         t12::SResourceFlags::from(t12::EResourceFlags::AllowDepthStencil),
         t12::EResourceStates::DepthWrite,
     )?;

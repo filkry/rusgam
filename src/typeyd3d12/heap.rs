@@ -51,3 +51,5 @@ impl TD3DFlags32 for EHeapFlags {
         }
     }
 }
+
+pub type SHeapFlags = SD3DFlags32<EHeapFlags>;

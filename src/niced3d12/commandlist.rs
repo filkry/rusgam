@@ -168,7 +168,7 @@ impl SCommandList {
             bufferdata,
         )?;
 
-        let mut srcdata = t12::SSubResourceData::createbuffer(bufferdata);
+        let mut srcdata = t12::SSubResourceData::create_buffer(bufferdata);
         update_subresources_stack(
             self,
             &mut destinationresource,

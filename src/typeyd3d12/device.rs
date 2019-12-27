@@ -121,7 +121,7 @@ impl SDevice {
         }
     }
 
-    pub fn createcommittedresource(
+    pub fn create_committed_resource(
         &self,
         heapproperties: SHeapProperties,
         heapflags: EHeapFlags,

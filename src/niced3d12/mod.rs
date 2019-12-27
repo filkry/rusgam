@@ -27,7 +27,6 @@ use std::cell::RefCell;
 use std::marker::PhantomData;
 use std::ops::Deref;
 use std::ptr;
-use std::fs::File;
 
 // -- $$$FRK(TODO): all these imports should not exist
 use winapi::shared::minwindef::*;
@@ -48,6 +47,58 @@ pub use self::rootsignature::*;
 pub use self::swapchain::*;
 pub use self::window::SD3D12Window;
 
-pub fn load_texture(cl: &mut SCommandList, file_path: &'static str) {
-    let f = File::open(file_path);
+pub fn load_texture(device: &SDevice, cl: &mut SCommandList, file_path: &'static str) {
+    // $$$FRK(TODO): allocates
+    let bytes = std::fs::read(file_path).unwrap();
+    let tga = tinytga::Tga::from_slice(bytes.as_slice()).unwrap();
+
+    // -- $$$FRK(TODO): allocates
+    let pixels = tga.into_iter().collect::<Vec<u32>>();
+
+    let mut resource = device.create_committed_texture2d_resource(
+        t12::EHeapType::Default,
+        tga.width() as u32,
+        tga.height() as u32,
+        1, // array size
+        1, // mip levels
+        t12::EDXGIFormat::R8G8B8A8UNorm,
+        None,
+        t12::SResourceFlags::none(),
+        t12::EResourceStates::Common,
+    ).unwrap();
+
+    cl.transition_resource(&resource, t12::EResourceStates::Common, t12::EResourceStates::CopyDest).unwrap();
+
+    let requiredsize = bytes.len(); // almost certainly wrong! look into d3d12.h GetIntermediateSize
+
+    let mut intermediate_resource = device.create_committed_buffer_resource(
+        t12::EHeapType::Upload,
+        t12::EHeapFlags::ENone,
+        t12::SResourceFlags::none(),
+        t12::EResourceStates::GenericRead,
+        1,
+        requiredsize,
+    ).unwrap();
+
+    let mut data = t12::SSubResourceData::create_texture_2d(
+        pixels.as_slice(), tga.width() as usize, tga.height() as usize);
+
+    update_subresources_stack(cl, &mut resource, &mut intermediate_resource,
+        0, 0, 1,
+        &mut data,
+    );
+
+    cl.transition_resource(&resource, t12::EResourceStates::CopyDest, t12::EResourceStates::PixelShaderResource).unwrap();
+
+    let srv_desc = t12::SShaderResourceViewDesc{
+        format: t12::EDXGIFormat::R8G8B8A8UNorm,
+        view: t12::ESRV::Texture2D{
+            data: t12::STex2DSRV {
+                mip_levels: 1,
+                ..Default::default()
+            }
+        }
+    };
+
+    device.create_shader_resource_view(&resource, &srv_desc, srv_heap_handle);
 }

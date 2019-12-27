@@ -79,8 +79,15 @@ impl Default for EResourceMetadata {
 }
 
 impl t12::SSubResourceData {
-    pub fn createbuffer<T>(data: &[T]) -> Self {
+    pub fn create_buffer<T>(data: &[T]) -> Self {
         let buffersize = data.len() * std::mem::size_of::<T>();
         unsafe { Self::create(data.as_ptr(), buffersize, buffersize) }
+    }
+
+    pub fn create_texture_2d<T>(pixels: &[T], width: usize, height: usize) -> Self {
+        assert_eq!(pixels.len(), width * height);
+        let row_pitch = width * std::mem::size_of::<T>();
+        let slice_pitch = row_pitch * height;
+        unsafe { Self::create(pixels.as_ptr(), row_pitch, slice_pitch) }
     }
 }

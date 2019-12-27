@@ -76,6 +76,10 @@ impl SDescriptorAllocator {
         })
     }
 
+    pub fn free(&mut self, allocation: SDescriptorAllocatorAllocation) {
+        self.allocator.free(allocation.allocation);
+    }
+
     pub fn free_on_signal(&mut self, allocation: SDescriptorAllocatorAllocation, signal: u64) {
         if let Some(s) = self.last_signal {
             if signal <= s {

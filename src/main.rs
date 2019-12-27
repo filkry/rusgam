@@ -152,16 +152,6 @@ fn main_d3d12() -> Result<(), &'static str> {
         t12::EDescriptorHeapType::ConstantBufferShaderResourceUnorderedAccess
     )?;
 
-    /*{
-        let desc = t12::SDescriptorHeapDesc {
-            type_: t12::EDescriptorHeapType::ConstantBufferShaderResourceUnorderedAccess,
-            num_descriptors: 32,
-            flags: t12::SDescriptorHeapFlags::from(t12::EDescriptorHeapFlags::None),
-        };
-
-        device.create_descriptor_heap(&desc)?
-    };*/
-
     let mut viewport = t12::SViewport::new(
         0.0,
         0.0,
@@ -287,7 +277,7 @@ fn main_d3d12() -> Result<(), &'static str> {
     }
 
     // -- get texture SRV
-    let _texture_srv = {
+    let texture_srv = {
 
         let srv_desc = t12::SShaderResourceViewDesc{
             format: t12::EDXGIFormat::R8G8B8A8UNorm,
@@ -338,7 +328,7 @@ fn main_d3d12() -> Result<(), &'static str> {
         t12::SInputLayoutDesc::create(&input_element_desc)
     };
 
-    let root_parameter = t12::SRootParameter {
+    let mvp_root_parameter = t12::SRootParameter {
         type_: t12::ERootParameterType::E32BitConstants,
         type_data: t12::ERootParameterTypeData::Constants {
             constants: t12::SRootConstants {
@@ -350,6 +340,17 @@ fn main_d3d12() -> Result<(), &'static str> {
         shader_visibility: t12::EShaderVisibility::Vertex,
     };
 
+    let texture_root_parameter = t12::SRootParameter {
+        type_: t12::ERootParameterType::SRV,
+        type_data: t12::ERootParameterTypeData::Descriptor {
+            descriptor: t12::SRootDescriptor {
+                shader_register: 0,
+                register_space: 0,
+            },
+        },
+        shader_visibility: t12::EShaderVisibility::Pixel,
+    };
+
     let root_signature_flags = t12::SRootSignatureFlags::create(&[
         t12::ERootSignatureFlags::AllowInputAssemblerInputLayout,
         t12::ERootSignatureFlags::DenyHullShaderRootAccess,
@@ -359,7 +360,8 @@ fn main_d3d12() -> Result<(), &'static str> {
     ]);
 
     let mut root_signature_desc = t12::SRootSignatureDesc::new(root_signature_flags);
-    root_signature_desc.parameters.push(root_parameter);
+    root_signature_desc.parameters.push(mvp_root_parameter);
+    root_signature_desc.parameters.push(texture_root_parameter);
 
     let root_signature =
         device.create_root_signature(root_signature_desc, t12::ERootSignatureVersion::V1)?;
@@ -596,6 +598,8 @@ fn main_d3d12() -> Result<(), &'static str> {
 
     // -- wait for all commands to clear
     commandqueue.borrow_mut().flush_blocking()?;
+
+    srv_heap.free(texture_srv);
 
     Ok(())
 }

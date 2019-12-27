@@ -165,6 +165,20 @@ impl SRootDescriptorTable {
     }
 }
 
+pub struct SRootDescriptor {
+    pub shader_register: u32,
+    pub register_space: u32,
+}
+
+impl SRootDescriptor {
+    pub fn d3dtype(&self) -> D3D12_ROOT_DESCRIPTOR {
+        D3D12_ROOT_DESCRIPTOR {
+            ShaderRegister: self.shader_register,
+            RegisterSpace: self.register_space,
+        }
+    }
+}
+
 pub enum ERootParameterType {
     DescriptorTable,
     E32BitConstants,
@@ -188,6 +202,7 @@ impl ERootParameterType {
 pub enum ERootParameterTypeData {
     Constants { constants: SRootConstants },
     DescriptorTable { table: SRootDescriptorTable },
+    Descriptor { descriptor: SRootDescriptor },
 }
 
 pub struct SRootParameter {
@@ -207,6 +222,9 @@ impl SRootParameter {
                 }
                 ERootParameterTypeData::DescriptorTable { table } => {
                     *(*result.as_mut_ptr()).u.DescriptorTable_mut() = table.d3dtype();
+                }
+                ERootParameterTypeData::Descriptor { descriptor } => {
+                    *(*result.as_mut_ptr()).u.Descriptor_mut() = descriptor.d3dtype();
                 }
             }
             (*result.as_mut_ptr()).ShaderVisibility = self.shader_visibility.d3dtype();

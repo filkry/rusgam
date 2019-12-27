@@ -25,6 +25,7 @@ mod rootsignature;
 mod shader;
 mod swapchain;
 mod view;
+mod sampler;
 
 use safewindows;
 
@@ -148,6 +149,7 @@ pub use self::rootsignature::*;
 pub use self::shader::*;
 pub use self::swapchain::*;
 pub use self::view::*;
+pub use self::sampler::*;
 
 pub struct SBarrier {
     barrier: D3D12_RESOURCE_BARRIER,

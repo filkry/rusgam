@@ -29,12 +29,14 @@ use typeyd3d12 as t12;
 type SMat44 = nalgebra::Matrix4<f32>;
 type SPnt3 = nalgebra::Point3<f32>;
 type SVec3 = nalgebra::Vector3<f32>;
+type SVec2 = nalgebra::Vector2<f32>;
 //type SVec4 = nalgebra::Vector4<f32>;
 
 #[allow(dead_code)]
-struct SVertexPosColour {
+struct SVertexPosColourUV {
     position: SVec3,
     colour: SVec3,
+    uv: SVec2,
 }
 
 #[allow(unused_variables)]
@@ -177,37 +179,45 @@ fn main_d3d12() -> Result<(), &'static str> {
         indiceslen,
     ) = {
         let cubeverts = [
-            SVertexPosColour {
+            SVertexPosColourUV {
                 position: SVec3::new(-1.0, -1.0, -1.0),
                 colour: SVec3::new(0.0, 0.0, 0.0),
+                uv: SVec2::new(0.0, 0.0),
             },
-            SVertexPosColour {
+            SVertexPosColourUV {
                 position: SVec3::new(-1.0, 1.0, -1.0),
                 colour: SVec3::new(0.0, 1.0, 0.0),
+                uv: SVec2::new(0.0, 1.0),
             },
-            SVertexPosColour {
+            SVertexPosColourUV {
                 position: SVec3::new(1.0, 1.0, -1.0),
                 colour: SVec3::new(1.0, 1.0, 0.0),
+                uv: SVec2::new(1.0, 1.0),
             },
-            SVertexPosColour {
+            SVertexPosColourUV {
                 position: SVec3::new(1.0, -1.0, -1.0),
                 colour: SVec3::new(1.0, 0.0, 0.0),
+                uv: SVec2::new(1.0, 0.0),
             },
-            SVertexPosColour {
+            SVertexPosColourUV {
                 position: SVec3::new(-1.0, -1.0, 1.0),
                 colour: SVec3::new(0.0, 0.0, 1.0),
+                uv: SVec2::new(0.0, 0.0),
             },
-            SVertexPosColour {
+            SVertexPosColourUV {
                 position: SVec3::new(-1.0, 1.0, 1.0),
                 colour: SVec3::new(0.0, 1.0, 1.0),
+                uv: SVec2::new(0.0, 1.0),
             },
-            SVertexPosColour {
+            SVertexPosColourUV {
                 position: SVec3::new(1.0, 1.0, 1.0),
                 colour: SVec3::new(1.0, 1.0, 1.0),
+                uv: SVec2::new(1.0, 1.0),
             },
-            SVertexPosColour {
+            SVertexPosColourUV {
                 position: SVec3::new(1.0, -1.0, 1.0),
                 colour: SVec3::new(1.0, 0.0, 1.0),
+                uv: SVec2::new(1.0, 0.0),
             },
         ];
 
@@ -338,6 +348,15 @@ fn main_d3d12() -> Result<(), &'static str> {
                 t12::EInputClassification::PerVertexData,
                 0,
             ),
+            t12::SInputElementDesc::create(
+                "TEXCOORD",
+                0,
+                t12::EDXGIFormat::R32G32Float,
+                0,
+                winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
+                t12::EInputClassification::PerVertexData,
+                0,
+            ),
         ];
 
         t12::SInputLayoutDesc::create(&input_element_desc)
@@ -399,7 +418,6 @@ fn main_d3d12() -> Result<(), &'static str> {
         t12::ERootSignatureFlags::DenyHullShaderRootAccess,
         t12::ERootSignatureFlags::DenyDomainShaderRootAccess,
         t12::ERootSignatureFlags::DenyGeometryShaderRootAccess,
-        t12::ERootSignatureFlags::DenyPixelShaderRootAccess,
     ]);
 
     let mut root_signature_desc = t12::SRootSignatureDesc::new(root_signature_flags);

@@ -24,6 +24,7 @@ use arrayvec::ArrayVec;
 
 use niced3d12 as n12;
 use typeyd3d12 as t12;
+use allocate::{SMemVec, SYSTEM_ALLOCATOR};
 
 #[allow(dead_code)]
 type SMat44 = nalgebra::Matrix4<f32>;
@@ -52,7 +53,7 @@ struct SPipelineStateStream<'a> {
     rtv_formats: n12::SPipelineStateStreamRTVFormats<'a>,
 }
 
-pub fn init_depth_texture(
+fn init_depth_texture(
     width: u32,
     height: u32,
     device: &n12::SDevice,
@@ -98,6 +99,76 @@ pub fn init_depth_texture(
     )?;
 
     Ok(_depth_texture_resource)
+}
+
+
+fn load_model_data_hard_coded() -> (SMemVec<'static, SVertexPosColourUV>, SMemVec<'static, u16>) {
+
+    let mut vert_vec = SMemVec::<SVertexPosColourUV>::new(&SYSTEM_ALLOCATOR, 32, 0).unwrap();
+    let mut index_vec = SMemVec::<u16>::new(&SYSTEM_ALLOCATOR, 36, 0).unwrap();
+
+    vert_vec.push(SVertexPosColourUV {
+        position: SVec3::new(-1.0, -1.0, -1.0),
+        colour: SVec3::new(0.0, 0.0, 0.0),
+        uv: SVec2::new(0.0, 0.0),
+    });
+    vert_vec.push(SVertexPosColourUV {
+        position: SVec3::new(-1.0, 1.0, -1.0),
+        colour: SVec3::new(0.0, 1.0, 0.0),
+        uv: SVec2::new(0.0, 1.0),
+    });
+    vert_vec.push(SVertexPosColourUV {
+        position: SVec3::new(1.0, 1.0, -1.0),
+        colour: SVec3::new(1.0, 1.0, 0.0),
+        uv: SVec2::new(1.0, 1.0),
+    });
+    vert_vec.push(SVertexPosColourUV {
+        position: SVec3::new(1.0, -1.0, -1.0),
+        colour: SVec3::new(1.0, 0.0, 0.0),
+        uv: SVec2::new(1.0, 0.0),
+    });
+    vert_vec.push(SVertexPosColourUV {
+        position: SVec3::new(-1.0, -1.0, 1.0),
+        colour: SVec3::new(0.0, 0.0, 1.0),
+        uv: SVec2::new(0.0, 0.0),
+    });
+    vert_vec.push(SVertexPosColourUV {
+        position: SVec3::new(-1.0, 1.0, 1.0),
+        colour: SVec3::new(0.0, 1.0, 1.0),
+        uv: SVec2::new(0.0, 1.0),
+    });
+    vert_vec.push(SVertexPosColourUV {
+        position: SVec3::new(1.0, 1.0, 1.0),
+        colour: SVec3::new(1.0, 1.0, 1.0),
+        uv: SVec2::new(1.0, 1.0),
+    });
+    vert_vec.push(SVertexPosColourUV {
+        position: SVec3::new(1.0, -1.0, 1.0),
+        colour: SVec3::new(1.0, 0.0, 1.0),
+        uv: SVec2::new(1.0, 0.0),
+    });
+
+    #[rustfmt::skip]
+    let indices : [u16; 36] = [
+        0, 1, 2,
+        0, 2, 3,
+        4, 6, 5,
+        4, 7, 6,
+        4, 5, 1,
+        4, 1, 0,
+        3, 2, 6,
+        3, 6, 7,
+        1, 5, 6,
+        1, 6, 2,
+        4, 0, 3,
+        4, 3, 7
+    ];
+
+    for idx in indices.iter() {
+        index_vec.push(*idx);
+    }
+
+    (vert_vec, index_vec)
 }
 
 fn main_d3d12() -> Result<(), &'static str> {
@@ -178,64 +249,8 @@ fn main_d3d12() -> Result<(), &'static str> {
         index_buffer_view,
         indiceslen,
     ) = {
-        let cubeverts = [
-            SVertexPosColourUV {
-                position: SVec3::new(-1.0, -1.0, -1.0),
-                colour: SVec3::new(0.0, 0.0, 0.0),
-                uv: SVec2::new(0.0, 0.0),
-            },
-            SVertexPosColourUV {
-                position: SVec3::new(-1.0, 1.0, -1.0),
-                colour: SVec3::new(0.0, 1.0, 0.0),
-                uv: SVec2::new(0.0, 1.0),
-            },
-            SVertexPosColourUV {
-                position: SVec3::new(1.0, 1.0, -1.0),
-                colour: SVec3::new(1.0, 1.0, 0.0),
-                uv: SVec2::new(1.0, 1.0),
-            },
-            SVertexPosColourUV {
-                position: SVec3::new(1.0, -1.0, -1.0),
-                colour: SVec3::new(1.0, 0.0, 0.0),
-                uv: SVec2::new(1.0, 0.0),
-            },
-            SVertexPosColourUV {
-                position: SVec3::new(-1.0, -1.0, 1.0),
-                colour: SVec3::new(0.0, 0.0, 1.0),
-                uv: SVec2::new(0.0, 0.0),
-            },
-            SVertexPosColourUV {
-                position: SVec3::new(-1.0, 1.0, 1.0),
-                colour: SVec3::new(0.0, 1.0, 1.0),
-                uv: SVec2::new(0.0, 1.0),
-            },
-            SVertexPosColourUV {
-                position: SVec3::new(1.0, 1.0, 1.0),
-                colour: SVec3::new(1.0, 1.0, 1.0),
-                uv: SVec2::new(1.0, 1.0),
-            },
-            SVertexPosColourUV {
-                position: SVec3::new(1.0, -1.0, 1.0),
-                colour: SVec3::new(1.0, 0.0, 1.0),
-                uv: SVec2::new(1.0, 0.0),
-            },
-        ];
 
-        #[rustfmt::skip]
-        let indices : [u16; 36] = [
-            0, 1, 2,
-            0, 2, 3,
-            4, 6, 5,
-            4, 7, 6,
-            4, 5, 1,
-            4, 1, 0,
-            3, 2, 6,
-            3, 6, 7,
-            1, 5, 6,
-            1, 6, 2,
-            4, 0, 3,
-            4, 3, 7
-        ];
+        let (vert_vec, index_vec) = load_model_data_hard_coded();
 
         // -- upload data to GPU
         let handle = copycommandpool.alloc_list()?;
@@ -243,7 +258,7 @@ fn main_d3d12() -> Result<(), &'static str> {
 
         let vertbufferresource = {
             let vertbufferflags = t12::SResourceFlags::from(t12::EResourceFlags::ENone);
-            copycommandlist.update_buffer_resource(&device, &cubeverts, vertbufferflags)?
+            copycommandlist.update_buffer_resource(&device, vert_vec.as_slice(), vertbufferflags)?
         };
         let vertexbufferview = vertbufferresource
             .destinationresource
@@ -251,7 +266,7 @@ fn main_d3d12() -> Result<(), &'static str> {
 
         let indexbufferresource = {
             let indexbufferflags = t12::SResourceFlags::from(t12::EResourceFlags::ENone);
-            copycommandlist.update_buffer_resource(&device, &indices, indexbufferflags)?
+            copycommandlist.update_buffer_resource(&device, index_vec.as_slice(), indexbufferflags)?
         };
         let indexbufferview = indexbufferresource
             .destinationresource
@@ -265,7 +280,7 @@ fn main_d3d12() -> Result<(), &'static str> {
             vertexbufferview,
             indexbufferresource,
             indexbufferview,
-            indices.len(),
+            index_vec.len(),
         )
     };
 

@@ -328,6 +328,14 @@ impl<'a, T> SMemVec<'a, T> {
         self.capacity
     }
 
+    pub fn as_slice(&self) -> &[T] {
+        unsafe { std::slice::from_raw_parts(self.data(), self.len) }
+    }
+
+    pub fn as_mut_slice(&mut self) -> &mut [T] {
+        unsafe { std::slice::from_raw_parts_mut(self.data(), self.len) }
+    }
+
     pub fn push(&mut self, value: T) {
         if self.len == self.capacity {
             if self.grow_capacity == 0 {
@@ -348,13 +356,13 @@ impl<'a, T> Deref for SMemVec<'a, T> {
     type Target = [T];
 
     fn deref(&self) -> &[T] {
-        unsafe { std::slice::from_raw_parts(self.data(), self.len) }
+        self.as_slice()
     }
 }
 
 impl<'a, T> DerefMut for SMemVec<'a, T> {
     fn deref_mut(&mut self) -> &mut [T] {
-        unsafe { std::slice::from_raw_parts_mut(self.data(), self.len) }
+        self.as_mut_slice()
     }
 }
 

@@ -2,6 +2,7 @@ extern crate arrayvec;
 extern crate nalgebra;
 extern crate nalgebra_glm as glm;
 extern crate tinytga;
+extern crate tobj;
 extern crate winapi;
 extern crate wio;
 
@@ -171,6 +172,39 @@ fn load_model_data_hard_coded() -> (SMemVec<'static, SVertexPosColourUV>, SMemVe
     (vert_vec, index_vec)
 }
 
+fn load_model_data_obj() -> (SMemVec<'static, SVertexPosColourUV>, SMemVec<'static, u16>) {
+    let mut vert_vec = SMemVec::<SVertexPosColourUV>::new(&SYSTEM_ALLOCATOR, 32, 0).unwrap();
+    let mut index_vec = SMemVec::<u16>::new(&SYSTEM_ALLOCATOR, 36, 0).unwrap();
+
+    let (models, _materials) = tobj::load_obj(&std::path::Path::new("assets/first_test_asset.obj")).unwrap();
+
+    for model in models {
+        assert!(model.mesh.positions.len() % 3 == 0);
+        assert!(model.mesh.texcoords.len() / 2 == model.mesh.positions.len() / 3);
+
+        for vidx in 0..model.mesh.positions.len() / 3 {
+            vert_vec.push(SVertexPosColourUV {
+                position: SVec3::new(
+                    model.mesh.positions[vidx * 3],
+                    model.mesh.positions[vidx * 3 + 1],
+                    model.mesh.positions[vidx * 3 + 2],
+                ),
+                colour: SVec3::new(1.0, 1.0, 1.0),
+                uv: SVec2::new(
+                    model.mesh.texcoords[vidx * 2],
+                    model.mesh.texcoords[vidx * 2 + 1],
+                ),
+            });
+        }
+
+        for idx in model.mesh.indices {
+            index_vec.push(idx as u16);
+        }
+    }
+
+    (vert_vec, index_vec)
+}
+
 fn main_d3d12() -> Result<(), &'static str> {
     // -- initialize debug
     let debuginterface = t12::SDebugInterface::new()?;
@@ -250,7 +284,8 @@ fn main_d3d12() -> Result<(), &'static str> {
         indiceslen,
     ) = {
 
-        let (vert_vec, index_vec) = load_model_data_hard_coded();
+        //let (vert_vec, index_vec) = load_model_data_hard_coded();
+        let (vert_vec, index_vec) = load_model_data_obj();
 
         // -- upload data to GPU
         let handle = copycommandpool.alloc_list()?;

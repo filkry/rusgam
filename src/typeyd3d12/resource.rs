@@ -77,7 +77,7 @@ impl SResourceDesc {
                     Quality: 0, // required
                 },
                 Layout: D3D12_TEXTURE_LAYOUT_ROW_MAJOR, // required
-                Flags: flags.d3dtype(),
+                Flags: flags.rawtype(),
             },
         }
     }
@@ -104,7 +104,7 @@ impl SResourceDesc {
                     Quality: 0, // required
                 },
                 Layout: D3D12_TEXTURE_LAYOUT_UNKNOWN, // required
-                Flags: flags.d3dtype(),
+                Flags: flags.rawtype(),
             },
         }
     }
@@ -121,10 +121,10 @@ pub enum EResourceFlags {
     AllowSimultaneousAccess,
 }
 
-impl TD3DFlags32 for EResourceFlags {
-    type TD3DType = D3D12_HEAP_FLAGS;
+impl TEnumFlags32 for EResourceFlags {
+    type TRawType = D3D12_HEAP_FLAGS;
 
-    fn d3dtype(&self) -> Self::TD3DType {
+    fn rawtype(&self) -> Self::TRawType {
         match self {
             EResourceFlags::ENone => D3D12_RESOURCE_FLAG_NONE,
             EResourceFlags::AllowRenderTarget => D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET,
@@ -139,7 +139,7 @@ impl TD3DFlags32 for EResourceFlags {
     }
 }
 
-pub type SResourceFlags = SD3DFlags32<EResourceFlags>;
+pub type SResourceFlags = SEnumFlags32<EResourceFlags>;
 
 #[derive(Clone)]
 pub struct SResource {

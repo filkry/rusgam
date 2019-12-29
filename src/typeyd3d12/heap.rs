@@ -42,14 +42,14 @@ pub enum EHeapFlags {
     ENone,
 }
 
-impl TD3DFlags32 for EHeapFlags {
-    type TD3DType = D3D12_HEAP_FLAGS;
+impl TEnumFlags32 for EHeapFlags {
+    type TRawType = D3D12_HEAP_FLAGS;
 
-    fn d3dtype(&self) -> Self::TD3DType {
+    fn rawtype(&self) -> Self::TRawType {
         match self {
             EHeapFlags::ENone => D3D12_HEAP_FLAG_NONE,
         }
     }
 }
 
-pub type SHeapFlags = SD3DFlags32<EHeapFlags>;
+pub type SHeapFlags = SEnumFlags32<EHeapFlags>;

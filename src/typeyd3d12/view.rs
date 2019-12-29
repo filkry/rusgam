@@ -65,7 +65,7 @@ impl SDepthStencilViewDesc {
             let mut result = mem::MaybeUninit::<D3D12_DEPTH_STENCIL_VIEW_DESC>::zeroed();
             (*result.as_mut_ptr()).Format = self.format.d3dtype();
             (*result.as_mut_ptr()).ViewDimension = self.view_dimension.d3dtype();
-            (*result.as_mut_ptr()).Flags = self.flags.d3dtype();
+            (*result.as_mut_ptr()).Flags = self.flags.rawtype();
 
             match &self.data {
                 EDepthStencilViewDescData::Tex2D(tex2d_dsv) => {
@@ -150,10 +150,10 @@ pub enum EDSVFlags {
     ReadOnlyStencil,
 }
 
-impl TD3DFlags32 for EDSVFlags {
-    type TD3DType = D3D12_DSV_FLAGS;
+impl TEnumFlags32 for EDSVFlags {
+    type TRawType = D3D12_DSV_FLAGS;
 
-    fn d3dtype(&self) -> Self::TD3DType {
+    fn rawtype(&self) -> Self::TRawType {
         match self {
             Self::None => D3D12_DSV_FLAG_NONE,
             Self::ReadOnlyDepth => D3D12_DSV_FLAG_READ_ONLY_DEPTH,
@@ -161,7 +161,7 @@ impl TD3DFlags32 for EDSVFlags {
         }
     }
 }
-pub type SDSVFlags = SD3DFlags32<EDSVFlags>;
+pub type SDSVFlags = SEnumFlags32<EDSVFlags>;
 
 pub struct STex2DDSV {
     pub mip_slice: u32,

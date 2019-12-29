@@ -154,7 +154,7 @@ impl SDevice {
             let mut rawresource: *mut ID3D12Resource = ptr::null_mut();
             let hn = self.device.CreateCommittedResource(
                 heapproperties.raw(),
-                heapflags.d3dtype(),
+                heapflags.rawtype(),
                 resourcedesc.raw(),
                 initialresourcestate.d3dtype(),
                 d3dcv_ptr,

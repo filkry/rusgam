@@ -15,6 +15,7 @@ mod rustywindows;
 mod safewindows;
 mod typeyd3d12;
 mod utils;
+mod enumflags;
 
 // -- std includes
 use std::cell::RefCell;

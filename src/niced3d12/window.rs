@@ -51,6 +51,20 @@ impl SD3D12Window {
 
         let descriptor_heap = device.create_descriptor_heap(&desc)?;
 
+        // -- set up raw mouse input events
+        {
+            use safewindows::rawinput::*;
+
+            let dev = SRawInputDevice {
+                usage_page: EUsagePage::Generic,
+                usage: EUsage::GenericMouse,
+                flags: SRIDEV::from(ERIDEV::InputSink).or(ERIDEV::CaptureMouse),
+                target: Some(window.raw()),
+            };
+
+            register_raw_input_devices(&[dev]);
+        }
+
         Ok(Self {
             window: window,
             swapchain: swap_chain,

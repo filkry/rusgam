@@ -26,10 +26,10 @@ pub enum ECompile {
     AllResourcesBound,
 }
 
-impl TD3DFlags32 for ECompile {
-    type TD3DType = DWORD;
+impl TEnumFlags32 for ECompile {
+    type TRawType = DWORD;
 
-    fn d3dtype(&self) -> Self::TD3DType {
+    fn rawtype(&self) -> Self::TRawType {
         match self {
             ECompile::Debug => d3dcompiler::D3DCOMPILE_DEBUG,
             ECompile::SkipValidation => d3dcompiler::D3DCOMPILE_SKIP_VALIDATION,
@@ -59,7 +59,7 @@ impl TD3DFlags32 for ECompile {
     }
 }
 
-pub type SCompile = SD3DFlags32<ECompile>;
+pub type SCompile = SEnumFlags32<ECompile>;
 
 pub enum EShaderVisibility {
     All,
@@ -133,7 +133,7 @@ pub fn d3dcompilefromfile(
             ptr::null_mut(),
             entrypointparam.as_ptr() as *const i8,
             targetparam.as_ptr() as *const i8,
-            flags1.d3dtype(),
+            flags1.rawtype(),
             0,
             &mut rawcodeblob,
             &mut errormsgsblob,

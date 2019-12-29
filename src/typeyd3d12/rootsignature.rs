@@ -13,10 +13,10 @@ pub enum ERootSignatureFlags {
     //LocalRootSignature,
 }
 
-impl TD3DFlags32 for ERootSignatureFlags {
-    type TD3DType = u32;
+impl TEnumFlags32 for ERootSignatureFlags {
+    type TRawType = u32;
 
-    fn d3dtype(&self) -> Self::TD3DType {
+    fn rawtype(&self) -> Self::TRawType {
         match self {
             Self::ENone => D3D12_ROOT_SIGNATURE_FLAG_NONE,
             Self::AllowInputAssemblerInputLayout => {
@@ -43,7 +43,7 @@ impl TD3DFlags32 for ERootSignatureFlags {
     }
 }
 
-pub type SRootSignatureFlags = SD3DFlags32<ERootSignatureFlags>;
+pub type SRootSignatureFlags = SEnumFlags32<ERootSignatureFlags>;
 
 pub struct SRootSignature {
     pub raw: ComPtr<ID3D12RootSignature>,
@@ -86,7 +86,7 @@ impl SRootSignatureDesc {
             pParameters: self.d3d_parameters.as_ptr(),
             NumStaticSamplers: self.static_samplers.len() as u32,
             pStaticSamplers: self.d3d_static_samplers.as_ptr(),
-            Flags: self.flags.d3dtype(),
+            Flags: self.flags.rawtype(),
         }
     }
 }

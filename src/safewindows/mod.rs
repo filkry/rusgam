@@ -14,6 +14,8 @@ use winapi::Interface;
 
 use wio::com::ComPtr;
 
+pub mod rawinput;
+
 // -- this is copied in safeD3D12, does it have to be?
 trait ComPtrPtrs<T> {
     unsafe fn asunknownptr(&mut self) -> *mut unknwnbase::IUnknown;

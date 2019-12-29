@@ -28,6 +28,7 @@ mod swapchain;
 mod view;
 
 use safewindows;
+use enumflags::{TEnumFlags32, SEnumFlags32};
 
 use std::{mem, ptr};
 
@@ -60,74 +61,6 @@ where
 {
     unsafe fn asunknownptr(&self) -> *mut unknwnbase::IUnknown {
         self.as_raw() as *mut unknwnbase::IUnknown
-    }
-}
-
-pub trait TD3DFlags32 {
-    type TD3DType: std::convert::Into<u32> + std::convert::From<u32> + Copy + Clone;
-
-    fn d3dtype(&self) -> Self::TD3DType;
-}
-
-pub struct SD3DFlags32<T: TD3DFlags32 + Copy> {
-    raw: T::TD3DType,
-}
-
-impl<T: TD3DFlags32 + Copy> From<T> for SD3DFlags32<T> {
-    fn from(flag: T) -> Self {
-        Self::none().or(flag)
-    }
-}
-
-impl<T: TD3DFlags32 + Copy> Clone for SD3DFlags32<T> {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-
-impl<T: TD3DFlags32 + Copy> Copy for SD3DFlags32<T> {}
-
-impl<T: TD3DFlags32 + Copy> SD3DFlags32<T> {
-    pub fn none() -> Self {
-        Self {
-            raw: T::TD3DType::from(0),
-        }
-    }
-
-    pub fn all() -> Self {
-        Self {
-            raw: T::TD3DType::from(std::u32::MAX),
-        }
-    }
-
-    pub fn create(flags: &[T]) -> Self {
-        let mut result = Self::none();
-        for flag in flags {
-            result = result.or(*flag);
-        }
-        result
-    }
-
-    pub fn and(&self, other: T) -> Self {
-        let a: u32 = self.raw.into();
-        let b: u32 = other.d3dtype().into();
-        let res: u32 = a & b;
-        Self {
-            raw: T::TD3DType::from(res),
-        }
-    }
-
-    pub fn or(&self, other: T) -> Self {
-        let a: u32 = self.raw.into();
-        let b: u32 = other.d3dtype().into();
-        let res: u32 = a | b;
-        Self {
-            raw: T::TD3DType::from(res),
-        }
-    }
-
-    pub fn d3dtype(&self) -> T::TD3DType {
-        self.raw
     }
 }
 
@@ -348,7 +281,7 @@ pub fn d3dcompilefromfile(
             ptr::null_mut(),
             entrypointparam.as_ptr() as *const i8,
             targetparam.as_ptr() as *const i8,
-            flags1.d3dtype(),
+            flags1.rawtype(),
             0,
             &mut rawcodeblob,
             &mut errormsgsblob,

@@ -18,6 +18,7 @@ mod typeyd3d12;
 mod utils;
 mod enumflags;
 mod camera;
+mod model;
 
 // -- std includes
 use std::cell::RefCell;
@@ -28,21 +29,10 @@ use arrayvec::ArrayVec;
 
 use niced3d12 as n12;
 use typeyd3d12 as t12;
-use allocate::{SMemVec, SYSTEM_ALLOCATOR};
 
 #[allow(dead_code)]
 type SMat44 = nalgebra::Matrix4<f32>;
-//type SPnt3 = nalgebra::Point3<f32>;
 type SVec3 = nalgebra::Vector3<f32>;
-type SVec2 = nalgebra::Vector2<f32>;
-//type SVec4 = nalgebra::Vector4<f32>;
-
-#[allow(dead_code)]
-struct SVertexPosColourUV {
-    position: SVec3,
-    colour: SVec3,
-    uv: SVec2,
-}
 
 pub struct SInput {
     w: bool,
@@ -116,109 +106,6 @@ fn init_depth_texture(
     Ok(_depth_texture_resource)
 }
 
-#[allow(dead_code)]
-fn load_model_data_hard_coded() -> (SMemVec<'static, SVertexPosColourUV>, SMemVec<'static, u16>) {
-
-    let mut vert_vec = SMemVec::<SVertexPosColourUV>::new(&SYSTEM_ALLOCATOR, 32, 0).unwrap();
-    let mut index_vec = SMemVec::<u16>::new(&SYSTEM_ALLOCATOR, 36, 0).unwrap();
-
-    vert_vec.push(SVertexPosColourUV {
-        position: SVec3::new(-1.0, -1.0, -1.0),
-        colour: SVec3::new(0.0, 0.0, 0.0),
-        uv: SVec2::new(0.0, 0.0),
-    });
-    vert_vec.push(SVertexPosColourUV {
-        position: SVec3::new(-1.0, 1.0, -1.0),
-        colour: SVec3::new(0.0, 1.0, 0.0),
-        uv: SVec2::new(0.0, 1.0),
-    });
-    vert_vec.push(SVertexPosColourUV {
-        position: SVec3::new(1.0, 1.0, -1.0),
-        colour: SVec3::new(1.0, 1.0, 0.0),
-        uv: SVec2::new(1.0, 1.0),
-    });
-    vert_vec.push(SVertexPosColourUV {
-        position: SVec3::new(1.0, -1.0, -1.0),
-        colour: SVec3::new(1.0, 0.0, 0.0),
-        uv: SVec2::new(1.0, 0.0),
-    });
-    vert_vec.push(SVertexPosColourUV {
-        position: SVec3::new(-1.0, -1.0, 1.0),
-        colour: SVec3::new(0.0, 0.0, 1.0),
-        uv: SVec2::new(0.0, 0.0),
-    });
-    vert_vec.push(SVertexPosColourUV {
-        position: SVec3::new(-1.0, 1.0, 1.0),
-        colour: SVec3::new(0.0, 1.0, 1.0),
-        uv: SVec2::new(0.0, 1.0),
-    });
-    vert_vec.push(SVertexPosColourUV {
-        position: SVec3::new(1.0, 1.0, 1.0),
-        colour: SVec3::new(1.0, 1.0, 1.0),
-        uv: SVec2::new(1.0, 1.0),
-    });
-    vert_vec.push(SVertexPosColourUV {
-        position: SVec3::new(1.0, -1.0, 1.0),
-        colour: SVec3::new(1.0, 0.0, 1.0),
-        uv: SVec2::new(1.0, 0.0),
-    });
-
-    #[rustfmt::skip]
-    let indices : [u16; 36] = [
-        0, 1, 2,
-        0, 2, 3,
-        4, 6, 5,
-        4, 7, 6,
-        4, 5, 1,
-        4, 1, 0,
-        3, 2, 6,
-        3, 6, 7,
-        1, 5, 6,
-        1, 6, 2,
-        4, 0, 3,
-        4, 3, 7
-    ];
-
-    for idx in indices.iter() {
-        index_vec.push(*idx);
-    }
-
-    (vert_vec, index_vec)
-}
-
-fn load_model_data_obj() -> (SMemVec<'static, SVertexPosColourUV>, SMemVec<'static, u16>) {
-    let mut vert_vec = SMemVec::<SVertexPosColourUV>::new(&SYSTEM_ALLOCATOR, 32, 0).unwrap();
-    let mut index_vec = SMemVec::<u16>::new(&SYSTEM_ALLOCATOR, 36, 0).unwrap();
-
-    let (models, _materials) = tobj::load_obj(&std::path::Path::new("assets/first_test_asset.obj")).unwrap();
-
-    for model in models {
-        assert!(model.mesh.positions.len() % 3 == 0);
-        assert!(model.mesh.texcoords.len() / 2 == model.mesh.positions.len() / 3);
-
-        for vidx in 0..model.mesh.positions.len() / 3 {
-            vert_vec.push(SVertexPosColourUV {
-                position: SVec3::new(
-                    model.mesh.positions[vidx * 3],
-                    model.mesh.positions[vidx * 3 + 1],
-                    model.mesh.positions[vidx * 3 + 2],
-                ),
-                colour: SVec3::new(1.0, 1.0, 1.0),
-                uv: SVec2::new(
-                    model.mesh.texcoords[vidx * 2],
-                    model.mesh.texcoords[vidx * 2 + 1],
-                ),
-            });
-        }
-
-        for idx in model.mesh.indices {
-            index_vec.push(idx as u16);
-        }
-    }
-
-    (vert_vec, index_vec)
-}
-
 fn main_d3d12() -> Result<(), &'static str> {
     // -- initialize debug
     let debuginterface = t12::SDebugInterface::new()?;
@@ -267,12 +154,12 @@ fn main_d3d12() -> Result<(), &'static str> {
         device.create_descriptor_heap(&desc)?
     };
 
-    let mut srv_heap = n12::descriptorallocator::SDescriptorAllocator::new(
+    let srv_heap = RefCell::new(n12::descriptorallocator::SDescriptorAllocator::new(
         &device,
         32,
         t12::EDescriptorHeapType::ConstantBufferShaderResourceUnorderedAccess,
         t12::SDescriptorHeapFlags::from(t12::EDescriptorHeapFlags::ShaderVisible),
-    )?;
+    )?);
 
     let mut viewport = t12::SViewport::new(
         0.0,
@@ -289,100 +176,7 @@ fn main_d3d12() -> Result<(), &'static str> {
         bottom: std::i32::MAX,
     };
 
-    // -- get vertex and index data into resources/views
-    let (
-        _vert_buffer_resource,
-        vert_buffer_view,
-        _index_buffer_resource,
-        index_buffer_view,
-        indiceslen,
-    ) = {
-
-        //let (vert_vec, index_vec) = load_model_data_hard_coded();
-        let (vert_vec, index_vec) = load_model_data_obj();
-
-        // -- upload data to GPU
-        let handle = copycommandpool.alloc_list()?;
-        let copycommandlist = copycommandpool.get_list(handle)?;
-
-        let vertbufferresource = {
-            let vertbufferflags = t12::SResourceFlags::from(t12::EResourceFlags::ENone);
-            copycommandlist.update_buffer_resource(&device, vert_vec.as_slice(), vertbufferflags)?
-        };
-        let vertexbufferview = vertbufferresource
-            .destinationresource
-            .create_vertex_buffer_view()?;
-
-        let indexbufferresource = {
-            let indexbufferflags = t12::SResourceFlags::from(t12::EResourceFlags::ENone);
-            copycommandlist.update_buffer_resource(&device, index_vec.as_slice(), indexbufferflags)?
-        };
-        let indexbufferview = indexbufferresource
-            .destinationresource
-            .create_index_buffer_view(t12::EDXGIFormat::R16UINT)?;
-
-        let fenceval = copycommandpool.execute_and_free_list(handle)?;
-        copycommandpool.wait_for_internal_fence_value(fenceval);
-
-        (
-            vertbufferresource,
-            vertexbufferview,
-            indexbufferresource,
-            indexbufferview,
-            index_vec.len(),
-        )
-    };
-
-    // -- load texture resource
-    let texture_resource = {
-        let handle = copycommandpool.alloc_list()?;
-        let copycommandlist = copycommandpool.get_list(handle)?;
-
-        let (_intermediate_resource, resource) = n12::load_texture(&device, copycommandlist, "assets/first_test_texture.tga");
-
-        let fenceval = copycommandpool.execute_and_free_list(handle)?;
-        copycommandpool.wait_for_internal_fence_value(fenceval);
-
-        resource
-    };
-
-    // -- transition texture to PixelShaderResource
-    {
-        let handle = directcommandpool.alloc_list()?;
-        let list = directcommandpool.get_list(handle)?;
-
-        list.transition_resource(
-            &texture_resource,
-            t12::EResourceStates::CopyDest,
-            t12::EResourceStates::PixelShaderResource,
-        )
-        .unwrap();
-
-        let fenceval = directcommandpool.execute_and_free_list(handle)?;
-        directcommandpool.wait_for_internal_fence_value(fenceval);
-    }
-
-    // -- get texture SRV
-    let texture_srv = {
-        let srv_desc = t12::SShaderResourceViewDesc {
-            format: t12::EDXGIFormat::R8G8B8A8UNorm,
-            view: t12::ESRV::Texture2D {
-                data: t12::STex2DSRV {
-                    mip_levels: 1,
-                    ..Default::default()
-                },
-            },
-        };
-
-        let descriptors = srv_heap.alloc(1)?;
-        device.create_shader_resource_view(
-            &texture_resource,
-            &srv_desc,
-            descriptors.cpu_descriptor(0),
-        )?;
-
-        descriptors
-    };
+    let model = model::SModel::new_from_obj("assets/first_test_asset.obj", &device, &mut copycommandpool, &mut directcommandpool, &srv_heap)?;
 
     // -- load shaders
     let vertblob = t12::read_file_to_blob("shaders_built/vertex.cso")?;
@@ -626,8 +420,8 @@ fn main_d3d12() -> Result<(), &'static str> {
 
                 // -- setup input assembler
                 list.ia_set_primitive_topology(t12::EPrimitiveTopology::TriangleList);
-                list.ia_set_vertex_buffers(0, &[&vert_buffer_view]);
-                list.ia_set_index_buffer(&index_buffer_view);
+                list.ia_set_vertex_buffers(0, &[&model.vertex_buffer_view]);
+                list.ia_set_index_buffer(&model.index_buffer_view);
 
                 // -- setup rasterizer state
                 list.rs_set_viewports(&[&viewport]);
@@ -640,17 +434,13 @@ fn main_d3d12() -> Result<(), &'static str> {
                 let mvp = perspective_matrix * view_matrix * model_matrix;
                 list.set_graphics_root_32_bit_constants(0, &mvp, 0);
 
-                list.set_descriptor_heaps(&[&srv_heap.raw_heap()]);
-                list.set_graphics_root_descriptor_table(1, &texture_srv.gpu_descriptor(0));
-
-                /*
-                let test_vert = SPnt3::new(1.0, 0.0, 0.0);
-                let test_vert_xformed = perspective_matrix * view_matrix * model_matrix * test_vert.to_homogeneous();
-                println!("Vert: {}", test_vert_xformed);
-                */
+                list.set_descriptor_heaps(&[&srv_heap.borrow().raw_heap()]);
+                list.set_graphics_root_descriptor_table(1, &model.texture_srv.gpu_descriptor(0));
 
                 // -- draw
-                list.draw_indexed_instanced(indiceslen as u32, 1, 0, 0, 0);
+                list.draw_indexed_instanced(model.triangle_indices.len() as u32, 1, 0, 0, 0);
+
+                //model.render(list, &(perspective_matrix * view_matrix), &model_matrix);
 
                 // -- transition to present
                 list.transition_resource(
@@ -708,7 +498,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                     },
                     safewindows::EMsgType::Input{ raw_input } => {
                         if let safewindows::rawinput::ERawInputData::Mouse{data} = raw_input.data {
-                            //println!("Raw Mouse: {}, {}", data.last_x, data.last_y);
+                            //println!("Frame {}: Raw Mouse: {}, {}", _framecount, data.last_x, data.last_y);
                             input.mouse_dx = data.last_x;
                             input.mouse_dy = data.last_y;
                         }
@@ -761,8 +551,6 @@ fn main_d3d12() -> Result<(), &'static str> {
 
     // -- wait for all commands to clear
     commandqueue.borrow_mut().flush_blocking()?;
-
-    srv_heap.free(texture_srv);
 
     Ok(())
 }

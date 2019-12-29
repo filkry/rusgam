@@ -125,6 +125,7 @@ impl SDevice {
         Ok(SResource {
             raw: destinationresource,
             metadata: EResourceMetadata::Texture2DResource,
+            debug_name: arrayvec::ArrayVec::new(),
         })
     }
 
@@ -151,6 +152,7 @@ impl SDevice {
                 count: num_items,
                 sizeofentry: size_of_item,
             },
+            debug_name: arrayvec::ArrayVec::new(),
         })
     }
 
@@ -218,6 +220,7 @@ impl SDevice {
                     let resource = SResource {
                         raw: rawresource,
                         metadata: EResourceMetadata::SwapChainResource,
+                        debug_name: arrayvec::ArrayVec::new(),
                     };
 
                     swap_chain.backbuffers.push(resource);

@@ -116,7 +116,7 @@ pub mod manager {
             Ok(allocation)
         }
 
-        pub fn free(&mut self, mut alloc: SAllocation) {
+        pub fn free(&mut self, alloc: &mut SAllocation) {
             let mut chunk_idx = self.free_chunks.len();
             for (i, chunk) in (&self.free_chunks).iter().enumerate() {
                 if chunk.start_offset > alloc.start_offset {
@@ -188,11 +188,11 @@ pub mod manager {
     fn test_basic() {
         let mut allocator = SManager::new(100);
 
-        let allocation = allocator.alloc(1, 1).unwrap();
+        let mut allocation = allocator.alloc(1, 1).unwrap();
         assert_eq!(allocation.start_offset, 0);
         assert_eq!(allocation.size, 1);
 
-        allocator.free(allocation);
+        allocator.free(&mut allocation);
         assert_eq!(allocator.free_chunks.len(), 1);
         assert_eq!(allocator.free_chunks[0].start_offset, 0);
         assert_eq!(allocator.free_chunks[0].size, 100);
@@ -201,17 +201,17 @@ pub mod manager {
     #[test]
     fn test_multiple() {
         let mut allocator = SManager::new(10);
-        let allocation1 = allocator.alloc(3, 1).unwrap();
+        let mut allocation1 = allocator.alloc(3, 1).unwrap();
         println!("allocation1: {:?}", allocation1);
         assert_eq!(allocator.free_chunks[0].start_offset, 3);
         assert_eq!(allocator.free_chunks[0].size, 7);
 
-        let allocation2 = allocator.alloc(6, 1).unwrap();
+        let mut allocation2 = allocator.alloc(6, 1).unwrap();
         println!("allocation2: {:?}", allocation2);
         assert_eq!(allocator.free_chunks[0].start_offset, 9);
         assert_eq!(allocator.free_chunks[0].size, 1);
 
-        let allocation3 = allocator.alloc(1, 1).unwrap();
+        let mut allocation3 = allocator.alloc(1, 1).unwrap();
         println!("allocation3: {:?}", allocation3);
         assert_eq!(allocator.free_chunks.len(), 0);
 
@@ -219,16 +219,16 @@ pub mod manager {
         assert!(allocation_fail.is_err());
 
         println!("=== free test ===");
-        allocator.free(allocation1);
+        allocator.free(&mut allocation1);
         println!("free_chunks: {:?}", allocator.free_chunks);
-        allocator.free(allocation3);
+        allocator.free(&mut allocation3);
 
         assert_eq!(allocator.free_chunks.len(), 2);
         assert!(allocator.free_chunks[0].start_offset < allocator.free_chunks[1].start_offset);
 
         println!("=== Merge test ===");
         println!("free_chunks: {:?}", allocator.free_chunks);
-        allocator.free(allocation2);
+        allocator.free(&mut allocation2);
 
         assert_eq!(allocator.free_chunks.len(), 1);
         assert_eq!(allocator.free_chunks[0].start_offset, 0);
@@ -239,11 +239,11 @@ pub mod manager {
     fn test_align() {
         let mut allocator = SManager::new(32);
 
-        let allocation1 = allocator.alloc(4, 4).unwrap();
+        let mut allocation1 = allocator.alloc(4, 4).unwrap();
         assert_eq!(allocation1.start_offset, 0);
         assert_eq!(allocation1.size, 4);
 
-        let allocation2 = allocator.alloc(8, 8).unwrap();
+        let mut allocation2 = allocator.alloc(8, 8).unwrap();
         assert_eq!(allocation2.start_offset, 8);
         assert_eq!(allocation2.size, 8);
 
@@ -254,7 +254,7 @@ pub mod manager {
         assert_eq!(allocator.free_chunks[1].start_offset, 16);
         assert_eq!(allocator.free_chunks[1].size, 16);
 
-        allocator.free(allocation1);
+        allocator.free(&mut allocation1);
 
         assert_eq!(allocator.free_chunks.len(), 2);
         assert_eq!(allocator.free_chunks[0].start_offset, 0);
@@ -262,7 +262,7 @@ pub mod manager {
         assert_eq!(allocator.free_chunks[1].start_offset, 16);
         assert_eq!(allocator.free_chunks[1].size, 16);
 
-        allocator.free(allocation2);
+        allocator.free(&mut allocation2);
         assert_eq!(allocator.free_chunks.len(), 1);
     }
 }

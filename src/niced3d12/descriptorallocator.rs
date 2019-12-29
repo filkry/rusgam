@@ -91,14 +91,14 @@ impl SDescriptorAllocator {
         })
     }
 
-    pub fn free(&mut self, allocation: SDescriptorAllocatorAllocation) {
-        self.allocator.free(allocation.allocation);
+    pub fn free(&mut self, allocation: &mut SDescriptorAllocatorAllocation) {
+        self.allocator.free(&mut allocation.allocation);
     }
 
-    pub fn free_on_signal(&mut self, allocation: SDescriptorAllocatorAllocation, signal: u64) {
+    pub fn free_on_signal(&mut self, mut allocation: SDescriptorAllocatorAllocation, signal: u64) {
         if let Some(s) = self.last_signal {
             if signal <= s {
-                self.allocator.free(allocation.allocation);
+                self.allocator.free(&mut allocation.allocation);
                 return;
             }
         }
@@ -117,7 +117,7 @@ impl SDescriptorAllocator {
         while idx < self.pending_frees.len() {
             if self.pending_frees[idx].signal <= signal {
                 self.allocator
-                    .free(self.pending_frees.swap_remove(idx).allocation);
+                    .free(&mut self.pending_frees.swap_remove(idx).allocation);
             } else {
                 idx += 1;
             }

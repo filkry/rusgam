@@ -57,14 +57,14 @@ impl SCamera {
 
         if input.mouse_dy != 0 {
             self.x_angle = super::utils::clamp(
-                self.x_angle + ((input.mouse_dy as f32) / 50.0),
+                self.x_angle + ((input.mouse_dy as f32) / 100.0),
                 -Self::MAX_X_DELTA,
                 Self::MAX_X_DELTA
             );
         }
 
         if input.mouse_dx != 0 {
-            self.y_angle = (self.y_angle + ((input.mouse_dx as f32) / 50.0)) % Self::TWOPI;
+            self.y_angle = (self.y_angle + ((input.mouse_dx as f32) / 100.0)) % Self::TWOPI;
         }
     }
 

@@ -1,5 +1,7 @@
 use super::*;
 
+use arrayvec::ArrayVec;
+
 pub enum EResourceMetadata {
     Invalid,
     SwapChainResource,
@@ -11,6 +13,8 @@ pub struct SResource {
     pub(super) raw: t12::SResource,
 
     pub(super) metadata: EResourceMetadata,
+
+    pub(super) debug_name: ArrayVec<[u16; 32]>,
 }
 
 impl SResource {
@@ -55,6 +59,15 @@ impl SResource {
         unsafe {
             directxgraphicssamples::get_required_intermediate_size(self.raw.raw().as_raw(), 0, 1) as usize
         }
+    }
+
+    pub unsafe fn set_debug_name(&mut self, str_: &'static str) {
+        for ch in str_.encode_utf16() {
+            self.debug_name.push(ch);
+        }
+        self.debug_name.push('\0' as u16);
+
+        self.raw().raw().SetName(&self.debug_name[0]);
     }
 }
 

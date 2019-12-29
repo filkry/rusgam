@@ -1,3 +1,5 @@
+use std::convert::{TryFrom};
+
 use super::*;
 use enumflags::{TEnumFlags32, SEnumFlags32};
 
@@ -117,5 +119,55 @@ pub fn register_raw_input_devices(raw_input_devices: &[SRawInputDevice]) -> Resu
         }
 
         Ok(())
+    }
+}
+
+pub enum ERIMType {
+    Mouse,
+    Keyboard,
+    HID,
+}
+
+impl ERIMType {
+    pub fn wintype(&self) -> DWORD {
+        match self {
+            Self::Mouse => RIM_TYPEMOUSE,
+            Self::Keyboard => RIM_TYPEKEYBOARD,
+            Self::HID => RIM_TYPEHID,
+        }
+    }
+}
+
+impl TryFrom<DWORD> for ERIMType {
+    type Error = &'static str;
+
+    fn try_from(value: DWORD) -> Result<Self, Self::Error> {
+        match value {
+            RIM_TYPEMOUSE => Ok(Self::Mouse),
+            RIM_TYPEKEYBOARD => Ok(Self::Keyboard),
+            RIM_TYPEHID => Ok(Self::HID),
+            _ => Err("invalid RIM_TYPE")
+        }
+    }
+}
+
+// -- $$$FRK(TODO): only implemented types I care about so far
+pub struct SRawInputHeader {
+    type_: ERIMType,
+    size: usize,
+    //handle: SDeviceHandle,
+    //wparam: ???,
+}
+
+impl TryFrom<RAWINPUTHEADER> for SRawInputHeader {
+    type Error = &'static str;
+
+    fn try_from(value: RAWINPUTHEADER) -> Result<Self, Self::Error> {
+        Ok(
+            SRawInputHeader {
+                type_: ERIMType::try_from(value.dwType)?,
+                size: value.dwSize as usize,
+            }
+        )
     }
 }

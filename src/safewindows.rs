@@ -379,12 +379,24 @@ impl<'windows> SWindowClass<'windows> {
 #[derive(Copy, Clone)]
 pub enum EKey {
     Invalid,
+    A,
+    C,
+    D,
     Q,
+    S,
+    W,
+    Space,
 }
 
 pub fn translatewmkey(key: winapi::shared::minwindef::WPARAM) -> EKey {
     match key {
+        0x20 => EKey::Space,
+        0x41 => EKey::A,
+        0x43 => EKey::C,
+        0x44 => EKey::D,
         0x51 => EKey::Q,
+        0x53 => EKey::S,
+        0x57 => EKey::W,
         _ => EKey::Invalid,
     }
 }
@@ -393,6 +405,7 @@ pub fn translatewmkey(key: winapi::shared::minwindef::WPARAM) -> EKey {
 pub enum EMsgType {
     Invalid,
     KeyDown { key: EKey },
+    KeyUp { key: EKey },
     Paint,
     Size,
 }
@@ -400,6 +413,9 @@ pub enum EMsgType {
 pub fn msgtype(msg: UINT, wparam: WPARAM, _lparam: LPARAM) -> EMsgType {
     match msg {
         winapi::um::winuser::WM_KEYDOWN => EMsgType::KeyDown {
+            key: translatewmkey(wparam),
+        },
+        winapi::um::winuser::WM_KEYUP => EMsgType::KeyUp {
             key: translatewmkey(wparam),
         },
         winapi::um::winuser::WM_PAINT => EMsgType::Paint,

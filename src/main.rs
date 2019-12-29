@@ -525,7 +525,7 @@ fn main_d3d12() -> Result<(), &'static str> {
     let start_time = winapi.curtimemicroseconds();
     let rot_axis = SVec3::new(0.0, 1.0, 0.0);
 
-    let view_matrix = {
+    let mut view_matrix = {
         let eye_position = SPnt3::new(0.0, 0.0, -10.0);
         let target_position = SPnt3::new(0.0, 0.0, 0.0);
         let up_direction = SVec3::y();
@@ -533,10 +533,29 @@ fn main_d3d12() -> Result<(), &'static str> {
         SMat44::look_at_lh(&eye_position, &target_position, &up_direction)
     };
 
+    struct SInput {
+        w: bool,
+        a: bool,
+        s: bool,
+        d: bool,
+        space: bool,
+        c: bool,
+    };
+
+    let mut input = SInput{
+        w: false,
+        a: false,
+        s: false,
+        d: false,
+        space: false,
+        c: false,
+    };
+
     while !shouldquit {
         let curframetime = winapi.curtimemicroseconds();
         let dt = curframetime - lastframetime;
         let _dtms = dt as f64;
+        let dts = (dt as f32) / 1_000_000.0;
 
         let total_time = curframetime - start_time;
 
@@ -553,6 +572,37 @@ fn main_d3d12() -> Result<(), &'static str> {
             //SMat44::new_perspective(aspect, fovy, znear, zfar)
             glm::perspective_lh(aspect, fovy, znear, zfar)
         };
+
+        if input.w {
+            let offset = SVec3::new(0.0, 0.0, -5.0 * dts);
+            let trans_mat = SMat44::new_translation(&offset);
+            view_matrix = view_matrix * trans_mat;
+        }
+        if input.s {
+            let offset = SVec3::new(0.0, 0.0, 5.0 * dts);
+            let trans_mat = SMat44::new_translation(&offset);
+            view_matrix = view_matrix * trans_mat;
+        }
+        if input.a {
+            let offset = SVec3::new(5.0 * dts, 0.0, 0.0);
+            let trans_mat = SMat44::new_translation(&offset);
+            view_matrix = view_matrix * trans_mat;
+        }
+        if input.d {
+            let offset = SVec3::new(-5.0 * dts, 0.0, 0.0);
+            let trans_mat = SMat44::new_translation(&offset);
+            view_matrix = view_matrix * trans_mat;
+        }
+        if input.space {
+            let offset = SVec3::new(0.0, -5.0 * dts, 0.0);
+            let trans_mat = SMat44::new_translation(&offset);
+            view_matrix = view_matrix * trans_mat;
+        }
+        if input.c {
+            let offset = SVec3::new(0.0, 5.0 * dts, 0.0);
+            let trans_mat = SMat44::new_translation(&offset);
+            view_matrix = view_matrix * trans_mat;
+        }
 
         //println!("View: {}", view_matrix);
         //println!("Perspective: {}", perspective_matrix);
@@ -663,6 +713,21 @@ fn main_d3d12() -> Result<(), &'static str> {
                             shouldquit = true;
                             //println!("Q keydown");
                         }
+                        safewindows::EKey::W => input.w = true,
+                        safewindows::EKey::A => input.a = true,
+                        safewindows::EKey::S => input.s = true,
+                        safewindows::EKey::D => input.d = true,
+                        safewindows::EKey::Space => input.space = true,
+                        safewindows::EKey::C => input.c = true,
+                        _ => (),
+                    },
+                    safewindows::EMsgType::KeyUp { key } => match key {
+                        safewindows::EKey::W => input.w = false,
+                        safewindows::EKey::A => input.a = false,
+                        safewindows::EKey::S => input.s = false,
+                        safewindows::EKey::D => input.d = false,
+                        safewindows::EKey::Space => input.space = false,
+                        safewindows::EKey::C => input.c = false,
                         _ => (),
                     },
                     safewindows::EMsgType::Size => {

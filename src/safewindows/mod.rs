@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 use std::{cmp, fmt, mem, ptr};
+use std::convert::TryFrom;
 
 // -- $$$FRK(TODO): I feel very slightly guilty about all these wildcard uses
 use winapi::shared::basetsd::*;
@@ -410,10 +411,10 @@ pub enum EMsgType {
     KeyUp { key: EKey },
     Paint,
     Size,
-    Input,
+    Input { raw_input: rawinput::SRawInput },
 }
 
-pub fn msgtype(msg: UINT, wparam: WPARAM, _lparam: LPARAM) -> EMsgType {
+pub fn msgtype(msg: UINT, wparam: WPARAM, lparam: LPARAM) -> EMsgType {
     match msg {
         winapi::um::winuser::WM_KEYDOWN => EMsgType::KeyDown {
             key: translatewmkey(wparam),
@@ -423,7 +424,34 @@ pub fn msgtype(msg: UINT, wparam: WPARAM, _lparam: LPARAM) -> EMsgType {
         },
         winapi::um::winuser::WM_PAINT => EMsgType::Paint,
         winapi::um::winuser::WM_SIZE => EMsgType::Size,
-        winapi::um::winuser::WM_INPUT => EMsgType::Input,
+        winapi::um::winuser::WM_INPUT => {
+            const RI_SIZE : u32 = std::mem::size_of::<RAWINPUT>() as u32;
+            const RI_HEADER_SIZE : u32 = std::mem::size_of::<RAWINPUTHEADER>() as u32;
+
+            let mut bytes : [u8; RI_SIZE as usize] = [0; RI_SIZE as usize];
+
+            unsafe {
+
+                let result = GetRawInputData(
+                    lparam as HRAWINPUT,
+                    RID_INPUT,
+                    &mut bytes[0] as *mut u8 as *mut winapi::ctypes::c_void,
+                    &mut RI_SIZE,
+                    RI_HEADER_SIZE
+                );
+
+                if result == std::u32::MAX {
+                    panic!("Bad message.");
+                }
+
+                let raw : *mut RAWINPUT = &mut bytes[0] as *mut u8 as *mut RAWINPUT;
+
+                let raw_input = rawinput::SRawInput::try_from(*raw).unwrap();
+
+                EMsgType::Input { raw_input }
+
+            }
+        },
         _ => EMsgType::Invalid,
     }
 }

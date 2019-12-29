@@ -4,9 +4,11 @@ use super::*;
 use enumflags::{TEnumFlags32, SEnumFlags32};
 
 use arrayvec::ArrayVec;
+use bitflags::*;
 
 use winapi::shared::hidusage::*;
 use winapi::shared::ntdef::NULL;
+use winapi::um::winuser::RAWMOUSE;
 
 pub enum EUsagePage {
     Generic,
@@ -122,6 +124,7 @@ pub fn register_raw_input_devices(raw_input_devices: &[SRawInputDevice]) -> Resu
     }
 }
 
+#[derive(Copy, Clone)]
 pub enum ERIMType {
     Mouse,
     Keyboard,
@@ -152,6 +155,7 @@ impl TryFrom<DWORD> for ERIMType {
 }
 
 // -- $$$FRK(TODO): only implemented types I care about so far
+#[derive(Copy, Clone)]
 pub struct SRawInputHeader {
     type_: ERIMType,
     size: usize,
@@ -169,5 +173,89 @@ impl TryFrom<RAWINPUTHEADER> for SRawInputHeader {
                 size: value.dwSize as usize,
             }
         )
+    }
+}
+
+bitflags! {
+    struct SRawMouseFlags: USHORT {
+        const ATTRIBUTES_CHANGED = MOUSE_ATTRIBUTES_CHANGED;
+        const MOVE_RELATIVE = MOUSE_MOVE_RELATIVE;
+        const MOVE_ABSOLUTE = MOUSE_MOVE_ABSOLUTE;
+        const VIRTUAL_DESKTOP = MOUSE_VIRTUAL_DESKTOP;
+    }
+}
+
+bitflags! {
+    struct SRIMouseButtonFlags: USHORT {
+        const LEFT_BUTTON_DOWN = RI_MOUSE_LEFT_BUTTON_DOWN;
+        const LEFT_BUTTON_UP = RI_MOUSE_LEFT_BUTTON_UP;
+        const MIDDLE_BUTTON_DOWN = RI_MOUSE_MIDDLE_BUTTON_DOWN;
+        const MIDDLE_BUTTON_UP = RI_MOUSE_MIDDLE_BUTTON_UP;
+        const RIGHT_BUTTON_DOWN = RI_MOUSE_RIGHT_BUTTON_DOWN;
+        const RIGHT_BUTTON_UP = RI_MOUSE_RIGHT_BUTTON_UP;
+        const BUTTON_1_DOWN = RI_MOUSE_BUTTON_1_DOWN;
+        const BUTTON_1_UP = RI_MOUSE_BUTTON_1_UP;
+        const BUTTON_2_DOWN = RI_MOUSE_BUTTON_2_DOWN;
+        const BUTTON_2_UP = RI_MOUSE_BUTTON_2_UP;
+        const BUTTON_3_DOWN = RI_MOUSE_BUTTON_3_DOWN;
+        const BUTTON_3_UP = RI_MOUSE_BUTTON_3_UP;
+        const BUTTON_4_DOWN = RI_MOUSE_BUTTON_4_DOWN;
+        const BUTTON_4_UP = RI_MOUSE_BUTTON_4_UP;
+        const BUTTON_5_DOWN = RI_MOUSE_BUTTON_5_DOWN;
+        const BUTTON_5_UP = RI_MOUSE_BUTTON_5_UP;
+        const MOUSE_WHEEL = RI_MOUSE_WHEEL;
+    }
+}
+
+#[derive(Copy, Clone)]
+pub struct SRawMouse {
+    flags: SRawMouseFlags,
+    button_flags: SRIMouseButtonFlags,
+    //u32: raw_buttons,
+    last_x: i32,
+    last_y: i32,
+}
+
+impl TryFrom<&RAWMOUSE> for SRawMouse {
+    type Error = &'static str;
+
+    fn try_from(value: &RAWMOUSE) -> Result<Self, Self::Error> {
+        Ok(Self {
+            flags: SRawMouseFlags::from_bits(value.usFlags).ok_or("Invalid flag bits.")?,
+            button_flags: SRIMouseButtonFlags::from_bits(value.usButtonFlags).ok_or("Invalid button flag bits.")?,
+            last_x: value.lLastX,
+            last_y: value.lLastY,
+        })
+    }
+}
+
+#[derive(Copy, Clone)]
+pub enum ERawInputData {
+    Invalid,
+    Mouse{ data: SRawMouse },
+}
+
+#[derive(Copy, Clone)]
+pub struct SRawInput {
+    header: SRawInputHeader,
+    data: ERawInputData,
+}
+
+impl TryFrom<RAWINPUT> for SRawInput {
+    type Error = &'static str;
+
+    fn try_from(value: RAWINPUT) -> Result<Self, Self::Error> {
+        let header = SRawInputHeader::try_from(value.header)?;
+        let header_type = header.type_;
+        Ok(Self {
+            header: header,
+            data: match header_type {
+                ERIMType::Mouse => ERawInputData::Mouse {
+                    data: SRawMouse::try_from(unsafe { value.data.mouse() })?,
+                },
+                ERIMType::Keyboard => ERawInputData::Invalid,
+                ERIMType::HID => ERawInputData::Invalid,
+            }
+        })
     }
 }

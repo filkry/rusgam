@@ -11,3 +11,4 @@ nalgebra-glm = { version = "0.5.0" }
 arrayvec = { version = "0.5.1" }
 tinytga = { version = "0.2.0" }
 tobj = { version = "0.1.11" }
+bitflags = { version = "1.2.1" }

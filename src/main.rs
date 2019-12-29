@@ -5,6 +5,7 @@ extern crate tinytga;
 extern crate tobj;
 extern crate winapi;
 extern crate wio;
+extern crate bitflags;
 
 //mod math;
 mod allocate;
@@ -103,7 +104,7 @@ fn init_depth_texture(
     Ok(_depth_texture_resource)
 }
 
-
+#[allow(dead_code)]
 fn load_model_data_hard_coded() -> (SMemVec<'static, SVertexPosColourUV>, SMemVec<'static, u16>) {
 
     let mut vert_vec = SMemVec::<SVertexPosColourUV>::new(&SYSTEM_ALLOCATOR, 32, 0).unwrap();
@@ -731,7 +732,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                         safewindows::EKey::C => input.c = false,
                         _ => (),
                     },
-                    safewindows::EMsgType::Input => {
+                    safewindows::EMsgType::Input{ raw_input } => {
                         println!("Got raw input message!");
                     },
                     safewindows::EMsgType::Size => {

@@ -177,7 +177,7 @@ impl TryFrom<RAWINPUTHEADER> for SRawInputHeader {
 }
 
 bitflags! {
-    struct SRawMouseFlags: USHORT {
+    pub struct SRawMouseFlags: USHORT {
         const ATTRIBUTES_CHANGED = MOUSE_ATTRIBUTES_CHANGED;
         const MOVE_RELATIVE = MOUSE_MOVE_RELATIVE;
         const MOVE_ABSOLUTE = MOUSE_MOVE_ABSOLUTE;
@@ -186,7 +186,7 @@ bitflags! {
 }
 
 bitflags! {
-    struct SRIMouseButtonFlags: USHORT {
+    pub struct SRIMouseButtonFlags: USHORT {
         const LEFT_BUTTON_DOWN = RI_MOUSE_LEFT_BUTTON_DOWN;
         const LEFT_BUTTON_UP = RI_MOUSE_LEFT_BUTTON_UP;
         const MIDDLE_BUTTON_DOWN = RI_MOUSE_MIDDLE_BUTTON_DOWN;
@@ -209,11 +209,11 @@ bitflags! {
 
 #[derive(Copy, Clone)]
 pub struct SRawMouse {
-    flags: SRawMouseFlags,
-    button_flags: SRIMouseButtonFlags,
+    pub flags: SRawMouseFlags,
+    pub button_flags: SRIMouseButtonFlags,
     //u32: raw_buttons,
-    last_x: i32,
-    last_y: i32,
+    pub last_x: i32,
+    pub last_y: i32,
 }
 
 impl TryFrom<&RAWMOUSE> for SRawMouse {
@@ -237,8 +237,8 @@ pub enum ERawInputData {
 
 #[derive(Copy, Clone)]
 pub struct SRawInput {
-    header: SRawInputHeader,
-    data: ERawInputData,
+    pub header: SRawInputHeader,
+    pub data: ERawInputData,
 }
 
 impl TryFrom<RAWINPUT> for SRawInput {

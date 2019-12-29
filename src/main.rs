@@ -542,6 +542,8 @@ fn main_d3d12() -> Result<(), &'static str> {
         d: bool,
         space: bool,
         c: bool,
+        mouse_dx: i32,
+        mouse_dy: i32,
     };
 
     let mut input = SInput{
@@ -551,6 +553,9 @@ fn main_d3d12() -> Result<(), &'static str> {
         d: false,
         space: false,
         c: false,
+
+        mouse_dx: 0,
+        mouse_dy: 0,
     };
 
     while !shouldquit {
@@ -604,6 +609,12 @@ fn main_d3d12() -> Result<(), &'static str> {
             let offset = SVec3::new(0.0, 5.0 * dts, 0.0);
             let trans_mat = SMat44::new_translation(&offset);
             view_matrix = view_matrix * trans_mat;
+        }
+
+        if input.mouse_dx != 0 {
+            let rotate_mat = glm::rotation((input.mouse_dx as f32) / -50.0, &SVec3::new(0.0, 1.0, 0.0));
+            view_matrix = rotate_mat * view_matrix;
+            input.mouse_dx = 0;
         }
 
         //println!("View: {}", view_matrix);
@@ -733,7 +744,11 @@ fn main_d3d12() -> Result<(), &'static str> {
                         _ => (),
                     },
                     safewindows::EMsgType::Input{ raw_input } => {
-                        println!("Got raw input message!");
+                        if let safewindows::rawinput::ERawInputData::Mouse{data} = raw_input.data {
+                            //println!("Raw Mouse: {}, {}", data.last_x, data.last_y);
+                            input.mouse_dx = data.last_x;
+                            input.mouse_dy = data.last_y;
+                        }
                     },
                     safewindows::EMsgType::Size => {
                         //println!("Size");

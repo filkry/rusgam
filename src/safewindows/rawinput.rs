@@ -91,7 +91,7 @@ impl<'a> SRawInputDevice<'a> {
     }
 }
 
-pub fn register_raw_input_devices(raw_input_devices: &[SRawInputDevice]) {
+pub fn register_raw_input_devices(raw_input_devices: &[SRawInputDevice]) -> Result<(), &'static str> {
     assert!(raw_input_devices.len() <= 4);
     let mut temp : ArrayVec<[RAWINPUTDEVICE; 4]>= ArrayVec::new();
 
@@ -101,11 +101,21 @@ pub fn register_raw_input_devices(raw_input_devices: &[SRawInputDevice]) {
         }
 
         if temp.len() > 0 {
-            winapi::um::winuser::RegisterRawInputDevices(
+            let result = winapi::um::winuser::RegisterRawInputDevices(
                 temp.as_mut_ptr(),
                 temp.len() as u32,
                 std::mem::size_of_val(&temp[0]) as u32,
             );
+
+            if result == TRUE {
+                return Ok(());
+            }
+            else {
+                let _err = winapi::um::errhandlingapi::GetLastError();
+                return Err("failed to register input devices.");
+            }
         }
+
+        Ok(())
     }
 }

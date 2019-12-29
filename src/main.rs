@@ -731,6 +731,9 @@ fn main_d3d12() -> Result<(), &'static str> {
                         safewindows::EKey::C => input.c = false,
                         _ => (),
                     },
+                    safewindows::EMsgType::Input => {
+                        println!("Got raw input message!");
+                    },
                     safewindows::EMsgType::Size => {
                         //println!("Size");
                         let rect: safewindows::SRect = window.raw().getclientrect()?;

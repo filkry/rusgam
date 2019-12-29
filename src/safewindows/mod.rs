@@ -410,6 +410,7 @@ pub enum EMsgType {
     KeyUp { key: EKey },
     Paint,
     Size,
+    Input,
 }
 
 pub fn msgtype(msg: UINT, wparam: WPARAM, _lparam: LPARAM) -> EMsgType {
@@ -422,6 +423,7 @@ pub fn msgtype(msg: UINT, wparam: WPARAM, _lparam: LPARAM) -> EMsgType {
         },
         winapi::um::winuser::WM_PAINT => EMsgType::Paint,
         winapi::um::winuser::WM_SIZE => EMsgType::Size,
+        winapi::um::winuser::WM_INPUT => EMsgType::Input,
         _ => EMsgType::Invalid,
     }
 }

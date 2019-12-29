@@ -58,11 +58,11 @@ impl SD3D12Window {
             let dev = SRawInputDevice {
                 usage_page: EUsagePage::Generic,
                 usage: EUsage::GenericMouse,
-                flags: SRIDEV::from(ERIDEV::InputSink).or(ERIDEV::CaptureMouse),
+                flags: SRIDEV::from(ERIDEV::InputSink),
                 target: Some(window.raw()),
             };
 
-            register_raw_input_devices(&[dev]);
+            register_raw_input_devices(&[dev])?;
         }
 
         Ok(Self {

@@ -10,3 +10,14 @@ pub fn align_up(size: usize, align: usize) -> usize {
 
     result
 }
+
+pub fn clamp<T: Copy + PartialOrd<T>>(val: T, min: T, max: T) -> T {
+    if val < min {
+        return min;
+    }
+    else if val > max {
+        return max;
+    }
+
+    return val;
+}

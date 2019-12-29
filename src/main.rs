@@ -17,6 +17,7 @@ mod safewindows;
 mod typeyd3d12;
 mod utils;
 mod enumflags;
+mod camera;
 
 // -- std includes
 use std::cell::RefCell;
@@ -31,7 +32,7 @@ use allocate::{SMemVec, SYSTEM_ALLOCATOR};
 
 #[allow(dead_code)]
 type SMat44 = nalgebra::Matrix4<f32>;
-type SPnt3 = nalgebra::Point3<f32>;
+//type SPnt3 = nalgebra::Point3<f32>;
 type SVec3 = nalgebra::Vector3<f32>;
 type SVec2 = nalgebra::Vector2<f32>;
 //type SVec4 = nalgebra::Vector4<f32>;
@@ -41,6 +42,17 @@ struct SVertexPosColourUV {
     position: SVec3,
     colour: SVec3,
     uv: SVec2,
+}
+
+pub struct SInput {
+    w: bool,
+    a: bool,
+    s: bool,
+    d: bool,
+    space: bool,
+    c: bool,
+    mouse_dx: i32,
+    mouse_dy: i32,
 }
 
 #[allow(unused_variables)]
@@ -527,24 +539,7 @@ fn main_d3d12() -> Result<(), &'static str> {
     let start_time = winapi.curtimemicroseconds();
     let rot_axis = SVec3::new(0.0, 1.0, 0.0);
 
-    let mut view_matrix = {
-        let eye_position = SPnt3::new(0.0, 0.0, -10.0);
-        let target_position = SPnt3::new(0.0, 0.0, 0.0);
-        let up_direction = SVec3::y();
-
-        SMat44::look_at_lh(&eye_position, &target_position, &up_direction)
-    };
-
-    struct SInput {
-        w: bool,
-        a: bool,
-        s: bool,
-        d: bool,
-        space: bool,
-        c: bool,
-        mouse_dx: i32,
-        mouse_dy: i32,
-    };
+    let mut camera = camera::SCamera::new(glm::Vec3::new(0.0, 0.0, -10.0));
 
     let mut input = SInput{
         w: false,
@@ -580,42 +575,10 @@ fn main_d3d12() -> Result<(), &'static str> {
             glm::perspective_lh(aspect, fovy, znear, zfar)
         };
 
-        if input.w {
-            let offset = SVec3::new(0.0, 0.0, -5.0 * dts);
-            let trans_mat = SMat44::new_translation(&offset);
-            view_matrix = view_matrix * trans_mat;
-        }
-        if input.s {
-            let offset = SVec3::new(0.0, 0.0, 5.0 * dts);
-            let trans_mat = SMat44::new_translation(&offset);
-            view_matrix = view_matrix * trans_mat;
-        }
-        if input.a {
-            let offset = SVec3::new(5.0 * dts, 0.0, 0.0);
-            let trans_mat = SMat44::new_translation(&offset);
-            view_matrix = view_matrix * trans_mat;
-        }
-        if input.d {
-            let offset = SVec3::new(-5.0 * dts, 0.0, 0.0);
-            let trans_mat = SMat44::new_translation(&offset);
-            view_matrix = view_matrix * trans_mat;
-        }
-        if input.space {
-            let offset = SVec3::new(0.0, -5.0 * dts, 0.0);
-            let trans_mat = SMat44::new_translation(&offset);
-            view_matrix = view_matrix * trans_mat;
-        }
-        if input.c {
-            let offset = SVec3::new(0.0, 5.0 * dts, 0.0);
-            let trans_mat = SMat44::new_translation(&offset);
-            view_matrix = view_matrix * trans_mat;
-        }
-
-        if input.mouse_dx != 0 {
-            let rotate_mat = glm::rotation((input.mouse_dx as f32) / -50.0, &SVec3::new(0.0, 1.0, 0.0));
-            view_matrix = rotate_mat * view_matrix;
-            input.mouse_dx = 0;
-        }
+        camera.update_from_input(&input, dts);
+        input.mouse_dx = 0;
+        input.mouse_dy = 0;
+        let view_matrix = camera.to_view_matrix();
 
         //println!("View: {}", view_matrix);
         //println!("Perspective: {}", perspective_matrix);

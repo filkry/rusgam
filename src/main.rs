@@ -178,6 +178,7 @@ fn main_d3d12() -> Result<(), &'static str> {
 
     let model = model::SModel::new_from_obj("assets/first_test_asset.obj", &device, &mut copycommandpool, &mut directcommandpool, &srv_heap)?;
     let model2 = model::SModel::new_from_obj("assets/first_test_asset.obj", &device, &mut copycommandpool, &mut directcommandpool, &srv_heap)?;
+    let model3 = model::SModel::new_from_obj("assets/test_untextured_flat_colour_cube.obj", &device, &mut copycommandpool, &mut directcommandpool, &srv_heap)?;
 
     // -- load shaders
     let vertblob = t12::read_file_to_blob("shaders_built/vertex.cso")?;
@@ -233,6 +234,18 @@ fn main_d3d12() -> Result<(), &'static str> {
         shader_visibility: t12::EShaderVisibility::Vertex,
     };
 
+    let texture_metadata_root_parameter = t12::SRootParameter {
+        type_: t12::ERootParameterType::E32BitConstants,
+        type_data: t12::ERootParameterTypeData::Constants {
+            constants: t12::SRootConstants {
+                shader_register: 1,
+                register_space: 0,
+                num_32_bit_values: 1,
+            },
+        },
+        shader_visibility: t12::EShaderVisibility::Pixel,
+    };
+
     let texture_root_parameter = {
         let descriptor_range = t12::SDescriptorRange {
             range_type: t12::EDescriptorRangeType::SRV,
@@ -281,6 +294,7 @@ fn main_d3d12() -> Result<(), &'static str> {
 
     let mut root_signature_desc = t12::SRootSignatureDesc::new(root_signature_flags);
     root_signature_desc.parameters.push(mvp_root_parameter);
+    root_signature_desc.parameters.push(texture_metadata_root_parameter);
     root_signature_desc.parameters.push(texture_root_parameter);
     root_signature_desc.static_samplers.push(sampler);
 
@@ -360,6 +374,7 @@ fn main_d3d12() -> Result<(), &'static str> {
         let cur_angle = ((total_time as f32) / 1_000_000.0) * (3.14159 / 4.0);
         let model_matrix = SMat44::new_rotation(rot_axis * cur_angle);
         let model2_matrix = glm::translation(&glm::Vec3::new(1.0, 0.0, 0.0));
+        let model3_matrix = glm::translation(&glm::Vec3::new(0.0, 2.0, 0.0));
 
         let perspective_matrix: SMat44 = {
             let aspect = (window.width() as f32) / (window.height() as f32);
@@ -429,6 +444,7 @@ fn main_d3d12() -> Result<(), &'static str> {
 
                 model.render(list, &(perspective_matrix * view_matrix), &model_matrix);
                 model2.render(list, &(perspective_matrix * view_matrix), &model2_matrix);
+                model3.render(list, &(perspective_matrix * view_matrix), &model3_matrix);
 
                 // -- transition to present
                 list.transition_resource(

@@ -90,6 +90,8 @@ impl<'a> SModel<'a> {
 
             let fenceval = copy_command_pool.execute_and_free_list(handle)?;
             copy_command_pool.wait_for_internal_fence_value(fenceval);
+            copy_command_pool.free_allocators();
+            assert_eq!(copy_command_pool.num_free_allocators(), 2);
 
             // -- debug
             unsafe {
@@ -111,6 +113,8 @@ impl<'a> SModel<'a> {
 
             let fenceval = copy_command_pool.execute_and_free_list(handle)?;
             copy_command_pool.wait_for_internal_fence_value(fenceval);
+            copy_command_pool.free_allocators();
+            assert_eq!(copy_command_pool.num_free_allocators(), 2);
 
             unsafe {
                 _intermediate_resource.set_debug_name("text inter");

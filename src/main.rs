@@ -177,6 +177,7 @@ fn main_d3d12() -> Result<(), &'static str> {
     };
 
     let model = model::SModel::new_from_obj("assets/first_test_asset.obj", &device, &mut copycommandpool, &mut directcommandpool, &srv_heap)?;
+    let model2 = model::SModel::new_from_obj("assets/first_test_asset.obj", &device, &mut copycommandpool, &mut directcommandpool, &srv_heap)?;
 
     // -- load shaders
     let vertblob = t12::read_file_to_blob("shaders_built/vertex.cso")?;
@@ -358,6 +359,7 @@ fn main_d3d12() -> Result<(), &'static str> {
         // -- update
         let cur_angle = ((total_time as f32) / 1_000_000.0) * (3.14159 / 4.0);
         let model_matrix = SMat44::new_rotation(rot_axis * cur_angle);
+        let model2_matrix = glm::translation(&glm::Vec3::new(1.0, 0.0, 0.0));
 
         let perspective_matrix: SMat44 = {
             let aspect = (window.width() as f32) / (window.height() as f32);
@@ -426,6 +428,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                 list.om_set_render_targets(&[&render_target_view], false, &depth_texture_view);
 
                 model.render(list, &(perspective_matrix * view_matrix), &model_matrix);
+                model2.render(list, &(perspective_matrix * view_matrix), &model2_matrix);
 
                 // -- transition to present
                 list.transition_resource(

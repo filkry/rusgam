@@ -20,6 +20,10 @@ impl SFence {
         &self.raw
     }
 
+    pub fn completed_value(&self) -> u64 {
+        self.raw.getcompletedvalue()
+    }
+
     pub fn wait_for_value(&self, val: u64) {
         self.wait_for_value_duration(val, <u64>::max_value())
             .unwrap();

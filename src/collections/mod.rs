@@ -88,6 +88,10 @@ impl<T> SPool<T> {
         self.freelist.is_empty()
     }
 
+    pub fn free_count(&self) -> usize {
+        self.freelist.len()
+    }
+
     pub fn alloc(&mut self) -> Result<SPoolHandle, &'static str> {
         match self.freelist.pop_front() {
             Some(newidx) => {

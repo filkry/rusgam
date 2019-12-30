@@ -60,8 +60,12 @@ impl<'a> SCommandListPool<'a> {
         })
     }
 
-    fn free_allocators(&mut self) {
-        let completedvalue = self.queue.borrow().internal_fence_value();
+    pub fn num_free_allocators(&self) -> usize {
+        return self.allocators.free_count();
+    }
+
+    pub fn free_allocators(&mut self) {
+        let completedvalue = self.activefence.completed_value();
         for alloc in &self.activeallocators {
             if alloc.reusefencevalue <= completedvalue {
                 self.allocators.free(alloc.handle);

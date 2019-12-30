@@ -180,6 +180,8 @@ fn main_d3d12() -> Result<(), &'static str> {
     let model2 = model::SModel::new_from_obj("assets/first_test_asset.obj", &device, &mut copycommandpool, &mut directcommandpool, &srv_heap)?;
     let model3 = model::SModel::new_from_obj("assets/test_untextured_flat_colour_cube.obj", &device, &mut copycommandpool, &mut directcommandpool, &srv_heap)?;
 
+    let room_model = model::SModel::new_from_obj("assets/test_open_room.obj", &device, &mut copycommandpool, &mut directcommandpool, &srv_heap)?;
+
     // -- load shaders
     let vertblob = t12::read_file_to_blob("shaders_built/vertex.cso")?;
     let pixelblob = t12::read_file_to_blob("shaders_built/pixel.cso")?;
@@ -375,6 +377,7 @@ fn main_d3d12() -> Result<(), &'static str> {
         let model_matrix = SMat44::new_rotation(rot_axis * cur_angle);
         let model2_matrix = glm::translation(&glm::Vec3::new(1.0, 0.0, 0.0));
         let model3_matrix = glm::translation(&glm::Vec3::new(0.0, 2.0, 0.0));
+        let room_model_matrix = glm::translation(&glm::Vec3::new(0.0, -2.0, 0.0));
 
         let perspective_matrix: SMat44 = {
             let aspect = (window.width() as f32) / (window.height() as f32);
@@ -445,6 +448,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                 model.render(list, &(perspective_matrix * view_matrix), &model_matrix);
                 model2.render(list, &(perspective_matrix * view_matrix), &model2_matrix);
                 model3.render(list, &(perspective_matrix * view_matrix), &model3_matrix);
+                room_model.render(list, &(perspective_matrix * view_matrix), &room_model_matrix);
 
                 // -- transition to present
                 list.transition_resource(

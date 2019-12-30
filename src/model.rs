@@ -39,10 +39,11 @@ impl<'a> SModel<'a> {
         srv_heap: &'a RefCell<n12::descriptorallocator::SDescriptorAllocator>,
     ) -> Result<Self, &'static str> {
 
-        let mut vert_vec = SMemVec::<SVertexPosColourUV>::new(&SYSTEM_ALLOCATOR, 32, 0).unwrap();
-        let mut index_vec = SMemVec::<u16>::new(&SYSTEM_ALLOCATOR, 36, 0).unwrap();
-
         let (models, materials) = tobj::load_obj(&std::path::Path::new(obj_file)).unwrap();
+        assert_eq!(models.len(), 1);
+
+        let mut vert_vec = SMemVec::<SVertexPosColourUV>::new(&SYSTEM_ALLOCATOR, models[0].mesh.positions.len(), 0).unwrap();
+        let mut index_vec = SMemVec::<u16>::new(&SYSTEM_ALLOCATOR, models[0].mesh.indices.len(), 0).unwrap();
 
         let mut diffuse = Vec3::new(1.0, 0.0, 1.0);
         if materials.len() > 0 {

@@ -418,11 +418,6 @@ fn main_d3d12() -> Result<(), &'static str> {
                 // root signature has to be set explicitly despite being on PSO, according to tutorial
                 list.set_graphics_root_signature(&root_signature.raw());
 
-                // -- setup input assembler
-                list.ia_set_primitive_topology(t12::EPrimitiveTopology::TriangleList);
-                list.ia_set_vertex_buffers(0, &[&model.vertex_buffer_view]);
-                list.ia_set_index_buffer(&model.index_buffer_view);
-
                 // -- setup rasterizer state
                 list.rs_set_viewports(&[&viewport]);
                 list.rs_set_scissor_rects(t12::SScissorRects::create(&[&scissorrect]));
@@ -430,17 +425,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                 // -- setup the output merger
                 list.om_set_render_targets(&[&render_target_view], false, &depth_texture_view);
 
-                // -- update root parameters
-                let mvp = perspective_matrix * view_matrix * model_matrix;
-                list.set_graphics_root_32_bit_constants(0, &mvp, 0);
-
-                list.set_descriptor_heaps(&[&srv_heap.borrow().raw_heap()]);
-                list.set_graphics_root_descriptor_table(1, &model.texture_srv.gpu_descriptor(0));
-
-                // -- draw
-                list.draw_indexed_instanced(model.triangle_indices.len() as u32, 1, 0, 0, 0);
-
-                //model.render(list, &(perspective_matrix * view_matrix), &model_matrix);
+                model.render(list, &(perspective_matrix * view_matrix), &model_matrix);
 
                 // -- transition to present
                 list.transition_resource(

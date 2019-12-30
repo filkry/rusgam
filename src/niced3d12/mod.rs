@@ -47,7 +47,7 @@ pub use self::rootsignature::*;
 pub use self::swapchain::*;
 pub use self::window::SD3D12Window;
 
-pub fn load_texture(device: &SDevice, cl: &mut SCommandList, file_path: &'static str) -> (SResource, SResource) {
+pub fn load_texture(device: &SDevice, cl: &mut SCommandList, file_path: &str) -> (SResource, SResource) {
     // $$$FRK(TODO): allocates
     let bytes = std::fs::read(file_path).unwrap();
     let tga = tinytga::Tga::from_slice(bytes.as_slice()).unwrap();

@@ -1,9 +1,10 @@
 use std::cell::RefCell;
 
 use glm::{Vec3, Vec2};
+use arrayvec::{ArrayString};
+
 use t12;
 use n12;
-
 use allocate::{SMemVec, SYSTEM_ALLOCATOR};
 
 #[allow(dead_code)]
@@ -24,8 +25,8 @@ pub struct SModel<'a> {
     pub(super) index_buffer_view: t12::SIndexBufferView,
 
     pub(super) srv_heap: &'a RefCell<n12::descriptorallocator::SDescriptorAllocator>,
-    pub(super) texture_resource: n12::SResource,
-    pub(super) texture_srv: n12::descriptorallocator::SDescriptorAllocatorAllocation,
+    pub(super) diffuse_texture_resource: Option<n12::SResource>,
+    pub(super) diffuse_texture_srv: Option<n12::descriptorallocator::SDescriptorAllocatorAllocation>,
 }
 
 impl<'a> SModel<'a> {
@@ -41,7 +42,7 @@ impl<'a> SModel<'a> {
         let mut vert_vec = SMemVec::<SVertexPosColourUV>::new(&SYSTEM_ALLOCATOR, 32, 0).unwrap();
         let mut index_vec = SMemVec::<u16>::new(&SYSTEM_ALLOCATOR, 36, 0).unwrap();
 
-        let (models, _materials) = tobj::load_obj(&std::path::Path::new(obj_file)).unwrap();
+        let (models, materials) = tobj::load_obj(&std::path::Path::new(obj_file)).unwrap();
 
         for model in models {
             assert!(model.mesh.positions.len() % 3 == 0);
@@ -104,63 +105,72 @@ impl<'a> SModel<'a> {
             (vertbufferresource, vertexbufferview, indexbufferresource, indexbufferview)
         };
 
-        // -- load texture resource
-        let texture_resource = {
-            let handle = copy_command_pool.alloc_list()?;
-            let copycommandlist = copy_command_pool.get_list(handle)?;
+        let mut diffuse_texture_resource = None;
+        let mut diffuse_texture_srv = None;
+        if materials.len() > 0 {
+            assert_eq!(materials.len(), 1);
 
-            let (mut _intermediate_resource, mut resource) = n12::load_texture(&device, copycommandlist, "assets/first_test_texture.tga");
+            // -- load texture resource
+            diffuse_texture_resource = {
+                let handle = copy_command_pool.alloc_list()?;
+                let copycommandlist = copy_command_pool.get_list(handle)?;
 
-            let fenceval = copy_command_pool.execute_and_free_list(handle)?;
-            copy_command_pool.wait_for_internal_fence_value(fenceval);
-            copy_command_pool.free_allocators();
-            assert_eq!(copy_command_pool.num_free_allocators(), 2);
+                let mut texture_asset = ArrayString::<[_; 128]>::new();
+                texture_asset.push_str("assets/");
+                texture_asset.push_str(&materials[0].diffuse_texture);
+                let (mut _intermediate_resource, mut resource) = n12::load_texture(&device, copycommandlist, texture_asset.as_str());
 
-            unsafe {
-                _intermediate_resource.set_debug_name("text inter");
-                resource.set_debug_name("text dest");
-            }
+                let fenceval = copy_command_pool.execute_and_free_list(handle)?;
+                copy_command_pool.wait_for_internal_fence_value(fenceval);
+                copy_command_pool.free_allocators();
+                assert_eq!(copy_command_pool.num_free_allocators(), 2);
 
-            resource
-        };
+                unsafe {
+                    _intermediate_resource.set_debug_name("text inter");
+                    resource.set_debug_name("text dest");
+                }
 
-        // -- transition texture to PixelShaderResource
-        {
-            let handle = direct_command_pool.alloc_list()?;
-            let list = direct_command_pool.get_list(handle)?;
-
-            list.transition_resource(
-                &texture_resource,
-                t12::EResourceStates::CopyDest,
-                t12::EResourceStates::PixelShaderResource,
-            )
-            .unwrap();
-
-            let fenceval = direct_command_pool.execute_and_free_list(handle)?;
-            direct_command_pool.wait_for_internal_fence_value(fenceval);
-        }
-
-        // -- get texture SRV
-        let texture_srv = {
-            let srv_desc = t12::SShaderResourceViewDesc {
-                format: t12::EDXGIFormat::R8G8B8A8UNorm,
-                view: t12::ESRV::Texture2D {
-                    data: t12::STex2DSRV {
-                        mip_levels: 1,
-                        ..Default::default()
-                    },
-                },
+                Some(resource)
             };
 
-            let descriptors = srv_heap.borrow_mut().alloc(1)?;
-            device.create_shader_resource_view(
-                &texture_resource,
-                &srv_desc,
-                descriptors.cpu_descriptor(0),
-            )?;
+            // -- transition texture to PixelShaderResource
+            {
+                let handle = direct_command_pool.alloc_list()?;
+                let list = direct_command_pool.get_list(handle)?;
 
-            descriptors
-        };
+                list.transition_resource(
+                    &diffuse_texture_resource.as_ref().unwrap(),
+                    t12::EResourceStates::CopyDest,
+                    t12::EResourceStates::PixelShaderResource,
+                )
+                .unwrap();
+
+                let fenceval = direct_command_pool.execute_and_free_list(handle)?;
+                direct_command_pool.wait_for_internal_fence_value(fenceval);
+            }
+
+            // -- get texture SRV
+            diffuse_texture_srv = {
+                let srv_desc = t12::SShaderResourceViewDesc {
+                    format: t12::EDXGIFormat::R8G8B8A8UNorm,
+                    view: t12::ESRV::Texture2D {
+                        data: t12::STex2DSRV {
+                            mip_levels: 1,
+                            ..Default::default()
+                        },
+                    },
+                };
+
+                let descriptors = srv_heap.borrow_mut().alloc(1)?;
+                device.create_shader_resource_view(
+                    diffuse_texture_resource.as_ref().unwrap(),
+                    &srv_desc,
+                    descriptors.cpu_descriptor(0),
+                )?;
+
+                Some(descriptors)
+            };
+        }
 
         Ok(Self {
             per_vertex_data: vert_vec,
@@ -172,8 +182,8 @@ impl<'a> SModel<'a> {
             index_buffer_view: indexbufferview,
 
             srv_heap: srv_heap,
-            texture_resource,
-            texture_srv: texture_srv,
+            diffuse_texture_resource: diffuse_texture_resource,
+            diffuse_texture_srv: diffuse_texture_srv,
         })
     }
 
@@ -188,7 +198,9 @@ impl<'a> SModel<'a> {
         cl.ia_set_index_buffer(&self.index_buffer_view);
 
         cl.set_descriptor_heaps(&[&self.srv_heap.borrow().raw_heap()]);
-        cl.set_graphics_root_descriptor_table(1, &self.texture_srv.gpu_descriptor(0));
+        if let Some(dts) = &self.diffuse_texture_srv {
+            cl.set_graphics_root_descriptor_table(1, &dts.gpu_descriptor(0));
+        }
 
         let mvp = view_projection * model_matrix;
         cl.set_graphics_root_32_bit_constants(0, &mvp, 0);
@@ -200,6 +212,8 @@ impl<'a> SModel<'a> {
 
 impl <'a> Drop for SModel<'a> {
     fn drop(&mut self) {
-        self.srv_heap.borrow_mut().free(&mut self.texture_srv);
+        if let Some(dts) = &mut self.diffuse_texture_srv {
+            self.srv_heap.borrow_mut().free(dts);
+        }
     }
 }

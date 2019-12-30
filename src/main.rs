@@ -211,6 +211,15 @@ fn main_d3d12() -> Result<(), &'static str> {
                 0,
             ),
             t12::SInputElementDesc::create(
+                "NORMAL",
+                0,
+                t12::EDXGIFormat::R32G32B32Float,
+                0,
+                winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
+                t12::EInputClassification::PerVertexData,
+                0,
+            ),
+            t12::SInputElementDesc::create(
                 "TEXCOORD",
                 0,
                 t12::EDXGIFormat::R32G32Float,
@@ -230,7 +239,7 @@ fn main_d3d12() -> Result<(), &'static str> {
             constants: t12::SRootConstants {
                 shader_register: 0,
                 register_space: 0,
-                num_32_bit_values: (size_of::<SMat44>() / 4) as u32,
+                num_32_bit_values: (size_of::<SMat44>() * 3 / 4) as u32,
             },
         },
         shader_visibility: t12::EShaderVisibility::Vertex,

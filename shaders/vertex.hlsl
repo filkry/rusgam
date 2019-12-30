@@ -2,11 +2,14 @@ struct SVertexPosColorUV
 {
     float3 position : POSITION;
     float3 color    : COLOR;
+    float3 normal   : NORMAL;
     float2 uv       : TEXCOORD;
 };
 
 struct SModelViewProjection
 {
+    matrix model;
+    matrix viewprojection;
     matrix mvp;
 };
 
@@ -16,6 +19,7 @@ struct SVertexShaderOutput
 {
     float4 color    : COLOR;
     float4 position : SV_Position;
+    float4 normal   : NORMAL;
     float2 uv       : TEXCOORD;
 };
 
@@ -25,6 +29,7 @@ SVertexShaderOutput main(SVertexPosColorUV input)
 
     output.position = mul(modelviewprojectionconstantbuffer.mvp, float4(input.position, 1.0f));
     output.color = float4(input.color, 1.0f);
+    output.normal = mul(modelviewprojectionconstantbuffer.model, float4(input.normal, 0.0f));
     output.uv = input.uv;
 
     return output;

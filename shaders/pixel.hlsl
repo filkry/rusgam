@@ -2,6 +2,7 @@ struct SPixelShaderInput
 {
     float4 color    : COLOR;
     float4 position : SV_Position;
+    float4 normal   : NORMAL;
     float2 uv       : TEXCOORD;
 };
 
@@ -16,8 +17,10 @@ SamplerState g_sampler : register(s0);
 
 float4 main( SPixelShaderInput input ) : SV_Target
 {
-    if(texture_metadata_buffer.is_textured > 0.0f)
-        return g_texture.Sample(g_sampler, input.uv);
-    else
-        return input.color;
+    //if(texture_metadata_buffer.is_textured > 0.0f)
+    //    return g_texture.Sample(g_sampler, input.uv);
+    //else
+    //    return input.color;
+
+    return input.normal;
 }

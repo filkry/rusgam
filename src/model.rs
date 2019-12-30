@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 
-use glm::{Vec3, Vec2};
+use glm::{Vec3, Vec2, Mat4};
 use arrayvec::{ArrayString};
 
 use t12;
@@ -11,6 +11,7 @@ use allocate::{SMemVec, SYSTEM_ALLOCATOR};
 struct SVertexPosColourUV {
     position: Vec3,
     colour: Vec3,
+    normal: Vec3,
     uv: Vec2,
 }
 
@@ -57,6 +58,7 @@ impl<'a> SModel<'a> {
         for model in models {
             assert!(model.mesh.positions.len() % 3 == 0);
             assert!(model.mesh.texcoords.len() / 2 == model.mesh.positions.len() / 3);
+            assert!(model.mesh.normals.len() == model.mesh.positions.len());
 
             for vidx in 0..model.mesh.positions.len() / 3 {
                 vert_vec.push(SVertexPosColourUV {
@@ -69,6 +71,11 @@ impl<'a> SModel<'a> {
                     uv: Vec2::new(
                         model.mesh.texcoords[vidx * 2],
                         model.mesh.texcoords[vidx * 2 + 1],
+                    ),
+                    normal: Vec3::new(
+                        model.mesh.normals[vidx * 3],
+                        model.mesh.normals[vidx * 3 + 1],
+                        model.mesh.normals[vidx * 3 + 2],
                     ),
                 });
             }
@@ -221,7 +228,20 @@ impl<'a> SModel<'a> {
             cl.set_graphics_root_32_bit_constants(1, &0.0f32, 0);
         }
 
-        let mvp = view_projection * model_matrix;
+        #[allow(dead_code)]
+        struct SModelViewProjection {
+            model: Mat4,
+            view_projection: Mat4,
+            mvp: Mat4,
+        }
+
+        let mvp_matrix = view_projection * model_matrix;
+        let mvp = SModelViewProjection{
+            model: model_matrix.clone(),
+            view_projection: view_projection.clone(),
+            mvp: mvp_matrix,
+        };
+
         cl.set_graphics_root_32_bit_constants(0, &mvp, 0);
 
         // -- draw

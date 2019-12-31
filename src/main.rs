@@ -1,5 +1,4 @@
 extern crate arrayvec;
-extern crate nalgebra;
 extern crate nalgebra_glm as glm;
 extern crate tinytga;
 extern crate tobj;
@@ -30,14 +29,11 @@ use std::io::Write;
 // -- crate includes
 use arrayvec::{ArrayVec};
 use serde::{Serialize, Deserialize};
+use glm::{Vec3, Mat4};
 
 use niced3d12 as n12;
 use typeyd3d12 as t12;
 use allocate::{SMemVec, STACK_ALLOCATOR};
-
-#[allow(dead_code)]
-type SMat44 = nalgebra::Matrix4<f32>;
-type SVec3 = nalgebra::Vector3<f32>;
 
 pub struct SInput {
     w: bool,
@@ -318,7 +314,7 @@ fn main_d3d12() -> Result<(), &'static str> {
             constants: t12::SRootConstants {
                 shader_register: 0,
                 register_space: 0,
-                num_32_bit_values: (size_of::<SMat44>() * 3 / 4) as u32,
+                num_32_bit_values: (size_of::<Mat4>() * 3 / 4) as u32,
             },
         },
         shader_visibility: t12::EShaderVisibility::Vertex,
@@ -436,7 +432,7 @@ fn main_d3d12() -> Result<(), &'static str> {
     let mut shouldquit = false;
 
     let start_time = winapi.curtimemicroseconds();
-    let rot_axis = SVec3::new(0.0, 1.0, 0.0);
+    let rot_axis = Vec3::new(0.0, 1.0, 0.0);
 
     let mut camera = camera::SCamera::new(glm::Vec3::new(0.0, 0.0, -10.0));
 
@@ -462,12 +458,12 @@ fn main_d3d12() -> Result<(), &'static str> {
 
         // -- update
         let cur_angle = ((total_time as f32) / 1_000_000.0) * (3.14159 / 4.0);
-        let model_matrix = SMat44::new_rotation(rot_axis * cur_angle);
+        let model_matrix = Mat4::new_rotation(rot_axis * cur_angle);
         let model2_matrix = glm::translation(&glm::Vec3::new(1.0, 0.0, 0.0));
         let model3_matrix = glm::translation(&glm::Vec3::new(0.0, 2.0, 0.0));
         let room_model_matrix = glm::translation(&glm::Vec3::new(0.0, -2.0, 0.0));
 
-        let perspective_matrix: SMat44 = {
+        let perspective_matrix: Mat4 = {
             let aspect = (window.width() as f32) / (window.height() as f32);
             let fovy: f32 = 3.14159 / 4.0;
             let znear = 0.1;

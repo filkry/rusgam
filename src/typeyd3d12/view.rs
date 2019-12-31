@@ -50,6 +50,7 @@ impl SIndexBufferView {
 
 pub enum EDepthStencilViewDescData {
     Tex2D(STex2DDSV),
+    Tex2DArray(STex2DArrayDSV),
 }
 
 pub struct SDepthStencilViewDesc {
@@ -70,6 +71,9 @@ impl SDepthStencilViewDesc {
             match &self.data {
                 EDepthStencilViewDescData::Tex2D(tex2d_dsv) => {
                     *((*result.as_mut_ptr()).u.Texture2D_mut()) = tex2d_dsv.d3dtype()
+                }
+                EDepthStencilViewDescData::Tex2DArray(tex2d_array_dsv) => {
+                    *((*result.as_mut_ptr()).u.Texture2DArray_mut()) = tex2d_array_dsv.d3dtype()
                 }
             }
 
@@ -171,6 +175,22 @@ impl STex2DDSV {
     pub fn d3dtype(&self) -> D3D12_TEX2D_DSV {
         D3D12_TEX2D_DSV {
             MipSlice: self.mip_slice,
+        }
+    }
+}
+
+pub struct STex2DArrayDSV {
+    pub mip_slice: u32,
+    pub first_array_slice: u32,
+    pub array_size: u32,
+}
+
+impl STex2DArrayDSV {
+    pub fn d3dtype(&self) -> D3D12_TEX2D_ARRAY_DSV {
+        D3D12_TEX2D_ARRAY_DSV {
+            MipSlice: self.mip_slice,
+            FirstArraySlice: self.first_array_slice,
+            ArraySize: self.array_size,
         }
     }
 }

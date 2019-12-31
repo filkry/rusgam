@@ -112,3 +112,73 @@ pub fn load_texture(device: &SDevice, cl: &mut SCommandList, file_path: &str) ->
 
     (intermediate_resource, resource)
 }
+
+pub fn create_committed_depth_textures (
+    width: u32,
+    height: u32,
+    count: u16,
+    device: &SDevice,
+    direct_command_pool: &mut SCommandListPool,
+    depth_descriptor_allocator: &mut descriptorallocator::SDescriptorAllocator,
+) -> Result<(SResource, descriptorallocator::SDescriptorAllocatorAllocation), &'static str> {
+
+    if depth_descriptor_allocator.type_() != t12::EDescriptorHeapType::DepthStencil {
+        return Err("Non-DepthStencil descriptor allocator passed to create_depth_texture.");
+    }
+
+    direct_command_pool.flush_blocking().unwrap();
+
+    let clear_value = t12::SClearValue {
+        format: t12::EDXGIFormat::D32Float,
+        value: t12::EClearValue::DepthStencil(t12::SDepthStencilValue {
+            depth: 1.0,
+            stencil: 0,
+        }),
+    };
+
+    // -- need to not let this be destroyed
+    let mut depth_texture_resource = device.create_committed_texture2d_resource(
+        t12::EHeapType::Default,
+        width,
+        height,
+        count as u16,
+        0,
+        t12::EDXGIFormat::D32Float,
+        Some(clear_value),
+        t12::SResourceFlags::from(t12::EResourceFlags::AllowDepthStencil),
+        t12::EResourceStates::DepthWrite,
+    )?;
+
+    let depth_stencil_view_desc = {
+        if count == 1 {
+            t12::SDepthStencilViewDesc {
+                format: t12::EDXGIFormat::D32Float,
+                view_dimension: t12::EDSVDimension::Texture2D,
+                flags: t12::SDSVFlags::from(t12::EDSVFlags::None),
+                data: t12::EDepthStencilViewDescData::Tex2D(t12::STex2DDSV { mip_slice: 0 }),
+            }
+        }
+        else {
+            t12::SDepthStencilViewDesc {
+                format: t12::EDXGIFormat::D32Float,
+                view_dimension: t12::EDSVDimension::Texture2DArray,
+                flags: t12::SDSVFlags::from(t12::EDSVFlags::None),
+                data: t12::EDepthStencilViewDescData::Tex2DArray(t12::STex2DArrayDSV{
+                    mip_slice: 0,
+                    first_array_slice: 0,
+                    array_size: count as u32,
+                }),
+            }
+        }
+    };
+
+    let descriptors = depth_descriptor_allocator.alloc(1)?;
+
+    device.create_depth_stencil_view(
+        &mut depth_texture_resource,
+        &depth_stencil_view_desc,
+        descriptors.cpu_descriptor(0),
+    )?;
+
+    Ok((depth_texture_resource, descriptors))
+}

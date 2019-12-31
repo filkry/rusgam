@@ -22,6 +22,12 @@ pub mod manager {
         pub fn size(&self) -> usize {
             self.size
         }
+
+        pub fn validate(&self) {
+            if self.freed {
+                panic!("Use after free!");
+            }
+        }
     }
 
     #[derive(Copy, Clone, Debug)]

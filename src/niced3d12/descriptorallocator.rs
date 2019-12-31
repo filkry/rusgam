@@ -13,6 +13,8 @@ impl SDescriptorAllocatorAllocation {
     // -- $$$FRK(TODO): maybe this should work like the thread-local storage in rust, where you
     // -- have to pass a function, and a reference can't escape the scope of that function?
     pub fn cpu_descriptor(&self, idx: usize) -> t12::SCPUDescriptorHandle {
+        self.allocation.validate();
+
         if idx >= self.num_handles {
             panic!("Index out of bounds!");
         }
@@ -21,6 +23,8 @@ impl SDescriptorAllocatorAllocation {
     }
 
     pub fn gpu_descriptor(&self, idx: usize) -> t12::SGPUDescriptorHandle {
+        self.allocation.validate();
+
         if idx >= self.num_handles {
             panic!("Index out of bounds!");
         }
@@ -73,6 +77,10 @@ impl SDescriptorAllocator {
 
     pub fn raw_heap(&self) -> &SDescriptorHeap {
         &self.descriptor_heap
+    }
+
+    pub fn type_(&self) -> t12::EDescriptorHeapType {
+        self.descriptor_type
     }
 
     pub fn alloc(

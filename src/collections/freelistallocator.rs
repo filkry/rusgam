@@ -10,6 +10,7 @@ pub mod manager {
 
     impl Drop for SAllocation {
         fn drop(&mut self) {
+            // $$$FRK(TODO): leak city, just asserting is insufficient, need to go back to RAII-y
             assert!(self.freed);
         }
     }

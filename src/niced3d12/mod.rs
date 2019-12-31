@@ -114,7 +114,7 @@ pub fn load_texture(device: &SDevice, cl: &mut SCommandList, file_path: &str) ->
     (intermediate_resource, resource)
 }
 
-pub fn create_committed_depth_textures (
+pub fn create_committed_depth_textures<'a> (
     width: u32,
     height: u32,
     count: u16,
@@ -122,8 +122,8 @@ pub fn create_committed_depth_textures (
     format: t12::EDXGIFormat,
     initial_state: t12::EResourceStates,
     direct_command_pool: &mut SCommandListPool,
-    depth_descriptor_allocator: &mut descriptorallocator::SDescriptorAllocator,
-) -> Result<(SResource, descriptorallocator::SDescriptorAllocatorAllocation), &'static str> {
+    depth_descriptor_allocator: &'a descriptorallocator::SDescriptorAllocator,
+) -> Result<(SResource, descriptorallocator::SDescriptorAllocatorAllocation<'a>), &'static str> {
 
     if depth_descriptor_allocator.type_() != t12::EDescriptorHeapType::DepthStencil {
         return Err("Non-DepthStencil descriptor allocator passed to create_depth_texture.");

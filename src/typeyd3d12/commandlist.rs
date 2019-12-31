@@ -140,14 +140,22 @@ impl SCommandList {
         rts_single_handle_to_descriptor_range: bool,
         depth_target_descriptor: &SCPUDescriptorHandle,
     ) {
-        assert!(render_target_descriptors.len() == 1); // didn't want to implement copying d3dtype array
+        assert!(render_target_descriptors.len() <= 1); // didn't want to implement copying d3dtype array
 
-        self.commandlist.OMSetRenderTargets(
-            render_target_descriptors.len() as u32,
-            render_target_descriptors[0].raw(),
-            rts_single_handle_to_descriptor_range as i32,
-            depth_target_descriptor.raw(),
-        );
+        if render_target_descriptors.len() == 1 {
+            self.commandlist.OMSetRenderTargets(
+                render_target_descriptors.len() as u32,
+                render_target_descriptors[0].raw(),
+                rts_single_handle_to_descriptor_range as i32,
+                depth_target_descriptor.raw(),
+            );
+        }
+        else if render_target_descriptors.len() == 0 {
+            self.commandlist.OMSetRenderTargets(
+                0, ptr::null_mut(), rts_single_handle_to_descriptor_range as i32,
+                depth_target_descriptor.raw(),
+            );
+        }
     }
 
     pub unsafe fn set_descriptor_heaps(&self, heaps: &[&SDescriptorHeap]) {

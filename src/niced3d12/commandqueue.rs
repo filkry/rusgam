@@ -73,3 +73,9 @@ impl SCommandQueue {
         Ok(())
     }
 }
+
+impl Drop for SCommandQueue {
+    fn drop(&mut self) {
+        self.flush_blocking().unwrap();
+    }
+}

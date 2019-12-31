@@ -160,7 +160,7 @@ fn main_d3d12() -> Result<(), &'static str> {
         device.create_command_queue(&winapi.rawwinapi(), t12::ECommandListType::Direct)?,
     );
     let mut directcommandpool =
-        n12::SCommandListPool::create(&device, &commandqueue, &winapi.rawwinapi(), 1, 2)?;
+        n12::SCommandListPool::create(&device, &commandqueue, &winapi.rawwinapi(), 1, 10)?;
 
     let copycommandqueue = RefCell::new(
         device.create_command_queue(&winapi.rawwinapi(), t12::ECommandListType::Copy)?,
@@ -181,19 +181,19 @@ fn main_d3d12() -> Result<(), &'static str> {
     window.init_render_target_views(&mut device)?;
     window.show();
 
-    let mut dsv_heap = n12::descriptorallocator::SDescriptorAllocator::new(
+    let dsv_heap = n12::descriptorallocator::SDescriptorAllocator::new(
         &device,
         32,
         t12::EDescriptorHeapType::DepthStencil,
         t12::SDescriptorHeapFlags::none(),
     )?;
 
-    let srv_heap = RefCell::new(n12::descriptorallocator::SDescriptorAllocator::new(
+    let srv_heap = n12::descriptorallocator::SDescriptorAllocator::new(
         &device,
         32,
         t12::EDescriptorHeapType::ConstantBufferShaderResourceUnorderedAccess,
         t12::SDescriptorHeapFlags::from(t12::EDescriptorHeapFlags::ShaderVisible),
-    )?);
+    )?;
 
     let mut viewport = t12::SViewport::new(
         0.0,
@@ -339,12 +339,12 @@ fn main_d3d12() -> Result<(), &'static str> {
         t12::EDXGIFormat::D32Float,
         t12::EResourceStates::DepthWrite,
         &mut directcommandpool,
-        &mut dsv_heap,
+        &dsv_heap,
     )?;
 
     // -- setup shadow mapping
-    let _shadow_mapping_pipeline = shadowmapping::setup_shadow_mapping_pipeline(
-        &device, &mut directcommandpool, &mut dsv_heap, 128, 128)?;
+    let shadow_mapping_pipeline = shadowmapping::setup_shadow_mapping_pipeline(
+        &device, &mut directcommandpool, &dsv_heap, 128, 128)?;
 
     // -- update loop
 
@@ -412,6 +412,24 @@ fn main_d3d12() -> Result<(), &'static str> {
             .borrow()
             .wait_for_internal_fence_value(framefencevalues[window.currentbackbufferindex()]);
 
+        let models = [&model, &model2, &model3, &room_model];
+        let model_matrices = [&model_matrix, &model2_matrix, &model3_matrix, &room_model_matrix];
+
+        // -- render shadowmaps
+        {
+            let handle = directcommandpool.alloc_list()?;
+            let list = directcommandpool.get_list(handle)?;
+
+            shadow_mapping_pipeline.render(
+                &Vec3::new(5.0, 5.0, 5.0),
+                list,
+                &models,
+                &model_matrices,
+            )?;
+
+            directcommandpool.execute_and_free_list(handle)?;
+        }
+
         // -- render
         {
             let backbufferidx = window.currentbackbufferindex();
@@ -454,10 +472,10 @@ fn main_d3d12() -> Result<(), &'static str> {
                 list.om_set_render_targets(&[&render_target_view], false, &depth_texture_view);
 
                 let view_perspective = perspective_matrix * view_matrix;
-                model.render(list, &view_perspective, &model_matrix);
-                model2.render(list, &view_perspective, &model2_matrix);
-                model3.render(list, &view_perspective, &model3_matrix);
-                room_model.render(list, &(perspective_matrix * view_matrix), &room_model_matrix);
+                for modeli in 0..models.len() {
+                    models[modeli].set_texture_root_parameters(list, 1, 2);
+                    models[modeli].render(list, &view_perspective, &model_matrices[modeli]);
+                }
 
                 // -- transition to present
                 list.transition_resource(
@@ -541,7 +559,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                             t12::EDXGIFormat::D32Float,
                             t12::EResourceStates::DepthWrite,
                             &mut directcommandpool,
-                            &mut dsv_heap,
+                            &dsv_heap,
                         )?;
                         _depth_texture_resource = new_resource;
                         _depth_texture_view = new_view;
@@ -572,8 +590,6 @@ fn main_d3d12() -> Result<(), &'static str> {
 
     // -- wait for all commands to clear
     commandqueue.borrow_mut().flush_blocking()?;
-
-    dsv_heap.free(&mut _depth_texture_view);
 
     Ok(())
 }

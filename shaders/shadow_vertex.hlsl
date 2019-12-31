@@ -8,6 +8,8 @@ struct SVertexPosColorUV
 
 struct SModelViewProjection
 {
+    matrix model;
+    matrix viewprojection;
     matrix mvp;
 };
 

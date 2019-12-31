@@ -1,4 +1,4 @@
-use std::cell::RefCell;
+//use std::cell::RefCell;
 
 use glm::{Vec3, Vec2, Mat4};
 use arrayvec::{ArrayString};
@@ -68,9 +68,9 @@ pub struct SModel<'a> {
     pub(super) index_buffer_resource: n12::SResource,
     pub(super) index_buffer_view: t12::SIndexBufferView,
 
-    pub(super) srv_heap: &'a RefCell<n12::descriptorallocator::SDescriptorAllocator>,
+    pub(super) srv_heap: &'a n12::descriptorallocator::SDescriptorAllocator,
     pub(super) diffuse_texture_resource: Option<n12::SResource>,
-    pub(super) diffuse_texture_srv: Option<n12::descriptorallocator::SDescriptorAllocatorAllocation>,
+    pub(super) diffuse_texture_srv: Option<n12::descriptorallocator::SDescriptorAllocatorAllocation<'a>>,
 }
 
 impl<'a> SModel<'a> {
@@ -80,7 +80,7 @@ impl<'a> SModel<'a> {
         device: &n12::SDevice,
         copy_command_pool: &mut n12::SCommandListPool,
         direct_command_pool: &mut n12::SCommandListPool,
-        srv_heap: &'a RefCell<n12::descriptorallocator::SDescriptorAllocator>,
+        srv_heap: &'a n12::descriptorallocator::SDescriptorAllocator,
     ) -> Result<Self, &'static str> {
 
         let (models, materials) = tobj::load_obj(&std::path::Path::new(obj_file)).unwrap();
@@ -225,7 +225,7 @@ impl<'a> SModel<'a> {
                         },
                     };
 
-                    let descriptors = srv_heap.borrow_mut().alloc(1)?;
+                    let descriptors = srv_heap.alloc(1)?;
                     device.create_shader_resource_view(
                         diffuse_texture_resource.as_ref().unwrap(),
                         &srv_desc,
@@ -252,6 +252,25 @@ impl<'a> SModel<'a> {
         })
     }
 
+    pub fn set_texture_root_parameters(
+        &self,
+        cl: &mut n12::SCommandList,
+        metadata_constant_root_parameter: u32,
+        texture_descriptor_table_root_parameter: usize,
+    ) {
+        self.srv_heap.with_raw_heap(|rh| {
+            cl.set_descriptor_heaps(&[rh]);
+        });
+
+        if let Some(dts) = &self.diffuse_texture_srv {
+            cl.set_graphics_root_32_bit_constants(metadata_constant_root_parameter, &1.0f32, 0);
+            cl.set_graphics_root_descriptor_table(texture_descriptor_table_root_parameter, &dts.gpu_descriptor(0));
+        }
+        else {
+            cl.set_graphics_root_32_bit_constants(metadata_constant_root_parameter, &0.0f32, 0);
+        }
+    }
+
     pub fn render(&self, cl: &mut n12::SCommandList, view_projection: &glm::Mat4, model_matrix: &glm::Mat4) {
         // -- assuming the same pipline state, root signature, viewport, scissor rect,
         // -- render target, for every model for now. These are set
@@ -261,15 +280,6 @@ impl<'a> SModel<'a> {
         cl.ia_set_primitive_topology(t12::EPrimitiveTopology::TriangleList);
         cl.ia_set_vertex_buffers(0, &[&self.vertex_buffer_view]);
         cl.ia_set_index_buffer(&self.index_buffer_view);
-
-        cl.set_descriptor_heaps(&[&self.srv_heap.borrow().raw_heap()]);
-        if let Some(dts) = &self.diffuse_texture_srv {
-            cl.set_graphics_root_32_bit_constants(1, &1.0f32, 0);
-            cl.set_graphics_root_descriptor_table(2, &dts.gpu_descriptor(0));
-        }
-        else {
-            cl.set_graphics_root_32_bit_constants(1, &0.0f32, 0);
-        }
 
         #[allow(dead_code)]
         struct SModelViewProjection {
@@ -289,13 +299,5 @@ impl<'a> SModel<'a> {
 
         // -- draw
         cl.draw_indexed_instanced(self.triangle_indices.len() as u32, 1, 0, 0, 0);
-    }
-}
-
-impl <'a> Drop for SModel<'a> {
-    fn drop(&mut self) {
-        if let Some(dts) = &mut self.diffuse_texture_srv {
-            self.srv_heap.borrow_mut().free(dts);
-        }
     }
 }

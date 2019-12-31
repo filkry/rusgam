@@ -18,9 +18,9 @@ struct SShadowPipelineStateStream<'a> {
     depth_stencil_format: n12::SPipelineStateStreamDepthStencilFormat,
 }
 
-pub struct SShadowMappingPipeline {
-    vertex_byte_code: t12::SShaderBytecode,
-    pixel_byte_code: t12::SShaderBytecode,
+pub struct SShadowMappingPipeline<'a> {
+    _vertex_byte_code: t12::SShaderBytecode,
+    _pixel_byte_code: t12::SShaderBytecode,
 
     root_signature: n12::SRootSignature,
     pipeline_state: t12::SPipelineState,
@@ -29,16 +29,16 @@ pub struct SShadowMappingPipeline {
     shadow_cube_height: usize,
 
     shadow_depth_resource: n12::SResource,
-    shadow_depth_view: n12::descriptorallocator::SDescriptorAllocatorAllocation,
+    shadow_depth_view: n12::descriptorallocator::SDescriptorAllocatorAllocation<'a>,
 }
 
-pub fn setup_shadow_mapping_pipeline(
+pub fn setup_shadow_mapping_pipeline<'a>(
     device: &n12::SDevice,
     direct_command_pool: &mut n12::SCommandListPool,
-    dsv_heap: &mut n12::SDescriptorAllocator,
+    dsv_heap: &'a n12::SDescriptorAllocator,
     shadow_cube_width: usize,
     shadow_cube_height: usize,
-) -> Result<SShadowMappingPipeline, &'static str> {
+) -> Result<SShadowMappingPipeline<'a>, &'static str> {
     let vertex_blob = t12::read_file_to_blob("shaders_built/shadow_vertex.cso")?;
     let pixel_blob = t12::read_file_to_blob("shaders_built/shadow_pixel.cso")?;
 
@@ -53,7 +53,7 @@ pub fn setup_shadow_mapping_pipeline(
             constants: t12::SRootConstants {
                 shader_register: 0,
                 register_space: 0,
-                num_32_bit_values: (std::mem::size_of::<Mat4>() / 4) as u32,
+                num_32_bit_values: (std::mem::size_of::<Mat4>() * 3 / 4) as u32,
             },
         },
         shader_visibility: t12::EShaderVisibility::Vertex,
@@ -105,8 +105,8 @@ pub fn setup_shadow_mapping_pipeline(
     )?;
 
     Ok(SShadowMappingPipeline {
-        vertex_byte_code,
-        pixel_byte_code,
+        _vertex_byte_code: vertex_byte_code,
+        _pixel_byte_code: pixel_byte_code,
 
         root_signature,
         pipeline_state,
@@ -119,7 +119,7 @@ pub fn setup_shadow_mapping_pipeline(
     })
 }
 
-impl SShadowMappingPipeline {
+impl<'a> SShadowMappingPipeline<'a> {
     pub fn render(
         &self,
         light_pos_world: &Vec3,
@@ -139,7 +139,7 @@ impl SShadowMappingPipeline {
             glm::perspective_lh(aspect, fovy, znear, zfar)
         };
 
-        let mut viewport = t12::SViewport::new(
+        let viewport = t12::SViewport::new(
             0.0,
             0.0,
             self.shadow_cube_width as f32,
@@ -170,7 +170,6 @@ impl SShadowMappingPipeline {
             t12::EResourceStates::DepthWrite,
         )?;
 
-        cl.clear_depth_stencil_view(self.shadow_depth_view.cpu_descriptor(0), 1.0)?;
         cl.set_pipeline_state(&self.pipeline_state);
         cl.set_graphics_root_signature(&self.root_signature.raw());
 
@@ -179,6 +178,7 @@ impl SShadowMappingPipeline {
 
 
         for (i, dir) in dirs.iter().enumerate() {
+            cl.clear_depth_stencil_view(self.shadow_depth_view.cpu_descriptor(i), 1.0)?;
             cl.om_set_render_targets(&[], false, &self.shadow_depth_view.cpu_descriptor(i));
 
             let view_matrix = glm::look_at_lh(&light_pos_world, &(light_pos_world + dir), &Vec3::new(0.0, 1.0, 0.0));

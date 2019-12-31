@@ -40,5 +40,6 @@ float4 main( SPixelShaderInput input ) : SV_Target
     else
         base_colour = input.color;
 
+    //return base_colour;
     return base_colour * point_irradiance;
 }

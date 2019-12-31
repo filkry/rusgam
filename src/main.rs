@@ -6,6 +6,8 @@ extern crate tobj;
 extern crate winapi;
 extern crate wio;
 extern crate bitflags;
+extern crate serde_json;
+extern crate serde;
 
 //mod math;
 mod allocate;
@@ -27,6 +29,7 @@ use std::io::Write;
 
 // -- crate includes
 use arrayvec::{ArrayVec};
+use serde::{Serialize, Deserialize};
 
 use niced3d12 as n12;
 use typeyd3d12 as t12;
@@ -108,6 +111,11 @@ fn init_depth_texture(
     Ok(_depth_texture_resource)
 }
 
+#[derive(Serialize, Deserialize)]
+struct SBuiltShaderMetadata {
+    src_write_time: std::time::SystemTime,
+}
+
 fn compile_shaders_if_changed() {
     let shaders = [("pixel", "ps_6_0"), ("vertex", "vs_6_0")];
 
@@ -131,10 +139,44 @@ fn compile_shaders_if_changed() {
                 needs_build = true;
             }
             else {
-                let built_shader_file = std::fs::OpenOptions::new().read(true).open(built_shader_path).unwrap();
-                let build_metadata_file = std::fs::OpenOptions::new().read(true).open(build_metadata_path).unwrap();
+                let src_write_time = {
+                    let src_file = std::fs::OpenOptions::new().read(true).open(shader_src_path).unwrap();
+                    src_file.metadata().unwrap().modified().unwrap()
+                };
 
-                let built_shader_time  = built_shader_file.metadata().unwrap().modified().unwrap();
+                // -- $$$FRK(TODO): can I read into a custom buffer to not allocate from system heap?
+                let build_shader_metadata_json_str = std::fs::read_to_string(build_metadata_path).unwrap();
+                let build_shader_metadata : SBuiltShaderMetadata = serde_json::from_str(build_shader_metadata_json_str.as_str()).unwrap();
+
+                if src_write_time != build_shader_metadata.src_write_time {
+                    needs_build = true;
+                }
+            }
+
+            if needs_build {
+                println!("Compiling shader {}...", shader_name);
+
+                std::process::Command::
+                    new("externals/dxc_2019-07-15/dxc.exe")
+                    .arg("-E").arg("main")
+                    .arg("-T").arg(type_)
+                    .arg(shader_src_path)
+                    .arg("-Fo").arg(built_shader_path)
+                    .status().expect("Failed to compile shader");
+
+                let src_write_time = {
+                    let src_file = std::fs::OpenOptions::new().read(true).open(shader_src_path).unwrap();
+                    src_file.metadata().unwrap().modified().unwrap()
+                };
+
+                let built_shader_metadata = SBuiltShaderMetadata {
+                    src_write_time,
+                };
+
+                let build_shader_metadata_json_str = serde_json::to_string(&built_shader_metadata).unwrap();
+
+                let mut built_shader_file = std::fs::OpenOptions::new().create(true).write(true).open(build_metadata_path).unwrap();
+                built_shader_file.write_all(build_shader_metadata_json_str.as_bytes()).unwrap();
             }
         });
 
@@ -142,6 +184,8 @@ fn compile_shaders_if_changed() {
 }
 
 fn main_d3d12() -> Result<(), &'static str> {
+    compile_shaders_if_changed();
+
     // -- initialize debug
     let debuginterface = t12::SDebugInterface::new()?;
     debuginterface.enabledebuglayer();

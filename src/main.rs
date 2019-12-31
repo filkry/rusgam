@@ -152,13 +152,16 @@ fn compile_shaders_if_changed() {
             if needs_build {
                 println!("Compiling shader {}...", shader_name);
 
-                std::process::Command::
-                    new("externals/dxc_2019-07-15/dxc.exe")
-                    .arg("-E").arg("main")
-                    .arg("-T").arg(type_)
-                    .arg(shader_src_path)
-                    .arg("-Fo").arg(built_shader_path)
-                    .status().expect("Failed to compile shader");
+                let mut command = std::process::Command::new("externals/dxc_2019-07-15/dxc.exe");
+
+                command.arg("-E").arg("main")
+                       .arg("-T").arg(type_)
+                       .arg(shader_src_path)
+                       .arg("-Fo").arg(built_shader_path);
+
+                println!("   commmand: \"{:?}\"", command);
+
+                command.status().expect("Failed to compile shader");
 
                 let src_write_time = {
                     let src_file = std::fs::OpenOptions::new().read(true).open(shader_src_path).unwrap();

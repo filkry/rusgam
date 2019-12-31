@@ -15,6 +15,49 @@ struct SVertexPosColourUV {
     uv: Vec2,
 }
 
+pub fn model_per_vertex_input_layout_desc() -> t12::SInputLayoutDesc {
+    let input_element_desc = [
+        t12::SInputElementDesc::create(
+            "POSITION",
+            0,
+            t12::EDXGIFormat::R32G32B32Float,
+            0,
+            winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
+            t12::EInputClassification::PerVertexData,
+            0,
+        ),
+        t12::SInputElementDesc::create(
+            "COLOR",
+            0,
+            t12::EDXGIFormat::R32G32B32Float,
+            0,
+            winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
+            t12::EInputClassification::PerVertexData,
+            0,
+        ),
+        t12::SInputElementDesc::create(
+            "NORMAL",
+            0,
+            t12::EDXGIFormat::R32G32B32Float,
+            0,
+            winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
+            t12::EInputClassification::PerVertexData,
+            0,
+        ),
+        t12::SInputElementDesc::create(
+            "TEXCOORD",
+            0,
+            t12::EDXGIFormat::R32G32Float,
+            0,
+            winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
+            t12::EInputClassification::PerVertexData,
+            0,
+        ),
+    ];
+
+    t12::SInputLayoutDesc::create(&input_element_desc)
+}
+
 #[allow(dead_code)]
 pub struct SModel<'a> {
     per_vertex_data: SMemVec<'a, SVertexPosColourUV>,

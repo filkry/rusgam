@@ -19,7 +19,7 @@ impl<'a> SPipelineStateStreamRootSignature<'a> {
 pub struct SPipelineStateStreamVertexShader<'a> {
     type_: winapi::um::d3d12::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE,
     value: winapi::um::d3d12::D3D12_SHADER_BYTECODE,
-    phantom: PhantomData<&'a t12::SShaderBytecode<'a>>,
+    phantom: PhantomData<&'a t12::SShaderBytecode>,
 }
 
 impl<'a> SPipelineStateStreamVertexShader<'a> {
@@ -37,7 +37,7 @@ impl<'a> SPipelineStateStreamVertexShader<'a> {
 pub struct SPipelineStateStreamPixelShader<'a> {
     type_: winapi::um::d3d12::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE,
     value: winapi::um::d3d12::D3D12_SHADER_BYTECODE,
-    phantom: PhantomData<&'a t12::SShaderBytecode<'a>>,
+    phantom: PhantomData<&'a t12::SShaderBytecode>,
 }
 
 impl<'a> SPipelineStateStreamPixelShader<'a> {

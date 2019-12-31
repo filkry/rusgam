@@ -20,6 +20,7 @@ mod utils;
 mod enumflags;
 mod camera;
 mod model;
+mod shadowmapping;
 
 // -- std includes
 use std::cell::RefCell;
@@ -214,52 +215,11 @@ fn main_d3d12() -> Result<(), &'static str> {
     let vertblob = t12::read_file_to_blob("shaders_built/vertex.cso")?;
     let pixelblob = t12::read_file_to_blob("shaders_built/pixel.cso")?;
 
-    let vert_byte_code = t12::SShaderBytecode::create(&vertblob);
-    let pixel_byte_code = t12::SShaderBytecode::create(&pixelblob);
+    let vert_byte_code = t12::SShaderBytecode::create(vertblob);
+    let pixel_byte_code = t12::SShaderBytecode::create(pixelblob);
 
     // -- root signature stuff
-    let mut input_layout_desc = {
-        let input_element_desc = [
-            t12::SInputElementDesc::create(
-                "POSITION",
-                0,
-                t12::EDXGIFormat::R32G32B32Float,
-                0,
-                winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
-                t12::EInputClassification::PerVertexData,
-                0,
-            ),
-            t12::SInputElementDesc::create(
-                "COLOR",
-                0,
-                t12::EDXGIFormat::R32G32B32Float,
-                0,
-                winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
-                t12::EInputClassification::PerVertexData,
-                0,
-            ),
-            t12::SInputElementDesc::create(
-                "NORMAL",
-                0,
-                t12::EDXGIFormat::R32G32B32Float,
-                0,
-                winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
-                t12::EInputClassification::PerVertexData,
-                0,
-            ),
-            t12::SInputElementDesc::create(
-                "TEXCOORD",
-                0,
-                t12::EDXGIFormat::R32G32Float,
-                0,
-                winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
-                t12::EInputClassification::PerVertexData,
-                0,
-            ),
-        ];
-
-        t12::SInputLayoutDesc::create(&input_element_desc)
-    };
+    let mut input_layout_desc = model::model_per_vertex_input_layout_desc();
 
     let mvp_root_parameter = t12::SRootParameter {
         type_: t12::ERootParameterType::E32BitConstants,
@@ -598,6 +558,8 @@ fn main_d3d12() -> Result<(), &'static str> {
 
     // -- wait for all commands to clear
     commandqueue.borrow_mut().flush_blocking()?;
+
+    dsv_heap.free(&mut _depth_texture_view);
 
     Ok(())
 }

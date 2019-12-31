@@ -83,12 +83,12 @@ impl EShaderVisibility {
     }
 }
 
-pub struct SShaderBytecode<'a> {
-    bytecode: &'a SBlob,
+pub struct SShaderBytecode {
+    bytecode: SBlob,
 }
 
-impl<'a> SShaderBytecode<'a> {
-    pub fn create(blob: &'a SBlob) -> Self {
+impl SShaderBytecode {
+    pub fn create(blob: SBlob) -> Self {
         Self { bytecode: blob }
     }
 

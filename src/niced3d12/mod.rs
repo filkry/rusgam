@@ -38,6 +38,7 @@ pub use self::commandlist::*;
 pub use self::commandlistpool::*;
 pub use self::commandqueue::*;
 pub use self::descriptor::*;
+pub use self::descriptorallocator::*;
 pub use self::device::*;
 pub use self::factory::*;
 pub use self::fence::*;

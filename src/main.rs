@@ -331,6 +331,8 @@ fn main_d3d12() -> Result<(), &'static str> {
         window.height(),
         1,
         &device,
+        t12::EDXGIFormat::D32Float,
+        t12::EResourceStates::DepthWrite,
         &mut directcommandpool,
         &mut dsv_heap,
     )?;
@@ -378,7 +380,7 @@ fn main_d3d12() -> Result<(), &'static str> {
 
         let perspective_matrix: Mat4 = {
             let aspect = (window.width() as f32) / (window.height() as f32);
-            let fovy: f32 = 3.14159 / 4.0;
+            let fovy: f32 = utils::PI / 4.0;
             let znear = 0.1;
             let zfar = 100.0;
 
@@ -442,9 +444,10 @@ fn main_d3d12() -> Result<(), &'static str> {
                 // -- setup the output merger
                 list.om_set_render_targets(&[&render_target_view], false, &depth_texture_view);
 
-                model.render(list, &(perspective_matrix * view_matrix), &model_matrix);
-                model2.render(list, &(perspective_matrix * view_matrix), &model2_matrix);
-                model3.render(list, &(perspective_matrix * view_matrix), &model3_matrix);
+                let view_perspective = perspective_matrix * view_matrix;
+                model.render(list, &view_perspective, &model_matrix);
+                model2.render(list, &view_perspective, &model2_matrix);
+                model3.render(list, &view_perspective, &model3_matrix);
                 room_model.render(list, &(perspective_matrix * view_matrix), &room_model_matrix);
 
                 // -- transition to present
@@ -526,6 +529,8 @@ fn main_d3d12() -> Result<(), &'static str> {
                             window.height(),
                             1,
                             &device,
+                            t12::EDXGIFormat::D32Float,
+                            t12::EResourceStates::DepthWrite,
                             &mut directcommandpool,
                             &mut dsv_heap,
                         )?;

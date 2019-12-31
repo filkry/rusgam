@@ -1,3 +1,5 @@
+pub static PI : f32 = 3.14159265358979;
+
 pub fn align_up(size: usize, align: usize) -> usize {
     if size % align == 0 {
         return size;

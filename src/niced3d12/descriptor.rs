@@ -33,9 +33,7 @@ impl SDescriptorHeap {
     pub fn gpu_handle_heap_start(&self) -> t12::SGPUDescriptorHandle {
         self.raw.get_gpu_descriptor_handle_for_heap_start()
     }
-}
 
-impl SDescriptorHeap {
     pub fn cpu_handle(&self, index: usize) -> Result<t12::SCPUDescriptorHandle, &'static str> {
         if index < self.numdescriptors as usize {
             let offsetbytes: usize = (index * self.descriptorsize) as usize;

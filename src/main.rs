@@ -67,7 +67,12 @@ struct SBuiltShaderMetadata {
 }
 
 fn compile_shaders_if_changed() {
-    let shaders = [("pixel", "ps_6_0"), ("vertex", "vs_6_0")];
+    let shaders = [
+        ("pixel", "ps_6_0"),
+        ("vertex", "vs_6_0"),
+        ("shadow_pixel", "ps_6_0"),
+        ("shadow_vertex", "vs_6_0"),
+    ];
 
     for (shader_name, type_) in &shaders {
         let mut needs_build = false;
@@ -178,7 +183,7 @@ fn main_d3d12() -> Result<(), &'static str> {
 
     let mut dsv_heap = n12::descriptorallocator::SDescriptorAllocator::new(
         &device,
-        1,
+        32,
         t12::EDescriptorHeapType::DepthStencil,
         t12::SDescriptorHeapFlags::none(),
     )?;
@@ -336,6 +341,10 @@ fn main_d3d12() -> Result<(), &'static str> {
         &mut directcommandpool,
         &mut dsv_heap,
     )?;
+
+    // -- setup shadow mapping
+    let _shadow_mapping_pipeline = shadowmapping::setup_shadow_mapping_pipeline(
+        &device, &mut directcommandpool, &mut dsv_heap, 128, 128)?;
 
     // -- update loop
 

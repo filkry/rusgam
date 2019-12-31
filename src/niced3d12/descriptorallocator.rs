@@ -6,6 +6,7 @@ pub struct SDescriptorAllocatorAllocation {
     allocation: freelistallocator::manager::SAllocation,
     base_cpu_handle: t12::SCPUDescriptorHandle,
     base_gpu_handle: t12::SGPUDescriptorHandle,
+    descriptor_size: usize,
     num_handles: usize,
 }
 
@@ -19,7 +20,7 @@ impl SDescriptorAllocatorAllocation {
             panic!("Index out of bounds!");
         }
 
-        unsafe { self.base_cpu_handle.offset(idx) }
+        unsafe { self.base_cpu_handle.offset(idx * self.descriptor_size) }
     }
 
     pub fn gpu_descriptor(&self, idx: usize) -> t12::SGPUDescriptorHandle {
@@ -29,7 +30,7 @@ impl SDescriptorAllocatorAllocation {
             panic!("Index out of bounds!");
         }
 
-        unsafe { self.base_gpu_handle.offset(idx) }
+        unsafe { self.base_gpu_handle.offset(idx * self.descriptor_size) }
     }
 }
 
@@ -95,6 +96,7 @@ impl SDescriptorAllocator {
             allocation: allocation,
             base_cpu_handle: base_cpu_handle,
             base_gpu_handle: base_gpu_handle,
+            descriptor_size: self.descriptor_heap.descriptorsize,
             num_handles: num_descriptors,
         })
     }

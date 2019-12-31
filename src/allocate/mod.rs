@@ -174,6 +174,13 @@ impl<'a> TMemAllocator for SLinearAllocator<'a> {
     }
 }
 
+impl<'a> Drop for SLinearAllocator<'a> {
+    fn drop(&mut self) {
+        let data = self.data.borrow();
+        assert_eq!(data.cur_offset, 0);
+    }
+}
+
 struct SStackAllocatorData<'a> {
     raw: SMem<'a>,
     top_offset: usize,

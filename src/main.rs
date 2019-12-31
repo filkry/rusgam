@@ -23,12 +23,14 @@ mod model;
 // -- std includes
 use std::cell::RefCell;
 use std::mem::size_of;
+use std::io::Write;
 
 // -- crate includes
-use arrayvec::ArrayVec;
+use arrayvec::{ArrayVec};
 
 use niced3d12 as n12;
 use typeyd3d12 as t12;
+use allocate::{SMemVec, STACK_ALLOCATOR};
 
 #[allow(dead_code)]
 type SMat44 = nalgebra::Matrix4<f32>;
@@ -104,6 +106,39 @@ fn init_depth_texture(
     )?;
 
     Ok(_depth_texture_resource)
+}
+
+fn compile_shaders_if_changed() {
+    let shaders = [("pixel", "ps_6_0"), ("vertex", "vs_6_0")];
+
+    for (shader_name, type_) in &shaders {
+        let mut needs_build = false;
+
+        STACK_ALLOCATOR.with(|sa| {
+            let mut shader_src_path_string = SMemVec::<u8>::new(sa, 256, 0).unwrap();
+            write!(&mut shader_src_path_string, "shaders/{}.hlsl", shader_name).unwrap();
+            let shader_src_path = std::path::Path::new(shader_src_path_string.as_str());
+
+            let mut built_shader_path_string = SMemVec::<u8>::new(sa, 256, 0).unwrap();
+            write!(&mut built_shader_path_string, "shaders_built/{}.cso", shader_name).unwrap();
+            let built_shader_path = std::path::Path::new(built_shader_path_string.as_str());
+
+            let mut build_metadata_path_string = SMemVec::<u8>::new(sa, 256, 0).unwrap();
+            write!(&mut build_metadata_path_string, "shaders_built/{}.shader_build_metadata", shader_name).unwrap();
+            let build_metadata_path = std::path::Path::new(build_metadata_path_string.as_str());
+
+            if !build_metadata_path.exists() {
+                needs_build = true;
+            }
+            else {
+                let built_shader_file = std::fs::OpenOptions::new().read(true).open(built_shader_path).unwrap();
+                let build_metadata_file = std::fs::OpenOptions::new().read(true).open(build_metadata_path).unwrap();
+
+                let built_shader_time  = built_shader_file.metadata().unwrap().modified().unwrap();
+            }
+        });
+
+    }
 }
 
 fn main_d3d12() -> Result<(), &'static str> {

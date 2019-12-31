@@ -328,6 +328,10 @@ impl<'a, T> SMemVec<'a, T> {
         self.capacity
     }
 
+    pub fn remaining_capacity(&self) -> usize {
+        self.capacity() - self.len()
+    }
+
     pub fn as_slice(&self) -> &[T] {
         unsafe { std::slice::from_raw_parts(self.data(), self.len) }
     }
@@ -381,6 +385,27 @@ impl<'a, T, I: std::slice::SliceIndex<[T]>> IndexMut<I> for SMemVec<'a, T> {
     fn index_mut(&mut self, index: I) -> &mut Self::Output {
         //IndexMut::index_mut(&mut **self, index)
         IndexMut::index_mut(self.deref_mut(), index)
+    }
+}
+
+impl<'a> SMemVec<'a, u8> {
+    pub fn as_str(&self) -> &str {
+        unsafe { std::str::from_utf8_unchecked(self.as_slice()) }
+    }
+}
+
+impl<'a> std::io::Write for SMemVec<'a, u8> {
+    fn write(&mut self, buf: &[u8]) -> Result<usize, std::io::Error> {
+
+        for ch in buf {
+            self.push(*ch);
+        }
+
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> Result<(), std::io::Error> {
+        Ok(())
     }
 }
 

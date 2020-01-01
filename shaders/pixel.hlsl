@@ -23,26 +23,44 @@ static const float PI = 3.14159265f;
 
 float4 main( SPixelShaderInput input ) : SV_Target
 {
-    float3 light_pos = float3(0.0, 0.0, 0.0);
-    float light_power = 50.0;
+    //float3 light_pos = float3(0.0, 0.0, 0.0);
+    //float light_power = 50.0;
     //float3 light_dir = normalize(float3(-1.0, -1.0, -1.0));
     //float simple_light_weight = saturate(dot(light_dir, -input.normal.xyz));
 
-    float3 to_light = light_pos - input.world_position;
-    float dist_to_light = length(to_light);
+    //float3 to_light = light_pos - input.world_position;
+    //float dist_to_light = length(to_light);
 
-    float3 to_light_dir = to_light / dist_to_light;
+    //float3 to_light_dir = to_light / dist_to_light;
 
-    float cos_theta = dot(to_light_dir, input.normal.xyz);
+    //float cos_theta = dot(to_light_dir, input.normal.xyz);
 
-    float point_irradiance = (light_power * cos_theta) / (4.0 * PI * dist_to_light);
+    //float point_irradiance = (light_power * cos_theta) / (4.0 * PI * dist_to_light);
+
+    //world_position = float3(4.0, 0.0, 0.0);
 
     float3 from_origin = input.world_position - float3(3.0, 0.0, 0.0);
+
+    //from_origin = float3(1.0, 0.0, 0.0);
 
     //float3 shadow_sample = g_shadow_cube.Sample(g_sampler, to_light_dir);
     //float4 shadow_sample = g_shadow_cube.Sample(g_shadow_sampler, from_origin);
     float4 shadow_sample = g_shadow_cube.Sample(g_shadow_sampler, from_origin);
-    if(shadow_sample.x < 1.0) shadow_sample.x = 0.0;
+    //shadow_sample.yzw = float3(0.0, 0.0, 1.0);
+    //if(shadow_sample.x < 0.000001) {
+    //    shadow_sample.x = 0.0;
+    //    shadow_sample.y = 1.0;
+    //}
+    //else if(shadow_sample.x < 0.99999) {
+    //    shadow_sample.x = 0.0;
+    //    shadow_sample.y = 0.0;
+    //    shadow_sample.z = 1.0;
+    //}
+
+    float4 output = shadow_sample;
+
+    //if(from_origin.x >= 0.99999 && shadow_sample.x < 0.1)
+    //    output = float4(world_position.x, 0.0, 0.0, 1.0);
 
 
     //float4 base_colour;
@@ -54,5 +72,5 @@ float4 main( SPixelShaderInput input ) : SV_Target
     //return base_colour;
     //return base_colour * point_irradiance;
     //return (shadow_sample >= 1.0);
-    return float4(shadow_sample);
+    return output;
 }

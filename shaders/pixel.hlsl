@@ -36,7 +36,6 @@ float4 main( SPixelShaderInput input ) : SV_Target
     float point_irradiance = (light_power * cos_theta) / (4.0 * PI * dist_to_light);
 
     float from_light_z = 0.0;
-    float3 dominant_axis_from_light = float3(0.0, 0.0, 0.0);
     if(abs(to_light.x) > abs(to_light.y) && abs(to_light.x) > abs(to_light.z)) {
         from_light_z = -to_light.x;
     }
@@ -65,7 +64,7 @@ float4 main( SPixelShaderInput input ) : SV_Target
     //    return float4(0.0, 0.0, 0.0, 1.0);
     //}
 
-    if(from_light_z >= (shadow_sample_light_space_z + 0.001)) {
+    if(from_light_z >= (shadow_sample_light_space_z + 0.1)) {
         point_irradiance = 0.0; // obscured by shadow
     }
 
@@ -74,6 +73,8 @@ float4 main( SPixelShaderInput input ) : SV_Target
         base_colour = g_texture.Sample(g_sampler, input.uv);
     else
         base_colour = input.color;
+
+    output = shadow_sample;
 
     //return base_colour;
     return base_colour * point_irradiance;

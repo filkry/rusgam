@@ -201,7 +201,19 @@ impl<'a> SShadowMappingPipeline<'a> {
             cl.clear_depth_stencil_view(self.shadow_depth_view.cpu_descriptor(i), 1.0)?;
             cl.om_set_render_targets(&[], false, &self.shadow_depth_view.cpu_descriptor(i));
 
-            let view_matrix = glm::look_at_lh(&light_pos_world, &(light_pos_world + dir), &Vec3::new(0.0, 1.0, 0.0));
+            let up = {
+                if dir.y == 1.0 {
+                    Vec3::new(0.0, 0.0, -1.0)
+                }
+                else if dir.y == -1.0 {
+                    Vec3::new(0.0, 0.0, 1.0)
+                }
+                else {
+                    Vec3::new(0.0, 1.0, 0.0)
+                }
+            };
+
+            let view_matrix = glm::look_at_lh(&light_pos_world, &(light_pos_world + dir), &up);
 
             let view_perspective = perspective_matrix * view_matrix;
 

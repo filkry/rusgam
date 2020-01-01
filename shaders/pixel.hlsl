@@ -23,7 +23,7 @@ static const float PI = 3.14159265f;
 
 float4 main( SPixelShaderInput input ) : SV_Target
 {
-    float3 light_pos = float3(0.0, 0.0, 0.0);
+    float3 light_pos = float3(5.0, 5.0, 5.0);
     float light_power = 50.0;
     //float3 light_dir = normalize(float3(-1.0, -1.0, -1.0));
     //float simple_light_weight = saturate(dot(light_dir, -input.normal.xyz));
@@ -37,13 +37,13 @@ float4 main( SPixelShaderInput input ) : SV_Target
 
     float from_light_z = 0.0;
     if(abs(to_light.x) > abs(to_light.y) && abs(to_light.x) > abs(to_light.z)) {
-        from_light_z = -to_light.x;
+        from_light_z = abs(to_light.x);
     }
     else if(abs(to_light.y) > abs(to_light.z)) {
-        from_light_z = -to_light.y;
+        from_light_z = abs(to_light.y);
     }
     else {
-        from_light_z = -to_light.z;
+        from_light_z = abs(to_light.z);
     }
 
     float4 shadow_sample = g_shadow_cube.Sample(g_shadow_sampler, -to_light);
@@ -57,12 +57,6 @@ float4 main( SPixelShaderInput input ) : SV_Target
     float shadow_sample_light_space_z = projection_b / (shadow_sample.x - projection_a);
 
     float4 output = float4(0.0, 0.0, 0.0, 1.0);
-    //if(from_light_z < (shadow_sample_light_space_z + 0.001)) {
-    //    return float4(1.0, 0.0, 0.0, 1.0);
-    //}
-    //else {
-    //    return float4(0.0, 0.0, 0.0, 1.0);
-    //}
 
     if(from_light_z >= (shadow_sample_light_space_z + 0.1)) {
         point_irradiance = 0.0; // obscured by shadow
@@ -74,10 +68,7 @@ float4 main( SPixelShaderInput input ) : SV_Target
     else
         base_colour = input.color;
 
-    output = shadow_sample;
-
     //return base_colour;
     return base_colour * point_irradiance;
-    //return (shadow_sample >= 1.0);
     //return output;
 }

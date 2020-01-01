@@ -458,15 +458,15 @@ fn main_d3d12() -> Result<(), &'static str> {
             .wait_for_internal_fence_value(framefencevalues[window.currentbackbufferindex()]);
 
         let models = [
-            //&model,
+            &model,
             &model2,
-            //&model3,
+            &model3,
             &room_model
         ];
         let model_matrices = [
-            //&model_matrix,
+            &model_matrix,
             &model2_matrix,
-            //&model3_matrix,
+            &model3_matrix,
             &room_model_matrix
         ];
 
@@ -476,7 +476,7 @@ fn main_d3d12() -> Result<(), &'static str> {
             let list = directcommandpool.get_list(handle)?;
 
             shadow_mapping_pipeline.render(
-                &Vec3::new(0.0, 0.0, 0.0),
+                &Vec3::new(5.0, 5.0, 5.0),
                 list,
                 &models,
                 &model_matrices,

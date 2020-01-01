@@ -267,7 +267,13 @@ impl<'a> SModel<'a> {
         }
     }
 
-    pub fn render(&self, cl: &mut n12::SCommandList, view_projection: &glm::Mat4, model_matrix: &glm::Mat4) {
+    pub fn render(
+        &self,
+        cl: &mut n12::SCommandList,
+        view_projection: &glm::Mat4,
+        model_matrix: &glm::Mat4,
+    ) {
+
         // -- assuming the same pipline state, root signature, viewport, scissor rect,
         // -- render target, for every model for now. These are set
         // -- outside of here

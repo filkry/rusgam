@@ -439,7 +439,7 @@ fn main_d3d12() -> Result<(), &'static str> {
             let zfar = 100.0;
 
             //SMat44::new_perspective(aspect, fovy, znear, zfar)
-            glm::perspective_lh(aspect, fovy, znear, zfar)
+            glm::perspective_lh_zo(aspect, fovy, znear, zfar)
         };
 
         camera.update_from_input(&input, dts);
@@ -461,13 +461,13 @@ fn main_d3d12() -> Result<(), &'static str> {
             //&model,
             &model2,
             //&model3,
-            //&room_model
+            &room_model
         ];
         let model_matrices = [
             //&model_matrix,
             &model2_matrix,
             //&model3_matrix,
-            //&room_model_matrix
+            &room_model_matrix
         ];
 
         // -- render shadowmaps

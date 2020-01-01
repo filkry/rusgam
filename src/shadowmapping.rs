@@ -154,8 +154,10 @@ impl<'a> SShadowMappingPipeline<'a> {
             let zfar = 100.0;
 
             //SMat44::new_perspective(aspect, fovy, znear, zfar)
-            glm::perspective_lh(aspect, fovy, znear, zfar)
+            glm::perspective_lh_zo(aspect, fovy, znear, zfar)
         };
+
+        //println!("{:?}", perspective_matrix);
 
         let viewport = t12::SViewport::new(
             0.0,

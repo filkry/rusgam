@@ -23,54 +23,60 @@ static const float PI = 3.14159265f;
 
 float4 main( SPixelShaderInput input ) : SV_Target
 {
-    //float3 light_pos = float3(0.0, 0.0, 0.0);
-    //float light_power = 50.0;
+    float3 light_pos = float3(0.0, 0.0, 0.0);
+    float light_power = 50.0;
     //float3 light_dir = normalize(float3(-1.0, -1.0, -1.0));
     //float simple_light_weight = saturate(dot(light_dir, -input.normal.xyz));
 
-    //float3 to_light = light_pos - input.world_position;
-    //float dist_to_light = length(to_light);
+    float3 to_light = light_pos - input.world_position;
+    float dist_to_light = length(to_light);
 
-    //float3 to_light_dir = to_light / dist_to_light;
+    float3 to_light_dir = to_light / dist_to_light;
+    float cos_theta = dot(to_light_dir, input.normal.xyz);
+    float point_irradiance = (light_power * cos_theta) / (4.0 * PI * dist_to_light);
 
-    //float cos_theta = dot(to_light_dir, input.normal.xyz);
+    float from_light_z = 0.0;
+    float3 dominant_axis_from_light = float3(0.0, 0.0, 0.0);
+    if(abs(to_light.x) > abs(to_light.y) && abs(to_light.x) > abs(to_light.z)) {
+        from_light_z = -to_light.x;
+    }
+    else if(abs(to_light.y) > abs(to_light.z)) {
+        from_light_z = -to_light.y;
+    }
+    else {
+        from_light_z = -to_light.z;
+    }
 
-    //float point_irradiance = (light_power * cos_theta) / (4.0 * PI * dist_to_light);
+    float4 shadow_sample = g_shadow_cube.Sample(g_shadow_sampler, -to_light);
 
-    //world_position = float3(4.0, 0.0, 0.0);
+    // -- from MJP's blog (https://mynameismjp.wordpress.com/2010/09/05/position-from-depth-3/)
+    float far_clip_distance = 100.0;
+    float near_clip_distance = 0.1;
 
-    float3 from_origin = input.world_position - float3(3.0, 0.0, 0.0);
+    float projection_a = far_clip_distance / (far_clip_distance - near_clip_distance);
+    float projection_b = -(far_clip_distance * near_clip_distance) / (far_clip_distance - near_clip_distance);
+    float shadow_sample_light_space_z = projection_b / (shadow_sample.x - projection_a);
 
-    //from_origin = float3(1.0, 0.0, 0.0);
-
-    //float3 shadow_sample = g_shadow_cube.Sample(g_sampler, to_light_dir);
-    //float4 shadow_sample = g_shadow_cube.Sample(g_shadow_sampler, from_origin);
-    float4 shadow_sample = g_shadow_cube.Sample(g_shadow_sampler, from_origin);
-    //shadow_sample.yzw = float3(0.0, 0.0, 1.0);
-    //if(shadow_sample.x < 0.000001) {
-    //    shadow_sample.x = 0.0;
-    //    shadow_sample.y = 1.0;
+    float4 output = float4(0.0, 0.0, 0.0, 1.0);
+    //if(from_light_z < (shadow_sample_light_space_z + 0.001)) {
+    //    return float4(1.0, 0.0, 0.0, 1.0);
     //}
-    //else if(shadow_sample.x < 0.99999) {
-    //    shadow_sample.x = 0.0;
-    //    shadow_sample.y = 0.0;
-    //    shadow_sample.z = 1.0;
+    //else {
+    //    return float4(0.0, 0.0, 0.0, 1.0);
     //}
 
-    float4 output = shadow_sample;
+    if(from_light_z >= (shadow_sample_light_space_z + 0.001)) {
+        point_irradiance = 0.0; // obscured by shadow
+    }
 
-    //if(from_origin.x >= 0.99999 && shadow_sample.x < 0.1)
-    //    output = float4(world_position.x, 0.0, 0.0, 1.0);
-
-
-    //float4 base_colour;
-    //if(texture_metadata_buffer.is_textured > 0.0f)
-    //    base_colour = g_texture.Sample(g_sampler, input.uv);
-    //else
-    //    base_colour = input.color;
+    float4 base_colour;
+    if(texture_metadata_buffer.is_textured > 0.0f)
+        base_colour = g_texture.Sample(g_sampler, input.uv);
+    else
+        base_colour = input.color;
 
     //return base_colour;
-    //return base_colour * point_irradiance;
+    return base_colour * point_irradiance;
     //return (shadow_sample >= 1.0);
-    return output;
+    //return output;
 }

@@ -94,6 +94,9 @@ fn compile_shaders_if_changed() {
                 needs_build = true;
             }
             else {
+                needs_build = true;
+
+                /*
                 let src_write_time = {
                     let src_file = std::fs::OpenOptions::new().read(true).open(shader_src_path).unwrap();
                     src_file.metadata().unwrap().modified().unwrap()
@@ -106,6 +109,7 @@ fn compile_shaders_if_changed() {
                 if src_write_time != build_shader_metadata.src_write_time {
                     needs_build = true;
                 }
+                */
             }
 
             if needs_build {
@@ -273,6 +277,29 @@ fn main_d3d12() -> Result<(), &'static str> {
         }
     };
 
+    let shadow_cube_root_parameter = {
+        let descriptor_range = t12::SDescriptorRange {
+            range_type: t12::EDescriptorRangeType::SRV,
+            num_descriptors: 1,
+            base_shader_register: 0,
+            register_space: 1,
+            offset_in_descriptors_from_table_start: t12::EDescriptorRangeOffset::EAppend,
+        };
+
+        let mut root_descriptor_table = t12::SRootDescriptorTable::new();
+        root_descriptor_table
+            .descriptor_ranges
+            .push(descriptor_range);
+
+        t12::SRootParameter {
+            type_: t12::ERootParameterType::DescriptorTable,
+            type_data: t12::ERootParameterTypeData::DescriptorTable {
+                table: root_descriptor_table,
+            },
+            shader_visibility: t12::EShaderVisibility::Pixel,
+        }
+    };
+
     let sampler = t12::SStaticSamplerDesc {
         filter: t12::EFilter::MinMagMipPoint,
         address_u: t12::ETextureAddressMode::Border,
@@ -289,6 +316,22 @@ fn main_d3d12() -> Result<(), &'static str> {
         shader_visibility: t12::EShaderVisibility::Pixel,
     };
 
+    let shadow_sampler = t12::SStaticSamplerDesc {
+        filter: t12::EFilter::MinMagMipPoint,
+        address_u: t12::ETextureAddressMode::Border,
+        address_v: t12::ETextureAddressMode::Border,
+        address_w: t12::ETextureAddressMode::Border,
+        mip_lod_bias: 0.0,
+        max_anisotropy: 0,
+        comparison_func: t12::EComparisonFunc::Never,
+        border_color: t12::EStaticBorderColor::TransparentBlack,
+        min_lod: 0.0,
+        max_lod: std::f32::MAX,
+        shader_register: 0,
+        register_space: 1,
+        shader_visibility: t12::EShaderVisibility::Pixel,
+    };
+
     let root_signature_flags = t12::SRootSignatureFlags::create(&[
         t12::ERootSignatureFlags::AllowInputAssemblerInputLayout,
         t12::ERootSignatureFlags::DenyHullShaderRootAccess,
@@ -300,7 +343,9 @@ fn main_d3d12() -> Result<(), &'static str> {
     root_signature_desc.parameters.push(mvp_root_parameter);
     root_signature_desc.parameters.push(texture_metadata_root_parameter);
     root_signature_desc.parameters.push(texture_root_parameter);
+    root_signature_desc.parameters.push(shadow_cube_root_parameter);
     root_signature_desc.static_samplers.push(sampler);
+    root_signature_desc.static_samplers.push(shadow_sampler);
 
     let root_signature =
         device.create_root_signature(root_signature_desc, t12::ERootSignatureVersion::V1)?;
@@ -344,7 +389,7 @@ fn main_d3d12() -> Result<(), &'static str> {
 
     // -- setup shadow mapping
     let shadow_mapping_pipeline = shadowmapping::setup_shadow_mapping_pipeline(
-        &device, &mut directcommandpool, &dsv_heap, 128, 128)?;
+        &device, &mut directcommandpool, &dsv_heap, &srv_heap, 128, 128)?;
 
     // -- update loop
 
@@ -383,7 +428,7 @@ fn main_d3d12() -> Result<(), &'static str> {
         // -- update
         let cur_angle = ((total_time as f32) / 1_000_000.0) * (3.14159 / 4.0);
         let model_matrix = Mat4::new_rotation(rot_axis * cur_angle);
-        let model2_matrix = glm::translation(&glm::Vec3::new(1.0, 0.0, 0.0));
+        let model2_matrix = glm::translation(&glm::Vec3::new(3.0, 0.0, 0.0));
         let model3_matrix = glm::translation(&glm::Vec3::new(0.0, 2.0, 0.0));
         let room_model_matrix = glm::translation(&glm::Vec3::new(0.0, -2.0, 0.0));
 
@@ -412,8 +457,18 @@ fn main_d3d12() -> Result<(), &'static str> {
             .borrow()
             .wait_for_internal_fence_value(framefencevalues[window.currentbackbufferindex()]);
 
-        let models = [&model, &model2, &model3, &room_model];
-        let model_matrices = [&model_matrix, &model2_matrix, &model3_matrix, &room_model_matrix];
+        let models = [
+            //&model,
+            &model2,
+            //&model3,
+            //&room_model
+        ];
+        let model_matrices = [
+            //&model_matrix,
+            &model2_matrix,
+            //&model3_matrix,
+            //&room_model_matrix
+        ];
 
         // -- render shadowmaps
         {
@@ -421,13 +476,14 @@ fn main_d3d12() -> Result<(), &'static str> {
             let list = directcommandpool.get_list(handle)?;
 
             shadow_mapping_pipeline.render(
-                &Vec3::new(5.0, 5.0, 5.0),
+                &Vec3::new(0.0, 0.0, 0.0),
                 list,
                 &models,
                 &model_matrices,
             )?;
 
-            directcommandpool.execute_and_free_list(handle)?;
+            let fence_val = directcommandpool.execute_and_free_list(handle)?;
+            directcommandpool.wait_for_internal_fence_value(fence_val);
         }
 
         // -- render
@@ -471,8 +527,13 @@ fn main_d3d12() -> Result<(), &'static str> {
                 // -- setup the output merger
                 list.om_set_render_targets(&[&render_target_view], false, &depth_texture_view);
 
+                srv_heap.with_raw_heap(|rh| {
+                    list.set_descriptor_heaps(&[rh]);
+                });
+
                 let view_perspective = perspective_matrix * view_matrix;
                 for modeli in 0..models.len() {
+                    list.set_graphics_root_descriptor_table(3, &shadow_mapping_pipeline.srv().gpu_descriptor(0));
                     models[modeli].set_texture_root_parameters(list, 1, 2);
                     models[modeli].render(list, &view_perspective, &model_matrices[modeli]);
                 }

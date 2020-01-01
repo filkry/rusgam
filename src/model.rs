@@ -258,10 +258,6 @@ impl<'a> SModel<'a> {
         metadata_constant_root_parameter: u32,
         texture_descriptor_table_root_parameter: usize,
     ) {
-        self.srv_heap.with_raw_heap(|rh| {
-            cl.set_descriptor_heaps(&[rh]);
-        });
-
         if let Some(dts) = &self.diffuse_texture_srv {
             cl.set_graphics_root_32_bit_constants(metadata_constant_root_parameter, &1.0f32, 0);
             cl.set_graphics_root_descriptor_table(texture_descriptor_table_root_parameter, &dts.gpu_descriptor(0));

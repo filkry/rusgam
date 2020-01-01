@@ -204,7 +204,7 @@ pub struct STex2DSRV {
 
 impl Default for STex2DSRV {
     fn default() -> Self {
-        STex2DSRV {
+        Self {
             most_detailed_mip: 0,
             mip_levels: 0,
             plane_slice: 0,
@@ -224,14 +224,42 @@ impl STex2DSRV {
     }
 }
 
+impl Default for STexCubeSRV {
+    fn default() -> Self {
+        Self {
+            most_detailed_mip: 0,
+            mip_levels: std::u32::MAX,
+            resource_min_lod_clamp: 0.0,
+        }
+    }
+}
+
+impl STexCubeSRV {
+    pub fn d3dtype(&self) -> D3D12_TEXCUBE_SRV {
+        D3D12_TEXCUBE_SRV {
+            MostDetailedMip: self.most_detailed_mip,
+            MipLevels: self.mip_levels,
+            ResourceMinLODClamp: self.resource_min_lod_clamp,
+        }
+    }
+}
+
+pub struct STexCubeSRV {
+    pub most_detailed_mip: u32,
+    pub mip_levels: u32,
+    pub resource_min_lod_clamp: f32,
+}
+
 pub enum ESRV {
     Texture2D { data: STex2DSRV },
+    TextureCube(STexCubeSRV),
 }
 
 impl ESRV {
     pub fn d3d_view_dimension(&self) -> D3D12_SRV_DIMENSION {
         match self {
             Self::Texture2D { .. } => D3D12_SRV_DIMENSION_TEXTURE2D,
+            Self::TextureCube { .. } => D3D12_SRV_DIMENSION_TEXTURECUBE,
         }
     }
 }
@@ -251,6 +279,9 @@ impl SShaderResourceViewDesc {
             match &self.view {
                 ESRV::Texture2D { data } => {
                     *(*result.as_mut_ptr()).u.Texture2D_mut() = data.d3dtype();
+                }
+                ESRV::TextureCube(data) => {
+                    *(*result.as_mut_ptr()).u.TextureCube_mut() = data.d3dtype();
                 }
             }
 

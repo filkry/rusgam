@@ -29,7 +29,7 @@ SVertexShaderOutput main(SVertexPosColorUV input)
     SVertexShaderOutput output;
 
     output.position = mul(modelviewprojectionconstantbuffer.mvp, float4(input.position, 1.0f));
-    output.world_position = input.position;
+    output.world_position = mul(modelviewprojectionconstantbuffer.model, float4(input.position, 1.0)).xyz;
     output.color = float4(input.color, 1.0f);
     output.normal = mul(modelviewprojectionconstantbuffer.model, float4(input.normal, 0.0f));
     output.uv = input.uv;

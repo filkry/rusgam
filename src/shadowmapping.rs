@@ -29,13 +29,15 @@ pub struct SShadowMappingPipeline<'a> {
     shadow_cube_height: usize,
 
     shadow_depth_resource: n12::SResource,
-    shadow_depth_view: n12::descriptorallocator::SDescriptorAllocatorAllocation<'a>,
+    shadow_depth_view: n12::SDescriptorAllocatorAllocation<'a>,
+    shadow_srv: n12::SDescriptorAllocatorAllocation<'a>,
 }
 
 pub fn setup_shadow_mapping_pipeline<'a>(
     device: &n12::SDevice,
     direct_command_pool: &mut n12::SCommandListPool,
     dsv_heap: &'a n12::SDescriptorAllocator,
+    srv_heap: &'a n12::SDescriptorAllocator,
     shadow_cube_width: usize,
     shadow_cube_height: usize,
 ) -> Result<SShadowMappingPipeline<'a>, &'static str> {
@@ -104,6 +106,21 @@ pub fn setup_shadow_mapping_pipeline<'a>(
         dsv_heap,
     )?;
 
+    let srv = {
+        let descriptors = srv_heap.alloc(1)?;
+
+        device.create_shader_resource_view(
+            &resource,
+            &t12::SShaderResourceViewDesc {
+                format: t12::EDXGIFormat::R32Float,
+                view: t12::ESRV::TextureCube(t12::STexCubeSRV::default()),
+            },
+            descriptors.cpu_descriptor(0),
+        )?;
+
+        descriptors
+    };
+
     Ok(SShadowMappingPipeline {
         _vertex_byte_code: vertex_byte_code,
         _pixel_byte_code: pixel_byte_code,
@@ -116,6 +133,7 @@ pub fn setup_shadow_mapping_pipeline<'a>(
 
         shadow_depth_resource: resource,
         shadow_depth_view: view,
+        shadow_srv: srv,
     })
 }
 
@@ -197,5 +215,9 @@ impl<'a> SShadowMappingPipeline<'a> {
         )?;
 
         Ok(())
+    }
+
+    pub fn srv(&self) -> &n12::SDescriptorAllocatorAllocation {
+        &self.shadow_srv
     }
 }

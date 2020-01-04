@@ -46,7 +46,9 @@ float4 main( SPixelShaderInput input ) : SV_Target
         from_light_z = abs(to_light.z);
     }
 
-    float4 shadow_sample = g_shadow_cube.Sample(g_shadow_sampler, -to_light);
+    float3 shadow_sample_pos = -to_light + 0.1 * input.normal.xyz;
+
+    float4 shadow_sample = g_shadow_cube.Sample(g_shadow_sampler, shadow_sample_pos);
 
     // -- from MJP's blog (https://mynameismjp.wordpress.com/2010/09/05/position-from-depth-3/)
     float far_clip_distance = 100.0;
@@ -58,7 +60,7 @@ float4 main( SPixelShaderInput input ) : SV_Target
 
     float4 output = float4(0.0, 0.0, 0.0, 1.0);
 
-    if(from_light_z >= (shadow_sample_light_space_z + 0.1)) {
+    if(from_light_z >= (shadow_sample_light_space_z + 0.05)) {
         point_irradiance = 0.0; // obscured by shadow
     }
 

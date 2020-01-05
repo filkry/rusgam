@@ -3,6 +3,7 @@ use model;
 use n12;
 use t12;
 use utils;
+use utils::{STransform};
 
 use glm::{Vec3, Mat4};
 
@@ -143,7 +144,7 @@ impl<'a> SShadowMappingPipeline<'a> {
         light_pos_world: &Vec3,
         cl: &mut n12::SCommandList,
         models: &[&model::SModel],
-        model_matrices: &[&Mat4],
+        model_matrices: &[&STransform],
     ) -> Result<(), &'static str> {
 
         // -- all this data could be cached ----------------------------------------

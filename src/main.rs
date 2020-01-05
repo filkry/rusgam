@@ -36,6 +36,7 @@ use glm::{Vec3, Mat4};
 use niced3d12 as n12;
 use typeyd3d12 as t12;
 use allocate::{SMemVec, STACK_ALLOCATOR};
+use utils::{STransform};
 
 pub struct SInput {
     w: bool,
@@ -432,12 +433,12 @@ fn main_d3d12() -> Result<(), &'static str> {
 
         // -- update
         let cur_angle = ((total_time as f32) / 1_000_000.0) * (3.14159 / 4.0);
-        let model_matrix = Mat4::new_rotation(rot_axis * cur_angle);
-        let model2_matrix = glm::translation(&glm::Vec3::new(3.0, 0.0, 0.0));
-        let model3_matrix = glm::translation(&glm::Vec3::new(0.0, 2.0, 0.0));
-        let room_model_matrix = glm::translation(&glm::Vec3::new(0.0, -2.0, 0.0));
+        let model_xform = STransform::new_rotation(&glm::quat_angle_axis(cur_angle, &rot_axis));
+        let model2_xform = STransform::new_translation(&glm::Vec3::new(3.0, 0.0, 0.0));
+        let model3_xform = STransform::new_translation(&glm::Vec3::new(0.0, 2.0, 0.0));
+        let room_model_xform = STransform::new_translation(&glm::Vec3::new(0.0, -2.0, 0.0));
 
-        let debug_model_matrix = glm::translation(&last_ray_hit_pos);
+        let debug_model_xform = STransform::new_translation(&last_ray_hit_pos);
 
         let fovy: f32 = utils::PI / 4.0; // 45 degrees
         let znear = 0.1;
@@ -472,12 +473,12 @@ fn main_d3d12() -> Result<(), &'static str> {
             &room_model,
             &debug_model,
         ];
-        let model_matrices = [
-            &model_matrix,
-            &model2_matrix,
-            &model3_matrix,
-            &room_model_matrix,
-            &debug_model_matrix,
+        let model_xforms = [
+            &model_xform,
+            &model2_xform,
+            &model3_xform,
+            &room_model_xform,
+            &debug_model_xform,
         ];
 
         // -- render shadowmaps
@@ -489,7 +490,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                 &Vec3::new(5.0, 5.0, 5.0),
                 list,
                 &models,
-                &model_matrices,
+                &model_xforms,
             )?;
 
             let fence_val = directcommandpool.execute_and_free_list(handle)?;
@@ -545,7 +546,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                 for modeli in 0..models.len() {
                     list.set_graphics_root_descriptor_table(3, &shadow_mapping_pipeline.srv().gpu_descriptor(0));
                     models[modeli].set_texture_root_parameters(list, 1, 2);
-                    models[modeli].render(list, &view_perspective, &model_matrices[modeli]);
+                    models[modeli].render(list, &view_perspective, &model_xforms[modeli]);
                 }
 
                 // -- transition to present
@@ -631,7 +632,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                         let mut min_pos = Vec3::new(0.0, 0.0, 0.0);
 
                         for modeli in 0..models.len() {
-                            if let Some(t) = models[modeli].ray_intersects(&camera.pos_world, &to_z_near_world_space.xyz(), model_matrices[modeli]) {
+                            if let Some(t) = models[modeli].ray_intersects(&camera.pos_world, &to_z_near_world_space.xyz(), model_xforms[modeli]) {
                                 if t < min_t {
                                     min_t = t;
                                     min_model_i = Some(modeli);

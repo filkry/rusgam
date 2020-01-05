@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use safewindows;
-use glm::{Vec3, Vec4};
+use glm::{Vec3, Vec4, Quat, Mat4};
 
 pub static PI : f32 = 3.14159265358979;
 
@@ -90,4 +90,83 @@ pub fn fovx(fovy: f32, width: u32, height: u32) -> f32 {
     let eq_3_rhs = (width as f32) / (height as f32) * (fovy * 0.5).tan();
     let half_fov_x = eq_3_rhs.atan();
     return half_fov_x * 2.0;
+}
+
+pub struct STransform {
+    pub t: Vec3,
+    pub r: Quat,
+    pub s: f32,
+}
+
+impl Default for STransform {
+    fn default() -> Self {
+        Self {
+            t: Vec3::new(0.0, 0.0, 0.0),
+            r: glm::quat_identity(),
+            s: 1.0,
+        }
+    }
+}
+
+impl STransform {
+    pub fn new(t: &Vec3, r: &Quat, s: f32) -> Self {
+        Self {
+            t: t.clone(),
+            r: r.clone(),
+            s,
+        }
+    }
+
+    pub fn new_translation(t: &Vec3) -> Self {
+        let mut result = Self::default();
+        result.t = t.clone();
+        return result;
+    }
+
+    pub fn new_rotation(r: &Quat) -> Self {
+        let mut result = Self::default();
+        result.r = r.clone();
+        return result;
+    }
+
+    pub fn inverse(&self) -> Self {
+        break_assert!(self.s == 1.0); // didn't figure this out for non-1.0 scales yet
+        let r_inverse = glm::quat_inverse(&self.r);
+
+        Self {
+            t: glm::quat_rotate_vec3(&r_inverse, &(-self.t)),
+            r: r_inverse,
+            s: 1.0,
+        }
+    }
+
+    pub fn mul_transform(second: &STransform, first: &STransform) -> Self {
+        break_assert!(first.s == 1.0 && second.s == 1.0); // didn't figure this out for non-1.0 scales yet
+
+        // resulting transform is as though applying first, then second
+        Self {
+            t: second.t + glm::quat_rotate_vec3(&second.r, &first.t),
+            r: second.r * first.r,
+            s: 1.0,
+        }
+    }
+
+    pub fn as_mat4(&self) -> Mat4 {
+        // -- $$$FRK(TODO): could easily derivce the components of the matrix and
+        // -- construct directly rather than multiplying
+
+        let scale = glm::scaling(&Vec3::new(self.s, self.s, self.s));
+        let rotation = glm::quat_to_mat4(&self.r);
+        let translation = glm::translation(&self.t);
+
+        return translation * rotation * scale;
+    }
+
+    pub fn mul_point(&self, point: &Vec3) -> Vec3 {
+        return self.t + glm::quat_rotate_vec3(&self.r, &(self.s * point));
+    }
+
+    pub fn mul_vec(&self, point: &Vec3) -> Vec3 {
+        return glm::quat_rotate_vec3(&self.r, &(self.s * point));
+    }
 }

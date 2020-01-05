@@ -1,6 +1,6 @@
 //use std::cell::RefCell;
 
-use glm::{Vec4, Vec3, Vec2, Mat4};
+use glm::{Vec3, Vec2, Mat4};
 use arrayvec::{ArrayString};
 
 use t12;
@@ -8,6 +8,7 @@ use n12;
 use allocate::{SMemVec, SYSTEM_ALLOCATOR};
 use safewindows;
 use utils;
+use utils::{STransform};
 
 #[allow(dead_code)]
 struct SVertexPosColourUV {
@@ -288,7 +289,7 @@ impl<'a> SModel<'a> {
         &self,
         cl: &mut n12::SCommandList,
         view_projection: &glm::Mat4,
-        model_matrix: &glm::Mat4,
+        model_xform: &STransform,
     ) {
 
         // -- assuming the same pipline state, root signature, viewport, scissor rect,
@@ -307,6 +308,8 @@ impl<'a> SModel<'a> {
             mvp: Mat4,
         }
 
+        let model_matrix = model_xform.as_mat4();
+
         let mvp_matrix = view_projection * model_matrix;
         let mvp = SModelViewProjection{
             model: model_matrix.clone(),
@@ -324,7 +327,7 @@ impl<'a> SModel<'a> {
         &self,
         ray_origin: &Vec3,
         ray_dir: &Vec3,
-        model_to_ray_space: &Mat4,
+        model_to_ray_space: &STransform,
     ) -> Option<f32> {
 
         break_assert!(self.triangle_indices.len() % 3 == 0);
@@ -341,10 +344,9 @@ impl<'a> SModel<'a> {
             let v1_pos = &self.per_vertex_data[ti_vi_1 as usize].position;
             let v2_pos = &self.per_vertex_data[ti_vi_2 as usize].position;
 
-            let v0_ray_space_pos = model_to_ray_space * Vec4::new(v0_pos.x, v0_pos.y, v0_pos.z , 1.0);
-            let v1_ray_space_pos = model_to_ray_space * Vec4::new(v1_pos.x, v1_pos.y, v1_pos.z , 1.0);
-            let v2_ray_space_pos = model_to_ray_space * Vec4::new(v2_pos.x, v2_pos.y, v2_pos.z , 1.0);
-
+            let v0_ray_space_pos = model_to_ray_space.mul_point(&v0_pos);
+            let v1_ray_space_pos = model_to_ray_space.mul_point(&v1_pos);
+            let v2_ray_space_pos = model_to_ray_space.mul_point(&v2_pos);
 
             if let Some(t) = utils::ray_intersects_triangle(
                 &ray_origin,

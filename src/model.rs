@@ -342,8 +342,9 @@ impl<'a> SModel<'a> {
             let v2_pos = &self.per_vertex_data[ti_vi_2 as usize].position;
 
             let v0_ray_space_pos = model_to_ray_space * Vec4::new(v0_pos.x, v0_pos.y, v0_pos.z , 1.0);
-            let v1_ray_space_pos = model_to_ray_space * Vec4::new(v1_pos.x, v1_pos.y, v1_pos.z , 1.1);
-            let v2_ray_space_pos = model_to_ray_space * Vec4::new(v2_pos.x, v2_pos.y, v2_pos.z , 1.2);
+            let v1_ray_space_pos = model_to_ray_space * Vec4::new(v1_pos.x, v1_pos.y, v1_pos.z , 1.0);
+            let v2_ray_space_pos = model_to_ray_space * Vec4::new(v2_pos.x, v2_pos.y, v2_pos.z , 1.0);
+
 
             if let Some(t) = utils::ray_intersects_triangle(
                 &ray_origin,

@@ -433,10 +433,11 @@ fn main_d3d12() -> Result<(), &'static str> {
         let model3_matrix = glm::translation(&glm::Vec3::new(0.0, 2.0, 0.0));
         let room_model_matrix = glm::translation(&glm::Vec3::new(0.0, -2.0, 0.0));
 
+        let fovy: f32 = utils::PI / 4.0;
+        let znear = 0.1;
+
         let perspective_matrix: Mat4 = {
             let aspect = (window.width() as f32) / (window.height() as f32);
-            let fovy: f32 = utils::PI / 4.0;
-            let znear = 0.1;
             let zfar = 100.0;
 
             //SMat44::new_perspective(aspect, fovy, znear, zfar)
@@ -446,7 +447,7 @@ fn main_d3d12() -> Result<(), &'static str> {
         camera.update_from_input(&input, dts);
         input.mouse_dx = 0;
         input.mouse_dy = 0;
-        let view_matrix = camera.to_view_matrix();
+        let view_matrix = camera.world_to_view_matrix();
 
         //println!("View: {}", view_matrix);
         //println!("Perspective: {}", perspective_matrix);
@@ -592,6 +593,44 @@ fn main_d3d12() -> Result<(), &'static str> {
                         safewindows::EKey::Space => input.space = false,
                         safewindows::EKey::C => input.c = false,
                         _ => (),
+                    },
+                    safewindows::EMsgType::LButtonDown{ x_pos, y_pos } => {
+                        println!("Left button down: {}, {}", x_pos, y_pos);
+
+                        let half_camera_near_clip_height = (fovy/2.0).tan() * znear;
+                        let half_camera_near_clip_width = ((window.width() as f32) / (window.height() as f32)) * half_camera_near_clip_height;
+
+                        let near_clip_top_left_camera_space = Vec3::new(-half_camera_near_clip_width, half_camera_near_clip_height, znear);
+                        let near_clip_deltax_camera_space = Vec3::new(2.0 * half_camera_near_clip_width, 0.0, 0.0);
+                        let near_clip_deltay_camera_space = Vec3::new(-2.0 * half_camera_near_clip_height, 0.0, 0.0);
+
+                        let pct_width = (x_pos as f32) / (window.width() as f32);
+                        let pct_height = (y_pos as f32) / (window.height() as f32);
+
+                        let to_z_near_camera_space = near_clip_top_left_camera_space +
+                            pct_width * near_clip_deltax_camera_space +
+                            pct_height * near_clip_deltay_camera_space;
+
+                        let world_to_view = camera.world_to_view_matrix();
+                        let view_to_world = glm::inverse(&world_to_view);
+
+                        let to_z_near_world_space = view_to_world * utils::vec3_to_homogenous(&to_z_near_camera_space, 0.0);
+
+                        let mut min_t = std::f32::MAX;
+                        let mut min_model_i = None;
+
+                        for modeli in 0..models.len() {
+                            if let Some(t) = models[modeli].ray_intersects(&camera.pos_world, &to_z_near_world_space.xyz(), model_matrices[modeli]) {
+                                if t < min_t {
+                                    min_t = t;
+                                    min_model_i = Some(modeli);
+                                }
+                            }
+                        }
+
+                        if let Some(modeli) = min_model_i {
+                            println!("Hit model {}", modeli);
+                        }
                     },
                     safewindows::EMsgType::Input{ raw_input } => {
                         if let safewindows::rawinput::ERawInputData::Mouse{data} = raw_input.data {

@@ -1,7 +1,7 @@
 use glm::{Vec3, Mat4};
 
 pub struct SCamera {
-    pos_world: Vec3,
+    pub pos_world: Vec3,
     x_angle: f32,
     y_angle: f32,
 }
@@ -68,7 +68,7 @@ impl SCamera {
         }
     }
 
-    pub fn to_view_matrix(&self) -> Mat4 {
+    pub fn world_to_view_matrix(&self) -> Mat4 {
         let rotate_x = glm::quat_angle_axis(self.x_angle, &Self::right_local());
         let rotate_y = glm::quat_angle_axis(self.y_angle, &Self::up_world());
 

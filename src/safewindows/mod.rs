@@ -25,6 +25,16 @@ macro_rules! break_err {
     };
 }
 
+#[macro_export]
+macro_rules! break_assert {
+    ($e:expr) => {
+        if !($e) {
+            safewindows::break_if_debugging();
+            assert!(false);
+        }
+    };
+}
+
 // -- this is copied in safeD3D12, does it have to be?
 trait ComPtrPtrs<T> {
     unsafe fn asunknownptr(&mut self) -> *mut unknwnbase::IUnknown;
@@ -417,6 +427,7 @@ pub enum EMsgType {
     Invalid,
     KeyDown { key: EKey },
     KeyUp { key: EKey },
+    LButtonDown { x_pos: i32, y_pos: i32 },
     Paint,
     Size,
     Input { raw_input: rawinput::SRawInput },
@@ -429,6 +440,10 @@ pub fn msgtype(msg: UINT, wparam: WPARAM, lparam: LPARAM) -> EMsgType {
         },
         winapi::um::winuser::WM_KEYUP => EMsgType::KeyUp {
             key: translatewmkey(wparam),
+        },
+        winapi::um::winuser::WM_LBUTTONDOWN => EMsgType::LButtonDown {
+            x_pos: winapi::shared::windowsx::GET_X_LPARAM(lparam),
+            y_pos: winapi::shared::windowsx::GET_Y_LPARAM(lparam),
         },
         winapi::um::winuser::WM_PAINT => EMsgType::Paint,
         winapi::um::winuser::WM_SIZE => EMsgType::Size,

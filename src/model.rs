@@ -1,11 +1,13 @@
 //use std::cell::RefCell;
 
-use glm::{Vec3, Vec2, Mat4};
+use glm::{Vec4, Vec3, Vec2, Mat4};
 use arrayvec::{ArrayString};
 
 use t12;
 use n12;
 use allocate::{SMemVec, SYSTEM_ALLOCATOR};
+use safewindows;
+use utils;
 
 #[allow(dead_code)]
 struct SVertexPosColourUV {
@@ -301,5 +303,42 @@ impl<'a> SModel<'a> {
 
         // -- draw
         cl.draw_indexed_instanced(self.triangle_indices.len() as u32, 1, 0, 0, 0);
+    }
+
+    pub fn ray_intersects(
+        &self,
+        ray_origin: &Vec3,
+        ray_dir: &Vec3,
+        model_to_ray_space: &Mat4,
+    ) -> Option<f32> {
+
+        break_assert!(self.triangle_indices.len() % 3 == 0);
+        let num_tris = self.triangle_indices.len() / 3;
+
+        for ti in 0..num_tris {
+            let ti_vi_0 = self.triangle_indices[ti * 3 + 0];
+            let ti_vi_1 = self.triangle_indices[ti * 3 + 1];
+            let ti_vi_2 = self.triangle_indices[ti * 3 + 2];
+
+            let v0_pos = &self.per_vertex_data[ti_vi_0 as usize].position;
+            let v1_pos = &self.per_vertex_data[ti_vi_1 as usize].position;
+            let v2_pos = &self.per_vertex_data[ti_vi_2 as usize].position;
+
+            let v0_ray_space_pos = model_to_ray_space * Vec4::new(v0_pos.x, v0_pos.y, v0_pos.z , 1.0);
+            let v1_ray_space_pos = model_to_ray_space * Vec4::new(v1_pos.x, v1_pos.y, v1_pos.z , 1.1);
+            let v2_ray_space_pos = model_to_ray_space * Vec4::new(v2_pos.x, v2_pos.y, v2_pos.z , 1.2);
+
+            if let Some(t) = utils::ray_intersects_triangle(
+                &ray_origin,
+                &ray_dir,
+                &v0_ray_space_pos.xyz(),
+                &v1_ray_space_pos.xyz(),
+                &v2_ray_space_pos.xyz()) {
+
+                return Some(t);
+            }
+        }
+
+        return None;
     }
 }

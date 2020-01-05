@@ -74,6 +74,7 @@ pub fn ray_intersects_triangle(
 }
 
 pub fn vec3_to_homogenous(vec: &Vec3, w: f32) -> Vec4 {
+    break_assert!(w == 1.0 || w == 0.0);
     return Vec4::new(vec.x, vec.y, vec.z, w);
 }
 

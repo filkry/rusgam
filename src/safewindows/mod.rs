@@ -17,6 +17,14 @@ use wio::com::ComPtr;
 
 pub mod rawinput;
 
+#[macro_export]
+macro_rules! break_err {
+    ($e:expr) => {
+        safewindows::break_if_debugging();
+        return $e;
+    };
+}
+
 // -- this is copied in safeD3D12, does it have to be?
 trait ComPtrPtrs<T> {
     unsafe fn asunknownptr(&mut self) -> *mut unknwnbase::IUnknown;
@@ -453,5 +461,15 @@ pub fn msgtype(msg: UINT, wparam: WPARAM, lparam: LPARAM) -> EMsgType {
             }
         },
         _ => EMsgType::Invalid,
+    }
+}
+
+pub fn debug_break() {
+    unsafe { winapi::um::debugapi::DebugBreak() };
+}
+
+pub fn break_if_debugging() {
+    if unsafe { winapi::um::debugapi::IsDebuggerPresent() == TRUE } {
+        debug_break();
     }
 }

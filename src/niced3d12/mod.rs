@@ -126,7 +126,7 @@ pub fn create_committed_depth_textures<'a> (
 ) -> Result<(SResource, descriptorallocator::SDescriptorAllocatorAllocation<'a>), &'static str> {
 
     if depth_descriptor_allocator.type_() != t12::EDescriptorHeapType::DepthStencil {
-        return Err("Non-DepthStencil descriptor allocator passed to create_depth_texture.");
+        break_err!(Err("Non-DepthStencil descriptor allocator passed to create_depth_texture."));
     }
 
     direct_command_pool.flush_blocking().unwrap();

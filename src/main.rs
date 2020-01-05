@@ -9,12 +9,13 @@ extern crate serde_json;
 extern crate serde;
 
 //mod math;
+#[macro_use]
+mod safewindows;
 mod allocate;
 mod collections;
 mod directxgraphicssamples;
 mod niced3d12;
 mod rustywindows;
-mod safewindows;
 mod typeyd3d12;
 mod utils;
 mod enumflags;

@@ -66,7 +66,11 @@ pub fn ray_intersects_triangle(
     }
 
     let t = f * glm::dot(&edge2, &q);
-    return Some(t); // t may be >1.0
+    if t > 0.0 {
+        return Some(t); // t may be >1.0
+    }
+
+    return None;
 }
 
 pub fn vec3_to_homogenous(vec: &Vec3, w: f32) -> Vec4 {

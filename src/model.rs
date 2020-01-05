@@ -330,6 +330,8 @@ impl<'a> SModel<'a> {
         break_assert!(self.triangle_indices.len() % 3 == 0);
         let num_tris = self.triangle_indices.len() / 3;
 
+        let mut min_t = None;
+
         for ti in 0..num_tris {
             let ti_vi_0 = self.triangle_indices[ti * 3 + 0];
             let ti_vi_1 = self.triangle_indices[ti * 3 + 1];
@@ -350,10 +352,17 @@ impl<'a> SModel<'a> {
                 &v1_ray_space_pos.xyz(),
                 &v2_ray_space_pos.xyz()) {
 
-                return Some(t);
+                if let Some(cur_min_t) = min_t {
+                    if t < cur_min_t {
+                        min_t = Some(t);
+                    }
+                }
+                else {
+                    min_t = Some(t);
+                }
             }
         }
 
-        return None;
+        return min_t;
     }
 }

@@ -420,6 +420,8 @@ fn main_d3d12() -> Result<(), &'static str> {
         mouse_dy: 0,
     };
 
+    let mut last_ray_hit_pos = Vec3::new(0.0, 0.0, 0.0);
+
     while !shouldquit {
         let curframetime = winapi.curtimemicroseconds();
         let dt = curframetime - lastframetime;
@@ -435,7 +437,7 @@ fn main_d3d12() -> Result<(), &'static str> {
         let model3_matrix = glm::translation(&glm::Vec3::new(0.0, 2.0, 0.0));
         let room_model_matrix = glm::translation(&glm::Vec3::new(0.0, -2.0, 0.0));
 
-        let debug_model_matrix = glm::translation(&glm::Vec3::new(0.0, 5.0, 0.0));
+        let debug_model_matrix = glm::translation(&last_ray_hit_pos);
 
         let fovy: f32 = utils::PI / 4.0; // 45 degrees
         let znear = 0.1;
@@ -626,18 +628,21 @@ fn main_d3d12() -> Result<(), &'static str> {
 
                         let mut min_t = std::f32::MAX;
                         let mut min_model_i = None;
+                        let mut min_pos = Vec3::new(0.0, 0.0, 0.0);
 
                         for modeli in 0..models.len() {
                             if let Some(t) = models[modeli].ray_intersects(&camera.pos_world, &to_z_near_world_space.xyz(), model_matrices[modeli]) {
                                 if t < min_t {
                                     min_t = t;
                                     min_model_i = Some(modeli);
+                                    min_pos = camera.pos_world + t * to_z_near_world_space.xyz();
                                 }
                             }
                         }
 
                         if let Some(modeli) = min_model_i {
                             println!("Hit model {}", modeli);
+                            last_ray_hit_pos = min_pos;
                         }
                     },
                     safewindows::EMsgType::Input{ raw_input } => {

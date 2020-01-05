@@ -73,6 +73,14 @@ pub struct SModel<'a> {
     pub(super) srv_heap: &'a n12::descriptorallocator::SDescriptorAllocator,
     pub(super) diffuse_texture_resource: Option<n12::SResource>,
     pub(super) diffuse_texture_srv: Option<n12::descriptorallocator::SDescriptorAllocatorAllocation<'a>>,
+
+    always_diffuse_colour: bool,
+}
+
+#[repr(C)]
+struct STextureMetadata {
+    is_textured: f32,
+    always_diffuse_colour: f32,
 }
 
 impl<'a> SModel<'a> {
@@ -83,6 +91,7 @@ impl<'a> SModel<'a> {
         copy_command_pool: &mut n12::SCommandListPool,
         direct_command_pool: &mut n12::SCommandListPool,
         srv_heap: &'a n12::descriptorallocator::SDescriptorAllocator,
+        always_diffuse_colour: bool,
     ) -> Result<Self, &'static str> {
 
         let (models, materials) = tobj::load_obj(&std::path::Path::new(obj_file)).unwrap();
@@ -251,6 +260,8 @@ impl<'a> SModel<'a> {
             srv_heap: srv_heap,
             diffuse_texture_resource: diffuse_texture_resource,
             diffuse_texture_srv: diffuse_texture_srv,
+
+            always_diffuse_colour,
         })
     }
 
@@ -260,13 +271,17 @@ impl<'a> SModel<'a> {
         metadata_constant_root_parameter: u32,
         texture_descriptor_table_root_parameter: usize,
     ) {
+        let mut texture_metadata = STextureMetadata{
+            is_textured: 0.0,
+            always_diffuse_colour: if self.always_diffuse_colour { 1.0 } else { 0.0 },
+        };
+
         if let Some(dts) = &self.diffuse_texture_srv {
-            cl.set_graphics_root_32_bit_constants(metadata_constant_root_parameter, &1.0f32, 0);
+            texture_metadata.is_textured = 1.0;
             cl.set_graphics_root_descriptor_table(texture_descriptor_table_root_parameter, &dts.gpu_descriptor(0));
         }
-        else {
-            cl.set_graphics_root_32_bit_constants(metadata_constant_root_parameter, &0.0f32, 0);
-        }
+
+        cl.set_graphics_root_32_bit_constants(metadata_constant_root_parameter, &texture_metadata, 0);
     }
 
     pub fn render(

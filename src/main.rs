@@ -215,11 +215,13 @@ fn main_d3d12() -> Result<(), &'static str> {
         bottom: std::i32::MAX,
     };
 
-    let model = model::SModel::new_from_obj("assets/first_test_asset.obj", &device, &mut copycommandpool, &mut directcommandpool, &srv_heap)?;
-    let model2 = model::SModel::new_from_obj("assets/first_test_asset.obj", &device, &mut copycommandpool, &mut directcommandpool, &srv_heap)?;
-    let model3 = model::SModel::new_from_obj("assets/test_untextured_flat_colour_cube.obj", &device, &mut copycommandpool, &mut directcommandpool, &srv_heap)?;
+    let model = model::SModel::new_from_obj("assets/first_test_asset.obj", &device, &mut copycommandpool, &mut directcommandpool, &srv_heap, false)?;
+    let model2 = model::SModel::new_from_obj("assets/first_test_asset.obj", &device, &mut copycommandpool, &mut directcommandpool, &srv_heap, false)?;
+    let model3 = model::SModel::new_from_obj("assets/test_untextured_flat_colour_cube.obj", &device, &mut copycommandpool, &mut directcommandpool, &srv_heap, false)?;
 
-    let room_model = model::SModel::new_from_obj("assets/test_open_room.obj", &device, &mut copycommandpool, &mut directcommandpool, &srv_heap)?;
+    let room_model = model::SModel::new_from_obj("assets/test_open_room.obj", &device, &mut copycommandpool, &mut directcommandpool, &srv_heap, false)?;
+
+    let debug_model = model::SModel::new_from_obj("assets/debug_icosphere.obj", &device, &mut copycommandpool, &mut directcommandpool, &srv_heap, true)?;
 
     // -- load shaders
     let vertblob = t12::read_file_to_blob("shaders_built/vertex.cso")?;
@@ -249,7 +251,7 @@ fn main_d3d12() -> Result<(), &'static str> {
             constants: t12::SRootConstants {
                 shader_register: 1,
                 register_space: 0,
-                num_32_bit_values: 1,
+                num_32_bit_values: 2,
             },
         },
         shader_visibility: t12::EShaderVisibility::Pixel,
@@ -433,7 +435,9 @@ fn main_d3d12() -> Result<(), &'static str> {
         let model3_matrix = glm::translation(&glm::Vec3::new(0.0, 2.0, 0.0));
         let room_model_matrix = glm::translation(&glm::Vec3::new(0.0, -2.0, 0.0));
 
-        let fovy: f32 = utils::PI / 4.0;
+        let debug_model_matrix = glm::translation(&glm::Vec3::new(0.0, 5.0, 0.0));
+
+        let fovy: f32 = utils::PI / 4.0; // 45 degrees
         let znear = 0.1;
 
         let perspective_matrix: Mat4 = {
@@ -463,13 +467,15 @@ fn main_d3d12() -> Result<(), &'static str> {
             &model,
             &model2,
             &model3,
-            &room_model
+            &room_model,
+            &debug_model,
         ];
         let model_matrices = [
             &model_matrix,
             &model2_matrix,
             &model3_matrix,
-            &room_model_matrix
+            &room_model_matrix,
+            &debug_model_matrix,
         ];
 
         // -- render shadowmaps
@@ -602,7 +608,7 @@ fn main_d3d12() -> Result<(), &'static str> {
 
                         let near_clip_top_left_camera_space = Vec3::new(-half_camera_near_clip_width, half_camera_near_clip_height, znear);
                         let near_clip_deltax_camera_space = Vec3::new(2.0 * half_camera_near_clip_width, 0.0, 0.0);
-                        let near_clip_deltay_camera_space = Vec3::new(-2.0 * half_camera_near_clip_height, 0.0, 0.0);
+                        let near_clip_deltay_camera_space = Vec3::new(0.0, -2.0 * half_camera_near_clip_height, 0.0);
 
                         let pct_width = (x_pos as f32) / (window.width() as f32);
                         let pct_height = (y_pos as f32) / (window.height() as f32);
@@ -610,6 +616,8 @@ fn main_d3d12() -> Result<(), &'static str> {
                         let to_z_near_camera_space = near_clip_top_left_camera_space +
                             pct_width * near_clip_deltax_camera_space +
                             pct_height * near_clip_deltay_camera_space;
+
+                        println!("to_z_near_camera_space: {:?}", to_z_near_camera_space);
 
                         let world_to_view = camera.world_to_view_matrix();
                         let view_to_world = glm::inverse(&world_to_view);

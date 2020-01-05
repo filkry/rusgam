@@ -9,6 +9,7 @@ struct SPixelShaderInput
 
 struct STextureMetadata {
     float is_textured;
+    float always_diffuse_colour;
 };
 
 ConstantBuffer<STextureMetadata> texture_metadata_buffer : register(b1);
@@ -69,6 +70,9 @@ float4 main( SPixelShaderInput input ) : SV_Target
         base_colour = g_texture.Sample(g_sampler, input.uv);
     else
         base_colour = input.color;
+
+    if(texture_metadata_buffer.always_diffuse_colour > 0.0)
+        return base_colour;
 
     //return base_colour;
     return base_colour * point_irradiance;

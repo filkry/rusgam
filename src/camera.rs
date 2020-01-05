@@ -22,6 +22,16 @@ impl SCamera {
         Vec3::new(0.0, 1.0, 0.0)
     }
 
+    pub fn forward_world(&self) -> Vec3 {
+        let rotate_x = glm::quat_angle_axis(self.x_angle, &Self::right_local());
+        let rotate_y = glm::quat_angle_axis(self.y_angle, &Self::up_world());
+
+        let rotate = rotate_y * rotate_x;
+
+        let forward_world = glm::quat_rotate_vec3(&rotate, &Self::forward_local());
+        return forward_world;
+    }
+
     pub fn new(pos: Vec3) -> Self {
         Self {
             pos_world: pos,
@@ -69,13 +79,6 @@ impl SCamera {
     }
 
     pub fn world_to_view_matrix(&self) -> Mat4 {
-        let rotate_x = glm::quat_angle_axis(self.x_angle, &Self::right_local());
-        let rotate_y = glm::quat_angle_axis(self.y_angle, &Self::up_world());
-
-        let rotate = rotate_y * rotate_x;
-
-        let look_at_offset = glm::quat_rotate_vec3(&rotate, &Self::forward_local());
-
-        glm::look_at_lh(&self.pos_world, &(self.pos_world + look_at_offset), &Self::up_world())
+        glm::look_at_lh(&self.pos_world, &(self.pos_world + self.forward_world()), &Self::up_world())
     }
 }

@@ -85,8 +85,6 @@ pub fn fovx(fovy: f32, width: u32, height: u32) -> f32 {
     // rearrange (1) for z and substitute into (2) to get
     // (3) tan(fovx * 0.5) = (w/h) * tan(fovy * 0.5)
 
-    break_assert!(false); // untested code
-
     let eq_3_rhs = (width as f32) / (height as f32) * (fovy * 0.5).tan();
     let half_fov_x = eq_3_rhs.atan();
     return half_fov_x * 2.0;

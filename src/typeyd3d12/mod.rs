@@ -31,6 +31,7 @@ use safewindows;
 use enumflags::{TEnumFlags32, SEnumFlags32};
 
 use std::{mem, ptr};
+use std::convert::From;
 
 use arrayvec::ArrayVec;
 
@@ -191,6 +192,25 @@ impl EDXGIFormat {
             Self::R32Typeless => dxgiformat::DXGI_FORMAT_R32_TYPELESS,
             Self::R8G8B8A8UNorm => dxgiformat::DXGI_FORMAT_R8G8B8A8_UNORM,
             Self::R16UINT => dxgiformat::DXGI_FORMAT_R16_UINT,
+        }
+    }
+}
+
+impl From<dxgiformat::DXGI_FORMAT> for EDXGIFormat {
+    fn from(format: dxgiformat::DXGI_FORMAT) -> Self {
+        match format {
+            dxgiformat::DXGI_FORMAT_UNKNOWN => Self::Unknown,
+            dxgiformat::DXGI_FORMAT_R32G32B32A32_TYPELESS => Self::R32G32B32A32Typeless,
+            dxgiformat::DXGI_FORMAT_R32G32B32_FLOAT => Self::R32G32B32Float,
+            dxgiformat::DXGI_FORMAT_R32G32_FLOAT => Self::R32G32Float,
+            dxgiformat::DXGI_FORMAT_D32_FLOAT => Self::D32Float,
+            dxgiformat::DXGI_FORMAT_R32_FLOAT => Self::R32Float,
+            dxgiformat::DXGI_FORMAT_R32_TYPELESS => Self::R32Typeless,
+            dxgiformat::DXGI_FORMAT_R8G8B8A8_UNORM => Self::R8G8B8A8UNorm,
+            dxgiformat::DXGI_FORMAT_R16_UINT => Self::R16UINT,
+            _ => {
+                panic!("Unimplemented type");
+            }
         }
     }
 }

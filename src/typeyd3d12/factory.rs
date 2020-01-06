@@ -45,28 +45,31 @@ impl SFactory {
     ) -> Result<SSwapChain, &'static str> {
         let buffercount = 2;
 
-        let desc = DXGI_SWAP_CHAIN_DESC1 {
-            Width: width,
-            Height: height,
-            Format: dxgiformat::DXGI_FORMAT_R8G8B8A8_UNORM, // $$$FRK(TODO): I have no idea why I'm picking this format
-            Stereo: FALSE,
-            SampleDesc: dxgitype::DXGI_SAMPLE_DESC {
-                Count: 1,
-                Quality: 0,
-            }, // $$$FRK(TODO): ???
-            BufferUsage: dxgitype::DXGI_USAGE_RENDER_TARGET_OUTPUT,
-            BufferCount: buffercount,
-            Scaling: DXGI_SCALING_STRETCH,
-            SwapEffect: DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL,
-            AlphaMode: DXGI_ALPHA_MODE_UNSPECIFIED,
-            Flags: 0,
+        let desc = SSwapChainDesc {
+            width,
+            height,
+            format: EDXGIFormat::R8G8B8A8UNorm,
+            stereo: false,
+            sample_desc: SDXGISampleDesc {
+                count: 1,
+                quality: 0,
+            },
+            buffer_usage: SDXGIUsageFlags::RENDER_TARGET_OUTPUT,
+            buffer_count: buffercount,
+            scaling: EDXGIScaling::Stretch,
+            swap_effect: EDXGISwapEffect::FlipSequential,
+            alpha_mode: EDXGIAlphaMode::Unspecified,
+            flags: SDXGISwapChainFlags::empty(),
         };
+
+        let d3d_desc = desc.d3dtype();
+
         let mut rawswapchain: *mut IDXGISwapChain1 = ptr::null_mut();
 
         let hr = self.factory.CreateSwapChainForHwnd(
             commandqueue.raw().asunknownptr(),
             window.raw(),
-            &desc,
+            &d3d_desc,
             ptr::null(),
             ptr::null_mut(),
             &mut rawswapchain as *mut *mut _ as *mut *mut IDXGISwapChain1,

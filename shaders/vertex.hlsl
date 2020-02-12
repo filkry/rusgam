@@ -1,7 +1,7 @@
+// -- must match model_per_vertex_input_layout_desc in model.rs
 struct SVertexPosColorUV
 {
     float3 position : POSITION;
-    float3 color    : COLOR;
     float3 normal   : NORMAL;
     float2 uv       : TEXCOORD;
 };
@@ -17,7 +17,6 @@ ConstantBuffer<SModelViewProjection> modelviewprojectionconstantbuffer : registe
 
 struct SVertexShaderOutput
 {
-    float4 color    : COLOR;
     float4 position : SV_Position;
     float3 world_position: POSITION2;
     float4 normal   : NORMAL;

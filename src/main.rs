@@ -22,6 +22,7 @@ mod enumflags;
 mod camera;
 mod model;
 mod shadowmapping;
+mod level;
 
 // -- std includes
 use std::cell::RefCell;
@@ -37,6 +38,7 @@ use niced3d12 as n12;
 use typeyd3d12 as t12;
 use allocate::{SMemVec, STACK_ALLOCATOR};
 use utils::{STransform};
+use model::{SModel, SMeshLoader, STextureLoader};
 
 pub struct SInput {
     w: bool,
@@ -168,12 +170,6 @@ fn main_d3d12() -> Result<(), &'static str> {
     let mut directcommandpool =
         n12::SCommandListPool::create(&device, &commandqueue, &winapi.rawwinapi(), 1, 10)?;
 
-    let copycommandqueue = RefCell::new(
-        device.create_command_queue(&winapi.rawwinapi(), t12::ECommandListType::Copy)?,
-    );
-    let mut copycommandpool =
-        n12::SCommandListPool::create(&device, &copycommandqueue, &winapi.rawwinapi(), 1, 2)?;
-
     let mut window = n12::SD3D12Window::new(
         &windowclass,
         &factory,
@@ -216,15 +212,23 @@ fn main_d3d12() -> Result<(), &'static str> {
         bottom: std::i32::MAX,
     };
 
-    let model = model::SModel::new_from_obj("assets/first_test_asset.obj", &device, &mut copycommandpool, &mut directcommandpool, &srv_heap, false)?;
-    let model2 = model::SModel::new_from_obj("assets/first_test_asset.obj", &device, &mut copycommandpool, &mut directcommandpool, &srv_heap, false)?;
-    let model3 = model::SModel::new_from_obj("assets/test_untextured_flat_colour_cube.obj", &device, &mut copycommandpool, &mut directcommandpool, &srv_heap, false)?;
+    let copycommandqueue = RefCell::new(
+        device.create_command_queue(&winapi.rawwinapi(), t12::ECommandListType::Copy)?,
+    );
+    let mut mesh_loader = SMeshLoader::new(&device, &winapi, &copycommandqueue, 23948934, 1024)?;
+    let mut texture_loader = STextureLoader::new(&device, &winapi, &copycommandqueue, &commandqueue, &srv_heap, 9323, 1024)?;
 
-    let room_model = model::SModel::new_from_obj("assets/test_open_room.obj", &device, &mut copycommandpool, &mut directcommandpool, &srv_heap, false)?;
+    let model = SModel::new_from_obj("assets/first_test_asset.obj", &mut mesh_loader, &mut texture_loader, 1.0)?;
+    let model2 = SModel::new_from_obj("assets/first_test_asset.obj", &mut mesh_loader, &mut texture_loader, 1.0)?;
+    let model3 = SModel::new_from_obj("assets/test_untextured_flat_colour_cube.obj", &mut mesh_loader, &mut texture_loader, 1.0)?;
 
-    let debug_model = model::SModel::new_from_obj("assets/debug_icosphere.obj", &device, &mut copycommandpool, &mut directcommandpool, &srv_heap, true)?;
+    let room_model = SModel::new_from_obj("assets/test_open_room.obj", &mut mesh_loader, &mut texture_loader, 1.0)?;
 
-    let fixed_size_model = model::SModel::new_from_obj("assets/test_untextured_flat_colour_cube.obj", &device, &mut copycommandpool, &mut directcommandpool, &srv_heap, true)?;
+    let debug_model = SModel::new_from_obj("assets/debug_icosphere.obj", &mut mesh_loader, &mut texture_loader, 1.0)?;
+
+    //let fixed_size_model = SModel::new_from_obj("assets/test_untextured_flat_colour_cube.obj", &device, &mut copycommandpool, &mut directcommandpool, &srv_heap, true, 1.0)?;
+
+    let translation_widget = SModel::new_from_obj("assets/arrow_widget.obj", &mut mesh_loader, &mut texture_loader, 0.8)?;
 
     // -- load shaders
     let vertblob = t12::read_file_to_blob("shaders_built/vertex.cso")?;
@@ -254,7 +258,7 @@ fn main_d3d12() -> Result<(), &'static str> {
             constants: t12::SRootConstants {
                 shader_register: 1,
                 register_space: 0,
-                num_32_bit_values: 2,
+                num_32_bit_values: 3,
             },
         },
         shader_visibility: t12::EShaderVisibility::Pixel,
@@ -502,7 +506,7 @@ fn main_d3d12() -> Result<(), &'static str> {
             &model3,
             &room_model,
             &debug_model,
-            &fixed_size_model,
+            //&fixed_size_model,
         ];
         let model_xforms = [
             &model_xform,
@@ -510,7 +514,7 @@ fn main_d3d12() -> Result<(), &'static str> {
             &model3_xform,
             &room_model_xform,
             &debug_model_xform,
-            &fixed_size_model_xform,
+            //&fixed_size_model_xform,
         ];
 
         // -- render shadowmaps

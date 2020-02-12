@@ -32,6 +32,8 @@ impl Default for SPoolHandle {
     }
 }
 
+// -- container of Ts, all of which must be initialized at all times. Meant for re-usable slots
+// -- that don't need to be re-initialized
 pub struct SPool<T> {
     // -- $$$FRK(TODO): make this into a string, only in debug builds?
     id: u64, // -- for making sure we have the right pool
@@ -84,6 +86,10 @@ impl<T> SPool<T> {
         result
     }
 
+    pub fn used(&self) -> usize {
+        (self.max as usize) - self.free_count()
+    }
+
     pub fn full(&self) -> bool {
         self.freelist.is_empty()
     }
@@ -119,7 +125,7 @@ impl<T> SPool<T> {
     pub fn get(&self, handle: SPoolHandle) -> Result<&T, &'static str> {
         let idx = handle.index as usize;
         if handle.valid() && handle.index < self.max && handle.generation == self.generations[idx] {
-            self.getbyindex(handle.index)
+            self.get_by_index(handle.index)
         } else {
             Err("Invalid, out of bounds, or stale handle.")
         }
@@ -134,7 +140,7 @@ impl<T> SPool<T> {
         }
     }
 
-    fn getbyindex(&self, index: u16) -> Result<&T, &'static str> {
+    fn get_by_index(&self, index: u16) -> Result<&T, &'static str> {
         if index < self.max {
             Ok(&self.buffer[index as usize])
         } else {
@@ -190,6 +196,7 @@ impl<T: Default> SPool<T> {
     }
 }
 
+// -- pool of storage for Ts. not every entry may be valid, and musn't always be initialized
 pub struct SStoragePool<T> {
     pool: SPool<Option<T>>, // -- $$$FRK(TODO): this could be unitialized mem that we use unsafety to construct/destruct in
 }
@@ -198,6 +205,18 @@ impl<T> SStoragePool<T> {
     pub fn create(id: u64, max: u16) -> Self {
         Self {
             pool: SPool::<Option<T>>::create_default(id, max),
+        }
+    }
+
+    pub fn used(&self) -> usize {
+        self.pool.used()
+    }
+
+    pub fn get_by_index(&self, index: u16) -> Result<Option<&T>, &'static str> {
+        let int = self.pool.get_by_index(index)?;
+        match int {
+            Some(a) => Ok(Some(&a)),
+            None => Ok(None),
         }
     }
 

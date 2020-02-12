@@ -1,15 +1,18 @@
 struct SPixelShaderInput
 {
-    float4 color    : COLOR;
     float4 position : SV_Position;
     float3 world_position: POSITION2;
     float4 normal   : NORMAL;
     float2 uv       : TEXCOORD;
 };
 
+// -- must match STextureMetadata in model.rs
 struct STextureMetadata {
     float is_textured;
-    float always_diffuse_colour;
+
+    float is_flat_shaded;
+    float3 flat_colour;
+    float flat_shade_factor;
 };
 
 ConstantBuffer<STextureMetadata> texture_metadata_buffer : register(b1);
@@ -69,10 +72,10 @@ float4 main( SPixelShaderInput input ) : SV_Target
     if(texture_metadata_buffer.is_textured > 0.0f)
         base_colour = g_texture.Sample(g_sampler, input.uv);
     else
-        base_colour = input.color;
+        base_colour = texture_metadata_buffer.flat_colour;
 
-    if(texture_metadata_buffer.always_diffuse_colour > 0.0)
-        return base_colour;
+    if(texture_metadata_buffer.is_flat_shaded > 0.0)
+        return base_colour * texture_metadata_buffer.flat_shade_factor;
 
     //return base_colour;
     return base_colour * point_irradiance;

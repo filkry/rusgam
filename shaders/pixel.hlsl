@@ -39,28 +39,23 @@ float4 main( SPixelShaderInput input ) : SV_Target
     float cos_theta = dot(to_light_dir, input.normal.xyz);
     float point_irradiance = (light_power * cos_theta) / (4.0 * PI * dist_to_light);
 
-    float from_light_z = 0.0;
-    if(abs(to_light.x) > abs(to_light.y) && abs(to_light.x) > abs(to_light.z)) {
-        from_light_z = abs(to_light.x);
-    }
-    else if(abs(to_light.y) > abs(to_light.z)) {
-        from_light_z = abs(to_light.y);
-    }
-    else {
-        from_light_z = abs(to_light.z);
-    }
+    // -- the max component to to_light is always the z direction of the light "camera"; if it
+    // -- wasn't, this pixel would have been seen by a different part of the cubemap
+    float from_light_z = max(abs(to_light.x), max(abs(to_light.y), abs(to_light.z));
 
+    // -- adjust shadow sample position based on normal, to fix acne
     float3 shadow_sample_pos = -to_light + 0.1 * input.normal.xyz;
-
     float4 shadow_sample = g_shadow_cube.Sample(g_shadow_sampler, shadow_sample_pos);
 
     // -- from MJP's blog (https://mynameismjp.wordpress.com/2010/09/05/position-from-depth-3/)
+    // -- {
     float far_clip_distance = 100.0;
     float near_clip_distance = 0.1;
 
     float projection_a = far_clip_distance / (far_clip_distance - near_clip_distance);
     float projection_b = -(far_clip_distance * near_clip_distance) / (far_clip_distance - near_clip_distance);
     float shadow_sample_light_space_z = projection_b / (shadow_sample.x - projection_a);
+    // -- }
 
     float4 output = float4(0.0, 0.0, 0.0, 1.0);
 

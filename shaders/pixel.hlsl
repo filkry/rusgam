@@ -64,9 +64,9 @@ float4 main( SPixelShaderInput input ) : SV_Target
     }
 
     float3 base_colour;
-    //if(texture_metadata_buffer.has_diffuse_texture > 0.0f)
-    //    base_colour = g_texture.Sample(g_sampler, input.uv).xyz;
-    //else
+    if(texture_metadata_buffer.has_diffuse_texture > 0.0f)
+        base_colour = g_texture.Sample(g_sampler, input.uv).xyz;
+    else
         base_colour = texture_metadata_buffer.diffuse_colour;
 
     //if(texture_metadata_buffer.is_flat_shaded > 0.0)

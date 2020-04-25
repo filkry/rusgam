@@ -220,7 +220,7 @@ impl<'a> SShadowMappingPipeline<'a> {
             let view_perspective = perspective_matrix * view_matrix;
 
             for modeli in 0..models.len() {
-                mesh_loader.render(models[modeli].mesh, cl, &view_perspective, model_matrices[modeli]);
+                mesh_loader.render(models[modeli].mesh, cl, &view_perspective, model_matrices[modeli])?;
             }
         }
 

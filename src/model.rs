@@ -1,4 +1,6 @@
 use std::cell::RefCell;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 
 use glm::{Vec3, Vec2, Mat4};
 use arrayvec::{ArrayString};
@@ -71,8 +73,9 @@ pub struct SMesh<'a> {
 pub struct STexture<'a> {
     uid: u64,
 
+    #[allow(dead_code)] // maybe unnecessary?
     pub(super) srv_heap: &'a n12::descriptorallocator::SDescriptorAllocator,
-    pub(super) diffuse_texture_resource: Option<n12::SResource>,
+    pub(super) _diffuse_texture_resource: Option<n12::SResource>,
     pub(super) diffuse_texture_srv: Option<n12::descriptorallocator::SDescriptorAllocatorAllocation<'a>>,
 }
 
@@ -126,12 +129,14 @@ impl<'a> SMeshLoader<'a> {
 
     pub fn get_or_create_mesh(&mut self, asset_name: &'static str, tobj_mesh: &tobj::Mesh) -> Result<SPoolHandle, &'static str> {
         let uid = {
-            panic!("unimplemented!()");
+            let mut s = DefaultHasher::new();
+            asset_name.hash(&mut s);
+            s.finish()
         };
 
         // -- $$$FRK(TODO): replace with some accelerated lookup structure
         for i in 0..self.mesh_pool.used() {
-            if let Some(&mesh) = self.mesh_pool.get_by_index(i as u16).unwrap() {
+            if let Some(mesh) = &self.mesh_pool.get_by_index(i as u16).unwrap() {
                 if mesh.uid == uid {
                     return Ok(self.mesh_pool.handle_for_index(i as u16));
                 }
@@ -165,8 +170,8 @@ impl<'a> SMeshLoader<'a> {
             });
         }
 
-        for idx in tobj_mesh.indices {
-            index_vec.push(idx as u16);
+        for idx in &tobj_mesh.indices {
+            index_vec.push(*idx as u16);
         }
 
         // -- generate vertex/index resources and views
@@ -335,22 +340,21 @@ impl<'a> STextureLoader<'a> {
     pub fn get_or_create_texture(&mut self, texture_name: &String) -> Result<SPoolHandle, &'static str> {
 
         let uid = {
-            panic!("not implemented");
+            let mut s = DefaultHasher::new();
+            texture_name.hash(&mut s);
+            s.finish()
         };
 
         // -- $$$FRK(TODO): replace with some accelerated lookup structure
         for i in 0..self.texture_pool.used() {
-            if let Some(&texture) = self.texture_pool.get_by_index(i as u16)? {
+            if let Some(texture) = &self.texture_pool.get_by_index(i as u16)? {
                 if texture.uid == uid {
                     return Ok(self.texture_pool.handle_for_index(i as u16));
                 }
             }
         }
 
-        let mut texture_resource = None;
-        let mut texture_srv = None;
-
-        texture_resource = {
+        let texture_resource = {
             let handle = self.copy_command_list_pool.alloc_list()?;
             let copycommandlist = self.copy_command_list_pool.get_list(handle)?;
 
@@ -389,7 +393,7 @@ impl<'a> STextureLoader<'a> {
         }
 
         // -- get texture SRV
-        texture_srv = {
+        let texture_srv = {
             let srv_desc = t12::SShaderResourceViewDesc {
                 format: t12::EDXGIFormat::R8G8B8A8UNorm,
                 view: t12::ESRV::Texture2D {
@@ -413,7 +417,7 @@ impl<'a> STextureLoader<'a> {
         let texture = STexture{
             uid: uid,
             srv_heap: self.srv_heap,
-            diffuse_texture_resource: texture_resource,
+            _diffuse_texture_resource: texture_resource,
             diffuse_texture_srv: texture_srv,
         };
 
@@ -446,7 +450,7 @@ impl SModel {
         let mut diffuse_colour = Vec3::new(0.0, 0.0, 0.0);
         let mut diffuse_texture : Option<SPoolHandle> = None;
 
-        if(materials.len() > 0) {
+        if materials.len() > 0 {
             assert_eq!(materials.len(), 1);
 
             diffuse_colour[0] = materials[0].diffuse[0];

@@ -5,6 +5,12 @@ use glm::{Vec3, Vec4, Quat, Mat4};
 
 pub static PI : f32 = 3.14159265358979;
 
+//pub fn hash64<T: Hash>(t: &T) -> u64 {
+//    let mut s = DefaultHasher::new();
+//    t.hash(&mut s);
+//    s.finish()
+//}
+
 pub fn align_up(size: usize, align: usize) -> usize {
     if size % align == 0 {
         return size;

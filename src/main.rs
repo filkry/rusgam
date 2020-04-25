@@ -228,7 +228,7 @@ fn main_d3d12() -> Result<(), &'static str> {
 
     //let fixed_size_model = SModel::new_from_obj("assets/test_untextured_flat_colour_cube.obj", &device, &mut copycommandpool, &mut directcommandpool, &srv_heap, true, 1.0)?;
 
-    let translation_widget = SModel::new_from_obj("assets/arrow_widget.obj", &mut mesh_loader, &mut texture_loader, 0.8)?;
+    //let translation_widget = SModel::new_from_obj("assets/arrow_widget.obj", &mut mesh_loader, &mut texture_loader, 0.8)?;
 
     // -- load shaders
     let vertblob = t12::read_file_to_blob("shaders_built/vertex.cso")?;
@@ -583,7 +583,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                 for modeli in 0..models.len() {
                     list.set_graphics_root_descriptor_table(3, &shadow_mapping_pipeline.srv().gpu_descriptor(0));
                     models[modeli].set_texture_root_parameters(&texture_loader, list, 1, 2);
-                    mesh_loader.render(models[modeli].mesh, list, &view_perspective, &model_xforms[modeli]);
+                    mesh_loader.render(models[modeli].mesh, list, &view_perspective, &model_xforms[modeli])?;
                 }
 
                 // -- transition to present

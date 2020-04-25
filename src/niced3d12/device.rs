@@ -206,7 +206,7 @@ impl SDevice {
     }
 
     pub fn init_render_target_views(
-        &mut self,
+        &self,
         swap_chain: &mut SSwapChain,
         descriptor_heap: &mut SDescriptorHeap,
     ) -> Result<(), &'static str> {

@@ -93,7 +93,7 @@ pub struct STextureLoader<'a> {
 }
 
 pub struct SModel {
-    mesh: SPoolHandle,
+    pub mesh: SPoolHandle,
 
     // -- material info
     diffuse_colour: Vec3,
@@ -124,7 +124,7 @@ impl<'a> SMeshLoader<'a> {
         })
     }
 
-    pub fn get_or_create_mesh(&mut self, asset_name: &'static str, tobj_mesh: &tobj::Mesh) -> SPoolHandle {
+    pub fn get_or_create_mesh(&mut self, asset_name: &'static str, tobj_mesh: &tobj::Mesh) -> Result<SPoolHandle, &'static str> {
         let uid = {
             panic!("unimplemented!()");
         };
@@ -133,7 +133,7 @@ impl<'a> SMeshLoader<'a> {
         for i in 0..self.mesh_pool.used() {
             if let Some(&mesh) = self.mesh_pool.get_by_index(i as u16).unwrap() {
                 if mesh.uid == uid {
-                    return self.mesh_pool.handleforindex(i);
+                    return Ok(self.mesh_pool.handle_for_index(i as u16));
                 }
             }
         }
@@ -161,6 +161,7 @@ impl<'a> SMeshLoader<'a> {
                     tobj_mesh.normals[vidx * 3 + 1],
                     tobj_mesh.normals[vidx * 3 + 2],
                 ),
+                colour: Vec3::new(1.0, 1.0, 1.0),
             });
         }
 
@@ -206,6 +207,7 @@ impl<'a> SMeshLoader<'a> {
         };
 
         let mesh = SMesh{
+            uid: uid,
             per_vertex_data: vert_vec,
             triangle_indices: index_vec,
 
@@ -215,231 +217,32 @@ impl<'a> SMeshLoader<'a> {
             index_buffer_view: indexbufferview,
         };
 
-        return self.mesh_pool.insert_val(mesh).unwrap();
-    }
-}
-
-impl<'a> STextureLoader<'a> {
-    pub fn new(
-        device: &n12::SDevice,
-        winapi: &rustywindows::SWinAPI,
-        copy_command_queue: &RefCell<n12::SCommandQueue>,
-        direct_command_queue: &RefCell<n12::SCommandQueue>,
-        srv_heap: &n12::SDescriptorAllocator,
-        pool_id: u64,
-        max_texture_count: u16,
-    ) -> Result<Self, &'static str> {
-        Self {
-            device,
-            copy_command_list_pool: n12::SCommandListPool::create(&device, &copy_command_queue, &winapi.rawwinapi(), 1, 2)?,
-            direct_command_list_pool: n12::SCommandListPool::create(&device, &direct_command_queue, &winapi.rawwinapi(), 1, 10)?,
-            srv_heap,
-
-            texture_pool: SStoragePool::create(pool_id, max_texture_count),
-        }
-    }
-
-    pub fn get_or_create_texture(&mut self, texture_name: &String) -> SPoolHandle {
-
-        let uid = {
-            panic!("not implemented");
-        };
-
-        // -- $$$FRK(TODO): replace with some accelerated lookup structure
-        for i in 0..self.texture_pool.used() {
-            if self.texture_pool.getbyindex(i).uid == uid {
-                return self.texture_pool.handleforindex(i);
-            }
-        }
-
-        let mut texture_resource = None;
-        let mut texture_srv = None;
-
-        texture_resource = {
-            let handle = copy_command_pool.alloc_list()?;
-            let copycommandlist = copy_command_pool.get_list(handle)?;
-
-            let mut texture_asset = ArrayString::<[_; 128]>::new();
-            texture_asset.push_str("assets/");
-            texture_asset.push_str(texture_name);
-            let (mut _intermediate_resource, mut resource) = n12::load_texture(&device, copycommandlist, texture_asset.as_str());
-
-            let fenceval = copy_command_pool.execute_and_free_list(handle)?;
-            copy_command_pool.wait_for_internal_fence_value(fenceval);
-            copy_command_pool.free_allocators();
-            assert_eq!(copy_command_pool.num_free_allocators(), 2);
-
-            unsafe {
-                _intermediate_resource.set_debug_name("text inter");
-                resource.set_debug_name("text dest");
-            }
-
-            Some(resource)
-        };
-
-        // -- transition texture to PixelShaderResource
-        {
-            let handle = direct_command_pool.alloc_list()?;
-            let list = direct_command_pool.get_list(handle)?;
-
-            list.transition_resource(
-                &texture_resource.as_ref().unwrap(),
-                t12::EResourceStates::CopyDest,
-                t12::EResourceStates::PixelShaderResource,
-            )
-            .unwrap();
-
-            let fenceval = direct_command_pool.execute_and_free_list(handle)?;
-            direct_command_pool.wait_for_internal_fence_value(fenceval);
-        }
-
-        // -- get texture SRV
-        texture_srv = {
-            let srv_desc = t12::SShaderResourceViewDesc {
-                format: t12::EDXGIFormat::R8G8B8A8UNorm,
-                view: t12::ESRV::Texture2D {
-                    data: t12::STex2DSRV {
-                        mip_levels: 1,
-                        ..Default::default()
-                    },
-                },
-            };
-
-            let descriptors = srv_heap.alloc(1)?;
-            device.create_shader_resource_view(
-                texture_resource.as_ref().unwrap(),
-                &srv_desc,
-                descriptors.cpu_descriptor(0),
-            )?;
-
-            Some(descriptors)
-        };
-
-        let texture = STexture{
-            diffuse_texture_resource: diffuse_texture_resource,
-            diffuse_texture_srv: diffuse_texture_srv,
-        };
-
-        return self.texture_pool.insert_val(texture).unwrap();
-    }
-}
-
-impl SModel {
-
-    pub fn new_from_obj(
-        obj_file: &'static str,
-        mesh_loader: &mut SMeshLoader,
-        texture_loader: &mut STextureLoader,
-        diffuse_weight: f32,
-    ) -> Result<Self, &'static str> {
-
-        let (models, materials) = tobj::load_obj(&std::path::Path::new(obj_file)).unwrap();
-        assert_eq!(models.len(), 1);
-
-        let mesh = mesh_loader.get_or_create_mesh(models[0]);
-        let mut diffuse_colour = Vec3(0.0, 0.0, 0.0);
-        let mut diffuse_texture = None;
-
-        if(materials.len() > 0) {
-            assert_eq!(materials.len(), 1);
-
-            diffuse_color[0] = materials[0].diffuse[0];
-            diffuse_color[1] = materials[0].diffuse[1];
-            diffuse_color[2] = materials[0].diffuse[2];
-
-            if materials[0].diffuse_texture.len() > 0 {
-                diffuse_texture = Some(texture_loader.get_or_create_texture(materials[0].diffuse_texture))
-            }
-        }
-
-        Ok(Self {
-            mesh,
-
-            // -- material info
-            diffuse_colour,
-            diffuse_texture,
-            diffuse_weight,
-        })
-    }
-
-    pub fn set_texture_root_parameters(
-        &self,
-        cl: &mut n12::SCommandList,
-        metadata_constant_root_parameter: u32,
-        texture_descriptor_table_root_parameter: usize,
-    ) {
-        let mut texture_metadata = STextureMetadata{
-            is_textured: 0.0,
-            is_flat_shaded: if self.is_flat_shaded { 1.0 } else { 0.0 },
-            flat_shade_factor: self.flat_shade_factor,
-        };
-
-        if let Some(dts) = &self.diffuse_texture_srv {
-            texture_metadata.is_textured = 1.0;
-            cl.set_graphics_root_descriptor_table(texture_descriptor_table_root_parameter, &dts.gpu_descriptor(0));
-        }
-
-        cl.set_graphics_root_32_bit_constants(metadata_constant_root_parameter, &texture_metadata, 0);
-    }
-
-    pub fn render(
-        &self,
-        cl: &mut n12::SCommandList,
-        view_projection: &glm::Mat4,
-        model_xform: &STransform,
-    ) {
-
-        // -- assuming the same pipline state, root signature, viewport, scissor rect,
-        // -- render target, for every model for now. These are set
-        // -- outside of here
-
-        // -- setup input assembler
-        cl.ia_set_primitive_topology(t12::EPrimitiveTopology::TriangleList);
-        cl.ia_set_vertex_buffers(0, &[&self.vertex_buffer_view]);
-        cl.ia_set_index_buffer(&self.index_buffer_view);
-
-        #[allow(dead_code)]
-        struct SModelViewProjection {
-            model: Mat4,
-            view_projection: Mat4,
-            mvp: Mat4,
-        }
-
-        let model_matrix = model_xform.as_mat4();
-
-        let mvp_matrix = view_projection * model_matrix;
-        let mvp = SModelViewProjection{
-            model: model_matrix.clone(),
-            view_projection: view_projection.clone(),
-            mvp: mvp_matrix,
-        };
-
-        cl.set_graphics_root_32_bit_constants(0, &mvp, 0);
-
-        // -- draw
-        cl.draw_indexed_instanced(self.triangle_indices.len() as u32, 1, 0, 0, 0);
+        return self.mesh_pool.insert_val(mesh)
     }
 
     pub fn ray_intersects(
         &self,
+        model: &SModel,
         ray_origin: &Vec3,
         ray_dir: &Vec3,
         model_to_ray_space: &STransform,
     ) -> Option<f32> {
 
-        break_assert!(self.triangle_indices.len() % 3 == 0);
-        let num_tris = self.triangle_indices.len() / 3;
+        let mesh = self.mesh_pool.get(model.mesh).unwrap();
+
+        break_assert!(mesh.triangle_indices.len() % 3 == 0);
+        let num_tris = mesh.triangle_indices.len() / 3;
 
         let mut min_t = None;
 
         for ti in 0..num_tris {
-            let ti_vi_0 = self.triangle_indices[ti * 3 + 0];
-            let ti_vi_1 = self.triangle_indices[ti * 3 + 1];
-            let ti_vi_2 = self.triangle_indices[ti * 3 + 2];
+            let ti_vi_0 = mesh.triangle_indices[ti * 3 + 0];
+            let ti_vi_1 = mesh.triangle_indices[ti * 3 + 1];
+            let ti_vi_2 = mesh.triangle_indices[ti * 3 + 2];
 
-            let v0_pos = &self.per_vertex_data[ti_vi_0 as usize].position;
-            let v1_pos = &self.per_vertex_data[ti_vi_1 as usize].position;
-            let v2_pos = &self.per_vertex_data[ti_vi_2 as usize].position;
+            let v0_pos = &mesh.per_vertex_data[ti_vi_0 as usize].position;
+            let v1_pos = &mesh.per_vertex_data[ti_vi_1 as usize].position;
+            let v2_pos = &mesh.per_vertex_data[ti_vi_2 as usize].position;
 
             let v0_ray_space_pos = model_to_ray_space.mul_point(&v0_pos);
             let v1_ray_space_pos = model_to_ray_space.mul_point(&v1_pos);
@@ -465,4 +268,228 @@ impl SModel {
 
         return min_t;
     }
+
+    pub fn render(
+        &self,
+        mesh_handle: SPoolHandle,
+        cl: &mut n12::SCommandList,
+        view_projection: &glm::Mat4,
+        model_xform: &STransform,
+    ) -> Result<(), &'static str> {
+        let mesh = self.mesh_pool.get(mesh_handle)?;
+
+        // -- assuming the same pipline state, root signature, viewport, scissor rect,
+        // -- render target, for every model for now. These are set
+        // -- outside of here
+
+        // -- setup input assembler
+        cl.ia_set_primitive_topology(t12::EPrimitiveTopology::TriangleList);
+        cl.ia_set_vertex_buffers(0, &[&mesh.vertex_buffer_view]);
+        cl.ia_set_index_buffer(&mesh.index_buffer_view);
+
+        #[allow(dead_code)]
+        struct SModelViewProjection {
+            model: Mat4,
+            view_projection: Mat4,
+            mvp: Mat4,
+        }
+
+        let model_matrix = model_xform.as_mat4();
+
+        let mvp_matrix = view_projection * model_matrix;
+        let mvp = SModelViewProjection{
+            model: model_matrix.clone(),
+            view_projection: view_projection.clone(),
+            mvp: mvp_matrix,
+        };
+
+        cl.set_graphics_root_32_bit_constants(0, &mvp, 0);
+
+        // -- draw
+        cl.draw_indexed_instanced(mesh.triangle_indices.len() as u32, 1, 0, 0, 0);
+
+        Ok(())
+    }
+}
+
+impl<'a> STextureLoader<'a> {
+    pub fn new(
+        device: &'a n12::SDevice,
+        winapi: &rustywindows::SWinAPI,
+        copy_command_queue: &'a RefCell<n12::SCommandQueue>,
+        direct_command_queue: &'a RefCell<n12::SCommandQueue>,
+        srv_heap: &'a n12::SDescriptorAllocator,
+        pool_id: u64,
+        max_texture_count: u16,
+    ) -> Result<Self, &'static str> {
+        Ok(Self {
+            device,
+            copy_command_list_pool: n12::SCommandListPool::create(&device, &copy_command_queue, &winapi.rawwinapi(), 1, 2)?,
+            direct_command_list_pool: n12::SCommandListPool::create(&device, &direct_command_queue, &winapi.rawwinapi(), 1, 10)?,
+            srv_heap,
+
+            texture_pool: SStoragePool::create(pool_id, max_texture_count),
+        })
+    }
+
+    pub fn get_or_create_texture(&mut self, texture_name: &String) -> Result<SPoolHandle, &'static str> {
+
+        let uid = {
+            panic!("not implemented");
+        };
+
+        // -- $$$FRK(TODO): replace with some accelerated lookup structure
+        for i in 0..self.texture_pool.used() {
+            if let Some(&texture) = self.texture_pool.get_by_index(i as u16)? {
+                if texture.uid == uid {
+                    return Ok(self.texture_pool.handle_for_index(i as u16));
+                }
+            }
+        }
+
+        let mut texture_resource = None;
+        let mut texture_srv = None;
+
+        texture_resource = {
+            let handle = self.copy_command_list_pool.alloc_list()?;
+            let copycommandlist = self.copy_command_list_pool.get_list(handle)?;
+
+            let mut texture_asset = ArrayString::<[_; 128]>::new();
+            texture_asset.push_str("assets/");
+            texture_asset.push_str(texture_name);
+            let (mut _intermediate_resource, mut resource) = n12::load_texture(self.device, copycommandlist, texture_asset.as_str());
+
+            let fenceval = self.copy_command_list_pool.execute_and_free_list(handle)?;
+            self.copy_command_list_pool.wait_for_internal_fence_value(fenceval);
+            self.copy_command_list_pool.free_allocators();
+            assert_eq!(self.copy_command_list_pool.num_free_allocators(), 2);
+
+            unsafe {
+                _intermediate_resource.set_debug_name("text inter");
+                resource.set_debug_name("text dest");
+            }
+
+            Some(resource)
+        };
+
+        // -- transition texture to PixelShaderResource
+        {
+            let handle = self.direct_command_list_pool.alloc_list()?;
+            let list = self.direct_command_list_pool.get_list(handle)?;
+
+            list.transition_resource(
+                &texture_resource.as_ref().unwrap(),
+                t12::EResourceStates::CopyDest,
+                t12::EResourceStates::PixelShaderResource,
+            )
+            .unwrap();
+
+            let fenceval = self.direct_command_list_pool.execute_and_free_list(handle)?;
+            self.direct_command_list_pool.wait_for_internal_fence_value(fenceval);
+        }
+
+        // -- get texture SRV
+        texture_srv = {
+            let srv_desc = t12::SShaderResourceViewDesc {
+                format: t12::EDXGIFormat::R8G8B8A8UNorm,
+                view: t12::ESRV::Texture2D {
+                    data: t12::STex2DSRV {
+                        mip_levels: 1,
+                        ..Default::default()
+                    },
+                },
+            };
+
+            let descriptors = self.srv_heap.alloc(1)?;
+            self.device.create_shader_resource_view(
+                texture_resource.as_ref().unwrap(),
+                &srv_desc,
+                descriptors.cpu_descriptor(0),
+            )?;
+
+            Some(descriptors)
+        };
+
+        let texture = STexture{
+            uid: uid,
+            srv_heap: self.srv_heap,
+            diffuse_texture_resource: texture_resource,
+            diffuse_texture_srv: texture_srv,
+        };
+
+        self.texture_pool.insert_val(texture)
+    }
+
+    pub fn texture_gpu_descriptor(&self, texture: SPoolHandle) -> Result<t12::SGPUDescriptorHandle, &'static str> {
+        let texture = self.texture_pool.get(texture)?;
+        if let Some(srv) = &texture.diffuse_texture_srv {
+            return Ok(srv.gpu_descriptor(0))
+        }
+
+        return Err("Tried to get descriptor for invalid SRV.")
+    }
+}
+
+impl SModel {
+
+    pub fn new_from_obj(
+        obj_file: &'static str,
+        mesh_loader: &mut SMeshLoader,
+        texture_loader: &mut STextureLoader,
+        diffuse_weight: f32,
+    ) -> Result<Self, &'static str> {
+
+        let (models, materials) = tobj::load_obj(&std::path::Path::new(obj_file)).unwrap();
+        assert_eq!(models.len(), 1);
+
+        let mesh = mesh_loader.get_or_create_mesh(obj_file, &models[0].mesh);
+        let mut diffuse_colour = Vec3::new(0.0, 0.0, 0.0);
+        let mut diffuse_texture : Option<SPoolHandle> = None;
+
+        if(materials.len() > 0) {
+            assert_eq!(materials.len(), 1);
+
+            diffuse_colour[0] = materials[0].diffuse[0];
+            diffuse_colour[1] = materials[0].diffuse[1];
+            diffuse_colour[2] = materials[0].diffuse[2];
+
+            if materials[0].diffuse_texture.len() > 0 {
+                diffuse_texture = Some(texture_loader.get_or_create_texture(&materials[0].diffuse_texture)?)
+            }
+        }
+
+        Ok(Self {
+            mesh: mesh?,
+
+            // -- material info
+            diffuse_colour,
+            diffuse_texture,
+            diffuse_weight,
+        })
+    }
+
+    pub fn set_texture_root_parameters(
+        &self,
+        texture_loader: &STextureLoader,
+        cl: &mut n12::SCommandList,
+        metadata_constant_root_parameter: u32,
+        texture_descriptor_table_root_parameter: usize,
+    ) {
+        let mut texture_metadata = STextureMetadata{
+            diffuse_colour: self.diffuse_colour,
+            has_diffuse_texture: 0.0,
+            diffuse_weight: self.diffuse_weight,
+        };
+
+        if let Some(texture) = self.diffuse_texture {
+            texture_metadata.has_diffuse_texture = 1.0;
+            cl.set_graphics_root_descriptor_table(
+                texture_descriptor_table_root_parameter,
+                &texture_loader.texture_gpu_descriptor(texture).unwrap(),
+            );
+        }
+
+        cl.set_graphics_root_32_bit_constants(metadata_constant_root_parameter, &texture_metadata, 0);
+    }
+
 }

@@ -523,6 +523,7 @@ fn main_d3d12() -> Result<(), &'static str> {
             let list = directcommandpool.get_list(handle)?;
 
             shadow_mapping_pipeline.render(
+                &mesh_loader,
                 &Vec3::new(5.0, 5.0, 5.0),
                 list,
                 &models,
@@ -581,8 +582,8 @@ fn main_d3d12() -> Result<(), &'static str> {
                 let view_perspective = perspective_matrix * view_matrix;
                 for modeli in 0..models.len() {
                     list.set_graphics_root_descriptor_table(3, &shadow_mapping_pipeline.srv().gpu_descriptor(0));
-                    models[modeli].set_texture_root_parameters(list, 1, 2);
-                    models[modeli].render(list, &view_perspective, &model_xforms[modeli]);
+                    models[modeli].set_texture_root_parameters(&texture_loader, list, 1, 2);
+                    mesh_loader.render(models[modeli].mesh, list, &view_perspective, &model_xforms[modeli]);
                 }
 
                 // -- transition to present
@@ -668,7 +669,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                         let mut min_pos = Vec3::new(0.0, 0.0, 0.0);
 
                         for modeli in 0..models.len() {
-                            if let Some(t) = models[modeli].ray_intersects(&camera.pos_world, &to_z_near_world_space.xyz(), model_xforms[modeli]) {
+                            if let Some(t) = mesh_loader.ray_intersects(&model, &camera.pos_world, &to_z_near_world_space.xyz(), model_xforms[modeli]) {
                                 if t < min_t {
                                     min_t = t;
                                     min_model_i = Some(modeli);
@@ -699,7 +700,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                             newwidth as u32,
                             newheight as u32,
                             &mut commandqueue.borrow_mut(),
-                            &mut device,
+                            &device,
                         )?;
 
                         let (new_resource, new_view) = n12::create_committed_depth_textures(

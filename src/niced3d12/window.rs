@@ -77,7 +77,7 @@ impl SD3D12Window {
 
     pub fn init_render_target_views(
         &mut self,
-        device: &mut super::SDevice,
+        device: &super::SDevice,
     ) -> Result<(), &'static str> {
         device.init_render_target_views(&mut self.swapchain, &mut self.rtvdescriptorheap)?;
         Ok(())
@@ -120,7 +120,7 @@ impl SD3D12Window {
         width: u32,
         height: u32,
         commandqueue: &mut super::SCommandQueue,
-        device: &mut super::SDevice,
+        device: &super::SDevice,
     ) -> Result<(), &'static str> {
         if self.curwidth != width || self.curheight != height {
             let newwidth = std::cmp::max(1, width);

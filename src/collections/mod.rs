@@ -140,6 +140,14 @@ impl<T> SPool<T> {
         }
     }
 
+    fn handle_for_index(&self, index: u16) -> SPoolHandle {
+        SPoolHandle{
+            poolid: self.id,
+            index: index,
+            generation: self.generations[index as usize],
+        }
+    }
+
     fn get_by_index(&self, index: u16) -> Result<&T, &'static str> {
         if index < self.max {
             Ok(&self.buffer[index as usize])
@@ -210,6 +218,10 @@ impl<T> SStoragePool<T> {
 
     pub fn used(&self) -> usize {
         self.pool.used()
+    }
+
+    pub fn handle_for_index(&self, index: u16) -> SPoolHandle {
+        self.pool.handle_for_index(index)
     }
 
     pub fn get_by_index(&self, index: u16) -> Result<Option<&T>, &'static str> {

@@ -141,6 +141,7 @@ pub fn setup_shadow_mapping_pipeline<'a>(
 impl<'a> SShadowMappingPipeline<'a> {
     pub fn render(
         &self,
+        mesh_loader: &model::SMeshLoader,
         light_pos_world: &Vec3,
         cl: &mut n12::SCommandList,
         models: &[&model::SModel],
@@ -219,7 +220,7 @@ impl<'a> SShadowMappingPipeline<'a> {
             let view_perspective = perspective_matrix * view_matrix;
 
             for modeli in 0..models.len() {
-                models[modeli].render(cl, &view_perspective, model_matrices[modeli]);
+                mesh_loader.render(models[modeli].mesh, cl, &view_perspective, model_matrices[modeli]);
             }
         }
 

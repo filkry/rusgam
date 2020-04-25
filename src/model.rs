@@ -14,10 +14,10 @@ use rustywindows;
 use utils;
 use utils::{STransform};
 
+// -- must match SVertexPosColorUV vertex.hlsl
 #[allow(dead_code)]
 struct SVertexPosColourUV {
     position: Vec3,
-    colour: Vec3,
     normal: Vec3,
     uv: Vec2,
 }
@@ -157,16 +157,15 @@ impl<'a> SMeshLoader<'a> {
                     tobj_mesh.positions[vidx * 3 + 1],
                     tobj_mesh.positions[vidx * 3 + 2],
                 ),
-                uv: Vec2::new(
-                    tobj_mesh.texcoords[vidx * 2],
-                    tobj_mesh.texcoords[vidx * 2 + 1],
-                ),
                 normal: Vec3::new(
                     tobj_mesh.normals[vidx * 3],
                     tobj_mesh.normals[vidx * 3 + 1],
                     tobj_mesh.normals[vidx * 3 + 2],
                 ),
-                colour: Vec3::new(1.0, 1.0, 1.0),
+                uv: Vec2::new(
+                    tobj_mesh.texcoords[vidx * 2],
+                    tobj_mesh.texcoords[vidx * 2 + 1],
+                ),
             });
         }
 

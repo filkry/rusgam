@@ -502,18 +502,18 @@ fn main_d3d12() -> Result<(), &'static str> {
 
         let models = [
             &model,
-            &model2,
-            &model3,
-            &room_model,
-            &debug_model,
+            //&model2,
+            //&model3,
+            //&room_model,
+            //&debug_model,
             //&fixed_size_model,
         ];
         let model_xforms = [
             &model_xform,
-            &model2_xform,
-            &model3_xform,
-            &room_model_xform,
-            &debug_model_xform,
+            //&model2_xform,
+            //&model3_xform,
+            //&room_model_xform,
+            //&debug_model_xform,
             //&fixed_size_model_xform,
         ];
 

@@ -41,7 +41,7 @@ float4 main( SPixelShaderInput input ) : SV_Target
 
     // -- the max component to to_light is always the z direction of the light "camera"; if it
     // -- wasn't, this pixel would have been seen by a different part of the cubemap
-    float from_light_z = max(abs(to_light.x), max(abs(to_light.y), abs(to_light.z));
+    float from_light_z = max(abs(to_light.x), max(abs(to_light.y), abs(to_light.z)));
 
     // -- adjust shadow sample position based on normal, to fix acne
     float3 shadow_sample_pos = -to_light + 0.1 * input.normal.xyz;
@@ -63,16 +63,16 @@ float4 main( SPixelShaderInput input ) : SV_Target
         point_irradiance = 0.0; // obscured by shadow
     }
 
-    float4 base_colour;
+    float3 base_colour;
     if(texture_metadata_buffer.is_textured > 0.0f)
-        base_colour = g_texture.Sample(g_sampler, input.uv);
+        base_colour = g_texture.Sample(g_sampler, input.uv).xyz;
     else
         base_colour = texture_metadata_buffer.flat_colour;
 
     if(texture_metadata_buffer.is_flat_shaded > 0.0)
-        return base_colour * texture_metadata_buffer.flat_shade_factor;
+        return float4(base_colour * texture_metadata_buffer.flat_shade_factor, 1.0);
 
     //return base_colour;
-    return base_colour * point_irradiance;
+    return float4(base_colour * point_irradiance, 1.0);
     //return output;
 }

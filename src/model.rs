@@ -106,7 +106,7 @@ pub struct SModel {
 
 // -- used to fill out shader metadata, must match STextureMetadata in pixel.hlsl
 #[repr(C)]
-struct STextureMetadata {
+pub struct STextureMetadata {
     diffuse_colour: Vec3,
     has_diffuse_texture: f32,
     diffuse_weight: f32,

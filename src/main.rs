@@ -258,7 +258,7 @@ fn main_d3d12() -> Result<(), &'static str> {
             constants: t12::SRootConstants {
                 shader_register: 1,
                 register_space: 0,
-                num_32_bit_values: 3,
+                num_32_bit_values: (size_of::<model::STextureMetadata>() / 4) as u32,
             },
         },
         shader_visibility: t12::EShaderVisibility::Pixel,

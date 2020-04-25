@@ -26,7 +26,7 @@ static const float PI = 3.14159265f;
 float4 main( SPixelShaderInput input ) : SV_Target
 {
     float3 light_pos = float3(5.0, 5.0, 5.0);
-    float light_power = 150.0;
+    float light_power = 100.0;
     //float3 light_dir = normalize(float3(-1.0, -1.0, -1.0));
     //float simple_light_weight = saturate(dot(light_dir, -input.normal.xyz));
 
@@ -37,7 +37,7 @@ float4 main( SPixelShaderInput input ) : SV_Target
     float cos_theta = dot(to_light_dir, input.normal.xyz);
     float point_irradiance = (light_power * cos_theta) / (4.0 * PI * dist_to_light);
 
-    float do_shadow = 0.0;
+    float do_shadow = 1.0;
     if(do_shadow > 0.0) {
 
         // -- the max component to to_light is always the z direction of the light "camera"; if it

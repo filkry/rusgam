@@ -28,6 +28,8 @@ mod level;
 use std::cell::RefCell;
 use std::mem::size_of;
 use std::io::Write;
+use std::rc::Rc;
+use std::ops::{Deref, DerefMut};
 
 // -- crate includes
 use arrayvec::{ArrayVec};
@@ -164,17 +166,17 @@ fn main_d3d12() -> Result<(), &'static str> {
     let mut adapter = factory.create_best_adapter()?;
     let mut device = adapter.create_device()?;
 
-    let commandqueue = RefCell::new(
+    let commandqueue = Rc::new(RefCell::new(
         device.create_command_queue(&winapi.rawwinapi(), t12::ECommandListType::Direct)?,
-    );
+    ));
     let mut directcommandpool =
-        n12::SCommandListPool::create(&device, &commandqueue, &winapi.rawwinapi(), 1, 10)?;
+        n12::SCommandListPool::create(&device, Rc::downgrade(&commandqueue), &winapi.rawwinapi(), 1, 10)?;
 
     let mut window = n12::SD3D12Window::new(
         &windowclass,
         &factory,
         &mut device,
-        &mut commandqueue.borrow_mut(),
+        commandqueue.as_ref().borrow().deref(),
         "rusgam",
         800,
         600,
@@ -212,11 +214,11 @@ fn main_d3d12() -> Result<(), &'static str> {
         bottom: std::i32::MAX,
     };
 
-    let copycommandqueue = RefCell::new(
+    let copycommandqueue = Rc::new(RefCell::new(
         device.create_command_queue(&winapi.rawwinapi(), t12::ECommandListType::Copy)?,
-    );
-    let mut mesh_loader = SMeshLoader::new(&device, &winapi, &copycommandqueue, 23948934, 1024)?;
-    let mut texture_loader = STextureLoader::new(&device, &winapi, &copycommandqueue, &commandqueue, &srv_heap, 9323, 1024)?;
+    ));
+    let mut mesh_loader = SMeshLoader::new(&device, &winapi, Rc::downgrade(&copycommandqueue), 23948934, 1024)?;
+    let mut texture_loader = STextureLoader::new(&device, &winapi, Rc::downgrade(&copycommandqueue), Rc::downgrade(&commandqueue), &srv_heap, 9323, 1024)?;
 
     let model = SModel::new_from_obj("assets/first_test_asset.obj", &mut mesh_loader, &mut texture_loader, 1.0)?;
     let model2 = SModel::new_from_obj("assets/first_test_asset.obj", &mut mesh_loader, &mut texture_loader, 1.0)?;
@@ -496,8 +498,7 @@ fn main_d3d12() -> Result<(), &'static str> {
         //println!("Frame time: {}us", _dtms);
 
         // -- wait for buffer to be available
-        commandqueue
-            .borrow()
+        commandqueue.borrow()
             .wait_for_internal_fence_value(framefencevalues[window.currentbackbufferindex()]);
 
         let models = [
@@ -699,7 +700,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                         window.resize(
                             newwidth as u32,
                             newheight as u32,
-                            &mut commandqueue.borrow_mut(),
+                            commandqueue.borrow_mut().deref_mut(),
                             &device,
                         )?;
 

@@ -33,7 +33,7 @@ impl SD3D12Window {
         windowclass: &safewindows::SWindowClass,
         factory: &super::SFactory,
         device: &mut super::SDevice,
-        commandqueue: &mut super::SCommandQueue,
+        commandqueue: &super::SCommandQueue,
         title: &str,
         width: u32,
         height: u32,

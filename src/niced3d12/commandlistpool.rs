@@ -1,3 +1,5 @@
+use std::rc::Weak;
+
 use super::*;
 
 struct SCommandListPoolList {
@@ -10,8 +12,8 @@ struct SCommandListPoolActiveAllocator {
     reusefencevalue: u64,
 }
 
-pub struct SCommandListPool<'a> {
-    queue: &'a RefCell<SCommandQueue>,
+pub struct SCommandListPool {
+    queue: Weak<RefCell<SCommandQueue>>,
 
     allocators: SPool<SCommandAllocator>,
     lists: SPool<SCommandListPoolList>,
@@ -20,17 +22,17 @@ pub struct SCommandListPool<'a> {
     activeallocators: Vec<SCommandListPoolActiveAllocator>,
 }
 
-impl<'a> SCommandListPool<'a> {
+impl SCommandListPool {
     pub fn create(
         device: &SDevice,
-        queue: &'a RefCell<SCommandQueue>,
+        queue: Weak<RefCell<SCommandQueue>>,
         winapi: &safewindows::SWinAPI,
         num_lists: u16,
         num_allocators: u16,
     ) -> Result<Self, &'static str> {
         assert!(num_allocators > 0 && num_lists > 0);
 
-        let type_ = queue.borrow().type_();
+        let type_ = queue.upgrade().expect("queue dropped before list pool").borrow().type_();
 
         let mut allocators = Vec::new();
         let mut lists = Vec::new();
@@ -101,17 +103,19 @@ impl<'a> SCommandListPool<'a> {
     }
 
     pub fn execute_and_free_list(&mut self, handle: SPoolHandle) -> Result<u64, &'static str> {
+        let queue = self.queue.upgrade().expect("dropped queue before list");
+
         let allocator = {
             let list = self.lists.get_mut(handle)?;
-            assert!(list.list.get_type() == self.queue.borrow().type_());
-            self.queue.borrow().execute_command_list(&mut list.list)?;
+            assert!(list.list.get_type() == queue.borrow().type_());
+            queue.borrow().execute_command_list(&mut list.list)?;
 
             assert!(list.allocator.valid());
             list.allocator
         };
         self.lists.free(handle);
 
-        let fenceval = self.queue.borrow().signal(&mut self.activefence)?;
+        let fenceval = queue.borrow().signal(&mut self.activefence)?;
 
         self.activeallocators.push(SCommandListPoolActiveAllocator {
             handle: allocator,
@@ -126,6 +130,8 @@ impl<'a> SCommandListPool<'a> {
     }
 
     pub fn flush_blocking(&mut self) -> Result<(), &'static str> {
-        self.queue.borrow_mut().flush_blocking()
+        let queue = self.queue.upgrade().expect("queue dropped before list pool");
+        let result = queue.borrow_mut().flush_blocking();
+        result
     }
 }

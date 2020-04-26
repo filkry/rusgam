@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
+use std::rc::Weak;
 
 use glm::{Vec3, Vec2, Mat4};
 use arrayvec::{ArrayString};
@@ -81,15 +82,15 @@ pub struct STexture<'a> {
 
 pub struct SMeshLoader<'a> {
     device: &'a n12::SDevice,
-    copy_command_list_pool: n12::SCommandListPool<'a>,
+    copy_command_list_pool: n12::SCommandListPool,
 
     mesh_pool: SStoragePool<SMesh<'a>>,
 }
 
 pub struct STextureLoader<'a> {
     device: &'a n12::SDevice,
-    copy_command_list_pool: n12::SCommandListPool<'a>,
-    direct_command_list_pool: n12::SCommandListPool<'a>,
+    copy_command_list_pool: n12::SCommandListPool,
+    direct_command_list_pool: n12::SCommandListPool,
     srv_heap: &'a n12::descriptorallocator::SDescriptorAllocator,
 
     texture_pool: SStoragePool<STexture<'a>>,
@@ -116,13 +117,13 @@ impl<'a> SMeshLoader<'a> {
     pub fn new(
         device: &'a n12::SDevice,
         winapi: &rustywindows::SWinAPI,
-        copy_command_queue: &'a RefCell<n12::SCommandQueue>,
+        copy_command_queue: Weak<RefCell<n12::SCommandQueue>>,
         pool_id: u64,
         max_mesh_count: u16,
     ) -> Result<Self, &'static str> {
         Ok(Self {
             device,
-            copy_command_list_pool: n12::SCommandListPool::create(&device, &copy_command_queue, &winapi.rawwinapi(), 1, 2)?,
+            copy_command_list_pool: n12::SCommandListPool::create(&device, copy_command_queue, &winapi.rawwinapi(), 1, 2)?,
             mesh_pool: SStoragePool::create(pool_id, max_mesh_count),
         })
     }
@@ -320,16 +321,16 @@ impl<'a> STextureLoader<'a> {
     pub fn new(
         device: &'a n12::SDevice,
         winapi: &rustywindows::SWinAPI,
-        copy_command_queue: &'a RefCell<n12::SCommandQueue>,
-        direct_command_queue: &'a RefCell<n12::SCommandQueue>,
+        copy_command_queue: Weak<RefCell<n12::SCommandQueue>>,
+        direct_command_queue: Weak<RefCell<n12::SCommandQueue>>,
         srv_heap: &'a n12::SDescriptorAllocator,
         pool_id: u64,
         max_texture_count: u16,
     ) -> Result<Self, &'static str> {
         Ok(Self {
             device,
-            copy_command_list_pool: n12::SCommandListPool::create(&device, &copy_command_queue, &winapi.rawwinapi(), 1, 2)?,
-            direct_command_list_pool: n12::SCommandListPool::create(&device, &direct_command_queue, &winapi.rawwinapi(), 1, 10)?,
+            copy_command_list_pool: n12::SCommandListPool::create(&device, copy_command_queue, &winapi.rawwinapi(), 1, 2)?,
+            direct_command_list_pool: n12::SCommandListPool::create(&device, direct_command_queue, &winapi.rawwinapi(), 1, 10)?,
             srv_heap,
 
             texture_pool: SStoragePool::create(pool_id, max_texture_count),

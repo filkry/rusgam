@@ -60,7 +60,7 @@ impl SFactory {
     pub fn create_swap_chain(
         &self,
         window: &safewindows::SWindow,
-        commandqueue: &mut SCommandQueue,
+        commandqueue: &SCommandQueue,
         width: u32,
         height: u32,
     ) -> Result<SSwapChain, &'static str> {

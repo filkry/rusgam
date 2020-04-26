@@ -1,7 +1,7 @@
 // -- std includes
 use std::cell::RefCell;
-use std::mem::size_of;
 use std::io::Write;
+use std::mem::{size_of};
 use std::rc::Rc;
 use std::ops::{Deref, DerefMut};
 
@@ -42,17 +42,13 @@ struct SBuiltShaderMetadata {
 pub struct SRender<'a> {
     factory: n12::SFactory,
     _adapter: n12::SAdapter, // -- maybe don't need to keep
-    device: Rc<n12::SDevice>,
 
-    direct_command_queue: Rc<RefCell<n12::SCommandQueue>>,
     direct_command_pool: n12::SCommandListPool,
-    _copy_command_queue: Rc<RefCell<n12::SCommandQueue>>, // -- used in mesh/texture loader via Weak
-    dsv_heap: Rc<n12::SDescriptorAllocator>,
-    srv_heap: Rc<n12::SDescriptorAllocator>,
 
     _depth_texture_resource: Option<n12::SResource>,
     _depth_texture_view: Option<n12::SDescriptorAllocatorAllocation>,
 
+    // -- these depend on the heaps existing, so should be dropped first
     mesh_loader: SMeshLoader<'a>,
     texture_loader: STextureLoader,
 
@@ -69,6 +65,15 @@ pub struct SRender<'a> {
     shadow_mapping_pipeline: shadowmapping::SShadowMappingPipeline,
 
     frame_fence_values: [u64; 2],
+
+    // -- these things need to drop last, due to Weak references to them
+    dsv_heap: Rc<n12::SDescriptorAllocator>,
+    srv_heap: Rc<n12::SDescriptorAllocator>,
+
+    _copy_command_queue: Rc<RefCell<n12::SCommandQueue>>, // -- used in mesh/texture loader via Weak
+    direct_command_queue: Rc<RefCell<n12::SCommandQueue>>,
+
+    device: Rc<n12::SDevice>,
 }
 
 pub fn compile_shaders_if_changed() {

@@ -25,6 +25,7 @@ mod shadowmapping;
 mod level;
 
 // -- std includes
+use std::cell::RefCell;
 use std::mem::size_of;
 use std::io::Write;
 
@@ -38,7 +39,6 @@ use typeyd3d12 as t12;
 use allocate::{SMemVec, STACK_ALLOCATOR};
 use utils::{STransform};
 use model::{SModel, SMeshLoader, STextureLoader};
-use collections::{SImmovableRefCell, SImmovableDataRegistry};
 
 pub struct SInput {
     w: bool,
@@ -152,8 +152,6 @@ fn compile_shaders_if_changed() {
 fn main_d3d12() -> Result<(), &'static str> {
     compile_shaders_if_changed();
 
-    let immovable_data_registry = SImmovableDataRegistry::new(23128583, 128);
-
     // -- initialize debug
     let debuginterface = t12::SDebugInterface::new()?;
     debuginterface.enabledebuglayer();
@@ -166,23 +164,17 @@ fn main_d3d12() -> Result<(), &'static str> {
     let mut adapter = factory.create_best_adapter()?;
     let mut device = adapter.create_device()?;
 
-    let mut commandqueue = unsafe { SImmovableRefCell::<n12::SCommandQueue>::new(
+    let commandqueue = RefCell::new(
         device.create_command_queue(&winapi.rawwinapi(), t12::ECommandListType::Direct)?,
-        &immovable_data_registry,
-    ) };
-    unsafe { commandqueue.register()? };
-
-    //let commandqueue = RefCell::new(
-    //    device.create_command_queue(&winapi.rawwinapi(), t12::ECommandListType::Direct)?,
-    //);
+    );
     let mut directcommandpool =
-        n12::SCommandListPool::create(&device, commandqueue.get_ref(), &winapi.rawwinapi(), 1, 10)?;
+        n12::SCommandListPool::create(&device, &commandqueue, &winapi.rawwinapi(), 1, 10)?;
 
     let mut window = n12::SD3D12Window::new(
         &windowclass,
         &factory,
         &mut device,
-        &mut commandqueue.get_ref().borrow_mut(),
+        &mut commandqueue.borrow_mut(),
         "rusgam",
         800,
         600,
@@ -220,14 +212,11 @@ fn main_d3d12() -> Result<(), &'static str> {
         bottom: std::i32::MAX,
     };
 
-    let mut copycommandqueue = unsafe { SImmovableRefCell::<n12::SCommandQueue>::new(
+    let copycommandqueue = RefCell::new(
         device.create_command_queue(&winapi.rawwinapi(), t12::ECommandListType::Copy)?,
-        &immovable_data_registry,
-    )};
-    unsafe { copycommandqueue.register()? };
-
-    let mut mesh_loader = SMeshLoader::new(&device, &winapi, copycommandqueue.get_ref(), 23948934, 1024)?;
-    let mut texture_loader = STextureLoader::new(&device, &winapi, copycommandqueue.get_ref(), commandqueue.get_ref(), &srv_heap, 9323, 1024)?;
+    );
+    let mut mesh_loader = SMeshLoader::new(&device, &winapi, &copycommandqueue, 23948934, 1024)?;
+    let mut texture_loader = STextureLoader::new(&device, &winapi, &copycommandqueue, &commandqueue, &srv_heap, 9323, 1024)?;
 
     let model = SModel::new_from_obj("assets/first_test_asset.obj", &mut mesh_loader, &mut texture_loader, 1.0)?;
     let model2 = SModel::new_from_obj("assets/first_test_asset.obj", &mut mesh_loader, &mut texture_loader, 1.0)?;
@@ -508,7 +497,6 @@ fn main_d3d12() -> Result<(), &'static str> {
 
         // -- wait for buffer to be available
         commandqueue
-            .get_ref()
             .borrow()
             .wait_for_internal_fence_value(framefencevalues[window.currentbackbufferindex()]);
 
@@ -610,7 +598,7 @@ fn main_d3d12() -> Result<(), &'static str> {
             assert_eq!(window.currentbackbufferindex(), backbufferidx);
             directcommandpool.execute_and_free_list(handle)?;
             framefencevalues[window.currentbackbufferindex()] =
-                commandqueue.get_ref().borrow_mut().signal_internal_fence()?;
+                commandqueue.borrow_mut().signal_internal_fence()?;
 
             // -- present the swap chain and switch to next buffer in swap chain
             window.present()?;
@@ -711,7 +699,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                         window.resize(
                             newwidth as u32,
                             newheight as u32,
-                            &mut commandqueue.get_ref().borrow_mut(),
+                            &mut commandqueue.borrow_mut(),
                             &device,
                         )?;
 
@@ -753,7 +741,7 @@ fn main_d3d12() -> Result<(), &'static str> {
     }
 
     // -- wait for all commands to clear
-    commandqueue.get_ref().borrow_mut().flush_blocking()?;
+    commandqueue.borrow_mut().flush_blocking()?;
 
     Ok(())
 }

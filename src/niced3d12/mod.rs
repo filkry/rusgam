@@ -23,6 +23,7 @@ use directxgraphicssamples;
 use safewindows;
 use typeyd3d12 as t12;
 
+use std::cell::RefCell;
 use std::marker::PhantomData;
 use std::ops::Deref;
 use std::ptr;

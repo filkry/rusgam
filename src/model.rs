@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
@@ -7,7 +8,7 @@ use arrayvec::{ArrayString};
 use t12;
 use n12;
 use allocate::{SMemVec, SYSTEM_ALLOCATOR};
-use collections::{SStoragePool, SPoolHandle, SImmovableRefCellRef};
+use collections::{SStoragePool, SPoolHandle};
 use safewindows;
 use rustywindows;
 use utils;
@@ -115,13 +116,13 @@ impl<'a> SMeshLoader<'a> {
     pub fn new(
         device: &'a n12::SDevice,
         winapi: &rustywindows::SWinAPI,
-        copy_command_queue: SImmovableRefCellRef<'a, n12::SCommandQueue>,
+        copy_command_queue: &'a RefCell<n12::SCommandQueue>,
         pool_id: u64,
         max_mesh_count: u16,
     ) -> Result<Self, &'static str> {
         Ok(Self {
             device,
-            copy_command_list_pool: n12::SCommandListPool::create(&device, copy_command_queue, &winapi.rawwinapi(), 1, 2)?,
+            copy_command_list_pool: n12::SCommandListPool::create(&device, &copy_command_queue, &winapi.rawwinapi(), 1, 2)?,
             mesh_pool: SStoragePool::create(pool_id, max_mesh_count),
         })
     }
@@ -319,16 +320,16 @@ impl<'a> STextureLoader<'a> {
     pub fn new(
         device: &'a n12::SDevice,
         winapi: &rustywindows::SWinAPI,
-        copy_command_queue: SImmovableRefCellRef<'a, n12::SCommandQueue>,
-        direct_command_queue: SImmovableRefCellRef<'a, n12::SCommandQueue>,
+        copy_command_queue: &'a RefCell<n12::SCommandQueue>,
+        direct_command_queue: &'a RefCell<n12::SCommandQueue>,
         srv_heap: &'a n12::SDescriptorAllocator,
         pool_id: u64,
         max_texture_count: u16,
     ) -> Result<Self, &'static str> {
         Ok(Self {
             device,
-            copy_command_list_pool: n12::SCommandListPool::create(&device, copy_command_queue, &winapi.rawwinapi(), 1, 2)?,
-            direct_command_list_pool: n12::SCommandListPool::create(&device, direct_command_queue, &winapi.rawwinapi(), 1, 10)?,
+            copy_command_list_pool: n12::SCommandListPool::create(&device, &copy_command_queue, &winapi.rawwinapi(), 1, 2)?,
+            direct_command_list_pool: n12::SCommandListPool::create(&device, &direct_command_queue, &winapi.rawwinapi(), 1, 10)?,
             srv_heap,
 
             texture_pool: SStoragePool::create(pool_id, max_texture_count),

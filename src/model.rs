@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::ops::{Deref};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::rc::Weak;
@@ -8,6 +9,7 @@ use arrayvec::{ArrayString};
 
 use t12;
 use n12;
+use n12::descriptorallocator::{descriptor_alloc};
 use allocate::{SMemVec, SYSTEM_ALLOCATOR};
 use collections::{SStoragePool, SPoolHandle};
 use safewindows;
@@ -80,7 +82,7 @@ pub struct STexture {
     pub(super) diffuse_texture_srv: Option<n12::descriptorallocator::SDescriptorAllocatorAllocation>,
 }
 
-pub struct SMeshLoader {
+pub struct SMeshLoader<'a> {
     device: Weak<n12::SDevice>,
     copy_command_list_pool: n12::SCommandListPool,
 
@@ -115,15 +117,15 @@ pub struct STextureMetadata {
 
 impl<'a> SMeshLoader<'a> {
     pub fn new(
-        device: &'a n12::SDevice,
+        device: Weak<n12::SDevice>,
         winapi: &rustywindows::SWinAPI,
         copy_command_queue: Weak<RefCell<n12::SCommandQueue>>,
         pool_id: u64,
         max_mesh_count: u16,
     ) -> Result<Self, &'static str> {
         Ok(Self {
-            device,
-            copy_command_list_pool: n12::SCommandListPool::create(&device, copy_command_queue, &winapi.rawwinapi(), 1, 2)?,
+            device: device.clone(),
+            copy_command_list_pool: n12::SCommandListPool::create(device.upgrade().expect("bad device").deref(), copy_command_queue, &winapi.rawwinapi(), 1, 2)?,
             mesh_pool: SStoragePool::create(pool_id, max_mesh_count),
         })
     }
@@ -181,7 +183,11 @@ impl<'a> SMeshLoader<'a> {
 
             let mut vertbufferresource = {
                 let vertbufferflags = t12::SResourceFlags::from(t12::EResourceFlags::ENone);
-                copycommandlist.update_buffer_resource(self.device, vert_vec.as_slice(), vertbufferflags)?
+                copycommandlist.update_buffer_resource(
+                    self.device.upgrade().expect("device dropped").deref(),
+                    vert_vec.as_slice(),
+                    vertbufferflags
+                )?
             };
             let vertexbufferview = vertbufferresource
                 .destinationresource
@@ -189,7 +195,11 @@ impl<'a> SMeshLoader<'a> {
 
             let mut indexbufferresource = {
                 let indexbufferflags = t12::SResourceFlags::from(t12::EResourceFlags::ENone);
-                copycommandlist.update_buffer_resource(self.device, index_vec.as_slice(), indexbufferflags)?
+                copycommandlist.update_buffer_resource(
+                    self.device.upgrade().expect("device dropped").deref(),
+                    index_vec.as_slice(),
+                    indexbufferflags
+                )?
             };
             let indexbufferview = indexbufferresource
                 .destinationresource
@@ -317,20 +327,20 @@ impl<'a> SMeshLoader<'a> {
     }
 }
 
-impl<'a> STextureLoader<'a> {
+impl STextureLoader {
     pub fn new(
-        device: &'a n12::SDevice,
+        device: Weak<n12::SDevice>,
         winapi: &rustywindows::SWinAPI,
         copy_command_queue: Weak<RefCell<n12::SCommandQueue>>,
         direct_command_queue: Weak<RefCell<n12::SCommandQueue>>,
-        srv_heap: &'a n12::SDescriptorAllocator,
+        srv_heap: Weak<n12::SDescriptorAllocator>,
         pool_id: u64,
         max_texture_count: u16,
     ) -> Result<Self, &'static str> {
         Ok(Self {
-            device,
-            copy_command_list_pool: n12::SCommandListPool::create(&device, copy_command_queue, &winapi.rawwinapi(), 1, 2)?,
-            direct_command_list_pool: n12::SCommandListPool::create(&device, direct_command_queue, &winapi.rawwinapi(), 1, 10)?,
+            device: device.clone(),
+            copy_command_list_pool: n12::SCommandListPool::create(device.upgrade().expect("dropped device").deref(), copy_command_queue, &winapi.rawwinapi(), 1, 2)?,
+            direct_command_list_pool: n12::SCommandListPool::create(device.upgrade().expect("dropped device").deref(), direct_command_queue, &winapi.rawwinapi(), 1, 10)?,
             srv_heap,
 
             texture_pool: SStoragePool::create(pool_id, max_texture_count),
@@ -361,7 +371,7 @@ impl<'a> STextureLoader<'a> {
             let mut texture_asset = ArrayString::<[_; 128]>::new();
             texture_asset.push_str("assets/");
             texture_asset.push_str(texture_name);
-            let (mut _intermediate_resource, mut resource) = n12::load_texture(self.device, copycommandlist, texture_asset.as_str());
+            let (mut _intermediate_resource, mut resource) = n12::load_texture(self.device.upgrade().expect("dropped device").deref(), copycommandlist, texture_asset.as_str());
 
             let fenceval = self.copy_command_list_pool.execute_and_free_list(handle)?;
             self.copy_command_list_pool.wait_for_internal_fence_value(fenceval);
@@ -404,8 +414,8 @@ impl<'a> STextureLoader<'a> {
                 },
             };
 
-            let descriptors = self.srv_heap.alloc(1)?;
-            self.device.create_shader_resource_view(
+            let descriptors = descriptor_alloc(&self.srv_heap.upgrade().expect("allocator dropped"), 1)?;
+            self.device.upgrade().expect("device dropped").create_shader_resource_view(
                 texture_resource.as_ref().unwrap(),
                 &srv_desc,
                 descriptors.cpu_descriptor(0),
@@ -416,7 +426,7 @@ impl<'a> STextureLoader<'a> {
 
         let texture = STexture{
             uid: uid,
-            srv_heap: self.srv_heap,
+            //srv_heap: self.srv_heap,
             _diffuse_texture_resource: texture_resource,
             diffuse_texture_srv: texture_srv,
         };

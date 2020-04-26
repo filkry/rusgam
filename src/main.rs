@@ -26,22 +26,22 @@ mod shadowmapping;
 mod level;
 
 // -- std includes
-use std::cell::RefCell;
-use std::mem::size_of;
-use std::io::Write;
-use std::rc::Rc;
-use std::ops::{Deref, DerefMut};
+//use std::cell::RefCell;
+//use std::mem::size_of;
+//use std::io::Write;
+//use std::rc::Rc;
+//use std::ops::{Deref, DerefMut};
 
 // -- crate includes
-use arrayvec::{ArrayVec};
-use serde::{Serialize, Deserialize};
-use glm::{Vec3, Mat4};
+//use arrayvec::{ArrayVec};
+//use serde::{Serialize, Deserialize};
+use glm::{Vec3/*, Mat4*/};
 
 use niced3d12 as n12;
 use typeyd3d12 as t12;
-use allocate::{SMemVec, STACK_ALLOCATOR};
+//use allocate::{SMemVec, STACK_ALLOCATOR};
 use utils::{STransform};
-use model::{SModel, SMeshLoader, STextureLoader};
+//use model::{SModel, SMeshLoader, STextureLoader};
 
 pub struct SInput {
     w: bool,
@@ -59,12 +59,12 @@ fn main_d3d12() -> Result<(), &'static str> {
 
     let winapi = rustywindows::SWinAPI::create();
 
-    let render = render::SRender::new(&winapi);
+    let mut render = render::SRender::new(&winapi)?;
 
     // -- setup window
     let windowclass = winapi.rawwinapi().registerclassex("rusgam").unwrap();
 
-    let window = render.create_window(&windowclass, "rusgam", 800, 600)?;
+    let mut window = render.create_window(&windowclass, "rusgam", 800, 600)?;
 
     window.init_render_target_views(render.device())?;
     window.show();
@@ -85,8 +85,6 @@ fn main_d3d12() -> Result<(), &'static str> {
 
     let mut _framecount: u64 = 0;
     let mut lastframetime = winapi.curtimemicroseconds();
-
-    let mut framefencevalues = [0; 2];
 
     let mut shouldquit = false;
 
@@ -180,7 +178,7 @@ fn main_d3d12() -> Result<(), &'static str> {
             //&fixed_size_model_xform,
         ];
 
-        render.render(&view_matrix, &models, &model_xforms);
+        render.render(&mut window, &view_matrix, &models, &model_xforms)?;
 
         lastframetime = curframetime;
         _framecount += 1;
@@ -274,7 +272,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                         let newwidth = rect.right - rect.left;
                         let newheight = rect.bottom - rect.top;
 
-                        render.resize_window(&mut window, newwidth, newheight);
+                        render.resize_window(&mut window, newwidth, newheight)?;
                     }
                     safewindows::EMsgType::Invalid => (),
                 },
@@ -286,7 +284,7 @@ fn main_d3d12() -> Result<(), &'static str> {
     }
 
     // -- wait for all commands to clear
-    render.flush();
+    render.flush()?;
 
     Ok(())
 }

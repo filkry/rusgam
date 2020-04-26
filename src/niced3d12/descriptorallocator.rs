@@ -41,7 +41,7 @@ impl SDescriptorAllocatorAllocation {
 impl Drop for SDescriptorAllocatorAllocation {
     fn drop(&mut self) {
         if let Some(_a) = &self.allocation {
-            self.allocator.free(self);
+            self.allocator.upgrade().expect("allocator freed before allocation").free(self);
         }
     }
 }
@@ -63,7 +63,7 @@ pub struct SDescriptorAllocator {
     descriptor_type: t12::EDescriptorHeapType,
     heap_base_handle: t12::SCPUDescriptorHandle,
 
-    internal: Rc<SDescriptorAllocatorInternal>,
+    internal: RefCell<SDescriptorAllocatorInternal>,
 }
 
 impl SDescriptorAllocator {
@@ -104,27 +104,6 @@ impl SDescriptorAllocator {
         self.descriptor_type
     }
 
-    pub fn alloc<'a>(
-        &self,
-        num_descriptors: usize,
-    ) -> Result<SDescriptorAllocatorAllocation, &'static str> {
-        let mut internal = self.internal.borrow_mut();
-
-        let allocation = internal.allocator.alloc(num_descriptors, 1)?;
-        let base_cpu_handle = internal.descriptor_heap.cpu_handle(allocation.start_offset())?;
-        let base_gpu_handle = internal.descriptor_heap.gpu_handle(allocation.start_offset())?;
-
-        Ok(SDescriptorAllocatorAllocation {
-            allocation: Some(allocation),
-            base_cpu_handle: base_cpu_handle,
-            base_gpu_handle: base_gpu_handle,
-            descriptor_size: internal.descriptor_heap.descriptorsize,
-            num_handles: num_descriptors,
-
-            allocator: self,
-        })
-    }
-
     pub fn free(&self, allocation: &mut SDescriptorAllocatorAllocation) {
         self.internal.borrow_mut().allocator.free(allocation.allocation.as_mut().unwrap());
     }
@@ -163,6 +142,27 @@ impl SDescriptorAllocator {
 
         internal.last_signal = Some(signal);
     }
+}
+
+pub fn descriptor_alloc(
+    allocator: &Rc<SDescriptorAllocator>,
+    num_descriptors: usize,
+) -> Result<SDescriptorAllocatorAllocation, &'static str> {
+    let mut internal = allocator.internal.borrow_mut();
+
+    let allocation = internal.allocator.alloc(num_descriptors, 1)?;
+    let base_cpu_handle = internal.descriptor_heap.cpu_handle(allocation.start_offset())?;
+    let base_gpu_handle = internal.descriptor_heap.gpu_handle(allocation.start_offset())?;
+
+    Ok(SDescriptorAllocatorAllocation {
+        allocation: Some(allocation),
+        base_cpu_handle: base_cpu_handle,
+        base_gpu_handle: base_gpu_handle,
+        descriptor_size: internal.descriptor_heap.descriptorsize,
+        num_handles: num_descriptors,
+
+        allocator: Rc::downgrade(&allocator),
+    })
 }
 
 impl Drop for SDescriptorAllocator {

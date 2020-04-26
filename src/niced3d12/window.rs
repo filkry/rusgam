@@ -32,7 +32,7 @@ impl SD3D12Window {
     pub fn new(
         windowclass: &safewindows::SWindowClass,
         factory: &super::SFactory,
-        device: &mut super::SDevice,
+        device: &super::SDevice,
         commandqueue: &super::SCommandQueue,
         title: &str,
         width: u32,

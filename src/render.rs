@@ -39,16 +39,21 @@ struct SBuiltShaderMetadata {
     src_write_time: std::time::SystemTime,
 }
 
-pub struct SRender {
+pub struct SRender<'a> {
+    factory: n12::SFactory,
+    _adapter: n12::SAdapter, // -- maybe don't need to keep
     device: Rc<n12::SDevice>,
 
     direct_command_queue: Rc<RefCell<n12::SCommandQueue>>,
     direct_command_pool: n12::SCommandListPool,
-    copy_command_queue: Rc<RefCell<n12::SCommandQueue>>,
+    _copy_command_queue: Rc<RefCell<n12::SCommandQueue>>, // -- used in mesh/texture loader via Weak
     dsv_heap: Rc<n12::SDescriptorAllocator>,
     srv_heap: Rc<n12::SDescriptorAllocator>,
 
-    mesh_loader: SMeshLoader,
+    _depth_texture_resource: Option<n12::SResource>,
+    _depth_texture_view: Option<n12::SDescriptorAllocatorAllocation>,
+
+    mesh_loader: SMeshLoader<'a>,
     texture_loader: STextureLoader,
 
     scissorrect: t12::SRect,
@@ -61,7 +66,9 @@ pub struct SRender {
     root_signature: n12::SRootSignature,
     pipeline_state: t12::SPipelineState,
 
-    shadow_mapping_pipeline: SShadowMappingPipeline,
+    shadow_mapping_pipeline: shadowmapping::SShadowMappingPipeline,
+
+    frame_fence_values: [u64; 2],
 }
 
 pub fn compile_shaders_if_changed() {
@@ -143,7 +150,7 @@ pub fn compile_shaders_if_changed() {
     }
 }
 
-impl SRender{
+impl<'a> SRender<'a> {
     pub fn new(winapi: &rustywindows::SWinAPI) -> Result<Self, &'static str> {
         // -- initialize debug
         let debuginterface = t12::SDebugInterface::new()?;
@@ -151,7 +158,7 @@ impl SRender{
 
         let mut factory = n12::SFactory::create()?;
         let mut adapter = factory.create_best_adapter()?;
-        let mut device = adapter.create_device()?;
+        let device = Rc::new(adapter.create_device()?);
 
         // -- set up command queues
         let direct_command_queue = Rc::new(RefCell::new(
@@ -160,19 +167,19 @@ impl SRender{
         let mut direct_command_pool =
             n12::SCommandListPool::create(&device, Rc::downgrade(&direct_command_queue), &winapi.rawwinapi(), 1, 10)?;
 
-        let dsv_heap = n12::descriptorallocator::SDescriptorAllocator::new(
+        let dsv_heap = Rc::new(n12::descriptorallocator::SDescriptorAllocator::new(
             &device,
             32,
             t12::EDescriptorHeapType::DepthStencil,
             t12::SDescriptorHeapFlags::none(),
-        )?;
+        )?);
 
-        let srv_heap = n12::descriptorallocator::SDescriptorAllocator::new(
+        let srv_heap = Rc::new(n12::descriptorallocator::SDescriptorAllocator::new(
             &device,
             32,
             t12::EDescriptorHeapType::ConstantBufferShaderResourceUnorderedAccess,
             t12::SDescriptorHeapFlags::from(t12::EDescriptorHeapFlags::ShaderVisible),
-        )?;
+        )?);
 
         let scissorrect = t12::SRect {
             left: 0,
@@ -184,8 +191,8 @@ impl SRender{
         let copy_command_queue = Rc::new(RefCell::new(
             device.create_command_queue(&winapi.rawwinapi(), t12::ECommandListType::Copy)?,
         ));
-        let mut mesh_loader = SMeshLoader::new(&device, &winapi, Rc::downgrade(&copy_command_queue), 23948934, 1024)?;
-        let mut texture_loader = STextureLoader::new(&device, &winapi, Rc::downgrade(&copy_command_queue), Rc::downgrade(&direct_command_queue), &srv_heap, 9323, 1024)?;
+        let mesh_loader = SMeshLoader::new(Rc::downgrade(&device), &winapi, Rc::downgrade(&copy_command_queue), 23948934, 1024)?;
+        let texture_loader = STextureLoader::new(Rc::downgrade(&device), &winapi, Rc::downgrade(&copy_command_queue), Rc::downgrade(&direct_command_queue), Rc::downgrade(&srv_heap), 9323, 1024)?;
 
         // -- load shaders
         let vertblob = t12::read_file_to_blob("shaders_built/vertex.cso")?;
@@ -346,14 +353,21 @@ impl SRender{
 
         // -- setup shadow mapping
         let shadow_mapping_pipeline = shadowmapping::setup_shadow_mapping_pipeline(
-            &device, &mut directcommandpool, &dsv_heap, &srv_heap, 128, 128)?;
+            &device, &mut direct_command_pool, Rc::downgrade(&dsv_heap), Rc::downgrade(&srv_heap), 128, 128)?;
 
         Ok(Self {
+            factory,
+            _adapter: adapter,
+            device,
+
             direct_command_queue,
             direct_command_pool,
-            copy_command_queue,
+            _copy_command_queue: copy_command_queue,
             dsv_heap,
             srv_heap,
+
+            _depth_texture_resource: None,
+            _depth_texture_view: None,
 
             mesh_loader,
             texture_loader,
@@ -362,18 +376,20 @@ impl SRender{
             fovy,
             znear,
 
-            _vert_byte_code,
-            _pixel_byte_code,
+            _vert_byte_code: vert_byte_code,
+            _pixel_byte_code: pixel_byte_code,
 
             root_signature,
             pipeline_state,
 
             shadow_mapping_pipeline,
+
+            frame_fence_values: [0; 2],
         })
     }
 
     pub fn device(&self) -> &n12::SDevice {
-        self.device
+        self.device.deref()
     }
 
     pub fn fovy(&self) -> f32 {
@@ -385,40 +401,42 @@ impl SRender{
     }
 
     pub fn create_window(
-        &self,
+        &mut self,
         window_class: &safewindows::SWindowClass,
         title: &'static str,
         width: u32,
         height: u32,
     ) -> Result<n12::SD3D12Window, &'static str> {
-        let mut window = n12::SD3D12Window::new(
+        let window = n12::SD3D12Window::new(
             window_class,
-            self.factory,
-            self.device,
+            &self.factory,
+            self.device.deref(),
             self.direct_command_queue.as_ref().borrow().deref(),
             title,
             width,
             height,
         )?;
 
-        self.update_depth_texture_for_window(window);
+        self.update_depth_texture_for_window(&window)?;
 
-        window
+        Ok(window)
     }
 
-    pub fn resize_window(&mut self, window: &mut n12::SD3D12Window, new_width: i32, new_height: i32) {
+    pub fn resize_window(&mut self, window: &mut n12::SD3D12Window, new_width: i32, new_height: i32) -> Result<(), &'static str> {
         window.resize(
-            newwidth as u32,
-            newheight as u32,
-            commandqueue.borrow_mut().deref_mut(),
-            &device,
+            new_width as u32,
+            new_height as u32,
+            self.direct_command_queue.borrow_mut().deref_mut(),
+            self.device.deref(),
         )?;
 
-        self.update_depth_texture_for_window(window);
+        self.update_depth_texture_for_window(window)?;
+
+        Ok(())
     }
 
     pub fn new_model(&mut self, obj_file_path: &'static str, diffuse_weight: f32) -> Result<SModel, &'static str> {
-        SModel::new_from_obj(obj_file_path, self.mesh_loader, self.texture_loader, diffuse_weight)
+        SModel::new_from_obj(obj_file_path, &mut self.mesh_loader, &mut self.texture_loader, diffuse_weight)
     }
 
     pub fn ray_intersects(
@@ -428,35 +446,37 @@ impl SRender{
         ray_dir: &Vec3,
         model_to_ray_space: &STransform,
     ) -> Option<f32> {
-        mesh_loader.ray_intersects(model, ray_origin, ray_dir, model_to_ray_space)
+        self.mesh_loader.ray_intersects(model, ray_origin, ray_dir, model_to_ray_space)
     }
 
-    pub fn update_depth_texture_for_window() {
+    pub fn update_depth_texture_for_window(&mut self, window: &n12::SD3D12Window) -> Result<(), &'static str> {
         // -- depth texture
         #[allow(unused_variables)]
         let (mut _depth_texture_resource, mut _depth_texture_view) = n12::create_committed_depth_textures(
-            width,
-            height,
+            window.width(),
+            window.height(),
             1,
-            &device,
+            &self.device,
             t12::EDXGIFormat::D32Float,
             t12::EResourceStates::DepthWrite,
-            &mut directcommandpool,
-            &dsv_heap,
+            &mut self.direct_command_pool,
+            &self.dsv_heap,
         )?;
 
-        self.depth_texture_resource = _depth_texture_resource;
-        self.depth_texture_view = _depth_texture_view;
+        self._depth_texture_resource = Some(_depth_texture_resource);
+        self._depth_texture_view = Some(_depth_texture_view);
 
 
         // -- $$$FRK(TODO): why do we do this?
         let maxframefencevalue =
-            std::cmp::max(self.framefencevalues[0], self.framefencevalues[1]);
-        self.framefencevalues[0] = self.maxframefencevalue;
-        self.framefencevalues[1] = self.maxframefencevalue;
+            std::cmp::max(self.frame_fence_values[0], self.frame_fence_values[1]);
+        self.frame_fence_values[0] = maxframefencevalue;
+        self.frame_fence_values[1] = maxframefencevalue;
+
+        Ok(())
     }
 
-    pub fn render(&self, view_matrix: &Mat4, models: &[&SModel], model_xforms: &[&STransform]) {
+    pub fn render(&mut self, window: &mut n12::SD3D12Window, view_matrix: &Mat4, models: &[&SModel], model_xforms: &[&STransform]) -> Result<(), &'static str> {
         let viewport = t12::SViewport::new(
             0.0,
             0.0,
@@ -471,28 +491,28 @@ impl SRender{
             let zfar = 100.0;
 
             //SMat44::new_perspective(aspect, fovy, znear, zfar)
-            glm::perspective_lh_zo(aspect, fovy, znear, zfar)
+            glm::perspective_lh_zo(aspect, self.fovy(), self.znear(), zfar)
         };
 
         // -- wait for buffer to be available
-        commandqueue.borrow()
-            .wait_for_internal_fence_value(framefencevalues[window.currentbackbufferindex()]);
+        self.direct_command_queue.borrow()
+            .wait_for_internal_fence_value(self.frame_fence_values[window.currentbackbufferindex()]);
 
         // -- render shadowmaps
         {
-            let handle = directcommandpool.alloc_list()?;
-            let list = directcommandpool.get_list(handle)?;
+            let handle = self.direct_command_pool.alloc_list()?;
+            let list = self.direct_command_pool.get_list(handle)?;
 
-            shadow_mapping_pipeline.render(
-                &mesh_loader,
+            self.shadow_mapping_pipeline.render(
+                &self.mesh_loader,
                 &Vec3::new(5.0, 5.0, 5.0),
                 list,
                 &models,
                 &model_xforms,
             )?;
 
-            let fence_val = directcommandpool.execute_and_free_list(handle)?;
-            directcommandpool.wait_for_internal_fence_value(fence_val);
+            let fence_val = self.direct_command_pool.execute_and_free_list(handle)?;
+            self.direct_command_pool.wait_for_internal_fence_value(fence_val);
         }
 
         // -- render
@@ -500,14 +520,14 @@ impl SRender{
             let backbufferidx = window.currentbackbufferindex();
             assert!(backbufferidx == window.swapchain.current_backbuffer_index());
 
-            let handle = directcommandpool.alloc_list()?;
+            let handle = self.direct_command_pool.alloc_list()?;
 
             {
-                let list = directcommandpool.get_list(handle)?;
+                let list = self.direct_command_pool.get_list(handle)?;
 
                 let backbuffer = window.currentbackbuffer();
                 let render_target_view = window.currentrendertargetdescriptor()?;
-                let depth_texture_view = _depth_texture_view.cpu_descriptor(0);
+                let depth_texture_view = self._depth_texture_view.as_ref().expect("no depth texture").cpu_descriptor(0);
 
                 // -- transition to render target
                 list.transition_resource(
@@ -522,29 +542,29 @@ impl SRender{
                     window.currentrendertargetdescriptor()?,
                     &clearcolour,
                 )?;
-                list.clear_depth_stencil_view(_depth_texture_view.cpu_descriptor(0), 1.0)?;
+                list.clear_depth_stencil_view(self._depth_texture_view.as_ref().expect("no depth texture").cpu_descriptor(0), 1.0)?;
 
                 // -- set up pipeline
-                list.set_pipeline_state(&pipeline_state);
+                list.set_pipeline_state(&self.pipeline_state);
                 // root signature has to be set explicitly despite being on PSO, according to tutorial
-                list.set_graphics_root_signature(&root_signature.raw());
+                list.set_graphics_root_signature(&self.root_signature.raw());
 
                 // -- setup rasterizer state
                 list.rs_set_viewports(&[&viewport]);
-                list.rs_set_scissor_rects(t12::SScissorRects::create(&[&scissorrect]));
+                list.rs_set_scissor_rects(t12::SScissorRects::create(&[&self.scissorrect]));
 
                 // -- setup the output merger
                 list.om_set_render_targets(&[&render_target_view], false, &depth_texture_view);
 
-                srv_heap.with_raw_heap(|rh| {
+                self.srv_heap.with_raw_heap(|rh| {
                     list.set_descriptor_heaps(&[rh]);
                 });
 
                 let view_perspective = perspective_matrix * view_matrix;
                 for modeli in 0..models.len() {
-                    list.set_graphics_root_descriptor_table(3, &shadow_mapping_pipeline.srv().gpu_descriptor(0));
-                    models[modeli].set_texture_root_parameters(&texture_loader, list, 1, 2);
-                    mesh_loader.render(models[modeli].mesh, list, &view_perspective, &model_xforms[modeli])?;
+                    list.set_graphics_root_descriptor_table(3, &self.shadow_mapping_pipeline.srv().gpu_descriptor(0));
+                    models[modeli].set_texture_root_parameters(&self.texture_loader, list, 1, 2);
+                    self.mesh_loader.render(models[modeli].mesh, list, &view_perspective, &model_xforms[modeli])?;
                 }
 
                 // -- transition to present
@@ -557,16 +577,18 @@ impl SRender{
 
             // -- execute on the queue
             assert_eq!(window.currentbackbufferindex(), backbufferidx);
-            directcommandpool.execute_and_free_list(handle)?;
-            framefencevalues[window.currentbackbufferindex()] =
-                commandqueue.borrow_mut().signal_internal_fence()?;
+            self.direct_command_pool.execute_and_free_list(handle)?;
+            self.frame_fence_values[window.currentbackbufferindex()] =
+                self.direct_command_queue.borrow_mut().signal_internal_fence()?;
 
             // -- present the swap chain and switch to next buffer in swap chain
             window.present()?;
+
+            Ok(())
         }
     }
 
-    pub fn flush(&mut self) {
-        commandqueue.borrow_mut().flush_blocking()?;
+    pub fn flush(&mut self) -> Result<(), &'static str> {
+        self.direct_command_queue.borrow_mut().flush_blocking()
     }
 }

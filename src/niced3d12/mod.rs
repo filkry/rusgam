@@ -27,6 +27,7 @@ use std::cell::RefCell;
 use std::marker::PhantomData;
 use std::ops::Deref;
 use std::ptr;
+use std::rc::{Rc};
 
 // -- $$$FRK(TODO): all these imports should not exist
 use winapi::shared::minwindef::*;
@@ -122,8 +123,8 @@ pub fn create_committed_depth_textures<'a> (
     format: t12::EDXGIFormat,
     initial_state: t12::EResourceStates,
     direct_command_pool: &mut SCommandListPool,
-    depth_descriptor_allocator: &'a descriptorallocator::SDescriptorAllocator,
-) -> Result<(SResource, descriptorallocator::SDescriptorAllocatorAllocation<'a>), &'static str> {
+    depth_descriptor_allocator: &Rc<descriptorallocator::SDescriptorAllocator>,
+) -> Result<(SResource, descriptorallocator::SDescriptorAllocatorAllocation), &'static str> {
 
     if depth_descriptor_allocator.type_() != t12::EDescriptorHeapType::DepthStencil {
         break_err!(Err("Non-DepthStencil descriptor allocator passed to create_depth_texture."));
@@ -153,7 +154,7 @@ pub fn create_committed_depth_textures<'a> (
         initial_state,
     )?;
 
-    let descriptors = depth_descriptor_allocator.alloc(count as usize)?;
+    let descriptors = descriptor_alloc(depth_descriptor_allocator, count as usize)?;
 
     if count == 1 {
         let desc = t12::SDepthStencilViewDesc {

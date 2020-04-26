@@ -1,3 +1,5 @@
+//use std::ops::{Deref};
+use std::rc::{Weak};
 
 use model;
 use n12;
@@ -19,7 +21,7 @@ struct SShadowPipelineStateStream<'a> {
     depth_stencil_format: n12::SPipelineStateStreamDepthStencilFormat,
 }
 
-pub struct SShadowMappingPipeline<'a> {
+pub struct SShadowMappingPipeline {
     _vertex_byte_code: t12::SShaderBytecode,
     _pixel_byte_code: t12::SShaderBytecode,
 
@@ -30,18 +32,18 @@ pub struct SShadowMappingPipeline<'a> {
     shadow_cube_height: usize,
 
     shadow_depth_resource: n12::SResource,
-    shadow_depth_view: n12::SDescriptorAllocatorAllocation<'a>,
-    shadow_srv: n12::SDescriptorAllocatorAllocation<'a>,
+    shadow_depth_view: n12::SDescriptorAllocatorAllocation,
+    shadow_srv: n12::SDescriptorAllocatorAllocation,
 }
 
-pub fn setup_shadow_mapping_pipeline<'a>(
+pub fn setup_shadow_mapping_pipeline(
     device: &n12::SDevice,
     direct_command_pool: &mut n12::SCommandListPool,
-    dsv_heap: &'a n12::SDescriptorAllocator,
-    srv_heap: &'a n12::SDescriptorAllocator,
+    dsv_heap: Weak<n12::SDescriptorAllocator>,
+    srv_heap: Weak<n12::SDescriptorAllocator>,
     shadow_cube_width: usize,
     shadow_cube_height: usize,
-) -> Result<SShadowMappingPipeline<'a>, &'static str> {
+) -> Result<SShadowMappingPipeline, &'static str> {
     let vertex_blob = t12::read_file_to_blob("shaders_built/shadow_vertex.cso")?;
     let pixel_blob = t12::read_file_to_blob("shaders_built/shadow_pixel.cso")?;
 
@@ -104,11 +106,11 @@ pub fn setup_shadow_mapping_pipeline<'a>(
         t12::EDXGIFormat::R32Typeless,
         t12::EResourceStates::GenericRead,
         direct_command_pool,
-        dsv_heap,
+        &dsv_heap.upgrade().expect("dsv freed"),
     )?;
 
     let srv = {
-        let descriptors = srv_heap.alloc(1)?;
+        let descriptors = n12::descriptorallocator::descriptor_alloc(&srv_heap.upgrade().expect("heap freed"), 1)?;
 
         device.create_shader_resource_view(
             &resource,
@@ -138,7 +140,7 @@ pub fn setup_shadow_mapping_pipeline<'a>(
     })
 }
 
-impl<'a> SShadowMappingPipeline<'a> {
+impl SShadowMappingPipeline {
     pub fn render(
         &self,
         mesh_loader: &model::SMeshLoader,

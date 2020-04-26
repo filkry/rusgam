@@ -4,6 +4,9 @@ use std::collections::VecDeque;
 //use std::cell::{RefCell, Ref, RefMut};
 
 pub mod freelistallocator;
+pub mod immovabledata;
+
+pub use self::immovabledata::*;
 
 #[derive(Copy, Clone)]
 pub struct SPoolHandle {

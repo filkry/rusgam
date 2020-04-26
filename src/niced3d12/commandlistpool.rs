@@ -1,5 +1,7 @@
 use super::*;
 
+use collections::{SImmovableRefCellRef};
+
 struct SCommandListPoolList {
     list: SCommandList,
     allocator: SPoolHandle,
@@ -11,7 +13,7 @@ struct SCommandListPoolActiveAllocator {
 }
 
 pub struct SCommandListPool<'a> {
-    queue: &'a RefCell<SCommandQueue>,
+    queue: SImmovableRefCellRef<'a, SCommandQueue>,
 
     allocators: SPool<SCommandAllocator>,
     lists: SPool<SCommandListPoolList>,
@@ -23,7 +25,7 @@ pub struct SCommandListPool<'a> {
 impl<'a> SCommandListPool<'a> {
     pub fn create(
         device: &SDevice,
-        queue: &'a RefCell<SCommandQueue>,
+        queue: SImmovableRefCellRef<'a, SCommandQueue>,
         winapi: &safewindows::SWinAPI,
         num_lists: u16,
         num_allocators: u16,

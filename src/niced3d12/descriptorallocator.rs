@@ -2,18 +2,19 @@ use super::*;
 
 use collections::freelistallocator;
 use std::cell::RefCell;
+use std::rc::{Rc, Weak};
 
-pub struct SDescriptorAllocatorAllocation<'a> {
+pub struct SDescriptorAllocatorAllocation {
     allocation: Option<freelistallocator::manager::SAllocation>,
     base_cpu_handle: t12::SCPUDescriptorHandle,
     base_gpu_handle: t12::SGPUDescriptorHandle,
     descriptor_size: usize,
     num_handles: usize,
 
-    allocator: &'a SDescriptorAllocator,
+    allocator: Weak<SDescriptorAllocator>,
 }
 
-impl<'a> SDescriptorAllocatorAllocation<'a> {
+impl SDescriptorAllocatorAllocation {
     // -- $$$FRK(TODO): maybe this should work like the thread-local storage in rust, where you
     // -- have to pass a function, and a reference can't escape the scope of that function?
     pub fn cpu_descriptor(&self, idx: usize) -> t12::SCPUDescriptorHandle {
@@ -37,7 +38,7 @@ impl<'a> SDescriptorAllocatorAllocation<'a> {
     }
 }
 
-impl<'a> Drop for SDescriptorAllocatorAllocation<'a> {
+impl Drop for SDescriptorAllocatorAllocation {
     fn drop(&mut self) {
         if let Some(_a) = &self.allocation {
             self.allocator.free(self);
@@ -62,7 +63,7 @@ pub struct SDescriptorAllocator {
     descriptor_type: t12::EDescriptorHeapType,
     heap_base_handle: t12::SCPUDescriptorHandle,
 
-    internal: RefCell<SDescriptorAllocatorInternal>,
+    internal: Rc<SDescriptorAllocatorInternal>,
 }
 
 impl SDescriptorAllocator {

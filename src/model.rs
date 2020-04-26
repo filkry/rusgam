@@ -71,29 +71,29 @@ pub struct SMesh<'a> {
     pub(super) index_buffer_view: t12::SIndexBufferView,
 }
 
-pub struct STexture<'a> {
+pub struct STexture {
     uid: u64,
 
     #[allow(dead_code)] // maybe unnecessary?
-    pub(super) srv_heap: &'a n12::descriptorallocator::SDescriptorAllocator,
+    //pub(super) srv_heap: &'a n12::descriptorallocator::SDescriptorAllocator,
     pub(super) _diffuse_texture_resource: Option<n12::SResource>,
-    pub(super) diffuse_texture_srv: Option<n12::descriptorallocator::SDescriptorAllocatorAllocation<'a>>,
+    pub(super) diffuse_texture_srv: Option<n12::descriptorallocator::SDescriptorAllocatorAllocation>,
 }
 
-pub struct SMeshLoader<'a> {
-    device: &'a n12::SDevice,
+pub struct SMeshLoader {
+    device: Weak<n12::SDevice>,
     copy_command_list_pool: n12::SCommandListPool,
 
     mesh_pool: SStoragePool<SMesh<'a>>,
 }
 
-pub struct STextureLoader<'a> {
-    device: &'a n12::SDevice,
+pub struct STextureLoader {
+    device: Weak<n12::SDevice>,
     copy_command_list_pool: n12::SCommandListPool,
     direct_command_list_pool: n12::SCommandListPool,
-    srv_heap: &'a n12::descriptorallocator::SDescriptorAllocator,
+    srv_heap: Weak<n12::descriptorallocator::SDescriptorAllocator>,
 
-    texture_pool: SStoragePool<STexture<'a>>,
+    texture_pool: SStoragePool<STexture>,
 }
 
 pub struct SModel {

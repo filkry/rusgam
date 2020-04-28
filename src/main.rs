@@ -7,6 +7,7 @@ extern crate wio;
 extern crate bitflags;
 extern crate serde_json;
 extern crate serde;
+extern crate imgui;
 
 //mod math;
 #[macro_use]
@@ -70,6 +71,32 @@ fn main_d3d12() -> Result<(), &'static str> {
     window.init_render_target_views(render.device())?;
     window.show();
 
+    let mut imgui_ctxt = imgui::Context::create();
+
+    // -- set up imgui
+    {
+        let font_size = 13.0 as f32;
+        imgui_ctxt.fonts().add_font(&[
+            imgui::FontSource::DefaultFontData {
+                config: Some(imgui::FontConfig {
+                    size_pixels: font_size,
+                    ..imgui::FontConfig::default()
+                }),
+            },
+            imgui::FontSource::TtfData {
+                data: include_bytes!("../assets/mplus-1p-regular.ttf"),
+                size_pixels: font_size,
+                config: Some(imgui::FontConfig {
+                    rasterizer_multiply: 1.75,
+                    glyph_ranges: imgui::FontGlyphRanges::japanese(),
+                    ..imgui::FontConfig::default()
+                }),
+            },
+        ]);
+
+        imgui_ctxt.fonts().build_rgba32_texture();
+    }
+
     let mut entities = entity::SEntityBucket::new(67485, 16);
     let rotating_entity = entities.create_entity()?;
     let debug_entity = entities.create_entity()?;
@@ -124,6 +151,14 @@ fn main_d3d12() -> Result<(), &'static str> {
     let mut last_ray_hit_pos = Vec3::new(0.0, 0.0, 0.0);
 
     while !shouldquit {
+        // -- set up imgui IO
+        {
+            let io = imgui_ctxt.io_mut();
+            io.display_size = [window.width() as f32, window.height() as f32];
+        }
+
+        let mut imgui_ui = imgui_ctxt.frame();
+
         let curframetime = winapi.curtimemicroseconds();
         let dt = curframetime - lastframetime;
         let _dtms = dt as f64;
@@ -176,6 +211,11 @@ fn main_d3d12() -> Result<(), &'static str> {
             let (model_xforms, models) = entities.build_render_data(sa);
             render.render(&mut window, &view_matrix, models.as_slice(), model_xforms.as_slice())
         })?;
+
+        let mut opened = true;
+        imgui_ui.show_demo_window(&mut opened);
+
+        let imgui_draw_data = imgui_ui.render();
 
         lastframetime = curframetime;
         _framecount += 1;

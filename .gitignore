@@ -12,3 +12,4 @@ externals/dxc_2019-07-15/dxcapi.h
 *.cso
 *.blend1
 *.shader_build_metadata
+imgui.ini

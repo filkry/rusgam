@@ -146,8 +146,8 @@ impl SShadowMappingPipeline {
         mesh_loader: &model::SMeshLoader,
         light_pos_world: &Vec3,
         cl: &mut n12::SCommandList,
-        models: &[&model::SModel],
-        model_matrices: &[&STransform],
+        models: &[model::SModel],
+        model_matrices: &[STransform],
     ) -> Result<(), &'static str> {
 
         // -- all this data could be cached ----------------------------------------
@@ -222,7 +222,7 @@ impl SShadowMappingPipeline {
             let view_perspective = perspective_matrix * view_matrix;
 
             for modeli in 0..models.len() {
-                mesh_loader.render(models[modeli].mesh, cl, &view_perspective, model_matrices[modeli])?;
+                mesh_loader.render(models[modeli].mesh, cl, &view_perspective, &model_matrices[modeli])?;
             }
         }
 

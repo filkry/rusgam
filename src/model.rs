@@ -98,6 +98,7 @@ pub struct STextureLoader {
     texture_pool: SStoragePool<STexture>,
 }
 
+#[derive(Clone, Copy)]
 pub struct SModel {
     pub mesh: SPoolHandle,
 

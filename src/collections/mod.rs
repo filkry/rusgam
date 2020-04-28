@@ -86,6 +86,10 @@ impl<T> SPool<T> {
         result
     }
 
+    pub fn max(&self) -> u16 {
+        self.max
+    }
+
     pub fn used(&self) -> usize {
         (self.max as usize) - self.free_count()
     }
@@ -214,6 +218,10 @@ impl<T> SStoragePool<T> {
         Self {
             pool: SPool::<Option<T>>::create_default(id, max),
         }
+    }
+
+    pub fn max(&self) -> u16 {
+        self.pool.max()
     }
 
     pub fn used(&self) -> usize {

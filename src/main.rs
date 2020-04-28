@@ -14,6 +14,7 @@ mod safewindows;
 mod allocate;
 mod collections;
 mod directxgraphicssamples;
+mod entity;
 mod niced3d12;
 mod rustywindows;
 mod typeyd3d12;
@@ -23,7 +24,6 @@ mod camera;
 mod model;
 mod render;
 mod shadowmapping;
-mod level;
 
 // -- std includes
 //use std::cell::RefCell;
@@ -37,6 +37,7 @@ mod level;
 //use serde::{Serialize, Deserialize};
 use glm::{Vec3/*, Mat4*/};
 
+use allocate::{STACK_ALLOCATOR};
 use niced3d12 as n12;
 use typeyd3d12 as t12;
 //use allocate::{SMemVec, STACK_ALLOCATOR};
@@ -69,17 +70,32 @@ fn main_d3d12() -> Result<(), &'static str> {
     window.init_render_target_views(render.device())?;
     window.show();
 
-    let model = render.new_model("assets/first_test_asset.obj", 1.0)?;
-    let model2 = render.new_model("assets/first_test_asset.obj", 1.0)?;
-    let model3 = render.new_model("assets/test_untextured_flat_colour_cube.obj", 1.0)?;
+    let mut entities = entity::SEntityBucket::new(67485, 16);
+    let rotating_entity = entities.create_entity()?;
+    let debug_entity = entities.create_entity()?;
+    {
+        // -- set up entities
+        let ent2 = entities.create_entity()?;
+        let ent3 = entities.create_entity()?;
+        let room = entities.create_entity()?;
 
-    let room_model = render.new_model("assets/test_open_room.obj", 1.0)?;
+        let model1 = render.new_model("assets/first_test_asset.obj", 1.0)?;
+        let model3 = render.new_model("assets/test_untextured_flat_colour_cube.obj", 1.0)?;
+        let room_model = render.new_model("assets/test_open_room.obj", 1.0)?;
+        let debug_model = render.new_model("assets/debug_icosphere.obj", 1.0)?;
+        //let fixed_size_model = SModel::new_from_obj("assets/test_untextured_flat_colour_cube.obj", &device, &mut copycommandpool, &mut directcommandpool, &srv_heap, true, 1.0)?;
+        //let translation_widget = SModel::new_from_obj("assets/arrow_widget.obj", &mut mesh_loader, &mut texture_loader, 0.8)?;
 
-    let debug_model = render.new_model("assets/debug_icosphere.obj", 1.0)?;
+        entities.set_entity_location(ent2, STransform::new_translation(&glm::Vec3::new(3.0, 0.0, 0.0)));
+        entities.set_entity_location(ent3, STransform::new_translation(&glm::Vec3::new(0.0, 2.0, 0.0)));
+        entities.set_entity_location(room, STransform::new_translation(&glm::Vec3::new(0.0, -2.0, 0.0)));
 
-    //let fixed_size_model = SModel::new_from_obj("assets/test_untextured_flat_colour_cube.obj", &device, &mut copycommandpool, &mut directcommandpool, &srv_heap, true, 1.0)?;
-
-    //let translation_widget = SModel::new_from_obj("assets/arrow_widget.obj", &mut mesh_loader, &mut texture_loader, 0.8)?;
+        entities.set_entity_model(rotating_entity, model1.clone());
+        entities.set_entity_model(ent2, model1.clone());
+        entities.set_entity_model(ent3, model3);
+        entities.set_entity_model(room, room_model);
+        entities.set_entity_model(debug_entity, debug_model);
+    }
 
     // -- update loop
 
@@ -117,12 +133,8 @@ fn main_d3d12() -> Result<(), &'static str> {
 
         // -- update
         let cur_angle = ((total_time as f32) / 1_000_000.0) * (3.14159 / 4.0);
-        let model_xform = STransform::new_rotation(&glm::quat_angle_axis(cur_angle, &rot_axis));
-        let model2_xform = STransform::new_translation(&glm::Vec3::new(3.0, 0.0, 0.0));
-        let model3_xform = STransform::new_translation(&glm::Vec3::new(0.0, 2.0, 0.0));
-        let room_model_xform = STransform::new_translation(&glm::Vec3::new(0.0, -2.0, 0.0));
-
-        let debug_model_xform = STransform::new_translation(&last_ray_hit_pos);
+        entities.set_entity_location(rotating_entity, STransform::new_rotation(&glm::quat_angle_axis(cur_angle, &rot_axis)));
+        entities.set_entity_location(debug_entity, STransform::new_translation(&last_ray_hit_pos));
 
         let mut fixed_size_model_xform = STransform::new_translation(&glm::Vec3::new(0.0, 5.0, 0.0));
 
@@ -160,25 +172,10 @@ fn main_d3d12() -> Result<(), &'static str> {
         //println!("Perspective: {}", perspective_matrix);
 
         //println!("Frame time: {}us", _dtms);
-
-        let models = [
-            &model,
-            &model2,
-            &model3,
-            &room_model,
-            &debug_model,
-            //&fixed_size_model,
-        ];
-        let model_xforms = [
-            &model_xform,
-            &model2_xform,
-            &model3_xform,
-            &room_model_xform,
-            &debug_model_xform,
-            //&fixed_size_model_xform,
-        ];
-
-        render.render(&mut window, &view_matrix, &models, &model_xforms)?;
+        STACK_ALLOCATOR.with(|sa| -> Result<(), &'static str> {
+            let (model_xforms, models) = entities.build_render_data(sa);
+            render.render(&mut window, &view_matrix, models.as_slice(), model_xforms.as_slice())
+        })?;
 
         lastframetime = curframetime;
         _framecount += 1;
@@ -217,6 +214,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                         _ => (),
                     },
                     safewindows::EMsgType::LButtonDown{ x_pos, y_pos } => {
+                        /*
                         println!("Left button down: {}, {}", x_pos, y_pos);
 
                         let half_camera_near_clip_height = (render.fovy()/2.0).tan() * render.znear();
@@ -258,6 +256,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                             println!("Hit model {}", modeli);
                             last_ray_hit_pos = min_pos;
                         }
+                        */
                     },
                     safewindows::EMsgType::Input{ raw_input } => {
                         if let safewindows::rawinput::ERawInputData::Mouse{data} = raw_input.data {

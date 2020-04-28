@@ -96,6 +96,7 @@ pub fn fovx(fovy: f32, width: u32, height: u32) -> f32 {
     return half_fov_x * 2.0;
 }
 
+#[derive(Clone, Copy)]
 pub struct STransform {
     pub t: Vec3,
     pub r: Quat,

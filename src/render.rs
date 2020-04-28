@@ -481,7 +481,7 @@ impl<'a> SRender<'a> {
         Ok(())
     }
 
-    pub fn render(&mut self, window: &mut n12::SD3D12Window, view_matrix: &Mat4, models: &[&SModel], model_xforms: &[&STransform]) -> Result<(), &'static str> {
+    pub fn render(&mut self, window: &mut n12::SD3D12Window, view_matrix: &Mat4, models: &[SModel], model_xforms: &[STransform]) -> Result<(), &'static str> {
         let viewport = t12::SViewport::new(
             0.0,
             0.0,
@@ -512,8 +512,8 @@ impl<'a> SRender<'a> {
                 &self.mesh_loader,
                 &Vec3::new(5.0, 5.0, 5.0),
                 list,
-                &models,
-                &model_xforms,
+                models,
+                model_xforms,
             )?;
 
             let fence_val = self.direct_command_pool.execute_and_free_list(handle)?;

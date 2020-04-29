@@ -571,26 +571,156 @@ impl<'a> SRender<'a> {
                     models[modeli].set_texture_root_parameters(&self.texture_loader, list, 1, 2);
                     self.mesh_loader.render(models[modeli].mesh, list, &view_perspective, &model_xforms[modeli])?;
                 }
-
-                // -- transition to present
-                list.transition_resource(
-                    backbuffer,
-                    t12::EResourceStates::RenderTarget,
-                    t12::EResourceStates::Present,
-                )?;
             }
 
             // -- execute on the queue
             assert_eq!(window.currentbackbufferindex(), backbufferidx);
             self.direct_command_pool.execute_and_free_list(handle)?;
-            self.frame_fence_values[window.currentbackbufferindex()] =
-                self.direct_command_queue.borrow_mut().signal_internal_fence()?;
-
-            // -- present the swap chain and switch to next buffer in swap chain
-            window.present()?;
 
             Ok(())
         }
+    }
+
+    pub fn render_imgui(&mut self, window: &mut n12::SD3D12Window, draw_data: &imgui::DrawData) -> Result<(), &'static str> {
+        self.imgui_vert_buffer_resources.remove_all();
+        self.imgui_vert_buffer_views.remove_all();
+        self.imgui_index_buffer_resources.remove_all();
+        self.imgui_index_buffer_views.remove_all();
+
+        // -- set up pipeline
+        list.set_pipeline_state(&self.imgui_pipeline_state);
+        // root signature has to be set explicitly despite being on PSO, according to tutorial
+        list.set_graphics_root_signature(&self.imgui_root_signature.raw());
+
+        // -- setup rasterizer state
+        list.rs_set_viewports(&[&viewport]);
+
+        // -- setup the output merger
+        list.om_set_render_targets(&[&render_target_view], false, &depth_texture_view);
+
+        self.srv_heap.with_raw_heap(|rh| {
+            list.set_descriptor_heaps(&[rh]);
+        });
+
+        let ortho_matrix: Mat4 = {
+            let znear = 0.0;
+            let zfar = 1.0;
+
+            let left = draw_data.display_pos[0];
+            let right = draw_data.display_pos[0] + draw_data.display_size[0];
+            let bottom = draw_data.display_pos[1] + draw_data.display_size[1];
+            let top = draw_data.display_pos[1];
+
+            glm::ortho_lh_zo(left, right, bottom, top, znear, far)
+        };
+
+        list.set_graphics_root_32_bit_constants(0, &ortho_matrix, 0);
+
+        for draw_list in draw_data {
+            let (vertbufferresource, vertexbufferview, indexbufferresource, indexbufferview) = {
+                let handle = self.copy_command_pool.alloc_list()?;
+                let copy_command_list = self.copy_command_pool.get_list(handle)?;
+
+                // -- $$$FRK(TODO): we should be able to update the data in the resource, rather than creating a new one?
+                let mut vertbufferresource = {
+                    let vertbufferflags = t12::SResourceFlags::from(t12::EResourceFlags::ENone);
+                    copy_command_list.update_buffer_resource(
+                        self.device.upgrade().expect("device dropped").deref(),
+                        vert_vec.as_slice(),
+                        vertbufferflags
+                    )?
+                };
+                let vertexbufferview = vertbufferresource
+                    .destinationresource
+                    .create_vertex_buffer_view()?;
+
+                let mut indexbufferresource = {
+                    let indexbufferflags = t12::SResourceFlags::from(t12::EResourceFlags::ENone);
+                    copy_command_list.update_buffer_resource(
+                        self.device.upgrade().expect("device dropped").deref(),
+                        index_vec.as_slice(),
+                        indexbufferflags
+                    )?
+                };
+                let indexbufferview = indexbufferresource
+                    .destinationresource
+                    .create_index_buffer_view(t12::EDXGIFormat::R16UINT)?;
+
+                let fence_val = self.copy_command_list_pool.execute_and_free_list(handle)?;
+                // -- $$$FRK(TODO): we should be able to sychronize between this and the direct queue?
+                self.copy_command_list_pool.wait_for_internal_fence_value(fence_val);
+                self.copy_command_list_pool.free_allocators();
+
+                (vertbufferresource, vertexbufferview, indexbufferresource, indexbufferview)
+            }
+
+            // -- save the data until the next frame? double buffering will probably break this
+            self.imgui_vert_buffer_resources.push(vertbufferresource);
+            self.imgui_vert_buffer_views.push(vertbufferview);
+            self.imgui_index_buffer_resources.push(indexbufferresource);
+            self.imgui_index_buffer_views.push(indexbufferview);
+
+            // -- set up input assembler
+            cl.ia_set_primitive_topology(t12::EPrimitiveTopology::TriangleList);
+            cl.ia_set_vertex_buffers(0, &[&vertbufferview]);
+            cl.ia_set_index_buffer(&indexbufferview);
+
+            for cmd in draw_list.commands() {
+                match cmd {
+                    DrawCmd::Elements {
+                        count,
+                        cmd_params:
+                            DrawCmdParams {
+                                clip_rect,
+                                texture_id,
+                                vtx_offset,
+                                idx_offset,
+                            },
+                    } => {
+                        if clip_rect[0] > window.width() || clip_rect[1] > window.height() ||
+                           clip_rect[2] < 0.0 || clip_rect[3] < 0.0 {
+                            continue;
+                        }
+
+                        let scissorrect = t12::SRect {
+                            left: f32::max(0.0, clip_rect[0]).floor() as i32,
+                            right: f32::min(clip_rect[2], window.width()).floor() as i32,
+                            top: f32::max(0.0, clip_rect[1]).floor() as i32,
+                            bottom: f32::min(clip_rect[2], window.height()).floor() as i32,
+                        };
+
+                        list.rs_set_scissor_rects(t12::SScissorRects::create(&[&self.scissorrect]));
+
+                        let texture = self.get_imgui_texture(texture_id);
+                        cl.set_graphics_root_descriptor_table(
+                            texture_descriptor_table_root_parameter,
+                            &texture_loader.texture_gpu_descriptor(texture).unwrap(),
+                        );
+
+                        cl.draw_indexed_instanced(count, 1, vtx_offset, idx_offset, 0);
+                    }
+                }
+            }
+        }
+
+        // -- execute on the queue
+        assert_eq!(window.currentbackbufferindex(), backbufferidx);
+        self.direct_command_pool.execute_and_free_list(handle)?;
+    }
+
+    pub fn present(&mut self, window: &mut n12::SD3D12Window) {
+        // -- transition to present
+        list.transition_resource(
+            backbuffer,
+            t12::EResourceStates::RenderTarget,
+            t12::EResourceStates::Present,
+        )?;
+
+        self.frame_fence_values[window.currentbackbufferindex()] =
+            self.direct_command_queue.borrow_mut().signal_internal_fence()?;
+
+        // -- present the swap chain and switch to next buffer in swap chain
+        window.present()?;
     }
 
     pub fn flush(&mut self) -> Result<(), &'static str> {

@@ -207,15 +207,22 @@ fn main_d3d12() -> Result<(), &'static str> {
         //println!("Perspective: {}", perspective_matrix);
 
         //println!("Frame time: {}us", _dtms);
+
+        // -- render world
         STACK_ALLOCATOR.with(|sa| -> Result<(), &'static str> {
             let (model_xforms, models) = entities.build_render_data(sa);
             render.render(&mut window, &view_matrix, models.as_slice(), model_xforms.as_slice())
         })?;
 
-        let mut opened = true;
-        imgui_ui.show_demo_window(&mut opened);
+        // -- render IMGUI
+        {
+            let mut opened = true;
+            imgui_ui.show_demo_window(&mut opened);
+            let imgui_draw_data = imgui_ui.render();
+            render.render_imgui(&mut window, imgui_draw_data)?;
+        }
 
-        let imgui_draw_data = imgui_ui.render();
+        render.present(&mut window)?;
 
         lastframetime = curframetime;
         _framecount += 1;

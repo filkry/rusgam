@@ -359,6 +359,14 @@ impl<'a, T> SMemVec<'a, T> {
         let idx = self.len - 1;
         self[idx] = value;
     }
+
+    pub fn remove_all(&mut self) {
+        for item in self.as_mut_slice() {
+            std::mem::drop(item);
+        }
+
+        self.len = 0;
+    }
 }
 
 impl<'a, T> Deref for SMemVec<'a, T> {

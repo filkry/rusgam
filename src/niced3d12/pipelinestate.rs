@@ -101,6 +101,21 @@ impl<'a> SPipelineStateStreamRTVFormats<'a> {
 }
 
 #[repr(C)]
+pub struct SPipelineStateStreamDepthStencilDesc {
+    type_: winapi::um::d3d12::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE,
+    value: winapi::um::d3d12::D3D12_DEPTH_STENCIL_DESC,
+}
+
+impl SPipelineStateStreamDepthStencilDesc {
+    pub fn create(desc: t12::SDepthStencilDesc) -> Self {
+        Self {
+            type_: t12::EPipelineStateSubobjectType::DepthStencil.d3dtype(),
+            value: desc.d3dtype(),
+        }
+    }
+}
+
+#[repr(C)]
 pub struct SPipelineStateStreamDepthStencilFormat {
     type_: winapi::um::d3d12::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE,
     value: winapi::shared::dxgiformat::DXGI_FORMAT,

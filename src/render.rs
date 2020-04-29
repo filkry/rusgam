@@ -12,7 +12,7 @@ use glm::{Vec3, Mat4};
 
 use niced3d12 as n12;
 use typeyd3d12 as t12;
-use allocate::{SMemVec, STACK_ALLOCATOR};
+use allocate::{SMemVec, STACK_ALLOCATOR, SYSTEM_ALLOCATOR};
 use model;
 use model::{SModel, SMeshLoader, STextureLoader};
 use safewindows;
@@ -34,6 +34,19 @@ struct SPipelineStateStream<'a> {
     rtv_formats: n12::SPipelineStateStreamRTVFormats<'a>,
 }
 
+#[allow(unused_variables)]
+#[allow(unused_mut)]
+#[repr(C)]
+struct SImguiPipelineStateStream<'a> {
+    root_signature: n12::SPipelineStateStreamRootSignature<'a>,
+    input_layout: n12::SPipelineStateStreamInputLayout<'a>,
+    primitive_topology: n12::SPipelineStateStreamPrimitiveTopology,
+    vertex_shader: n12::SPipelineStateStreamVertexShader<'a>,
+    pixel_shader: n12::SPipelineStateStreamPixelShader<'a>,
+    depth_stencil_desc: n12::SPipelineStateStreamDepthStencilDesc,
+    rtv_formats: n12::SPipelineStateStreamRTVFormats<'a>,
+}
+
 #[derive(Serialize, Deserialize)]
 struct SBuiltShaderMetadata {
     src_write_time: std::time::SystemTime,
@@ -44,6 +57,7 @@ pub struct SRender<'a> {
     _adapter: n12::SAdapter, // -- maybe don't need to keep
 
     direct_command_pool: n12::SCommandListPool,
+    copy_command_pool: n12::SCommandListPool,
 
     _depth_texture_resource: Option<n12::SResource>,
     _depth_texture_view: Option<n12::SDescriptorAllocatorAllocation>,
@@ -63,6 +77,16 @@ pub struct SRender<'a> {
     pipeline_state: t12::SPipelineState,
 
     shadow_mapping_pipeline: shadowmapping::SShadowMappingPipeline,
+
+    // -- imgui stuff
+    imgui_root_signature: n12::SRootSignature,
+    imgui_pipeline_state: t12::SPipelineState,
+    _imgui_vert_byte_code: t12::SShaderBytecode,
+    _imgui_pixel_byte_code: t12::SShaderBytecode,
+    imgui_vert_buffer_resources: SMemVec::<'a, n12::SResource>,
+    imgui_vert_buffer_views: SMemVec::<'a, t12::SVertexBufferView>,
+    imgui_index_buffer_resources: SMemVec::<'a, n12::SResource>,
+    imgui_index_buffer_views: SMemVec::<'a, t12::SIndexBufferView>,
 
     frame_fence_values: [u64; 2],
 
@@ -196,6 +220,8 @@ impl<'a> SRender<'a> {
         let copy_command_queue = Rc::new(RefCell::new(
             device.create_command_queue(&winapi.rawwinapi(), t12::ECommandListType::Copy)?,
         ));
+        let mut copy_command_pool =
+            n12::SCommandListPool::create(&device, Rc::downgrade(&copy_command_queue), &winapi.rawwinapi(), 1, 10)?;
         let mesh_loader = SMeshLoader::new(Rc::downgrade(&device), &winapi, Rc::downgrade(&copy_command_queue), 23948934, 1024)?;
         let texture_loader = STextureLoader::new(Rc::downgrade(&device), &winapi, Rc::downgrade(&copy_command_queue), Rc::downgrade(&direct_command_queue), Rc::downgrade(&srv_heap), 9323, 1024)?;
 
@@ -360,6 +386,55 @@ impl<'a> SRender<'a> {
         let shadow_mapping_pipeline = shadowmapping::setup_shadow_mapping_pipeline(
             &device, &mut direct_command_pool, Rc::downgrade(&dsv_heap), Rc::downgrade(&srv_heap), 128, 128)?;
 
+        // -- setup imgui
+        // ======================================================================
+        // -- need to write shaders next
+        let orthomat_root_parameter = t12::SRootParameter {
+            type_: t12::ERootParameterType::E32BitConstants,
+            type_data: t12::ERootParameterTypeData::Constants {
+                constants: t12::SRootConstants {
+                    shader_register: 0,
+                    register_space: 0,
+                    num_32_bit_values: (size_of::<Mat4>() * 3 / 4) as u32,
+                },
+            },
+            shader_visibility: t12::EShaderVisibility::Vertex,
+        };
+
+        let mut imgui_root_signature_desc = t12::SRootSignatureDesc::new(root_signature_flags);
+        imgui_root_signature_desc.parameters.push(orthomat_root_parameter);
+        imgui_root_signature_desc.parameters.push(texture_root_parameter);
+        imgui_root_signature_desc.static_samplers.push(sampler);
+
+        let imgui_root_signature =
+            device.create_root_signature(imgui_root_signature_desc, t12::ERootSignatureVersion::V1)?;
+
+        // -- load shaders
+        let imgui_vertblob = t12::read_file_to_blob("shaders_built/imgui_vertex.cso")?;
+        let imgui_pixelblob = t12::read_file_to_blob("shaders_built/imgui_pixel.cso")?;
+
+        let imgui_vert_byte_code = t12::SShaderBytecode::create(imgui_vertblob);
+        let imgui_pixel_byte_code = t12::SShaderBytecode::create(imgui_pixelblob);
+
+        let imgui_pipeline_state_stream = SPipelineStateStream {
+            root_signature: n12::SPipelineStateStreamRootSignature::create(&imgui_root_signature),
+            input_layout: n12::SPipelineStateStreamInputLayout::create(&mut input_layout_desc),
+            primitive_topology: n12::SPipelineStateStreamPrimitiveTopology::create(
+                t12::EPrimitiveTopologyType::Triangle,
+            ),
+            vertex_shader: n12::SPipelineStateStreamVertexShader::create(&imgui_vert_byte_code),
+            pixel_shader: n12::SPipelineStateStreamPixelShader::create(&imgui_pixel_byte_code),
+            depth_stencil_format: n12::SPipelineStateStreamDepthStencilFormat::create(
+                t12::EDXGIFormat::D32Float,
+            ),
+            rtv_formats: n12::SPipelineStateStreamRTVFormats::create(&rtv_formats),
+        };
+        let imgui_pipeline_state_stream_desc = t12::SPipelineStateStreamDesc::create(&imgui_pipeline_state_stream);
+        let imgui_pipeline_state = device
+            .raw()
+            .create_pipeline_state(&imgui_pipeline_state_stream_desc)?;
+        // ======================================================================
+
         Ok(Self {
             factory,
             _adapter: adapter,
@@ -368,6 +443,7 @@ impl<'a> SRender<'a> {
             direct_command_queue,
             direct_command_pool,
             _copy_command_queue: copy_command_queue,
+            copy_command_pool,
             dsv_heap,
             srv_heap,
 
@@ -388,6 +464,15 @@ impl<'a> SRender<'a> {
             pipeline_state,
 
             shadow_mapping_pipeline,
+
+            imgui_root_signature,
+            imgui_pipeline_state,
+            _imgui_vert_byte_code: imgui_vert_byte_code,
+            _imgui_pixel_byte_code: imgui_pixel_byte_code,
+            imgui_vert_buffer_resources: SMemVec::new(&SYSTEM_ALLOCATOR, 128, 0)?,
+            imgui_vert_buffer_views: SMemVec::new(&SYSTEM_ALLOCATOR, 128, 0)?,
+            imgui_index_buffer_resources: SMemVec::new(&SYSTEM_ALLOCATOR, 128, 0)?,
+            imgui_index_buffer_views: SMemVec::new(&SYSTEM_ALLOCATOR, 128, 0)?,
 
             frame_fence_values: [0; 2],
         })
@@ -587,15 +672,28 @@ impl<'a> SRender<'a> {
         self.imgui_index_buffer_resources.remove_all();
         self.imgui_index_buffer_views.remove_all();
 
+        let handle = self.direct_command_pool.alloc_list()?;
+        let list = self.direct_command_pool.get_list(handle)?;
+
         // -- set up pipeline
         list.set_pipeline_state(&self.imgui_pipeline_state);
         // root signature has to be set explicitly despite being on PSO, according to tutorial
         list.set_graphics_root_signature(&self.imgui_root_signature.raw());
 
         // -- setup rasterizer state
+        let viewport = t12::SViewport::new(
+            0.0,
+            0.0,
+            window.width() as f32,
+            window.height() as f32,
+            None,
+            None,
+        );
         list.rs_set_viewports(&[&viewport]);
 
         // -- setup the output merger
+        let render_target_view = window.currentrendertargetdescriptor()?;
+        let depth_texture_view = self._depth_texture_view.as_ref().expect("no depth texture").cpu_descriptor(0);
         list.om_set_render_targets(&[&render_target_view], false, &depth_texture_view);
 
         self.srv_heap.with_raw_heap(|rh| {
@@ -611,93 +709,100 @@ impl<'a> SRender<'a> {
             let bottom = draw_data.display_pos[1] + draw_data.display_size[1];
             let top = draw_data.display_pos[1];
 
-            glm::ortho_lh_zo(left, right, bottom, top, znear, far)
+            glm::ortho_lh_zo(left, right, bottom, top, znear, zfar)
         };
 
         list.set_graphics_root_32_bit_constants(0, &ortho_matrix, 0);
 
-        for draw_list in draw_data {
+        for draw_list in draw_data.draw_lists() {
             let (vertbufferresource, vertexbufferview, indexbufferresource, indexbufferview) = {
-                let handle = self.copy_command_pool.alloc_list()?;
-                let copy_command_list = self.copy_command_pool.get_list(handle)?;
+                //STACK_ALLOCATOR.with(|sa| {
+                    //let vert_vec = SMemVec::<SImguiVertData>::new(draw_list.vtx_buffer().len(), 0, &sa)?;
+                    //let idx_vec = SMemVec::<u16>::new(draw_list.idx_buffer().len(), 0, &sa)?;
 
-                // -- $$$FRK(TODO): we should be able to update the data in the resource, rather than creating a new one?
-                let mut vertbufferresource = {
-                    let vertbufferflags = t12::SResourceFlags::from(t12::EResourceFlags::ENone);
-                    copy_command_list.update_buffer_resource(
-                        self.device.upgrade().expect("device dropped").deref(),
-                        vert_vec.as_slice(),
-                        vertbufferflags
-                    )?
-                };
-                let vertexbufferview = vertbufferresource
-                    .destinationresource
-                    .create_vertex_buffer_view()?;
+                    panic!("need to impl copy to vecs above.");
 
-                let mut indexbufferresource = {
-                    let indexbufferflags = t12::SResourceFlags::from(t12::EResourceFlags::ENone);
-                    copy_command_list.update_buffer_resource(
-                        self.device.upgrade().expect("device dropped").deref(),
-                        index_vec.as_slice(),
-                        indexbufferflags
-                    )?
-                };
-                let indexbufferview = indexbufferresource
-                    .destinationresource
-                    .create_index_buffer_view(t12::EDXGIFormat::R16UINT)?;
+                    let handle = self.copy_command_pool.alloc_list()?;
+                    let copy_command_list = self.copy_command_pool.get_list(handle)?;
 
-                let fence_val = self.copy_command_list_pool.execute_and_free_list(handle)?;
-                // -- $$$FRK(TODO): we should be able to sychronize between this and the direct queue?
-                self.copy_command_list_pool.wait_for_internal_fence_value(fence_val);
-                self.copy_command_list_pool.free_allocators();
+                    // -- $$$FRK(TODO): we should be able to update the data in the resource, rather than creating a new one?
+                    let mut vertbufferresource = {
+                        let vertbufferflags = t12::SResourceFlags::from(t12::EResourceFlags::ENone);
+                        copy_command_list.update_buffer_resource(
+                            self.device.deref(),
+                            draw_list.vtx_buffer(),
+                            vertbufferflags
+                        )?
+                    };
+                    let vertexbufferview = vertbufferresource
+                        .destinationresource
+                        .create_vertex_buffer_view()?;
 
-                (vertbufferresource, vertexbufferview, indexbufferresource, indexbufferview)
-            }
+                    let mut indexbufferresource = {
+                        let indexbufferflags = t12::SResourceFlags::from(t12::EResourceFlags::ENone);
+                        copy_command_list.update_buffer_resource(
+                            self.device.deref(),
+                            draw_list.idx_buffer(),
+                            indexbufferflags
+                        )?
+                    };
+                    let indexbufferview = indexbufferresource
+                        .destinationresource
+                        .create_index_buffer_view(t12::EDXGIFormat::R16UINT)?;
+
+                    let fence_val = self.copy_command_pool.execute_and_free_list(handle)?;
+                    // -- $$$FRK(TODO): we should be able to sychronize between this and the direct queue?
+                    self.copy_command_pool.wait_for_internal_fence_value(fence_val);
+                    self.copy_command_pool.free_allocators();
+
+                    (vertbufferresource, vertexbufferview, indexbufferresource, indexbufferview)
+                //})
+            };
 
             // -- save the data until the next frame? double buffering will probably break this
-            self.imgui_vert_buffer_resources.push(vertbufferresource);
-            self.imgui_vert_buffer_views.push(vertbufferview);
-            self.imgui_index_buffer_resources.push(indexbufferresource);
+            self.imgui_vert_buffer_resources.push(vertbufferresource.destinationresource);
+            self.imgui_vert_buffer_views.push(vertexbufferview);
+            self.imgui_index_buffer_resources.push(indexbufferresource.destinationresource);
             self.imgui_index_buffer_views.push(indexbufferview);
 
             // -- set up input assembler
-            cl.ia_set_primitive_topology(t12::EPrimitiveTopology::TriangleList);
-            cl.ia_set_vertex_buffers(0, &[&vertbufferview]);
-            cl.ia_set_index_buffer(&indexbufferview);
+            list.ia_set_primitive_topology(t12::EPrimitiveTopology::TriangleList);
+            list.ia_set_vertex_buffers(0, &[&vertexbufferview]);
+            list.ia_set_index_buffer(&indexbufferview);
 
             for cmd in draw_list.commands() {
                 match cmd {
-                    DrawCmd::Elements {
+                    imgui::DrawCmd::Elements {
                         count,
                         cmd_params:
-                            DrawCmdParams {
+                            imgui::DrawCmdParams {
                                 clip_rect,
                                 texture_id,
                                 vtx_offset,
                                 idx_offset,
                             },
                     } => {
-                        if clip_rect[0] > window.width() || clip_rect[1] > window.height() ||
+                        if clip_rect[0] > (window.width() as f32) || clip_rect[1] > (window.height() as f32) ||
                            clip_rect[2] < 0.0 || clip_rect[3] < 0.0 {
                             continue;
                         }
 
                         let scissorrect = t12::SRect {
                             left: f32::max(0.0, clip_rect[0]).floor() as i32,
-                            right: f32::min(clip_rect[2], window.width()).floor() as i32,
+                            right: f32::min(clip_rect[2], window.width() as f32).floor() as i32,
                             top: f32::max(0.0, clip_rect[1]).floor() as i32,
-                            bottom: f32::min(clip_rect[2], window.height()).floor() as i32,
+                            bottom: f32::min(clip_rect[2], window.height() as f32).floor() as i32,
                         };
 
                         list.rs_set_scissor_rects(t12::SScissorRects::create(&[&self.scissorrect]));
 
                         let texture = self.get_imgui_texture(texture_id);
-                        cl.set_graphics_root_descriptor_table(
+                        list.set_graphics_root_descriptor_table(
                             texture_descriptor_table_root_parameter,
                             &texture_loader.texture_gpu_descriptor(texture).unwrap(),
                         );
 
-                        cl.draw_indexed_instanced(count, 1, vtx_offset, idx_offset, 0);
+                        list.draw_indexed_instanced(count, 1, vtx_offset, idx_offset, 0);
                     }
                 }
             }
@@ -706,9 +811,11 @@ impl<'a> SRender<'a> {
         // -- execute on the queue
         assert_eq!(window.currentbackbufferindex(), backbufferidx);
         self.direct_command_pool.execute_and_free_list(handle)?;
+
+        Ok(())
     }
 
-    pub fn present(&mut self, window: &mut n12::SD3D12Window) {
+    pub fn present(&mut self, window: &mut n12::SD3D12Window) -> Result<(), &'static str> {
         // -- transition to present
         list.transition_resource(
             backbuffer,
@@ -721,6 +828,10 @@ impl<'a> SRender<'a> {
 
         // -- present the swap chain and switch to next buffer in swap chain
         window.present()?;
+    }
+
+    fn get_imgui_texture(&self, texture_id: imgui::TextureId) -> SResource {
+        panic!("not implemented");
     }
 
     pub fn flush(&mut self) -> Result<(), &'static str> {

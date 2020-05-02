@@ -148,7 +148,7 @@ fn main_d3d12() -> Result<(), &'static str> {
         mouse_dy: 0,
     };
 
-    let mut last_ray_hit_pos = Vec3::new(0.0, 0.0, 0.0);
+    let last_ray_hit_pos = Vec3::new(0.0, 0.0, 0.0);
 
     while !shouldquit {
         // -- set up imgui IO
@@ -157,7 +157,7 @@ fn main_d3d12() -> Result<(), &'static str> {
             io.display_size = [window.width() as f32, window.height() as f32];
         }
 
-        let mut imgui_ui = imgui_ctxt.frame();
+        let imgui_ui = imgui_ctxt.frame();
 
         let curframetime = winapi.curtimemicroseconds();
         let dt = curframetime - lastframetime;
@@ -260,7 +260,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                         safewindows::EKey::C => input.c = false,
                         _ => (),
                     },
-                    safewindows::EMsgType::LButtonDown{ x_pos, y_pos } => {
+                    safewindows::EMsgType::LButtonDown{ .. /*x_pos, y_pos*/ } => {
                         /*
                         println!("Left button down: {}, {}", x_pos, y_pos);
 

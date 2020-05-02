@@ -238,6 +238,7 @@ impl<'a> SMeshLoader<'a> {
         return self.mesh_pool.insert_val(mesh)
     }
 
+    #[allow(dead_code)]
     pub fn ray_intersects(
         &self,
         model: &SModel,

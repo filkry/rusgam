@@ -223,7 +223,7 @@ impl<'a> SRender<'a> {
         let copy_command_queue = Rc::new(RefCell::new(
             device.create_command_queue(&winapi.rawwinapi(), t12::ECommandListType::Copy)?,
         ));
-        let mut copy_command_pool =
+        let copy_command_pool =
             n12::SCommandListPool::create(&device, Rc::downgrade(&copy_command_queue), &winapi.rawwinapi(), 1, 10)?;
         let mesh_loader = SMeshLoader::new(Rc::downgrade(&device), &winapi, Rc::downgrade(&copy_command_queue), 23948934, 1024)?;
         let texture_loader = STextureLoader::new(Rc::downgrade(&device), &winapi, Rc::downgrade(&copy_command_queue), Rc::downgrade(&direct_command_queue), Rc::downgrade(&srv_heap), 9323, 1024)?;
@@ -460,7 +460,12 @@ impl<'a> SRender<'a> {
         let imgui_vert_byte_code = t12::SShaderBytecode::create(imgui_vertblob);
         let imgui_pixel_byte_code = t12::SShaderBytecode::create(imgui_pixelblob);
 
-        let imgui_pipeline_state_stream = SPipelineStateStream {
+        let imgui_depth_stencil_desc = t12::SDepthStencilDesc {
+            depth_enable: false,
+            ..Default::default()
+        };
+
+        let imgui_pipeline_state_stream = SImguiPipelineStateStream {
             root_signature: n12::SPipelineStateStreamRootSignature::create(&imgui_root_signature),
             input_layout: n12::SPipelineStateStreamInputLayout::create(&mut input_layout_desc),
             primitive_topology: n12::SPipelineStateStreamPrimitiveTopology::create(
@@ -468,9 +473,7 @@ impl<'a> SRender<'a> {
             ),
             vertex_shader: n12::SPipelineStateStreamVertexShader::create(&imgui_vert_byte_code),
             pixel_shader: n12::SPipelineStateStreamPixelShader::create(&imgui_pixel_byte_code),
-            depth_stencil_format: n12::SPipelineStateStreamDepthStencilFormat::create(
-                t12::EDXGIFormat::D32Float,
-            ),
+            depth_stencil_desc: n12::SPipelineStateStreamDepthStencilDesc::create(imgui_depth_stencil_desc),
             rtv_formats: n12::SPipelineStateStreamRTVFormats::create(&rtv_formats),
         };
         let imgui_pipeline_state_stream_desc = t12::SPipelineStateStreamDesc::create(&imgui_pipeline_state_stream);
@@ -575,6 +578,7 @@ impl<'a> SRender<'a> {
         SModel::new_from_obj(obj_file_path, &mut self.mesh_loader, &mut self.texture_loader, diffuse_weight)
     }
 
+    #[allow(dead_code)]
     pub fn ray_intersects(
         &self,
         model: &SModel,
@@ -762,7 +766,7 @@ impl<'a> SRender<'a> {
             glm::ortho_lh_zo(left, right, bottom, top, znear, zfar)
         };
 
-        list.set_graphics_root_32_bit_constants(0, &ortho_matrix, 0);
+        list.set_graphics_root_32_bit_constants(self.imgui_orthomat_root_param_idx as u32, &ortho_matrix, 0);
 
         for draw_list in draw_data.draw_lists() {
             let (vertbufferresource, vertexbufferview, indexbufferresource, indexbufferview) = {
@@ -775,7 +779,7 @@ impl<'a> SRender<'a> {
                     let mut copy_command_list = self.copy_command_pool.get_list(handle)?;
 
                     // -- $$$FRK(TODO): we should be able to update the data in the resource, rather than creating a new one?
-                    let mut vertbufferresource = {
+                    let vertbufferresource = {
                         let vertbufferflags = t12::SResourceFlags::from(t12::EResourceFlags::ENone);
                         copy_command_list.update_buffer_resource(
                             self.device.deref(),
@@ -787,7 +791,7 @@ impl<'a> SRender<'a> {
                         .destinationresource
                         .create_vertex_buffer_view()?;
 
-                    let mut indexbufferresource = {
+                    let indexbufferresource = {
                         let indexbufferflags = t12::SResourceFlags::from(t12::EResourceFlags::ENone);
                         copy_command_list.update_buffer_resource(
                             self.device.deref(),
@@ -845,7 +849,7 @@ impl<'a> SRender<'a> {
                             bottom: f32::min(clip_rect[2], window.height() as f32).floor() as i32,
                         };
 
-                        list.rs_set_scissor_rects(t12::SScissorRects::create(&[&self.scissorrect]));
+                        list.rs_set_scissor_rects(t12::SScissorRects::create(&[&scissorrect]));
 
                         let texture = self.get_imgui_texture(texture_id);
                         list.set_graphics_root_descriptor_table(
@@ -894,6 +898,7 @@ impl<'a> SRender<'a> {
         Ok(())
     }
 
+    #[allow(unused_variables)]
     fn get_imgui_texture(&self, texture_id: imgui::TextureId) -> SPoolHandle {
         panic!("not implemented");
     }

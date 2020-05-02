@@ -165,6 +165,17 @@ pub struct SDepthStencilOpDesc {
     stencil_func: EComparisonFunc,
 }
 
+impl Default for SDepthStencilOpDesc {
+    fn default() -> Self {
+        Self {
+            stencil_fail_op: EStencilOp::Keep,
+            stencil_depth_fail_op: EStencilOp::Keep,
+            stencil_pass_op: EStencilOp::Keep,
+            stencil_func: EComparisonFunc::Always,
+        }
+    }
+}
+
 impl SDepthStencilOpDesc {
     pub fn d3dtype(&self) -> D3D12_DEPTH_STENCILOP_DESC {
         D3D12_DEPTH_STENCILOP_DESC {
@@ -177,14 +188,14 @@ impl SDepthStencilOpDesc {
 }
 
 pub struct SDepthStencilDesc {
-    depth_enable: bool,
-    write_mask: EDepthWriteMask,
-    depth_func: EComparisonFunc,
-    stencil_enable: bool,
-    stencil_read_mask: u8,
-    stencil_write_mask: u8,
-    front_face: SDepthStencilOpDesc,
-    back_face: SDepthStencilOpDesc,
+    pub depth_enable: bool,
+    pub write_mask: EDepthWriteMask,
+    pub depth_func: EComparisonFunc,
+    pub stencil_enable: bool,
+    pub stencil_read_mask: u8,
+    pub stencil_write_mask: u8,
+    pub front_face: SDepthStencilOpDesc,
+    pub back_face: SDepthStencilOpDesc,
 }
 
 impl SDepthStencilDesc {
@@ -198,6 +209,21 @@ impl SDepthStencilDesc {
             StencilWriteMask: self.stencil_write_mask,
             FrontFace: self.front_face.d3dtype(),
             BackFace: self.back_face.d3dtype(),
+        }
+    }
+}
+
+impl Default for SDepthStencilDesc {
+    fn default() -> Self {
+        Self {
+            depth_enable: true,
+            write_mask: EDepthWriteMask::All,
+            depth_func: EComparisonFunc::Less,
+            stencil_enable: false,
+            stencil_read_mask: D3D12_DEFAULT_STENCIL_READ_MASK as u8,
+            stencil_write_mask: D3D12_DEFAULT_STENCIL_READ_MASK as u8,
+            front_face: Default::default(),
+            back_face: Default::default(),
         }
     }
 }

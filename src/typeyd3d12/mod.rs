@@ -178,6 +178,7 @@ pub enum EDXGIFormat {
     D32Float,
     R8G8B8A8UNorm,
     R16UINT,
+    R32UINT,
 }
 
 impl EDXGIFormat {
@@ -192,6 +193,7 @@ impl EDXGIFormat {
             Self::R32Typeless => dxgiformat::DXGI_FORMAT_R32_TYPELESS,
             Self::R8G8B8A8UNorm => dxgiformat::DXGI_FORMAT_R8G8B8A8_UNORM,
             Self::R16UINT => dxgiformat::DXGI_FORMAT_R16_UINT,
+            Self::R32UINT => dxgiformat::DXGI_FORMAT_R32_UINT,
         }
     }
 }

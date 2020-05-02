@@ -105,10 +105,12 @@ pub struct SRender<'a> {
 
 pub fn compile_shaders_if_changed() {
     let shaders = [
-        ("pixel", "ps_6_0"),
         ("vertex", "vs_6_0"),
-        ("shadow_pixel", "ps_6_0"),
+        ("pixel", "ps_6_0"),
         ("shadow_vertex", "vs_6_0"),
+        ("shadow_pixel", "ps_6_0"),
+        ("imgui_vertex", "vs_6_0"),
+        ("imgui_pixel", "ps_6_0"),
     ];
 
     for (shader_name, type_) in &shaders {
@@ -465,9 +467,40 @@ impl<'a> SRender<'a> {
             ..Default::default()
         };
 
+        let mut imgui_input_layout_desc = t12::SInputLayoutDesc::create(&[
+            t12::SInputElementDesc::create(
+                "POSITION",
+                0,
+                t12::EDXGIFormat::R32G32Float,
+                0,
+                winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
+                t12::EInputClassification::PerVertexData,
+                0,
+            ),
+            t12::SInputElementDesc::create(
+                "TEXCOORD",
+                0,
+                t12::EDXGIFormat::R32G32Float,
+                0,
+                winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
+                t12::EInputClassification::PerVertexData,
+                0,
+            ),
+            t12::SInputElementDesc::create(
+                "BLENDINDICES",
+                0,
+                t12::EDXGIFormat::R32UINT,
+                0,
+                winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
+                t12::EInputClassification::PerVertexData,
+                0,
+            ),
+        ]);
+
+
         let imgui_pipeline_state_stream = SImguiPipelineStateStream {
             root_signature: n12::SPipelineStateStreamRootSignature::create(&imgui_root_signature),
-            input_layout: n12::SPipelineStateStreamInputLayout::create(&mut input_layout_desc),
+            input_layout: n12::SPipelineStateStreamInputLayout::create(&mut imgui_input_layout_desc),
             primitive_topology: n12::SPipelineStateStreamPrimitiveTopology::create(
                 t12::EPrimitiveTopologyType::Triangle,
             ),

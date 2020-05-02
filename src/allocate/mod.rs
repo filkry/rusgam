@@ -10,10 +10,12 @@ use utils::align_up;
 pub static SYSTEM_ALLOCATOR: SSystemAllocator = SSystemAllocator {};
 
 thread_local! {
+    /*
     pub static TEMP_ALLOCATOR : RefCell<SGenAllocator<SLinearAllocator<'static>>> =
         RefCell::new(
             SGenAllocator::new(
                 SLinearAllocator::new(&SYSTEM_ALLOCATOR, 4 * 1024 * 1024, 8).unwrap()));
+    */
 
     pub static STACK_ALLOCATOR : SStackAllocator<'static> =
         SStackAllocator::new(&SYSTEM_ALLOCATOR, 4 * 1024 * 1024, 8).unwrap();
@@ -309,6 +311,7 @@ impl<'a, T> SMemVec<'a, T> {
         })
     }
 
+    /*
     pub fn new_genned<A: TMemAllocator>(
         allocator: &'a SGenAllocator<A>,
         initial_capacity: usize,
@@ -320,6 +323,7 @@ impl<'a, T> SMemVec<'a, T> {
             temp_allocator: allocator,
         })
     }
+    */
 
     fn data(&self) -> *mut T {
         self.mem.data as *mut T
@@ -345,7 +349,7 @@ impl<'a, T> SMemVec<'a, T> {
         unsafe { std::slice::from_raw_parts_mut(self.data(), self.len) }
     }
 
-    pub fn push(&mut self, value: T) {
+    pub fn push(&mut self, mut value: T) {
         if self.len == self.capacity {
             if self.grow_capacity == 0 {
                 assert!(false, "Out of space, not pushing.");
@@ -357,7 +361,8 @@ impl<'a, T> SMemVec<'a, T> {
 
         self.len += 1;
         let idx = self.len - 1;
-        self[idx] = value;
+        std::mem::swap(&mut value, &mut self[idx]);
+        std::mem::forget(value);
     }
 
     pub fn remove_all(&mut self) {
@@ -422,6 +427,7 @@ impl<'a> std::io::Write for SMemVec<'a, u8> {
     }
 }
 
+/*
 // -- this generation'd allocation wrapping is still unsafe because the generation could
 // -- change while we're looking at the data - we don't guard every touch of the memory
 pub struct SGenAllocator<A: TMemAllocator> {
@@ -474,6 +480,7 @@ impl<'a, T, A: TMemAllocator> SGenAllocation<'a, T, A> {
         &mut self.raw
     }
 }
+*/
 
 /*
 impl<'a, 'b, T> IntoIterator for &'a SMemVec<'b, T> {
@@ -569,6 +576,7 @@ fn test_iter() {
     }
 }
 
+/*
 #[test]
 fn test_genned() {
     let sys_allocator = SSystemAllocator {};
@@ -616,6 +624,7 @@ fn test_genned_should_panic() {
         assert_eq!(internal.len(), 2);
     }
 }
+*/
 
 #[test]
 fn test_stack_allocator() {

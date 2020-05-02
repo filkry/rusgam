@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use std::ops::{Deref};
+use std::ops::{Deref, DerefMut};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::rc::Weak;
@@ -180,7 +180,7 @@ impl<'a> SMeshLoader<'a> {
         // -- generate vertex/index resources and views
         let (vertbufferresource, vertexbufferview, indexbufferresource, indexbufferview) = {
             let handle = self.copy_command_list_pool.alloc_list()?;
-            let copycommandlist = self.copy_command_list_pool.get_list(handle)?;
+            let mut copycommandlist = self.copy_command_list_pool.get_list(handle)?;
 
             let mut vertbufferresource = {
                 let vertbufferflags = t12::SResourceFlags::from(t12::EResourceFlags::ENone);
@@ -205,6 +205,8 @@ impl<'a> SMeshLoader<'a> {
             let indexbufferview = indexbufferresource
                 .destinationresource
                 .create_index_buffer_view(t12::EDXGIFormat::R16UINT)?;
+
+            drop(copycommandlist);
 
             let fenceval = self.copy_command_list_pool.execute_and_free_list(handle)?;
             self.copy_command_list_pool.wait_for_internal_fence_value(fenceval);
@@ -367,12 +369,17 @@ impl STextureLoader {
 
         let texture_resource = {
             let handle = self.copy_command_list_pool.alloc_list()?;
-            let copycommandlist = self.copy_command_list_pool.get_list(handle)?;
+            let mut copycommandlist = self.copy_command_list_pool.get_list(handle)?;
 
             let mut texture_asset = ArrayString::<[_; 128]>::new();
             texture_asset.push_str("assets/");
             texture_asset.push_str(texture_name);
-            let (mut _intermediate_resource, mut resource) = n12::load_texture(self.device.upgrade().expect("dropped device").deref(), copycommandlist, texture_asset.as_str());
+            let (mut _intermediate_resource, mut resource) = n12::load_texture(
+                self.device.upgrade().expect("dropped device").deref(),
+                copycommandlist.deref_mut(),
+                texture_asset.as_str());
+
+            drop(copycommandlist);
 
             let fenceval = self.copy_command_list_pool.execute_and_free_list(handle)?;
             self.copy_command_list_pool.wait_for_internal_fence_value(fenceval);
@@ -390,7 +397,7 @@ impl STextureLoader {
         // -- transition texture to PixelShaderResource
         {
             let handle = self.direct_command_list_pool.alloc_list()?;
-            let list = self.direct_command_list_pool.get_list(handle)?;
+            let mut list = self.direct_command_list_pool.get_list(handle)?;
 
             list.transition_resource(
                 &texture_resource.as_ref().unwrap(),
@@ -398,6 +405,8 @@ impl STextureLoader {
                 t12::EResourceStates::PixelShaderResource,
             )
             .unwrap();
+
+            drop(list);
 
             let fenceval = self.direct_command_list_pool.execute_and_free_list(handle)?;
             self.direct_command_list_pool.wait_for_internal_fence_value(fenceval);

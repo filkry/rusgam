@@ -637,15 +637,17 @@ impl<'a> SRender<'a> {
         // -- render shadowmaps
         {
             let handle = self.direct_command_pool.alloc_list()?;
-            let list = self.direct_command_pool.get_list(handle)?;
+            let mut list = self.direct_command_pool.get_list(handle)?;
 
             self.shadow_mapping_pipeline.render(
                 &self.mesh_loader,
                 &Vec3::new(5.0, 5.0, 5.0),
-                list,
+                list.deref_mut(),
                 models,
                 model_xforms,
             )?;
+
+            drop(list);
 
             let fence_val = self.direct_command_pool.execute_and_free_list(handle)?;
             self.direct_command_pool.wait_for_internal_fence_value(fence_val);
@@ -659,7 +661,7 @@ impl<'a> SRender<'a> {
             let handle = self.direct_command_pool.alloc_list()?;
 
             {
-                let list = self.direct_command_pool.get_list(handle)?;
+                let mut list = self.direct_command_pool.get_list(handle)?;
 
                 let backbuffer = window.currentbackbuffer();
                 let render_target_view = window.currentrendertargetdescriptor()?;
@@ -699,8 +701,8 @@ impl<'a> SRender<'a> {
                 let view_perspective = perspective_matrix * view_matrix;
                 for modeli in 0..models.len() {
                     list.set_graphics_root_descriptor_table(3, &self.shadow_mapping_pipeline.srv().gpu_descriptor(0));
-                    models[modeli].set_texture_root_parameters(&self.texture_loader, list, 1, 2);
-                    self.mesh_loader.render(models[modeli].mesh, list, &view_perspective, &model_xforms[modeli])?;
+                    models[modeli].set_texture_root_parameters(&self.texture_loader, list.deref_mut(), 1, 2);
+                    self.mesh_loader.render(models[modeli].mesh, list.deref_mut(), &view_perspective, &model_xforms[modeli])?;
                 }
             }
 
@@ -721,7 +723,7 @@ impl<'a> SRender<'a> {
         self.imgui_index_buffer_views.remove_all();
 
         let handle = self.direct_command_pool.alloc_list()?;
-        let list = self.direct_command_pool.get_list(handle)?;
+        let mut list = self.direct_command_pool.get_list(handle)?;
 
         // -- set up pipeline
         list.set_pipeline_state(&self.imgui_pipeline_state);
@@ -767,11 +769,10 @@ impl<'a> SRender<'a> {
                 //STACK_ALLOCATOR.with(|sa| {
                     //let vert_vec = SMemVec::<SImguiVertData>::new(draw_list.vtx_buffer().len(), 0, &sa)?;
                     //let idx_vec = SMemVec::<u16>::new(draw_list.idx_buffer().len(), 0, &sa)?;
-
-                    panic!("need to impl copy to vecs above.");
+                    //panic!("need to impl copy to vecs above.");
 
                     let handle = self.copy_command_pool.alloc_list()?;
-                    let copy_command_list = self.copy_command_pool.get_list(handle)?;
+                    let mut copy_command_list = self.copy_command_pool.get_list(handle)?;
 
                     // -- $$$FRK(TODO): we should be able to update the data in the resource, rather than creating a new one?
                     let mut vertbufferresource = {
@@ -798,6 +799,8 @@ impl<'a> SRender<'a> {
                         .destinationresource
                         .create_index_buffer_view(t12::EDXGIFormat::R16UINT)?;
 
+                    drop(copy_command_list);
+
                     let fence_val = self.copy_command_pool.execute_and_free_list(handle)?;
                     // -- $$$FRK(TODO): we should be able to sychronize between this and the direct queue?
                     self.copy_command_pool.wait_for_internal_fence_value(fence_val);
@@ -815,8 +818,8 @@ impl<'a> SRender<'a> {
 
             // -- set up input assembler
             list.ia_set_primitive_topology(t12::EPrimitiveTopology::TriangleList);
-            list.ia_set_vertex_buffers(0, &[&vertexbufferview]);
-            list.ia_set_index_buffer(&indexbufferview);
+            list.ia_set_vertex_buffers(0, &[self.imgui_vert_buffer_views.last().unwrap()]);
+            list.ia_set_index_buffer(&self.imgui_index_buffer_views.last().unwrap());
 
             for cmd in draw_list.commands() {
                 match cmd {
@@ -859,6 +862,7 @@ impl<'a> SRender<'a> {
         }
 
         // -- execute on the queue
+        drop(list);
         assert_eq!(window.currentbackbufferindex(), backbufferidx);
         self.direct_command_pool.execute_and_free_list(handle)?;
 
@@ -867,7 +871,7 @@ impl<'a> SRender<'a> {
 
     pub fn present(&mut self, window: &mut n12::SD3D12Window) -> Result<(), &'static str> {
         let handle = self.direct_command_pool.alloc_list()?;
-        let list = self.direct_command_pool.get_list(handle)?;
+        let mut list = self.direct_command_pool.get_list(handle)?;
 
         let backbuffer = window.currentbackbuffer();
 
@@ -877,6 +881,9 @@ impl<'a> SRender<'a> {
             t12::EResourceStates::RenderTarget,
             t12::EResourceStates::Present,
         )?;
+
+        drop(list);
+        self.direct_command_pool.execute_and_free_list(handle)?;
 
         self.frame_fence_values[window.currentbackbufferindex()] =
             self.direct_command_queue.borrow_mut().signal_internal_fence()?;

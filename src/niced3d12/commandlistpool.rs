@@ -1,9 +1,11 @@
 use std::rc::Weak;
+use std::cell::{RefCell, RefMut};
+use std::ops::{DerefMut};
 
 use super::*;
 
 struct SCommandListPoolList {
-    list: SCommandList,
+    list: RefCell<SCommandList>,
     allocator: SPoolHandle,
 }
 
@@ -46,7 +48,7 @@ impl SCommandListPool {
             // -- immediately close handle because we'll re-assign a new allocator from the pool when ready
             list.close()?;
             lists.push(SCommandListPoolList {
-                list: list,
+                list: RefCell::new(list),
                 allocator: Default::default(),
             });
         }
@@ -91,15 +93,15 @@ impl SCommandListPool {
 
         let listhandle = self.lists.alloc()?;
         let list = self.lists.get_mut(listhandle)?;
-        list.list.reset(allocator)?;
+        list.list.borrow_mut().reset(allocator)?;
         list.allocator = allocatorhandle;
 
         Ok(listhandle)
     }
 
-    pub fn get_list(&mut self, handle: SPoolHandle) -> Result<&mut SCommandList, &'static str> {
-        let list = self.lists.get_mut(handle)?;
-        Ok(&mut list.list)
+    pub fn get_list(&self, handle: SPoolHandle) -> Result<RefMut<SCommandList>, &'static str> {
+        let list = self.lists.get(handle)?;
+        Ok(list.list.borrow_mut())
     }
 
     pub fn execute_and_free_list(&mut self, handle: SPoolHandle) -> Result<u64, &'static str> {
@@ -107,8 +109,8 @@ impl SCommandListPool {
 
         let allocator = {
             let list = self.lists.get_mut(handle)?;
-            assert!(list.list.get_type() == queue.borrow().type_());
-            queue.borrow().execute_command_list(&mut list.list)?;
+            assert!(list.list.borrow().get_type() == queue.borrow().type_());
+            queue.borrow().execute_command_list(list.list.borrow_mut().deref_mut())?;
 
             assert!(list.allocator.valid());
             list.allocator

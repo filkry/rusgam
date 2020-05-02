@@ -190,10 +190,10 @@ pub struct SDepthStencilDesc {
 impl SDepthStencilDesc {
     pub fn d3dtype(&self) -> D3D12_DEPTH_STENCIL_DESC {
         D3D12_DEPTH_STENCIL_DESC {
-            DepthEnable: self.depth_enable,
+            DepthEnable: if self.depth_enable { 1 } else { 0 } ,
             DepthWriteMask: self.write_mask.d3dtype(),
             DepthFunc: self.depth_func.d3dtype(),
-            StencilEnable: self.stencil_enable,
+            StencilEnable: if self.stencil_enable { 1 } else { 0 } ,
             StencilReadMask: self.stencil_read_mask,
             StencilWriteMask: self.stencil_write_mask,
             FrontFace: self.front_face.d3dtype(),

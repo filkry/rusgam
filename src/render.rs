@@ -13,6 +13,7 @@ use glm::{Vec3, Mat4};
 use niced3d12 as n12;
 use typeyd3d12 as t12;
 use allocate::{SMemVec, STACK_ALLOCATOR, SYSTEM_ALLOCATOR};
+use collections::{SPoolHandle};
 use model;
 use model::{SModel, SMeshLoader, STextureLoader};
 use safewindows;
@@ -81,6 +82,8 @@ pub struct SRender<'a> {
     // -- imgui stuff
     imgui_root_signature: n12::SRootSignature,
     imgui_pipeline_state: t12::SPipelineState,
+    imgui_orthomat_root_param_idx: usize,
+    imgui_texture_descriptor_table_param_idx: usize,
     _imgui_vert_byte_code: t12::SShaderBytecode,
     _imgui_pixel_byte_code: t12::SShaderBytecode,
     imgui_vert_buffer_resources: SMemVec::<'a, n12::SResource>,
@@ -401,10 +404,51 @@ impl<'a> SRender<'a> {
             shader_visibility: t12::EShaderVisibility::Vertex,
         };
 
+        let imgui_texture_root_parameter = {
+            let descriptor_range = t12::SDescriptorRange {
+                range_type: t12::EDescriptorRangeType::SRV,
+                num_descriptors: 1,
+                base_shader_register: 0,
+                register_space: 0,
+                offset_in_descriptors_from_table_start: t12::EDescriptorRangeOffset::EAppend,
+            };
+
+            let mut root_descriptor_table = t12::SRootDescriptorTable::new();
+            root_descriptor_table
+                .descriptor_ranges
+                .push(descriptor_range);
+
+            t12::SRootParameter {
+                type_: t12::ERootParameterType::DescriptorTable,
+                type_data: t12::ERootParameterTypeData::DescriptorTable {
+                    table: root_descriptor_table,
+                },
+                shader_visibility: t12::EShaderVisibility::Pixel,
+            }
+        };
+
+        let imgui_sampler = t12::SStaticSamplerDesc {
+            filter: t12::EFilter::MinMagMipPoint,
+            address_u: t12::ETextureAddressMode::Border,
+            address_v: t12::ETextureAddressMode::Border,
+            address_w: t12::ETextureAddressMode::Border,
+            mip_lod_bias: 0.0,
+            max_anisotropy: 0,
+            comparison_func: t12::EComparisonFunc::Never,
+            border_color: t12::EStaticBorderColor::OpaqueWhite,
+            min_lod: 0.0,
+            max_lod: std::f32::MAX,
+            shader_register: 0,
+            register_space: 0,
+            shader_visibility: t12::EShaderVisibility::Pixel,
+        };
+
         let mut imgui_root_signature_desc = t12::SRootSignatureDesc::new(root_signature_flags);
         imgui_root_signature_desc.parameters.push(orthomat_root_parameter);
-        imgui_root_signature_desc.parameters.push(texture_root_parameter);
-        imgui_root_signature_desc.static_samplers.push(sampler);
+        let imgui_orthomat_root_param_idx = imgui_root_signature_desc.parameters.len() - 1;
+        imgui_root_signature_desc.parameters.push(imgui_texture_root_parameter);
+        let imgui_texture_descriptor_table_param_idx = imgui_root_signature_desc.parameters.len() - 1;
+        imgui_root_signature_desc.static_samplers.push(imgui_sampler);
 
         let imgui_root_signature =
             device.create_root_signature(imgui_root_signature_desc, t12::ERootSignatureVersion::V1)?;
@@ -467,6 +511,8 @@ impl<'a> SRender<'a> {
 
             imgui_root_signature,
             imgui_pipeline_state,
+            imgui_orthomat_root_param_idx,
+            imgui_texture_descriptor_table_param_idx,
             _imgui_vert_byte_code: imgui_vert_byte_code,
             _imgui_pixel_byte_code: imgui_pixel_byte_code,
             imgui_vert_buffer_resources: SMemVec::new(&SYSTEM_ALLOCATOR, 128, 0)?,
@@ -667,6 +713,8 @@ impl<'a> SRender<'a> {
     }
 
     pub fn render_imgui(&mut self, window: &mut n12::SD3D12Window, draw_data: &imgui::DrawData) -> Result<(), &'static str> {
+        let backbufferidx = window.currentbackbufferindex();
+
         self.imgui_vert_buffer_resources.remove_all();
         self.imgui_vert_buffer_views.remove_all();
         self.imgui_index_buffer_resources.remove_all();
@@ -798,12 +846,14 @@ impl<'a> SRender<'a> {
 
                         let texture = self.get_imgui_texture(texture_id);
                         list.set_graphics_root_descriptor_table(
-                            texture_descriptor_table_root_parameter,
-                            &texture_loader.texture_gpu_descriptor(texture).unwrap(),
+                            self.imgui_texture_descriptor_table_param_idx,
+                            &self.texture_loader.texture_gpu_descriptor(texture).unwrap(),
                         );
 
-                        list.draw_indexed_instanced(count, 1, vtx_offset, idx_offset, 0);
-                    }
+                        list.draw_indexed_instanced(count as u32, 1, vtx_offset as u32, idx_offset as i32, 0);
+                    },
+                    imgui::DrawCmd::ResetRenderState => {},
+                    imgui::DrawCmd::RawCallback{..} => {},
                 }
             }
         }
@@ -816,6 +866,11 @@ impl<'a> SRender<'a> {
     }
 
     pub fn present(&mut self, window: &mut n12::SD3D12Window) -> Result<(), &'static str> {
+        let handle = self.direct_command_pool.alloc_list()?;
+        let list = self.direct_command_pool.get_list(handle)?;
+
+        let backbuffer = window.currentbackbuffer();
+
         // -- transition to present
         list.transition_resource(
             backbuffer,
@@ -828,9 +883,11 @@ impl<'a> SRender<'a> {
 
         // -- present the swap chain and switch to next buffer in swap chain
         window.present()?;
+
+        Ok(())
     }
 
-    fn get_imgui_texture(&self, texture_id: imgui::TextureId) -> SResource {
+    fn get_imgui_texture(&self, texture_id: imgui::TextureId) -> SPoolHandle {
         panic!("not implemented");
     }
 

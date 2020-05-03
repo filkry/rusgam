@@ -17,13 +17,20 @@ struct SVertexShaderOutput
 {
     float4 position : SV_POSITION;
     float2 uv  : TEXCOORD;
+    float4 color: COLOR;
 };
 
 SVertexShaderOutput main(SDrawVert input)
 {
     SVertexShaderOutput output;
 
-    output.position = mul(orthomatbuffer.orthomat, float4(input.pos.xy, 0.0, 1.0));
+    float4 color;
+    color.x = (float)(input.color & 0x000000FF);
+    color.y = (float)((input.color >> 8) & 0x000000FF);
+    color.z = (float)((input.color >> 16) & 0x000000FF);
+    color.w = (float)((input.color >> 24) & 0x000000FF);
+
+    output.position = color * mul(orthomatbuffer.orthomat, float4(input.pos.xy, 0.0, 1.0));
     output.uv = input.uv;
 
     return output;

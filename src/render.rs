@@ -835,7 +835,7 @@ impl<'a> SRender<'a> {
                     let mut copy_command_list = self.copy_command_pool.get_list(handle)?;
 
                     // -- $$$FRK(TODO): we should be able to update the data in the resource, rather than creating a new one?
-                    let vertbufferresource = {
+                    let mut vertbufferresource = {
                         let vertbufferflags = t12::SResourceFlags::from(t12::EResourceFlags::ENone);
                         copy_command_list.update_buffer_resource(
                             self.device.deref(),
@@ -847,7 +847,7 @@ impl<'a> SRender<'a> {
                         .destinationresource
                         .create_vertex_buffer_view()?;
 
-                    let indexbufferresource = {
+                    let mut indexbufferresource = {
                         let indexbufferflags = t12::SResourceFlags::from(t12::EResourceFlags::ENone);
                         copy_command_list.update_buffer_resource(
                             self.device.deref(),
@@ -865,6 +865,13 @@ impl<'a> SRender<'a> {
                     // -- $$$FRK(TODO): we should be able to sychronize between this and the direct queue?
                     self.copy_command_pool.wait_for_internal_fence_value(fence_val);
                     self.copy_command_pool.free_allocators();
+
+                    unsafe {
+                        vertbufferresource.destinationresource.set_debug_name("imgui vert dest");
+                        vertbufferresource.intermediateresource.set_debug_name("imgui vert inter");
+                        indexbufferresource.destinationresource.set_debug_name("imgui index dest");
+                        indexbufferresource.intermediateresource.set_debug_name("imgui index inter");
+                    }
 
                     (vertbufferresource, vertexbufferview, indexbufferresource, indexbufferview)
                 //})

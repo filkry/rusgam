@@ -185,7 +185,7 @@ pub fn compile_shaders_if_changed() {
 }
 
 impl<'a> SRender<'a> {
-    pub fn new(winapi: &rustywindows::SWinAPI) -> Result<Self, &'static str> {
+    pub fn new(winapi: &rustywindows::SWinAPI, imgui_ctxt: &mut imgui::Context) -> Result<Self, &'static str> {
         // -- initialize debug
         let debuginterface = t12::SDebugInterface::new()?;
         debuginterface.enabledebuglayer();
@@ -393,7 +393,19 @@ impl<'a> SRender<'a> {
 
         // -- setup imgui
         // ======================================================================
-        // -- need to write shaders next
+        // -- set up font
+        let font_size = 13.0 as f32;
+        imgui_ctxt.fonts().add_font(&[
+            imgui::FontSource::DefaultFontData {
+                config: Some(imgui::FontConfig {
+                    size_pixels: font_size,
+                    ..imgui::FontConfig::default()
+                }),
+            },
+        ]);
+
+        let imgui_font_atlas_texture = imgui_ctxt.fonts().build_rgba32_texture();
+
         let orthomat_root_parameter = t12::SRootParameter {
             type_: t12::ERootParameterType::E32BitConstants,
             type_data: t12::ERootParameterTypeData::Constants {

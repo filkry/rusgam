@@ -48,24 +48,12 @@ pub use self::rootsignature::*;
 pub use self::swapchain::*;
 pub use self::window::SD3D12Window;
 
-pub fn load_texture(device: &SDevice, cl: &mut SCommandList, file_path: &str) -> (SResource, SResource) {
-    // $$$FRK(TODO): allocates
-    let bytes = std::fs::read(file_path).unwrap();
-    let tga = tinytga::Tga::from_slice(bytes.as_slice()).unwrap();
-
-    // -- $$$FRK(TODO): allocates
-    let mut pixels = Vec::new();
-
-    for mut pixel in tga.into_iter() {
-        pixel = pixel | (0xff << 24); // $$$FRK(HACK): max alpha
-        pixels.push(pixel);
-    }
-
+pub fn load_texture_rgba32(device: &SDevice, cl: &mut SCommandList, width: u32, height: u32, data: &[u32]) -> (SResource, SResource) {
     let mut resource = device
         .create_committed_texture2d_resource(
             t12::EHeapType::Default,
-            tga.width() as u32,
-            tga.height() as u32,
+            width,
+            height,
             1, // array size
             1, // mip levels
             t12::EDXGIFormat::R8G8B8A8UNorm,
@@ -96,9 +84,9 @@ pub fn load_texture(device: &SDevice, cl: &mut SCommandList, file_path: &str) ->
         .unwrap();
 
     let mut data = t12::SSubResourceData::create_texture_2d(
-        pixels.as_slice(),
-        tga.width() as usize,
-        tga.height() as usize,
+        data,
+        width as usize,
+        height as usize,
     );
 
     update_subresources_stack(
@@ -112,6 +100,33 @@ pub fn load_texture(device: &SDevice, cl: &mut SCommandList, file_path: &str) ->
     );
 
     (intermediate_resource, resource)
+}
+
+pub fn load_texture_rgba32_from_bytes(device: &SDevice, cl: &mut SCommandList, width: u32, height: u32, data: &[u8]) -> (SResource, SResource) {
+    unsafe {
+        let (prefix, data_u32, suffix) = data.align_to::<u32>();
+        if (prefix.len() > 0) || (suffix.len() > 0) {
+            panic!("Bad length data.");
+        }
+
+        load_texture_rgba32(device, cl, width, height, data_u32)
+    }
+}
+
+pub fn load_texture(device: &SDevice, cl: &mut SCommandList, file_path: &str) -> (SResource, SResource) {
+    // $$$FRK(TODO): allocates
+    let bytes = std::fs::read(file_path).unwrap();
+    let tga = tinytga::Tga::from_slice(bytes.as_slice()).unwrap();
+
+    // -- $$$FRK(TODO): allocates
+    let mut pixels = Vec::new();
+
+    for mut pixel in tga.into_iter() {
+        pixel = pixel | (0xff << 24); // $$$FRK(HACK): max alpha
+        pixels.push(pixel);
+    }
+
+    load_texture_rgba32(device, cl, tga.width() as u32, tga.height() as u32, pixels.as_slice())
 }
 
 pub fn create_committed_depth_textures<'a> (

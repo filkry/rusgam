@@ -74,7 +74,7 @@ pub struct SMesh<'a> {
 }
 
 pub struct STexture {
-    uid: u64,
+    uid: Option<u64>, // if the texture is unique, it will have no ID
 
     #[allow(dead_code)] // maybe unnecessary?
     //pub(super) srv_heap: &'a n12::descriptorallocator::SDescriptorAllocator,
@@ -351,50 +351,7 @@ impl STextureLoader {
         })
     }
 
-    pub fn get_or_create_texture(&mut self, texture_name: &String) -> Result<SPoolHandle, &'static str> {
-
-        let uid = {
-            let mut s = DefaultHasher::new();
-            texture_name.hash(&mut s);
-            s.finish()
-        };
-
-        // -- $$$FRK(TODO): replace with some accelerated lookup structure
-        for i in 0..self.texture_pool.used() {
-            if let Some(texture) = &self.texture_pool.get_by_index(i as u16)? {
-                if texture.uid == uid {
-                    return Ok(self.texture_pool.handle_for_index(i as u16));
-                }
-            }
-        }
-
-        let texture_resource = {
-            let handle = self.copy_command_list_pool.alloc_list()?;
-            let mut copycommandlist = self.copy_command_list_pool.get_list(handle)?;
-
-            let mut texture_asset = ArrayString::<[_; 128]>::new();
-            texture_asset.push_str("assets/");
-            texture_asset.push_str(texture_name);
-            let (mut _intermediate_resource, mut resource) = n12::load_texture(
-                self.device.upgrade().expect("dropped device").deref(),
-                copycommandlist.deref_mut(),
-                texture_asset.as_str());
-
-            drop(copycommandlist);
-
-            let fenceval = self.copy_command_list_pool.execute_and_free_list(handle)?;
-            self.copy_command_list_pool.wait_for_internal_fence_value(fenceval);
-            self.copy_command_list_pool.free_allocators();
-            assert_eq!(self.copy_command_list_pool.num_free_allocators(), 2);
-
-            unsafe {
-                _intermediate_resource.set_debug_name("text inter");
-                resource.set_debug_name("text dest");
-            }
-
-            Some(resource)
-        };
-
+    pub fn create_texture_rgba32_from_resource(&mut self, uid: Option<u64>, texture_resource: Option<n12::SResource>) -> Result<SPoolHandle, &'static str> {
         // -- transition texture to PixelShaderResource
         {
             let handle = self.direct_command_list_pool.alloc_list()?;
@@ -443,6 +400,87 @@ impl STextureLoader {
         };
 
         self.texture_pool.insert_val(texture)
+
+    }
+
+    pub fn create_texture_rgba32_from_bytes(&mut self, width: u32, height: u32, data: &[u8]) -> Result<SPoolHandle, &'static str> {
+        let texture_resource = {
+            let handle = self.copy_command_list_pool.alloc_list()?;
+            let mut copycommandlist = self.copy_command_list_pool.get_list(handle)?;
+
+            let (mut _intermediate_resource, mut resource) = n12::load_texture_rgba32_from_bytes(
+                self.device.upgrade().expect("dropped device").deref(),
+                copycommandlist.deref_mut(),
+                width,
+                height,
+                data,
+            );
+
+            drop(copycommandlist);
+
+            let fenceval = self.copy_command_list_pool.execute_and_free_list(handle)?;
+            self.copy_command_list_pool.wait_for_internal_fence_value(fenceval);
+            self.copy_command_list_pool.free_allocators();
+            assert_eq!(self.copy_command_list_pool.num_free_allocators(), 2);
+
+            unsafe {
+                _intermediate_resource.set_debug_name("text inter");
+                resource.set_debug_name("text dest");
+            }
+
+            Some(resource)
+        };
+
+        self.create_texture_rgba32_from_resource(None, texture_resource)
+    }
+
+    pub fn get_or_create_texture(&mut self, texture_name: &String) -> Result<SPoolHandle, &'static str> {
+
+        let uid = {
+            let mut s = DefaultHasher::new();
+            texture_name.hash(&mut s);
+            s.finish()
+        };
+
+        // -- $$$FRK(TODO): replace with some accelerated lookup structure
+        for i in 0..self.texture_pool.used() {
+            if let Some(texture) = &self.texture_pool.get_by_index(i as u16)? {
+                if let Some(texture_uid) = texture.uid {
+                    if texture_uid == uid {
+                        return Ok(self.texture_pool.handle_for_index(i as u16));
+                    }
+                }
+            }
+        }
+
+        let texture_resource = {
+            let handle = self.copy_command_list_pool.alloc_list()?;
+            let mut copycommandlist = self.copy_command_list_pool.get_list(handle)?;
+
+            let mut texture_asset = ArrayString::<[_; 128]>::new();
+            texture_asset.push_str("assets/");
+            texture_asset.push_str(texture_name);
+            let (mut _intermediate_resource, mut resource) = n12::load_texture(
+                self.device.upgrade().expect("dropped device").deref(),
+                copycommandlist.deref_mut(),
+                texture_asset.as_str());
+
+            drop(copycommandlist);
+
+            let fenceval = self.copy_command_list_pool.execute_and_free_list(handle)?;
+            self.copy_command_list_pool.wait_for_internal_fence_value(fenceval);
+            self.copy_command_list_pool.free_allocators();
+            assert_eq!(self.copy_command_list_pool.num_free_allocators(), 2);
+
+            unsafe {
+                _intermediate_resource.set_debug_name("text inter");
+                resource.set_debug_name("text dest");
+            }
+
+            Some(resource)
+        };
+
+        self.create_texture_rgba32_from_resource(Some(uid), texture_resource)
     }
 
     pub fn texture_gpu_descriptor(&self, texture: SPoolHandle) -> Result<t12::SGPUDescriptorHandle, &'static str> {

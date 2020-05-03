@@ -61,7 +61,8 @@ fn main_d3d12() -> Result<(), &'static str> {
 
     let winapi = rustywindows::SWinAPI::create();
 
-    let mut render = render::SRender::new(&winapi)?;
+    let mut imgui_ctxt = imgui::Context::create();
+    let mut render = render::SRender::new(&winapi, &mut imgui_ctxt)?;
 
     // -- setup window
     let windowclass = winapi.rawwinapi().registerclassex("rusgam").unwrap();
@@ -70,32 +71,6 @@ fn main_d3d12() -> Result<(), &'static str> {
 
     window.init_render_target_views(render.device())?;
     window.show();
-
-    let mut imgui_ctxt = imgui::Context::create();
-
-    // -- set up imgui
-    {
-        let font_size = 13.0 as f32;
-        imgui_ctxt.fonts().add_font(&[
-            imgui::FontSource::DefaultFontData {
-                config: Some(imgui::FontConfig {
-                    size_pixels: font_size,
-                    ..imgui::FontConfig::default()
-                }),
-            },
-            imgui::FontSource::TtfData {
-                data: include_bytes!("../assets/mplus-1p-regular.ttf"),
-                size_pixels: font_size,
-                config: Some(imgui::FontConfig {
-                    rasterizer_multiply: 1.75,
-                    glyph_ranges: imgui::FontGlyphRanges::japanese(),
-                    ..imgui::FontConfig::default()
-                }),
-            },
-        ]);
-
-        imgui_ctxt.fonts().build_rgba32_texture();
-    }
 
     let mut entities = entity::SEntityBucket::new(67485, 16);
     let rotating_entity = entities.create_entity()?;
@@ -222,7 +197,7 @@ fn main_d3d12() -> Result<(), &'static str> {
             let imgui_draw_data = imgui_ui.render();
             render.render_imgui(&mut window, imgui_draw_data)?;
         }
-        */
+*/
 
         render.present(&mut window)?;
 

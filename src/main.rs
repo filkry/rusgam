@@ -190,14 +190,12 @@ fn main_d3d12() -> Result<(), &'static str> {
         })?;
 
         // -- render IMGUI
-        /*
         {
             let mut opened = true;
             imgui_ui.show_demo_window(&mut opened);
             let imgui_draw_data = imgui_ui.render();
             render.render_imgui(&mut window, imgui_draw_data)?;
         }
-*/
 
         render.present(&mut window)?;
 

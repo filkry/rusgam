@@ -80,6 +80,8 @@ pub struct SRender<'a> {
     shadow_mapping_pipeline: shadowmapping::SShadowMappingPipeline,
 
     // -- imgui stuff
+    imgui_font_texture: SPoolHandle,
+    imgui_font_texture_id: imgui::TextureId,
     imgui_root_signature: n12::SRootSignature,
     imgui_pipeline_state: t12::SPipelineState,
     imgui_orthomat_root_param_idx: usize,
@@ -228,7 +230,7 @@ impl<'a> SRender<'a> {
         let copy_command_pool =
             n12::SCommandListPool::create(&device, Rc::downgrade(&copy_command_queue), &winapi.rawwinapi(), 1, 10)?;
         let mesh_loader = SMeshLoader::new(Rc::downgrade(&device), &winapi, Rc::downgrade(&copy_command_queue), 23948934, 1024)?;
-        let texture_loader = STextureLoader::new(Rc::downgrade(&device), &winapi, Rc::downgrade(&copy_command_queue), Rc::downgrade(&direct_command_queue), Rc::downgrade(&srv_heap), 9323, 1024)?;
+        let mut texture_loader = STextureLoader::new(Rc::downgrade(&device), &winapi, Rc::downgrade(&copy_command_queue), Rc::downgrade(&direct_command_queue), Rc::downgrade(&srv_heap), 9323, 1024)?;
 
         // -- load shaders
         let vertblob = t12::read_file_to_blob("shaders_built/vertex.cso")?;
@@ -404,7 +406,14 @@ impl<'a> SRender<'a> {
             },
         ]);
 
-        let imgui_font_atlas_texture = imgui_ctxt.fonts().build_rgba32_texture();
+        let mut fonts = imgui_ctxt.fonts();
+        let imgui_font_atlas_texture = fonts.build_rgba32_texture();
+        let imgui_font_texture = texture_loader.create_texture_rgba32_from_bytes(
+            imgui_font_atlas_texture.width,
+            imgui_font_atlas_texture.height,
+            imgui_font_atlas_texture.data,
+        )?;
+        drop(fonts);
 
         let orthomat_root_parameter = t12::SRootParameter {
             type_: t12::ERootParameterType::E32BitConstants,
@@ -557,6 +566,8 @@ impl<'a> SRender<'a> {
 
             shadow_mapping_pipeline,
 
+            imgui_font_texture,
+            imgui_font_texture_id: imgui_ctxt.fonts().tex_id,
             imgui_root_signature,
             imgui_pipeline_state,
             imgui_orthomat_root_param_idx,
@@ -945,7 +956,11 @@ impl<'a> SRender<'a> {
 
     #[allow(unused_variables)]
     fn get_imgui_texture(&self, texture_id: imgui::TextureId) -> SPoolHandle {
-        panic!("not implemented");
+        if texture_id == self.imgui_font_texture_id {
+            return self.imgui_font_texture;
+        }
+
+        panic!("We don't have any other textures!!!!");
     }
 
     pub fn flush(&mut self) -> Result<(), &'static str> {

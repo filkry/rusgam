@@ -89,10 +89,10 @@ pub struct SRender<'a> {
     imgui_texture_descriptor_table_param_idx: usize,
     _imgui_vert_byte_code: t12::SShaderBytecode,
     _imgui_pixel_byte_code: t12::SShaderBytecode,
-    imgui_vert_buffer_resources: SMemVec::<'a, n12::SResource>,
-    imgui_vert_buffer_views: SMemVec::<'a, t12::SVertexBufferView>,
-    imgui_index_buffer_resources: SMemVec::<'a, n12::SResource>,
-    imgui_index_buffer_views: SMemVec::<'a, t12::SIndexBufferView>,
+    imgui_vert_buffer_resources: [SMemVec::<'a, n12::SResource>; 2],
+    imgui_vert_buffer_views: [SMemVec::<'a, t12::SVertexBufferView>; 2],
+    imgui_index_buffer_resources: [SMemVec::<'a, n12::SResource>; 2],
+    imgui_index_buffer_views: [SMemVec::<'a, t12::SIndexBufferView>; 2],
 
     frame_fence_values: [u64; 2],
 
@@ -548,10 +548,19 @@ impl<'a> SRender<'a> {
             .raw()
             .create_pipeline_state(&imgui_pipeline_state_stream_desc)?;
 
-        let imgui_vert_buffer_resources = SMemVec::new(&SYSTEM_ALLOCATOR, 128, 0)?;
-        let imgui_vert_buffer_views = SMemVec::new(&SYSTEM_ALLOCATOR, 128, 0)?;
-        let imgui_index_buffer_resources = SMemVec::new(&SYSTEM_ALLOCATOR, 128, 0)?;
-        let imgui_index_buffer_views = SMemVec::new(&SYSTEM_ALLOCATOR, 128, 0)?;
+        let imgui_vert_buffer_resources = [
+            SMemVec::new(&SYSTEM_ALLOCATOR, 128, 0)?,
+            SMemVec::new(&SYSTEM_ALLOCATOR, 128, 0)?,
+        ];
+        let imgui_vert_buffer_views = [SMemVec::new(&SYSTEM_ALLOCATOR, 128, 0)?,
+            SMemVec::new(&SYSTEM_ALLOCATOR, 128, 0)?,
+        ];
+        let imgui_index_buffer_resources = [SMemVec::new(&SYSTEM_ALLOCATOR, 128, 0)?,
+            SMemVec::new(&SYSTEM_ALLOCATOR, 128, 0)?,
+        ];
+        let imgui_index_buffer_views = [SMemVec::new(&SYSTEM_ALLOCATOR, 128, 0)?,
+            SMemVec::new(&SYSTEM_ALLOCATOR, 128, 0)?,
+        ];
 
 
         // ======================================================================
@@ -794,7 +803,13 @@ impl<'a> SRender<'a> {
         }
     }
 
-    pub fn setup_imgui_draw_data_resources(&mut self, draw_data: &imgui::DrawData) -> Result<(), &'static str> {
+    pub fn setup_imgui_draw_data_resources(&mut self, window: &n12::SD3D12Window, draw_data: &imgui::DrawData) -> Result<(), &'static str> {
+        let backbufferidx = window.currentbackbufferindex();
+        self.imgui_vert_buffer_resources[backbufferidx].remove_all();
+        self.imgui_vert_buffer_views[backbufferidx].remove_all();
+        self.imgui_index_buffer_resources[backbufferidx].remove_all();
+        self.imgui_index_buffer_views[backbufferidx].remove_all();
+
         for draw_list in draw_data.draw_lists() {
             let (vertbufferresource, vertexbufferview, indexbufferresource, indexbufferview) = {
                 //STACK_ALLOCATOR.with(|sa| {
@@ -849,10 +864,10 @@ impl<'a> SRender<'a> {
             };
 
             // -- save the data until the next frame? double buffering will probably break this
-            self.imgui_vert_buffer_resources.push(vertbufferresource.destinationresource);
-            self.imgui_vert_buffer_views.push(vertexbufferview);
-            self.imgui_index_buffer_resources.push(indexbufferresource.destinationresource);
-            self.imgui_index_buffer_views.push(indexbufferview);
+            self.imgui_vert_buffer_resources[backbufferidx].push(vertbufferresource.destinationresource);
+            self.imgui_vert_buffer_views[backbufferidx].push(vertexbufferview);
+            self.imgui_index_buffer_resources[backbufferidx].push(indexbufferresource.destinationresource);
+            self.imgui_index_buffer_views[backbufferidx].push(indexbufferview);
         }
 
         Ok(())
@@ -907,8 +922,8 @@ impl<'a> SRender<'a> {
 
             // -- set up input assembler
             list.ia_set_primitive_topology(t12::EPrimitiveTopology::TriangleList);
-            list.ia_set_vertex_buffers(0, &[&self.imgui_vert_buffer_views[i]]);
-            list.ia_set_index_buffer(&self.imgui_index_buffer_views[i]);
+            list.ia_set_vertex_buffers(0, &[&self.imgui_vert_buffer_views[backbufferidx][i]]);
+            list.ia_set_index_buffer(&self.imgui_index_buffer_views[backbufferidx][i]);
 
             for cmd in draw_list.commands() {
                 match cmd {

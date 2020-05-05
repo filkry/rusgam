@@ -67,26 +67,7 @@ fn main_d3d12() -> Result<(), &'static str> {
 
     // -- setup window
     let windowclass = winapi.rawwinapi().registerclassex("rusgam").unwrap();
-    let mut window = render.create_window(&windowclass, "rusgam", 800, 600)?;
-
-    // -- render IMGUI
-    // -- set up imgui IO
-    {
-        let io = imgui_ctxt.io_mut();
-        io.display_size = [window.width() as f32, window.height() as f32];
-    }
-
-    let mut opened = true;
-    {
-        // -- need two frames of this for some reason
-        let imgui_ui = imgui_ctxt.frame();
-        imgui_ui.show_demo_window(&mut opened);
-        let imgui_draw_data = imgui_ui.render();
-    }
-    let imgui_ui = imgui_ctxt.frame();
-    imgui_ui.show_demo_window(&mut opened);
-    let imgui_draw_data = imgui_ui.render();
-    render.setup_imgui_draw_data_resources(&imgui_draw_data)?;
+    let mut window = render.create_window(&windowclass, "rusgam", 1024, 768)?;
 
 
     window.init_render_target_views(render.device())?;
@@ -202,7 +183,20 @@ fn main_d3d12() -> Result<(), &'static str> {
             render.render(&mut window, &view_matrix, models.as_slice(), model_xforms.as_slice())
         })?;
 
-        render.render_imgui(&mut window, imgui_draw_data)?;
+        // -- render IMGUI
+        // -- set up imgui IO
+        {
+            let io = imgui_ctxt.io_mut();
+            io.display_size = [window.width() as f32, window.height() as f32];
+
+            let mut opened = true;
+            let imgui_ui = imgui_ctxt.frame();
+            imgui_ui.show_demo_window(&mut opened);
+            let imgui_draw_data = imgui_ui.render();
+
+            render.setup_imgui_draw_data_resources(&window, &imgui_draw_data)?;
+            render.render_imgui(&mut window, imgui_draw_data)?;
+        }
 
         render.present(&mut window)?;
 

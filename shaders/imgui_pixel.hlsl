@@ -14,12 +14,5 @@ float4 main( SPixelShaderInput input ) : SV_Target
     float4 tex_sample = g_texture.Sample(g_sampler, input.uv);
     out_colour.w = input.colour.w * tex_sample.w;
 
-    if(out_colour.w > 0.0) {
-        out_colour = float4(1.0, 0.0, 0.0, 1.0);
-    }
-    else {
-        out_colour = float4(0.0, 0.0, 0.0, 0.0);
-    }
-
     return out_colour;
 }

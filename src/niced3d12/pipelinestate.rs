@@ -1,5 +1,7 @@
 use super::*;
 
+use std::mem::{size_of};
+
 #[repr(C)]
 pub struct SPipelineStateStreamRootSignature<'a> {
     type_: winapi::um::d3d12::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE,
@@ -8,6 +10,7 @@ pub struct SPipelineStateStreamRootSignature<'a> {
 
 impl<'a> SPipelineStateStreamRootSignature<'a> {
     pub fn create(src: &'a SRootSignature) -> Self {
+        assert!(size_of::<Self>() % 8 == 0);
         Self {
             type_: t12::EPipelineStateSubobjectType::RootSignature.d3dtype(),
             value: src.raw().raw.deref(),
@@ -24,6 +27,7 @@ pub struct SPipelineStateStreamVertexShader<'a> {
 
 impl<'a> SPipelineStateStreamVertexShader<'a> {
     pub fn create(shader_bytecode: &'a t12::SShaderBytecode) -> Self {
+        assert!(size_of::<Self>() % 8 == 0);
         // -- result keeps pointer to input!
         Self {
             type_: t12::EPipelineStateSubobjectType::VS.d3dtype(),
@@ -42,6 +46,7 @@ pub struct SPipelineStateStreamPixelShader<'a> {
 
 impl<'a> SPipelineStateStreamPixelShader<'a> {
     pub fn create(shader_bytecode: &'a t12::SShaderBytecode) -> Self {
+        assert!(size_of::<Self>() % 8 == 0);
         // -- result keeps pointer to input!
         Self {
             type_: t12::EPipelineStateSubobjectType::PS.d3dtype(),
@@ -51,7 +56,7 @@ impl<'a> SPipelineStateStreamPixelShader<'a> {
     }
 }
 
-#[repr(C)]
+#[repr(C, align(8))]
 pub struct SPipelineStateStreamBlendDesc {
     type_: winapi::um::d3d12::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE,
     value: winapi::um::d3d12::D3D12_BLEND_DESC,
@@ -59,6 +64,7 @@ pub struct SPipelineStateStreamBlendDesc {
 
 impl SPipelineStateStreamBlendDesc {
     pub fn create(blend_desc: t12::SBlendDesc) -> Self {
+        assert!(size_of::<Self>() % 8 == 0);
         // -- result keeps pointer to input!
         Self {
             type_: t12::EPipelineStateSubobjectType::Blend.d3dtype(),
@@ -76,6 +82,7 @@ pub struct SPipelineStateStreamInputLayout<'a> {
 
 impl<'a> SPipelineStateStreamInputLayout<'a> {
     pub fn create(input_layout: &'a mut t12::SInputLayoutDesc) -> Self {
+        assert!(size_of::<Self>() % 8 == 0);
         Self {
             type_: t12::EPipelineStateSubobjectType::InputLayout.d3dtype(),
             value: unsafe { input_layout.d3dtype() },
@@ -92,6 +99,7 @@ pub struct SPipelineStateStreamPrimitiveTopology {
 
 impl SPipelineStateStreamPrimitiveTopology {
     pub fn create(value: t12::EPrimitiveTopologyType) -> Self {
+        assert!(size_of::<Self>() % 8 == 0);
         Self {
             type_: t12::EPipelineStateSubobjectType::PrimitiveTopology.d3dtype(),
             value: value.d3dtype(),
@@ -108,6 +116,7 @@ pub struct SPipelineStateStreamRTVFormats<'a> {
 
 impl<'a> SPipelineStateStreamRTVFormats<'a> {
     pub fn create(format_array: &t12::SRTFormatArray) -> Self {
+        assert!(size_of::<Self>() % 8 == 0);
         Self {
             type_: t12::EPipelineStateSubobjectType::RenderTargetFormats.d3dtype(),
             value: format_array.d3dtype(),
@@ -124,6 +133,7 @@ pub struct SPipelineStateStreamDepthStencilDesc {
 
 impl SPipelineStateStreamDepthStencilDesc {
     pub fn create(desc: t12::SDepthStencilDesc) -> Self {
+        assert!(size_of::<Self>() % 8 == 0);
         Self {
             type_: t12::EPipelineStateSubobjectType::DepthStencil.d3dtype(),
             value: desc.d3dtype(),
@@ -139,6 +149,7 @@ pub struct SPipelineStateStreamDepthStencilFormat {
 
 impl SPipelineStateStreamDepthStencilFormat {
     pub fn create(format: t12::EDXGIFormat) -> Self {
+        assert!(size_of::<Self>() % 8 == 0);
         Self {
             type_: t12::EPipelineStateSubobjectType::DepthStencilFormat.d3dtype(),
             value: format.d3dtype(),

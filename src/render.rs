@@ -44,6 +44,7 @@ struct SImguiPipelineStateStream<'a> {
     primitive_topology: n12::SPipelineStateStreamPrimitiveTopology,
     vertex_shader: n12::SPipelineStateStreamVertexShader<'a>,
     pixel_shader: n12::SPipelineStateStreamPixelShader<'a>,
+    blend_state: n12::SPipelineStateStreamBlendDesc,
     depth_stencil_desc: n12::SPipelineStateStreamDepthStencilDesc,
     rtv_formats: n12::SPipelineStateStreamRTVFormats<'a>,
 }
@@ -161,6 +162,9 @@ pub fn compile_shaders_if_changed() {
                 command.arg("-E").arg("main")
                        .arg("-T").arg(type_)
                        .arg(shader_src_path)
+                       .arg("-Od")
+                       .arg("-Zi")
+                       .arg("-Qembed_debug")
                        .arg("-Fo").arg(built_shader_path);
 
                 println!("   commmand: \"{:?}\"", command);
@@ -510,7 +514,7 @@ impl<'a> SRender<'a> {
                 0,
             ),
             t12::SInputElementDesc::create(
-                "BLENDINDICES",
+                "COLOR",
                 0,
                 t12::EDXGIFormat::R32UINT,
                 0,
@@ -520,6 +524,12 @@ impl<'a> SRender<'a> {
             ),
         ]);
 
+        let mut imgui_blend_desc = t12::SBlendDesc::default();
+        imgui_blend_desc.render_target_blend_desc[0].blend_enable = true;
+        imgui_blend_desc.render_target_blend_desc[0].src_blend = t12::EBlend::SrcAlpha;
+        imgui_blend_desc.render_target_blend_desc[0].dest_blend = t12::EBlend::InvSrcAlpha;
+        imgui_blend_desc.render_target_blend_desc[0].src_blend_alpha = t12::EBlend::One;
+        imgui_blend_desc.render_target_blend_desc[0].dest_blend_alpha = t12::EBlend::InvSrcAlpha;
 
         let imgui_pipeline_state_stream = SImguiPipelineStateStream {
             root_signature: n12::SPipelineStateStreamRootSignature::create(&imgui_root_signature),
@@ -529,6 +539,7 @@ impl<'a> SRender<'a> {
             ),
             vertex_shader: n12::SPipelineStateStreamVertexShader::create(&imgui_vert_byte_code),
             pixel_shader: n12::SPipelineStateStreamPixelShader::create(&imgui_pixel_byte_code),
+            blend_state: n12::SPipelineStateStreamBlendDesc::create(imgui_blend_desc),
             depth_stencil_desc: n12::SPipelineStateStreamDepthStencilDesc::create(imgui_depth_stencil_desc),
             rtv_formats: n12::SPipelineStateStreamRTVFormats::create(&rtv_formats),
         };

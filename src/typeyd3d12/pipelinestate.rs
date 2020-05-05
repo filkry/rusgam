@@ -285,6 +285,162 @@ impl SRTFormatArray {
     }
 }
 
+pub enum EBlend {
+    Zero,
+    One,
+    SrcColor,
+    InvSrcColor,
+    SrcAlpha,
+    InvSrcAlpha,
+    DestAlpha,
+    InvDestAlpha,
+    DestColor,
+    InvDestColor,
+    SrcAlphaSat,
+    BlendFactor,
+    InvBlendFactor,
+    Src1Color,
+    InvSrc1Color,
+    Src1Alpha,
+    InvSrc1Alpha,
+}
+
+impl EBlend {
+    pub fn d3dtype(&self) -> D3D12_BLEND {
+        match self {
+            Self::Zero => D3D12_BLEND_ZERO,
+            Self::One => D3D12_BLEND_ONE,
+            Self::SrcColor => D3D12_BLEND_SRC_COLOR,
+            Self::InvSrcColor => D3D12_BLEND_INV_SRC_COLOR,
+            Self::SrcAlpha => D3D12_BLEND_SRC_ALPHA,
+            Self::InvSrcAlpha => D3D12_BLEND_INV_SRC_ALPHA,
+            Self::DestAlpha => D3D12_BLEND_DEST_ALPHA,
+            Self::InvDestAlpha => D3D12_BLEND_INV_DEST_ALPHA,
+            Self::DestColor => D3D12_BLEND_DEST_COLOR,
+            Self::InvDestColor => D3D12_BLEND_INV_DEST_COLOR,
+            Self::SrcAlphaSat => D3D12_BLEND_SRC_ALPHA_SAT,
+            Self::BlendFactor => D3D12_BLEND_BLEND_FACTOR,
+            Self::InvBlendFactor => D3D12_BLEND_INV_BLEND_FACTOR,
+            Self::Src1Color => D3D12_BLEND_SRC1_COLOR,
+            Self::InvSrc1Color => D3D12_BLEND_INV_SRC1_COLOR,
+            Self::Src1Alpha => D3D12_BLEND_SRC1_ALPHA,
+            Self::InvSrc1Alpha => D3D12_BLEND_INV_SRC1_ALPHA
+        }
+    }
+}
+
+pub enum EBlendOp {
+    Add,
+    Subtract,
+    RevSubtract,
+    Min,
+    Max,
+}
+
+impl EBlendOp {
+    pub fn d3dtype(&self) -> D3D12_BLEND {
+        match self {
+            Self::Add => D3D12_BLEND_OP_ADD,
+            Self::Subtract => D3D12_BLEND_OP_SUBTRACT,
+            Self::RevSubtract => D3D12_BLEND_OP_REV_SUBTRACT,
+            Self::Min => D3D12_BLEND_OP_MIN,
+            Self::Max => D3D12_BLEND_OP_MAX
+        }
+    }
+}
+
+// -- $$$FRK(TODO): consider making this an enum that doesn't allow blend and logic enabled at same time
+pub struct SRenderTargetBlendDesc {
+    pub blend_enable: bool,
+    pub logic_op_enable: bool,
+    pub src_blend: EBlend,
+    pub dest_blend: EBlend,
+    pub blend_op: EBlendOp,
+    pub src_blend_alpha: EBlend,
+    pub dest_blend_alpha: EBlend,
+    pub blend_op_alpha: EBlendOp,
+    //logic_op: SLogicOp,
+    //render_target_write_mask: u8,
+}
+
+impl Default for SRenderTargetBlendDesc {
+    fn default() -> Self {
+        Self {
+            blend_enable: false,
+            logic_op_enable: false,
+            src_blend: EBlend::One,
+            dest_blend: EBlend::Zero,
+            blend_op: EBlendOp::Add,
+            src_blend_alpha: EBlend::One,
+            dest_blend_alpha: EBlend::Zero,
+            blend_op_alpha: EBlendOp::Add,
+        }
+    }
+}
+
+impl SRenderTargetBlendDesc {
+    pub fn d3dtype(&self) -> D3D12_RENDER_TARGET_BLEND_DESC {
+        D3D12_RENDER_TARGET_BLEND_DESC {
+            BlendEnable: self.blend_enable as i32,
+            LogicOpEnable: self.logic_op_enable as i32,
+            SrcBlend: self.src_blend.d3dtype(),
+            DestBlend: self.dest_blend.d3dtype(),
+            BlendOp: self.blend_op.d3dtype(),
+            SrcBlendAlpha: self.src_blend_alpha.d3dtype(),
+            DestBlendAlpha: self.dest_blend_alpha.d3dtype(),
+            BlendOpAlpha: self.blend_op_alpha.d3dtype(),
+            LogicOp: D3D12_LOGIC_OP_NOOP,
+            RenderTargetWriteMask: D3D12_COLOR_WRITE_ENABLE_ALL as u8,
+        }
+    }
+}
+
+pub struct SBlendDesc {
+    pub alpha_to_coverage_enable: bool,
+    pub independent_blend_enable: bool,
+    pub render_target_blend_desc: [SRenderTargetBlendDesc; 8],
+}
+
+impl Default for SBlendDesc {
+    fn default() -> Self {
+        Self {
+            alpha_to_coverage_enable: false,
+            independent_blend_enable: false,
+            render_target_blend_desc: [
+                Default::default(),
+                Default::default(),
+                Default::default(),
+                Default::default(),
+                Default::default(),
+                Default::default(),
+                Default::default(),
+                Default::default(),
+            ],
+        }
+    }
+}
+
+impl SBlendDesc {
+    pub fn d3dtype(&self) -> D3D12_BLEND_DESC {
+        let output_render_target =[
+            self.render_target_blend_desc[0].d3dtype(),
+            self.render_target_blend_desc[1].d3dtype(),
+            self.render_target_blend_desc[2].d3dtype(),
+            self.render_target_blend_desc[3].d3dtype(),
+            self.render_target_blend_desc[4].d3dtype(),
+            self.render_target_blend_desc[5].d3dtype(),
+            self.render_target_blend_desc[6].d3dtype(),
+            self.render_target_blend_desc[7].d3dtype(),
+        ];
+
+        D3D12_BLEND_DESC {
+            AlphaToCoverageEnable: self.alpha_to_coverage_enable as i32,
+            IndependentBlendEnable: self.independent_blend_enable as i32,
+            RenderTarget: output_render_target,
+        }
+    }
+}
+
 pub struct SPipelineStateStreamDesc<'a, T> {
     stream: &'a T,
 }

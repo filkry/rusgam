@@ -52,6 +52,22 @@ impl<'a> SPipelineStateStreamPixelShader<'a> {
 }
 
 #[repr(C)]
+pub struct SPipelineStateStreamBlendDesc {
+    type_: winapi::um::d3d12::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE,
+    value: winapi::um::d3d12::D3D12_BLEND_DESC,
+}
+
+impl SPipelineStateStreamBlendDesc {
+    pub fn create(blend_desc: t12::SBlendDesc) -> Self {
+        // -- result keeps pointer to input!
+        Self {
+            type_: t12::EPipelineStateSubobjectType::Blend.d3dtype(),
+            value: blend_desc.d3dtype(),
+        }
+    }
+}
+
+#[repr(C)]
 pub struct SPipelineStateStreamInputLayout<'a> {
     type_: winapi::um::d3d12::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE,
     value: winapi::um::d3d12::D3D12_INPUT_LAYOUT_DESC,

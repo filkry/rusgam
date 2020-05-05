@@ -931,7 +931,7 @@ impl<'a> SRender<'a> {
                             &self.texture_loader.texture_gpu_descriptor(texture).unwrap(),
                         );
 
-                        list.draw_indexed_instanced(count as u32, 1, vtx_offset as u32, idx_offset as i32, 0);
+                        list.draw_indexed_instanced(count as u32, 1, idx_offset as u32, vtx_offset as i32, 0);
                     },
                     imgui::DrawCmd::ResetRenderState => {},
                     imgui::DrawCmd::RawCallback{..} => {},

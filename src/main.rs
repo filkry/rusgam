@@ -203,8 +203,12 @@ fn main_d3d12() -> Result<(), &'static str> {
         lastframetime = curframetime;
         _framecount += 1;
 
+
         // -- $$$FRK(TODO): framerate is uncapped
 
+        let io = imgui_ctxt.io_mut(); // for filling out io state
+        let mouse_pos = window.mouse_pos(&winapi.rawwinapi());
+        io.mouse_pos = [mouse_pos[0] as f32, mouse_pos[1] as f32];
         loop {
             let msg = window.pollmessage();
             match msg {
@@ -237,6 +241,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                         _ => (),
                     },
                     safewindows::EMsgType::LButtonDown{ .. /*x_pos, y_pos*/ } => {
+                        io.mouse_down[0] = true;
                         /*
                         println!("Left button down: {}, {}", x_pos, y_pos);
 
@@ -280,6 +285,9 @@ fn main_d3d12() -> Result<(), &'static str> {
                             last_ray_hit_pos = min_pos;
                         }
                         */
+                    },
+                    safewindows::EMsgType::LButtonUp{ .. } => {
+                        io.mouse_down[0] = false;
                     },
                     safewindows::EMsgType::Input{ raw_input } => {
                         if let safewindows::rawinput::ERawInputData::Mouse{data} = raw_input.data {

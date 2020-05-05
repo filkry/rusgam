@@ -190,6 +190,20 @@ impl SWinAPI {
 
         Ok(SEventHandle { event: event })
     }
+
+    pub fn get_cursor_pos(&self) -> [u32; 2] {
+        let mut point = winapi::shared::windef::POINT {
+            x: 0,
+            y: 0,
+        };
+        let success = unsafe { winapi::um::winuser::GetCursorPos(&mut point) };
+        assert!(success != 0);
+
+        [
+            point.x as u32,
+            point.y as u32,
+        ]
+    }
 }
 
 pub struct SWindow {
@@ -325,6 +339,18 @@ impl SWindow {
             })
         }
     }
+
+    pub fn screen_to_client(&self, point: &[u32; 2]) -> [i32; 2] {
+        let mut point = winapi::shared::windef::POINT {
+            x: point[0] as i32,
+            y: point[1] as i32,
+        };
+
+        let success = unsafe { winapi::um::winuser::ScreenToClient(self.window, &mut point) };
+        assert!(success != 0);
+
+        [point.x, point.y]
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -428,6 +454,7 @@ pub enum EMsgType {
     KeyDown { key: EKey },
     KeyUp { key: EKey },
     LButtonDown { x_pos: i32, y_pos: i32 },
+    LButtonUp { x_pos: i32, y_pos: i32 },
     Paint,
     Size,
     Input { raw_input: rawinput::SRawInput },
@@ -442,6 +469,10 @@ pub fn msgtype(msg: UINT, wparam: WPARAM, lparam: LPARAM) -> EMsgType {
             key: translatewmkey(wparam),
         },
         winapi::um::winuser::WM_LBUTTONDOWN => EMsgType::LButtonDown {
+            x_pos: winapi::shared::windowsx::GET_X_LPARAM(lparam),
+            y_pos: winapi::shared::windowsx::GET_Y_LPARAM(lparam),
+        },
+        winapi::um::winuser::WM_LBUTTONUP => EMsgType::LButtonUp {
             x_pos: winapi::shared::windowsx::GET_X_LPARAM(lparam),
             y_pos: winapi::shared::windowsx::GET_Y_LPARAM(lparam),
         },

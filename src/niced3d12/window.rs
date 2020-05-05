@@ -115,6 +115,13 @@ impl SD3D12Window {
         self.curheight
     }
 
+    pub fn mouse_pos(&self, winapi: &safewindows::SWinAPI) -> [i32; 2] {
+        let screen_cursor_pos = winapi.get_cursor_pos();
+        let window_pos = self.window.screen_to_client(&screen_cursor_pos);
+
+        window_pos
+    }
+
     pub fn resize(
         &mut self,
         width: u32,

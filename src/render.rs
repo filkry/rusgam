@@ -534,6 +534,13 @@ impl<'a> SRender<'a> {
         let imgui_pipeline_state = device
             .raw()
             .create_pipeline_state(&imgui_pipeline_state_stream_desc)?;
+
+        let imgui_vert_buffer_resources = SMemVec::new(&SYSTEM_ALLOCATOR, 128, 0)?;
+        let imgui_vert_buffer_views = SMemVec::new(&SYSTEM_ALLOCATOR, 128, 0)?;
+        let imgui_index_buffer_resources = SMemVec::new(&SYSTEM_ALLOCATOR, 128, 0)?;
+        let imgui_index_buffer_views = SMemVec::new(&SYSTEM_ALLOCATOR, 128, 0)?;
+
+
         // ======================================================================
 
         Ok(Self {
@@ -574,10 +581,10 @@ impl<'a> SRender<'a> {
             imgui_texture_descriptor_table_param_idx,
             _imgui_vert_byte_code: imgui_vert_byte_code,
             _imgui_pixel_byte_code: imgui_pixel_byte_code,
-            imgui_vert_buffer_resources: SMemVec::new(&SYSTEM_ALLOCATOR, 128, 0)?,
-            imgui_vert_buffer_views: SMemVec::new(&SYSTEM_ALLOCATOR, 128, 0)?,
-            imgui_index_buffer_resources: SMemVec::new(&SYSTEM_ALLOCATOR, 128, 0)?,
-            imgui_index_buffer_views: SMemVec::new(&SYSTEM_ALLOCATOR, 128, 0)?,
+            imgui_vert_buffer_resources,
+            imgui_vert_buffer_views,
+            imgui_index_buffer_resources,
+            imgui_index_buffer_views,
 
             frame_fence_values: [0; 2],
         })
@@ -774,56 +781,7 @@ impl<'a> SRender<'a> {
         }
     }
 
-    pub fn render_imgui(&mut self, window: &mut n12::SD3D12Window, draw_data: &imgui::DrawData) -> Result<(), &'static str> {
-        let backbufferidx = window.currentbackbufferindex();
-
-        self.imgui_vert_buffer_resources.remove_all();
-        self.imgui_vert_buffer_views.remove_all();
-        self.imgui_index_buffer_resources.remove_all();
-        self.imgui_index_buffer_views.remove_all();
-
-        let handle = self.direct_command_pool.alloc_list()?;
-        let mut list = self.direct_command_pool.get_list(handle)?;
-
-        // -- set up pipeline
-        list.set_pipeline_state(&self.imgui_pipeline_state);
-        // root signature has to be set explicitly despite being on PSO, according to tutorial
-        list.set_graphics_root_signature(&self.imgui_root_signature.raw());
-
-        // -- setup rasterizer state
-        let viewport = t12::SViewport::new(
-            0.0,
-            0.0,
-            window.width() as f32,
-            window.height() as f32,
-            None,
-            None,
-        );
-        list.rs_set_viewports(&[&viewport]);
-
-        // -- setup the output merger
-        let render_target_view = window.currentrendertargetdescriptor()?;
-        let depth_texture_view = self._depth_texture_view.as_ref().expect("no depth texture").cpu_descriptor(0);
-        list.om_set_render_targets(&[&render_target_view], false, &depth_texture_view);
-
-        self.srv_heap.with_raw_heap(|rh| {
-            list.set_descriptor_heaps(&[rh]);
-        });
-
-        let ortho_matrix: Mat4 = {
-            let znear = 0.0;
-            let zfar = 1.0;
-
-            let left = draw_data.display_pos[0];
-            let right = draw_data.display_pos[0] + draw_data.display_size[0];
-            let bottom = draw_data.display_pos[1] + draw_data.display_size[1];
-            let top = draw_data.display_pos[1];
-
-            glm::ortho_lh_zo(left, right, bottom, top, znear, zfar)
-        };
-
-        list.set_graphics_root_32_bit_constants(self.imgui_orthomat_root_param_idx as u32, &ortho_matrix, 0);
-
+    pub fn setup_imgui_draw_data_resources(&mut self, draw_data: &imgui::DrawData) -> Result<(), &'static str> {
         for draw_list in draw_data.draw_lists() {
             let (vertbufferresource, vertexbufferview, indexbufferresource, indexbufferview) = {
                 //STACK_ALLOCATOR.with(|sa| {
@@ -882,11 +840,62 @@ impl<'a> SRender<'a> {
             self.imgui_vert_buffer_views.push(vertexbufferview);
             self.imgui_index_buffer_resources.push(indexbufferresource.destinationresource);
             self.imgui_index_buffer_views.push(indexbufferview);
+        }
+
+        Ok(())
+    }
+
+    pub fn render_imgui(&mut self, window: &mut n12::SD3D12Window, draw_data: &imgui::DrawData) -> Result<(), &'static str> {
+        let backbufferidx = window.currentbackbufferindex();
+
+        let handle = self.direct_command_pool.alloc_list()?;
+        let mut list = self.direct_command_pool.get_list(handle)?;
+
+        // -- set up pipeline
+        list.set_pipeline_state(&self.imgui_pipeline_state);
+        // root signature has to be set explicitly despite being on PSO, according to tutorial
+        list.set_graphics_root_signature(&self.imgui_root_signature.raw());
+
+        // -- setup rasterizer state
+        let viewport = t12::SViewport::new(
+            0.0,
+            0.0,
+            window.width() as f32,
+            window.height() as f32,
+            None,
+            None,
+        );
+        list.rs_set_viewports(&[&viewport]);
+
+        // -- setup the output merger
+        let render_target_view = window.currentrendertargetdescriptor()?;
+        let depth_texture_view = self._depth_texture_view.as_ref().expect("no depth texture").cpu_descriptor(0);
+        list.om_set_render_targets(&[&render_target_view], false, &depth_texture_view);
+
+        self.srv_heap.with_raw_heap(|rh| {
+            list.set_descriptor_heaps(&[rh]);
+        });
+
+        let ortho_matrix: Mat4 = {
+            let znear = 0.0;
+            let zfar = 1.0;
+
+            let left = draw_data.display_pos[0];
+            let right = draw_data.display_pos[0] + draw_data.display_size[0];
+            let bottom = draw_data.display_pos[1] + draw_data.display_size[1];
+            let top = draw_data.display_pos[1];
+
+            glm::ortho_lh_zo(left, right, bottom, top, znear, zfar)
+        };
+
+        list.set_graphics_root_32_bit_constants(self.imgui_orthomat_root_param_idx as u32, &ortho_matrix, 0);
+
+        for (i, draw_list) in draw_data.draw_lists().enumerate() {
 
             // -- set up input assembler
             list.ia_set_primitive_topology(t12::EPrimitiveTopology::TriangleList);
-            list.ia_set_vertex_buffers(0, &[self.imgui_vert_buffer_views.last().unwrap()]);
-            list.ia_set_index_buffer(&self.imgui_index_buffer_views.last().unwrap());
+            list.ia_set_vertex_buffers(0, &[&self.imgui_vert_buffer_views[i]]);
+            list.ia_set_index_buffer(&self.imgui_index_buffer_views[i]);
 
             for cmd in draw_list.commands() {
                 match cmd {

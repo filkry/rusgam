@@ -62,12 +62,26 @@ fn main_d3d12() -> Result<(), &'static str> {
     let winapi = rustywindows::SWinAPI::create();
 
     let mut imgui_ctxt = imgui::Context::create();
+
     let mut render = render::SRender::new(&winapi, &mut imgui_ctxt)?;
 
     // -- setup window
     let windowclass = winapi.rawwinapi().registerclassex("rusgam").unwrap();
-
     let mut window = render.create_window(&windowclass, "rusgam", 800, 600)?;
+
+    // -- render IMGUI
+    // -- set up imgui IO
+    {
+        let io = imgui_ctxt.io_mut();
+        io.display_size = [window.width() as f32, window.height() as f32];
+    }
+
+    let mut opened = true;
+    let imgui_ui = imgui_ctxt.frame();
+    imgui_ui.show_demo_window(&mut opened);
+    let imgui_draw_data = imgui_ui.render();
+    render.setup_imgui_draw_data_resources(&imgui_draw_data)?;
+
 
     window.init_render_target_views(render.device())?;
     window.show();
@@ -125,15 +139,8 @@ fn main_d3d12() -> Result<(), &'static str> {
 
     let last_ray_hit_pos = Vec3::new(0.0, 0.0, 0.0);
 
+
     while !shouldquit {
-        // -- set up imgui IO
-        {
-            let io = imgui_ctxt.io_mut();
-            io.display_size = [window.width() as f32, window.height() as f32];
-        }
-
-        let imgui_ui = imgui_ctxt.frame();
-
         let curframetime = winapi.curtimemicroseconds();
         let dt = curframetime - lastframetime;
         let _dtms = dt as f64;
@@ -189,15 +196,8 @@ fn main_d3d12() -> Result<(), &'static str> {
             render.render(&mut window, &view_matrix, models.as_slice(), model_xforms.as_slice())
         })?;
 
-        // -- render IMGUI
-        {
-            let mut opened = true;
-            imgui_ui.show_demo_window(&mut opened);
-            let imgui_draw_data = imgui_ui.render();
-            render.render_imgui(&mut window, imgui_draw_data)?;
-        }
-
         render.present(&mut window)?;
+        render.render_imgui(&mut window, imgui_draw_data)?;
 
         lastframetime = curframetime;
         _framecount += 1;

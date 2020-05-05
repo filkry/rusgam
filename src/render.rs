@@ -200,6 +200,7 @@ impl<'a> SRender<'a> {
         let direct_command_queue = Rc::new(RefCell::new(
             device.create_command_queue(&winapi.rawwinapi(), t12::ECommandListType::Direct)?,
         ));
+        unsafe { direct_command_queue.borrow_mut().set_debug_name("render direct queue"); }
         let mut direct_command_pool =
             n12::SCommandListPool::create(&device, Rc::downgrade(&direct_command_queue), &winapi.rawwinapi(), 1, 10)?;
 
@@ -227,6 +228,7 @@ impl<'a> SRender<'a> {
         let copy_command_queue = Rc::new(RefCell::new(
             device.create_command_queue(&winapi.rawwinapi(), t12::ECommandListType::Copy)?,
         ));
+        unsafe { direct_command_queue.borrow_mut().set_debug_name("render copy queue"); }
         let copy_command_pool =
             n12::SCommandListPool::create(&device, Rc::downgrade(&copy_command_queue), &winapi.rawwinapi(), 1, 10)?;
         let mesh_loader = SMeshLoader::new(Rc::downgrade(&device), &winapi, Rc::downgrade(&copy_command_queue), 23948934, 1024)?;

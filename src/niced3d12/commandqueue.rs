@@ -1,11 +1,15 @@
 use super::*;
 
+use arrayvec::ArrayVec;
+
 pub struct SCommandQueue {
     raw: t12::SCommandQueue,
 
     fence: SFence,
 
     commandlisttype: t12::ECommandListType,
+
+    pub(super) debug_name: ArrayVec<[u16; 64]>,
 }
 
 impl SCommandQueue {
@@ -18,11 +22,21 @@ impl SCommandQueue {
             raw: raw,
             fence: fence,
             commandlisttype: type_,
+            debug_name: ArrayVec::new(),
         }
     }
 
     pub unsafe fn raw(&self) -> &t12::SCommandQueue {
         &self.raw
+    }
+
+    pub unsafe fn set_debug_name(&mut self, str_: &'static str) {
+        for ch in str_.encode_utf16() {
+            self.debug_name.push(ch);
+        }
+        self.debug_name.push('\0' as u16);
+
+        self.raw().raw().SetName(&self.debug_name[0]);
     }
 
     pub fn type_(&self) -> t12::ECommandListType {

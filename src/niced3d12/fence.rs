@@ -9,10 +9,12 @@ pub struct SFence {
 
 impl SFence {
     pub fn new_from_raw(raw: t12::SFence, evt: safewindows::SEventHandle) -> Self {
+        let completedvalue = raw.getcompletedvalue();
+        assert!(completedvalue < 1);
         Self {
             raw: raw,
             fenceevent: evt,
-            nextfencevalue: 0,
+            nextfencevalue: 1,
         }
     }
 

@@ -77,6 +77,12 @@ fn main_d3d12() -> Result<(), &'static str> {
     }
 
     let mut opened = true;
+    {
+        // -- need two frames of this for some reason
+        let imgui_ui = imgui_ctxt.frame();
+        imgui_ui.show_demo_window(&mut opened);
+        let imgui_draw_data = imgui_ui.render();
+    }
     let imgui_ui = imgui_ctxt.frame();
     imgui_ui.show_demo_window(&mut opened);
     let imgui_draw_data = imgui_ui.render();
@@ -196,8 +202,9 @@ fn main_d3d12() -> Result<(), &'static str> {
             render.render(&mut window, &view_matrix, models.as_slice(), model_xforms.as_slice())
         })?;
 
-        render.present(&mut window)?;
         render.render_imgui(&mut window, imgui_draw_data)?;
+
+        render.present(&mut window)?;
 
         lastframetime = curframetime;
         _framecount += 1;

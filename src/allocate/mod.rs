@@ -365,12 +365,21 @@ impl<'a, T> SMemVec<'a, T> {
         std::mem::forget(value);
     }
 
-    pub fn remove_all(&mut self) {
+    pub fn clear(&mut self) {
         for item in self.as_mut_slice() {
-            std::mem::drop(item);
+            unsafe {
+                let mut replacement = std::mem::MaybeUninit::<T>::zeroed().assume_init();
+                std::mem::swap(item, &mut replacement);
+            }
         }
 
         self.len = 0;
+    }
+}
+
+impl<'a, T> Drop for SMemVec<'a, T> {
+    fn drop(&mut self) {
+        self.clear();
     }
 }
 
@@ -574,6 +583,44 @@ fn test_iter() {
     for (i, v) in vec.iter().enumerate() {
         assert_eq!(i as u32, *v);
     }
+}
+
+#[test]
+fn test_drop() {
+    let allocator = SSystemAllocator {};
+    let refcount = RefCell::<i64>::new(0);
+
+    struct SRefCounter<'a> {
+        refcount: &'a RefCell::<i64>,
+    }
+
+    impl<'a> SRefCounter<'a> {
+        pub fn new(refcount: &'a RefCell::<i64>) -> Self {
+            *refcount.borrow_mut().deref_mut() += 1;
+
+            Self {
+                refcount,
+            }
+        }
+    }
+
+    impl<'a> Drop for SRefCounter<'a> {
+        fn drop(&mut self) {
+            *self.refcount.borrow_mut().deref_mut() -= 1;
+        }
+    }
+
+    let mut vec = SMemVec::<SRefCounter>::new(&allocator, 5, 0).unwrap();
+
+    vec.push(SRefCounter::new(&refcount));
+    vec.push(SRefCounter::new(&refcount));
+    vec.push(SRefCounter::new(&refcount));
+    vec.push(SRefCounter::new(&refcount));
+    vec.push(SRefCounter::new(&refcount));
+
+    vec.clear();
+
+    assert_eq!(*refcount.borrow().deref(), 0 as i64);
 }
 
 /*

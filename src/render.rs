@@ -562,7 +562,6 @@ impl<'a> SRender<'a> {
             SMemVec::new(&SYSTEM_ALLOCATOR, 128, 0)?,
         ];
 
-
         // ======================================================================
 
         Ok(Self {
@@ -805,10 +804,10 @@ impl<'a> SRender<'a> {
 
     pub fn setup_imgui_draw_data_resources(&mut self, window: &n12::SD3D12Window, draw_data: &imgui::DrawData) -> Result<(), &'static str> {
         let backbufferidx = window.currentbackbufferindex();
-        self.imgui_vert_buffer_resources[backbufferidx].remove_all();
-        self.imgui_vert_buffer_views[backbufferidx].remove_all();
-        self.imgui_index_buffer_resources[backbufferidx].remove_all();
-        self.imgui_index_buffer_views[backbufferidx].remove_all();
+        self.imgui_vert_buffer_resources[backbufferidx].clear();
+        self.imgui_vert_buffer_views[backbufferidx].clear();
+        self.imgui_index_buffer_resources[backbufferidx].clear();
+        self.imgui_index_buffer_views[backbufferidx].clear();
 
         for draw_list in draw_data.draw_lists() {
             let (vertbufferresource, vertexbufferview, indexbufferresource, indexbufferview) = {

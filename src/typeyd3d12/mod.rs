@@ -70,7 +70,7 @@ pub use self::adapter::SAdapter4;
 pub use self::commandallocator::*;
 pub use self::commandlist::*;
 pub use self::commandqueue::*;
-pub use self::debuginterface::SDebugInterface;
+pub use self::debuginterface::*;
 pub use self::descriptor::*;
 pub use self::device::*;
 pub use self::factory::SFactory;

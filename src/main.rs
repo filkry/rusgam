@@ -316,6 +316,11 @@ fn main_d3d12() -> Result<(), &'static str> {
     // -- wait for all commands to clear
     render.flush()?;
 
+    // -- find out what we leaked
+    drop(render);
+    let debug_interface = t12::SDXGIDebugInterface::new()?;
+    debug_interface.report_live_objects();
+
     Ok(())
 }
 

@@ -946,7 +946,7 @@ impl<'a> SRender<'a> {
                             left: f32::max(0.0, clip_rect[0]).floor() as i32,
                             right: f32::min(clip_rect[2], window.width() as f32).floor() as i32,
                             top: f32::max(0.0, clip_rect[1]).floor() as i32,
-                            bottom: f32::min(clip_rect[2], window.height() as f32).floor() as i32,
+                            bottom: f32::min(clip_rect[3], window.height() as f32).floor() as i32,
                         };
 
                         list.rs_set_scissor_rects(t12::SScissorRects::create(&[&scissorrect]));

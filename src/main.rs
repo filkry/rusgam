@@ -147,7 +147,7 @@ fn main_d3d12() -> Result<(), &'static str> {
     };
 
     let mut mode = EMode::Edit;
-    let last_ray_hit_pos = Vec3::new(0.0, 0.0, 0.0);
+    let mut last_ray_hit_pos = Vec3::new(0.0, 0.0, 0.0);
 
     while !shouldquit {
         let curframetime = winapi.curtimemicroseconds();
@@ -156,6 +156,8 @@ fn main_d3d12() -> Result<(), &'static str> {
         let dts = (dt as f32) / 1_000_000.0;
 
         let total_time = curframetime - start_time;
+
+        let mouse_pos = window.mouse_pos(&winapi.rawwinapi());
 
         // -- update
         let cur_angle = ((total_time as f32) / 1_000_000.0) * (3.14159 / 4.0);
@@ -210,7 +212,55 @@ fn main_d3d12() -> Result<(), &'static str> {
         // -- render world
         STACK_ALLOCATOR.with(|sa| -> Result<(), &'static str> {
             let (model_xforms, models) = entities.build_render_data(sa);
-            render.render(&mut window, &view_matrix, models.as_slice(), model_xforms.as_slice())
+            render.render(&mut window, &view_matrix, models.as_slice(), model_xforms.as_slice())?;
+
+            if input.left_mouse {
+                let (x_pos, y_pos) = (mouse_pos[0], mouse_pos[1]);
+
+                println!("Left button down: {}, {}", x_pos, y_pos);
+
+                let half_camera_near_clip_height = (render.fovy()/2.0).tan() * render.znear();
+                let half_camera_near_clip_width = ((window.width() as f32) / (window.height() as f32)) * half_camera_near_clip_height;
+
+                let near_clip_top_left_camera_space = Vec3::new(-half_camera_near_clip_width, half_camera_near_clip_height, render.znear());
+                let near_clip_deltax_camera_space = Vec3::new(2.0 * half_camera_near_clip_width, 0.0, 0.0);
+                let near_clip_deltay_camera_space = Vec3::new(0.0, -2.0 * half_camera_near_clip_height, 0.0);
+
+                let pct_width = (x_pos as f32) / (window.width() as f32);
+                let pct_height = (y_pos as f32) / (window.height() as f32);
+
+                let to_z_near_camera_space = near_clip_top_left_camera_space +
+                    pct_width * near_clip_deltax_camera_space +
+                    pct_height * near_clip_deltay_camera_space;
+
+                println!("to_z_near_camera_space: {:?}", to_z_near_camera_space);
+
+                let world_to_view = camera.world_to_view_matrix();
+                let view_to_world = glm::inverse(&world_to_view);
+
+                let to_z_near_world_space = view_to_world * utils::vec3_to_homogenous(&to_z_near_camera_space, 0.0);
+
+                let mut min_t = std::f32::MAX;
+                let mut min_model_i = None;
+                let mut min_pos = Vec3::new(0.0, 0.0, 0.0);
+
+                for modeli in 0..models.len() {
+                    if let Some(t) = render.ray_intersects(&models[modeli], &camera.pos_world, &to_z_near_world_space.xyz(), &model_xforms[modeli]) {
+                        if t < min_t {
+                            min_t = t;
+                            min_model_i = Some(modeli);
+                            min_pos = camera.pos_world + t * to_z_near_world_space.xyz();
+                        }
+                    }
+                }
+
+                if let Some(modeli) = min_model_i {
+                    println!("Hit model {}", modeli);
+                    last_ray_hit_pos = min_pos;
+                }
+            }
+
+            Ok(())
         })?;
 
         // -- render IMGUI
@@ -237,7 +287,6 @@ fn main_d3d12() -> Result<(), &'static str> {
         // -- $$$FRK(TODO): framerate is uncapped
 
         let io = imgui_ctxt.io_mut(); // for filling out io state
-        let mouse_pos = window.mouse_pos(&winapi.rawwinapi());
         io.mouse_pos = [mouse_pos[0] as f32, mouse_pos[1] as f32];
         loop {
             let msg = window.pollmessage();
@@ -271,52 +320,10 @@ fn main_d3d12() -> Result<(), &'static str> {
                         safewindows::EKey::C => input.c = false,
                         _ => (),
                     },
-                    safewindows::EMsgType::LButtonDown{ .. /*x_pos, y_pos*/ } => {
+                    safewindows::EMsgType::LButtonDown{ .. } => {
                         io.mouse_down[0] = true;
                         input.left_mouse = true;
-                        /*
-                        println!("Left button down: {}, {}", x_pos, y_pos);
 
-                        let half_camera_near_clip_height = (render.fovy()/2.0).tan() * render.znear();
-                        let half_camera_near_clip_width = ((window.width() as f32) / (window.height() as f32)) * half_camera_near_clip_height;
-
-                        let near_clip_top_left_camera_space = Vec3::new(-half_camera_near_clip_width, half_camera_near_clip_height, render.znear());
-                        let near_clip_deltax_camera_space = Vec3::new(2.0 * half_camera_near_clip_width, 0.0, 0.0);
-                        let near_clip_deltay_camera_space = Vec3::new(0.0, -2.0 * half_camera_near_clip_height, 0.0);
-
-                        let pct_width = (x_pos as f32) / (window.width() as f32);
-                        let pct_height = (y_pos as f32) / (window.height() as f32);
-
-                        let to_z_near_camera_space = near_clip_top_left_camera_space +
-                            pct_width * near_clip_deltax_camera_space +
-                            pct_height * near_clip_deltay_camera_space;
-
-                        println!("to_z_near_camera_space: {:?}", to_z_near_camera_space);
-
-                        let world_to_view = camera.world_to_view_matrix();
-                        let view_to_world = glm::inverse(&world_to_view);
-
-                        let to_z_near_world_space = view_to_world * utils::vec3_to_homogenous(&to_z_near_camera_space, 0.0);
-
-                        let mut min_t = std::f32::MAX;
-                        let mut min_model_i = None;
-                        let mut min_pos = Vec3::new(0.0, 0.0, 0.0);
-
-                        for modeli in 0..models.len() {
-                            if let Some(t) = render.ray_intersects(&model, &camera.pos_world, &to_z_near_world_space.xyz(), model_xforms[modeli]) {
-                                if t < min_t {
-                                    min_t = t;
-                                    min_model_i = Some(modeli);
-                                    min_pos = camera.pos_world + t * to_z_near_world_space.xyz();
-                                }
-                            }
-                        }
-
-                        if let Some(modeli) = min_model_i {
-                            println!("Hit model {}", modeli);
-                            last_ray_hit_pos = min_pos;
-                        }
-                        */
                     },
                     safewindows::EMsgType::LButtonUp{ .. } => {
                         io.mouse_down[0] = false;

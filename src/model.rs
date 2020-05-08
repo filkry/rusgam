@@ -102,6 +102,8 @@ pub struct STextureLoader {
 pub struct SModel {
     pub mesh: SPoolHandle,
 
+    pickable: bool,
+
     // -- material info
     diffuse_colour: Vec3,
     diffuse_texture: Option<SPoolHandle>,
@@ -246,6 +248,10 @@ impl<'a> SMeshLoader<'a> {
         ray_dir: &Vec3,
         model_to_ray_space: &STransform,
     ) -> Option<f32> {
+
+        if model.pickable == false {
+            return None;
+        }
 
         let mesh = self.mesh_pool.get(model.mesh).unwrap();
 
@@ -524,11 +530,17 @@ impl SModel {
         Ok(Self {
             mesh: mesh?,
 
+            pickable: true,
+
             // -- material info
             diffuse_colour,
             diffuse_texture,
             diffuse_weight,
         })
+    }
+
+    pub fn set_pickable(&mut self, pickable: bool) {
+        self.pickable = pickable;
     }
 
     pub fn set_texture_root_parameters(
@@ -554,5 +566,4 @@ impl SModel {
 
         cl.set_graphics_root_32_bit_constants(metadata_constant_root_parameter, &texture_metadata, 0);
     }
-
 }

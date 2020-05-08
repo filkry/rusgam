@@ -5,6 +5,7 @@ use collections::{SStoragePool, SPoolHandle};
 
 #[allow(dead_code)]
 struct SEntity {
+    debug_name: Option<&'static str>,
     location: STransform,
     model: Option<SModel>,
 }
@@ -17,6 +18,7 @@ pub struct SEntityBucket {
 impl SEntity {
     pub fn new() -> Self {
         Self {
+            debug_name: None,
             location: STransform::default(),
             model: None,
         }
@@ -34,6 +36,10 @@ impl SEntityBucket {
         self.entities.insert_val(SEntity::new())
     }
 
+    pub fn set_entity_debug_name(&mut self, entity: SPoolHandle, debug_name: &'static str) {
+        self.entities.get_mut(entity).expect("invalid entity").debug_name = Some(debug_name);
+    }
+
     pub fn set_entity_location(&mut self, entity: SPoolHandle, location: STransform) {
         self.entities.get_mut(entity).expect("invalid entity").location = location;
     }
@@ -42,19 +48,32 @@ impl SEntityBucket {
         self.entities.get_mut(entity).expect("invalid entity").model = Some(model);
     }
 
-    pub fn build_render_data<'a>(&self, allocator: &'a dyn TMemAllocator) -> (SMemVec<'a, STransform>, SMemVec<'a, SModel>) {
+    pub fn build_render_data<'a>(&self, allocator: &'a dyn TMemAllocator) -> (SMemVec<'a, SPoolHandle>, SMemVec<'a, STransform>, SMemVec<'a, SModel>) {
+        let mut entities = SMemVec::<SPoolHandle>::new(allocator, self.entities.used(), 0).expect("alloc fail");
         let mut transforms = SMemVec::<STransform>::new(allocator, self.entities.used(), 0).expect("alloc fail");
         let mut models = SMemVec::<SModel>::new(allocator, self.entities.used(), 0).expect("alloc fail");
 
         for entity_idx in 0..self.entities.max() {
             if let Ok(Some(e)) = self.entities.get_by_index(entity_idx) {
                 if let Some(m) = e.model {
+                    entities.push(self.entities.handle_for_index(entity_idx));
                     transforms.push(e.location);
                     models.push(m);
                 }
             }
         }
 
-        (transforms, models)
+        (entities, transforms, models)
+    }
+
+    pub fn show_imgui_window(&self, entity: SPoolHandle, imgui_ui: &imgui::Ui) {
+        imgui::Window::new(imgui::im_str!("Selected entity"))
+            .size([300.0, 300.0], imgui::Condition::FirstUseEver)
+            .build(&imgui_ui, || {
+                if let Some(n) = self.entities.get(entity).expect("invalid entity").debug_name {
+                    imgui_ui.text(imgui::im_str!("debug_name: {}", n));
+                }
+                imgui_ui.text(imgui::im_str!("index: {}, generation: {}", entity.index(), entity.generation()));
+            });
     }
 }

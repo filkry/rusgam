@@ -20,6 +20,14 @@ impl SPoolHandle {
     pub fn invalidate(&mut self) {
         *self = Default::default();
     }
+
+    pub fn index(&self) -> u16 {
+        self.index
+    }
+
+    pub fn generation(&self) -> u16 {
+        self.generation
+    }
 }
 
 impl Default for SPoolHandle {

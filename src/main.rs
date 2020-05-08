@@ -39,6 +39,7 @@ mod shadowmapping;
 use glm::{Vec3/*, Mat4*/};
 
 use allocate::{STACK_ALLOCATOR};
+use collections::{SPoolHandle};
 use niced3d12 as n12;
 use typeyd3d12 as t12;
 //use allocate::{SMemVec, STACK_ALLOCATOR};
@@ -85,7 +86,7 @@ fn main_d3d12() -> Result<(), &'static str> {
 
     // -- setup window
     let windowclass = winapi.rawwinapi().registerclassex("rusgam").unwrap();
-    let mut window = render.create_window(&windowclass, "rusgam", 1024, 768)?;
+    let mut window = render.create_window(&windowclass, "rusgam", 1600, 900)?;
 
 
     window.init_render_target_views(render.device())?;
@@ -103,9 +104,15 @@ fn main_d3d12() -> Result<(), &'static str> {
         let model1 = render.new_model("assets/first_test_asset.obj", 1.0)?;
         let model3 = render.new_model("assets/test_untextured_flat_colour_cube.obj", 1.0)?;
         let room_model = render.new_model("assets/test_open_room.obj", 1.0)?;
-        let debug_model = render.new_model("assets/debug_icosphere.obj", 1.0)?;
+        let mut debug_model = render.new_model("assets/debug_icosphere.obj", 1.0)?;
+        debug_model.set_pickable(false);
         //let fixed_size_model = SModel::new_from_obj("assets/test_untextured_flat_colour_cube.obj", &device, &mut copycommandpool, &mut directcommandpool, &srv_heap, true, 1.0)?;
         //let translation_widget = SModel::new_from_obj("assets/arrow_widget.obj", &mut mesh_loader, &mut texture_loader, 0.8)?;
+
+        entities.set_entity_debug_name(rotating_entity, "tst_rotating");
+        entities.set_entity_debug_name(ent2, "tst_textured_cube");
+        entities.set_entity_debug_name(ent3, "tst_coloured_cube");
+        entities.set_entity_debug_name(room, "tst_room");
 
         entities.set_entity_location(ent2, STransform::new_translation(&glm::Vec3::new(3.0, 0.0, 0.0)));
         entities.set_entity_location(ent3, STransform::new_translation(&glm::Vec3::new(0.0, 2.0, 0.0)));
@@ -148,6 +155,7 @@ fn main_d3d12() -> Result<(), &'static str> {
 
     let mut mode = EMode::Edit;
     let mut last_ray_hit_pos = Vec3::new(0.0, 0.0, 0.0);
+    let mut last_picked_entity : Option<SPoolHandle> = None;
 
     while !shouldquit {
         let curframetime = winapi.curtimemicroseconds();
@@ -211,7 +219,7 @@ fn main_d3d12() -> Result<(), &'static str> {
 
         // -- render world
         STACK_ALLOCATOR.with(|sa| -> Result<(), &'static str> {
-            let (model_xforms, models) = entities.build_render_data(sa);
+            let (entities, model_xforms, models) = entities.build_render_data(sa);
             render.render(&mut window, &view_matrix, models.as_slice(), model_xforms.as_slice())?;
 
             if input.left_mouse {
@@ -246,6 +254,7 @@ fn main_d3d12() -> Result<(), &'static str> {
 
                 for modeli in 0..models.len() {
                     if let Some(t) = render.ray_intersects(&models[modeli], &camera.pos_world, &to_z_near_world_space.xyz(), &model_xforms[modeli]) {
+                        assert!(t > 0.0);
                         if t < min_t {
                             min_t = t;
                             min_model_i = Some(modeli);
@@ -255,8 +264,9 @@ fn main_d3d12() -> Result<(), &'static str> {
                 }
 
                 if let Some(modeli) = min_model_i {
-                    println!("Hit model {}", modeli);
+                    println!("Hit model {} at pos {}, {}, {}", modeli, min_pos.x, min_pos.y, min_pos.z);
                     last_ray_hit_pos = min_pos;
+                    last_picked_entity = Some(entities[modeli]);
                 }
             }
 
@@ -269,9 +279,14 @@ fn main_d3d12() -> Result<(), &'static str> {
             let io = imgui_ctxt.io_mut();
             io.display_size = [window.width() as f32, window.height() as f32];
 
-            let mut opened = true;
             let imgui_ui = imgui_ctxt.frame();
+            let mut opened = true;
             imgui_ui.show_demo_window(&mut opened);
+
+            if let Some(e) = last_picked_entity {
+                entities.show_imgui_window(e, &imgui_ui);
+            }
+
             let imgui_draw_data = imgui_ui.render();
 
             render.setup_imgui_draw_data_resources(&window, &imgui_draw_data)?;

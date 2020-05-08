@@ -433,10 +433,11 @@ pub enum EKey {
     S,
     W,
     Space,
+    Tilde,
 }
 
 pub fn translatewmkey(key: winapi::shared::minwindef::WPARAM) -> EKey {
-    match key {
+    match key as i32 {
         0x20 => EKey::Space,
         0x41 => EKey::A,
         0x43 => EKey::C,
@@ -444,6 +445,7 @@ pub fn translatewmkey(key: winapi::shared::minwindef::WPARAM) -> EKey {
         0x51 => EKey::Q,
         0x53 => EKey::S,
         0x57 => EKey::W,
+        winapi::um::winuser::VK_OEM_3 => EKey::Tilde,
         _ => EKey::Invalid,
     }
 }
@@ -455,6 +457,8 @@ pub enum EMsgType {
     KeyUp { key: EKey },
     LButtonDown { x_pos: i32, y_pos: i32 },
     LButtonUp { x_pos: i32, y_pos: i32 },
+    MButtonDown { x_pos: i32, y_pos: i32 },
+    MButtonUp { x_pos: i32, y_pos: i32 },
     Paint,
     Size,
     Input { raw_input: rawinput::SRawInput },
@@ -473,6 +477,14 @@ pub fn msgtype(msg: UINT, wparam: WPARAM, lparam: LPARAM) -> EMsgType {
             y_pos: winapi::shared::windowsx::GET_Y_LPARAM(lparam),
         },
         winapi::um::winuser::WM_LBUTTONUP => EMsgType::LButtonUp {
+            x_pos: winapi::shared::windowsx::GET_X_LPARAM(lparam),
+            y_pos: winapi::shared::windowsx::GET_Y_LPARAM(lparam),
+        },
+        winapi::um::winuser::WM_MBUTTONDOWN => EMsgType::MButtonDown {
+            x_pos: winapi::shared::windowsx::GET_X_LPARAM(lparam),
+            y_pos: winapi::shared::windowsx::GET_Y_LPARAM(lparam),
+        },
+        winapi::um::winuser::WM_MBUTTONUP => EMsgType::MButtonUp {
             x_pos: winapi::shared::windowsx::GET_X_LPARAM(lparam),
             y_pos: winapi::shared::windowsx::GET_Y_LPARAM(lparam),
         },

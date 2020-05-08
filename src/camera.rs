@@ -40,7 +40,7 @@ impl SCamera {
         }
     }
 
-    pub fn update_from_input(&mut self, input: &super::SInput, dts: f32) {
+    pub fn update_from_input(&mut self, input: &super::SInput, dts: f32, can_rotate_camera: bool) {
         let forward_world = glm::rotate_y_vec3(&Self::forward_local(), self.y_angle);
         let right_world = glm::rotate_y_vec3(&Self::right_local(), self.y_angle);
 
@@ -65,16 +65,18 @@ impl SCamera {
             self.pos_world = self.pos_world + Self::up_world() * -SPEED * dts;
         }
 
-        if input.mouse_dy != 0 {
-            self.x_angle = super::utils::clamp(
-                self.x_angle + ((input.mouse_dy as f32) / 100.0),
-                -Self::MAX_X_DELTA,
-                Self::MAX_X_DELTA
-            );
-        }
+        if can_rotate_camera {
+            if input.mouse_dy != 0 {
+                self.x_angle = super::utils::clamp(
+                    self.x_angle + ((input.mouse_dy as f32) / 100.0),
+                    -Self::MAX_X_DELTA,
+                    Self::MAX_X_DELTA
+                );
+            }
 
-        if input.mouse_dx != 0 {
-            self.y_angle = (self.y_angle + ((input.mouse_dx as f32) / 100.0)) % Self::TWOPI;
+            if input.mouse_dx != 0 {
+                self.y_angle = (self.y_angle + ((input.mouse_dx as f32) / 100.0)) % Self::TWOPI;
+            }
         }
     }
 

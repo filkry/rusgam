@@ -45,6 +45,7 @@ use typeyd3d12 as t12;
 use utils::{STransform};
 //use model::{SModel, SMeshLoader, STextureLoader};
 
+#[allow(dead_code)]
 pub struct SInput {
     w: bool,
     a: bool,
@@ -54,6 +55,23 @@ pub struct SInput {
     c: bool,
     mouse_dx: i32,
     mouse_dy: i32,
+    left_mouse: bool,
+    middle_mouse: bool,
+    right_mouse: bool,
+}
+
+enum EMode {
+    Play,
+    Edit,
+}
+
+impl EMode {
+    pub fn toggle(&mut self) {
+        match self {
+            Self::Play => { *self = Self::Edit },
+            Self::Edit => { *self = Self::Play },
+        }
+    }
 }
 
 fn main_d3d12() -> Result<(), &'static str> {
@@ -122,10 +140,14 @@ fn main_d3d12() -> Result<(), &'static str> {
 
         mouse_dx: 0,
         mouse_dy: 0,
+
+        left_mouse: false,
+        middle_mouse: false,
+        right_mouse: false,
     };
 
+    let mut mode = EMode::Edit;
     let last_ray_hit_pos = Vec3::new(0.0, 0.0, 0.0);
-
 
     while !shouldquit {
         let curframetime = winapi.curtimemicroseconds();
@@ -167,7 +189,15 @@ fn main_d3d12() -> Result<(), &'static str> {
             fixed_size_model_xform.s = scale;
         }
 
-        camera.update_from_input(&input, dts);
+        let mut can_rotate_camera = false;
+        if let EMode::Play = mode {
+            can_rotate_camera = true;
+        }
+        else if input.middle_mouse {
+            can_rotate_camera = true;
+        }
+        camera.update_from_input(&input, dts, can_rotate_camera);
+
         input.mouse_dx = 0;
         input.mouse_dy = 0;
         let view_matrix = camera.world_to_view_matrix();
@@ -185,7 +215,7 @@ fn main_d3d12() -> Result<(), &'static str> {
 
         // -- render IMGUI
         // -- set up imgui IO
-        {
+        if let EMode::Edit = mode {
             let io = imgui_ctxt.io_mut();
             io.display_size = [window.width() as f32, window.height() as f32];
 
@@ -229,6 +259,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                         safewindows::EKey::D => input.d = true,
                         safewindows::EKey::Space => input.space = true,
                         safewindows::EKey::C => input.c = true,
+                        safewindows::EKey::Tilde => mode.toggle(),
                         _ => (),
                     },
                     safewindows::EMsgType::KeyUp { key } => match key {
@@ -242,6 +273,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                     },
                     safewindows::EMsgType::LButtonDown{ .. /*x_pos, y_pos*/ } => {
                         io.mouse_down[0] = true;
+                        input.left_mouse = true;
                         /*
                         println!("Left button down: {}, {}", x_pos, y_pos);
 
@@ -288,6 +320,13 @@ fn main_d3d12() -> Result<(), &'static str> {
                     },
                     safewindows::EMsgType::LButtonUp{ .. } => {
                         io.mouse_down[0] = false;
+                        input.left_mouse = false;
+                    },
+                    safewindows::EMsgType::MButtonDown{ .. } => {
+                        input.middle_mouse = true;
+                    },
+                    safewindows::EMsgType::MButtonUp{ .. } => {
+                        input.middle_mouse = false;
                     },
                     safewindows::EMsgType::Input{ raw_input } => {
                         if let safewindows::rawinput::ERawInputData::Mouse{data} = raw_input.data {

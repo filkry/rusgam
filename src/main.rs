@@ -78,6 +78,8 @@ fn main_d3d12() -> Result<(), &'static str> {
     window.init_render_target_views(render.device())?;
     window.show();
 
+    let translation_widget = render.new_model("assets/arrow_widget.obj", 1.0, false)?;
+
     let mut entities = entity::SEntityBucket::new(67485, 16);
     let rotating_entity = entities.create_entity()?;
     let debug_entity = entities.create_entity()?;
@@ -87,13 +89,12 @@ fn main_d3d12() -> Result<(), &'static str> {
         let ent3 = entities.create_entity()?;
         let room = entities.create_entity()?;
 
-        let model1 = render.new_model("assets/first_test_asset.obj", 1.0)?;
-        let model3 = render.new_model("assets/test_untextured_flat_colour_cube.obj", 1.0)?;
-        let room_model = render.new_model("assets/test_open_room.obj", 1.0)?;
-        let mut debug_model = render.new_model("assets/debug_icosphere.obj", 1.0)?;
+        let model1 = render.new_model("assets/first_test_asset.obj", 1.0, true)?;
+        let model3 = render.new_model("assets/test_untextured_flat_colour_cube.obj", 1.0, true)?;
+        let room_model = render.new_model("assets/test_open_room.obj", 1.0, true)?;
+        let mut debug_model = render.new_model("assets/debug_icosphere.obj", 1.0, true)?;
         debug_model.set_pickable(false);
         //let fixed_size_model = SModel::new_from_obj("assets/test_untextured_flat_colour_cube.obj", &device, &mut copycommandpool, &mut directcommandpool, &srv_heap, true, 1.0)?;
-        //let translation_widget = SModel::new_from_obj("assets/arrow_widget.obj", &mut mesh_loader, &mut texture_loader, 0.8)?;
 
         entities.set_entity_debug_name(rotating_entity, "tst_rotating");
         entities.set_entity_debug_name(ent2, "tst_textured_cube");
@@ -251,6 +252,9 @@ fn main_d3d12() -> Result<(), &'static str> {
 
             Ok(())
         })?;
+
+        // -- render non-depth-tested things
+        render.render_no_depth(&mut window, &view_matrix, &[translation_widget], &[STransform::default()])?;
 
         // -- render IMGUI
         // -- set up imgui IO

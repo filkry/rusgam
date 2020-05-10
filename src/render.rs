@@ -49,6 +49,20 @@ struct SImguiPipelineStateStream<'a> {
     rtv_formats: n12::SPipelineStateStreamRTVFormats<'a>,
 }
 
+#[allow(unused_variables)]
+#[allow(unused_mut)]
+#[repr(C)]
+struct SNoDepthPipelineStateStream<'a> {
+    root_signature: n12::SPipelineStateStreamRootSignature<'a>,
+    input_layout: n12::SPipelineStateStreamInputLayout<'a>,
+    primitive_topology: n12::SPipelineStateStreamPrimitiveTopology,
+    vertex_shader: n12::SPipelineStateStreamVertexShader<'a>,
+    pixel_shader: n12::SPipelineStateStreamPixelShader<'a>,
+    depth_stencil_format: n12::SPipelineStateStreamDepthStencilFormat,
+    depth_stencil_desc: n12::SPipelineStateStreamDepthStencilDesc,
+    rtv_formats: n12::SPipelineStateStreamRTVFormats<'a>,
+}
+
 #[derive(Serialize, Deserialize)]
 struct SBuiltShaderMetadata {
     src_write_time: std::time::SystemTime,
@@ -79,6 +93,8 @@ pub struct SRender<'a> {
     pipeline_state: t12::SPipelineState,
 
     shadow_mapping_pipeline: shadowmapping::SShadowMappingPipeline,
+
+    no_depth_pipeline_state: t12::SPipelineState,
 
     // -- imgui stuff
     imgui_font_texture: SPoolHandle,
@@ -564,6 +580,34 @@ impl<'a> SRender<'a> {
 
         // ======================================================================
 
+        // -- setup no depth test pipeline
+        // ======================================================================
+        let no_depth_depth_stencil_desc = t12::SDepthStencilDesc {
+            depth_enable: false,
+            ..Default::default()
+        };
+
+        let no_depth_pipeline_state_stream = SNoDepthPipelineStateStream {
+            root_signature: n12::SPipelineStateStreamRootSignature::create(&root_signature),
+            input_layout: n12::SPipelineStateStreamInputLayout::create(&mut input_layout_desc),
+            primitive_topology: n12::SPipelineStateStreamPrimitiveTopology::create(
+                t12::EPrimitiveTopologyType::Triangle,
+            ),
+            vertex_shader: n12::SPipelineStateStreamVertexShader::create(&vert_byte_code),
+            pixel_shader: n12::SPipelineStateStreamPixelShader::create(&pixel_byte_code),
+            depth_stencil_desc: n12::SPipelineStateStreamDepthStencilDesc::create(no_depth_depth_stencil_desc),
+            depth_stencil_format: n12::SPipelineStateStreamDepthStencilFormat::create(
+                t12::EDXGIFormat::D32Float,
+            ),
+            rtv_formats: n12::SPipelineStateStreamRTVFormats::create(&rtv_formats),
+        };
+        let no_depth_pipeline_state_stream_desc = t12::SPipelineStateStreamDesc::create(&no_depth_pipeline_state_stream);
+        let no_depth_pipeline_state = device
+            .raw()
+            .create_pipeline_state(&no_depth_pipeline_state_stream_desc)?;
+
+        // ======================================================================
+
         Ok(Self {
             factory,
             _adapter: adapter,
@@ -593,6 +637,8 @@ impl<'a> SRender<'a> {
             pipeline_state,
 
             shadow_mapping_pipeline,
+
+            no_depth_pipeline_state,
 
             imgui_font_texture,
             imgui_font_texture_id: imgui_ctxt.fonts().tex_id,
@@ -658,8 +704,8 @@ impl<'a> SRender<'a> {
         Ok(())
     }
 
-    pub fn new_model(&mut self, obj_file_path: &'static str, diffuse_weight: f32) -> Result<SModel, &'static str> {
-        SModel::new_from_obj(obj_file_path, &mut self.mesh_loader, &mut self.texture_loader, diffuse_weight)
+    pub fn new_model(&mut self, obj_file_path: &'static str, diffuse_weight: f32, is_lit: bool) -> Result<SModel, &'static str> {
+        SModel::new_from_obj(obj_file_path, &mut self.mesh_loader, &mut self.texture_loader, diffuse_weight, is_lit)
     }
 
     #[allow(dead_code)]
@@ -756,6 +802,7 @@ impl<'a> SRender<'a> {
                 let depth_texture_view = self._depth_texture_view.as_ref().expect("no depth texture").cpu_descriptor(0);
 
                 // -- transition to render target
+                // -- $$$FRK(TODO): could make a model where you call beginrender() to get a render state that will transition the resource on create and drop
                 list.transition_resource(
                     backbuffer,
                     t12::EResourceStates::Present,
@@ -772,6 +819,73 @@ impl<'a> SRender<'a> {
 
                 // -- set up pipeline
                 list.set_pipeline_state(&self.pipeline_state);
+                // root signature has to be set explicitly despite being on PSO, according to tutorial
+                list.set_graphics_root_signature(&self.root_signature.raw());
+
+                // -- setup rasterizer state
+                list.rs_set_viewports(&[&viewport]);
+                list.rs_set_scissor_rects(t12::SScissorRects::create(&[&self.scissorrect]));
+
+                // -- setup the output merger
+                list.om_set_render_targets(&[&render_target_view], false, &depth_texture_view);
+
+                self.srv_heap.with_raw_heap(|rh| {
+                    list.set_descriptor_heaps(&[rh]);
+                });
+
+                let view_perspective = perspective_matrix * view_matrix;
+                for modeli in 0..models.len() {
+                    list.set_graphics_root_descriptor_table(3, &self.shadow_mapping_pipeline.srv().gpu_descriptor(0));
+                    models[modeli].set_texture_root_parameters(&self.texture_loader, list.deref_mut(), 1, 2);
+                    self.mesh_loader.render(models[modeli].mesh, list.deref_mut(), &view_perspective, &model_xforms[modeli])?;
+                }
+            }
+
+            // -- execute on the queue
+            assert_eq!(window.currentbackbufferindex(), backbufferidx);
+            self.direct_command_pool.execute_and_free_list(handle)?;
+
+            Ok(())
+        }
+    }
+
+    pub fn render_no_depth(&mut self, window: &mut n12::SD3D12Window, view_matrix: &Mat4, models: &[SModel], model_xforms: &[STransform]) -> Result<(), &'static str> {
+        let viewport = t12::SViewport::new(
+            0.0,
+            0.0,
+            window.width() as f32,
+            window.height() as f32,
+            None,
+            None,
+        );
+
+        let perspective_matrix: Mat4 = {
+            let aspect = (window.width() as f32) / (window.height() as f32);
+            let zfar = 100.0;
+
+            //SMat44::new_perspective(aspect, fovy, znear, zfar)
+            glm::perspective_lh_zo(aspect, self.fovy(), self.znear(), zfar)
+        };
+
+        // -- wait for buffer to be available
+        self.direct_command_queue.borrow()
+            .wait_for_internal_fence_value(self.frame_fence_values[window.currentbackbufferindex()]);
+
+        // -- render
+        {
+            let backbufferidx = window.currentbackbufferindex();
+            assert!(backbufferidx == window.swapchain.current_backbuffer_index());
+
+            let handle = self.direct_command_pool.alloc_list()?;
+
+            {
+                let mut list = self.direct_command_pool.get_list(handle)?;
+
+                let render_target_view = window.currentrendertargetdescriptor()?;
+                let depth_texture_view = self._depth_texture_view.as_ref().expect("no depth texture").cpu_descriptor(0);
+
+                // -- set up pipeline
+                list.set_pipeline_state(&self.no_depth_pipeline_state);
                 // root signature has to be set explicitly despite being on PSO, according to tutorial
                 list.set_graphics_root_signature(&self.root_signature.raw());
 

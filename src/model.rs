@@ -109,6 +109,7 @@ pub struct SModel {
     diffuse_colour: Vec3,
     diffuse_texture: Option<SPoolHandle>,
     diffuse_weight: f32,
+    is_lit: bool,
 }
 
 // -- used to fill out shader metadata, must match STextureMetadata in pixel.hlsl
@@ -117,6 +118,7 @@ pub struct STextureMetadata {
     diffuse_colour: Vec3,
     has_diffuse_texture: f32,
     diffuse_weight: f32,
+    is_lit: f32,
 }
 
 impl<'a> SMeshLoader<'a> {
@@ -534,6 +536,7 @@ impl SModel {
         mesh_loader: &mut SMeshLoader,
         texture_loader: &mut STextureLoader,
         diffuse_weight: f32,
+        is_lit: bool,
     ) -> Result<Self, &'static str> {
 
         let (models, materials) = tobj::load_obj(&std::path::Path::new(obj_file)).unwrap();
@@ -564,6 +567,7 @@ impl SModel {
             diffuse_colour,
             diffuse_texture,
             diffuse_weight,
+            is_lit,
         })
     }
 
@@ -582,6 +586,7 @@ impl SModel {
             diffuse_colour: self.diffuse_colour,
             has_diffuse_texture: 0.0,
             diffuse_weight: self.diffuse_weight,
+            is_lit: if self.is_lit { 1.0 } else { 0.0 },
         };
 
         if let Some(texture) = self.diffuse_texture {

@@ -81,7 +81,7 @@ impl SEntityBucket {
                     let entity = self.entities.get(entity).expect("invalid entity");
                     [entity.location.t.x, entity.location.t.y, entity.location.t.z]
                 };
-                if InputFloat3::new(imgui_ui, im_str!("Position"), &mut pos).build() {
+                if DragFloat3::new(imgui_ui, im_str!("Position"), &mut pos).speed(0.1).build() {
                     let entity = self.entities.get_mut(entity).expect("invalid entity");
                     entity.location.t.x = pos[0];
                     entity.location.t.y = pos[1];

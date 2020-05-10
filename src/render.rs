@@ -235,7 +235,7 @@ impl<'a> SRender<'a> {
         unsafe { direct_command_queue.borrow_mut().set_debug_name("render copy queue"); }
         let copy_command_pool =
             n12::SCommandListPool::create(&device, Rc::downgrade(&copy_command_queue), &winapi.rawwinapi(), 1, 10)?;
-        let mesh_loader = SMeshLoader::new(Rc::downgrade(&device), &winapi, Rc::downgrade(&copy_command_queue), 23948934, 1024)?;
+        let mesh_loader = SMeshLoader::new(Rc::downgrade(&device), &winapi, Rc::downgrade(&copy_command_queue), Rc::downgrade(&direct_command_queue), 23948934, 1024)?;
         let mut texture_loader = STextureLoader::new(Rc::downgrade(&device), &winapi, Rc::downgrade(&copy_command_queue), Rc::downgrade(&direct_command_queue), Rc::downgrade(&srv_heap), 9323, 1024)?;
 
         // -- load shaders
@@ -847,9 +847,33 @@ impl<'a> SRender<'a> {
                     drop(copy_command_list);
 
                     let fence_val = self.copy_command_pool.execute_and_free_list(handle)?;
-                    // -- $$$FRK(TODO): we should be able to sychronize between this and the direct queue?
+                    drop(handle);
+
+                    // -- $$$FRK(TODO): we have to wait here because we're going to drop the intermediate resource
                     self.copy_command_pool.wait_for_internal_fence_value(fence_val);
-                    self.copy_command_pool.free_allocators();
+
+                    // -- have the direct queue wait on the copy upload to complete
+                    self.direct_command_pool.gpu_wait(
+                        self.copy_command_pool.get_internal_fence(),
+                        fence_val,
+                    )?;
+
+                    let handle  = self.direct_command_pool.alloc_list()?;
+                    let mut direct_command_list = self.direct_command_pool.get_list(handle)?;
+
+                    direct_command_list.transition_resource(
+                        &vertbufferresource.destinationresource,
+                        t12::EResourceStates::CopyDest,
+                        t12::EResourceStates::VertexAndConstantBuffer,
+                    )?;
+                    direct_command_list.transition_resource(
+                        &indexbufferresource.destinationresource,
+                        t12::EResourceStates::CopyDest,
+                        t12::EResourceStates::IndexBuffer,
+                    )?;
+
+                    drop(direct_command_list);
+                    self.direct_command_pool.execute_and_free_list(handle)?;
 
                     unsafe {
                         vertbufferresource.destinationresource.set_debug_name("imgui vert dest");

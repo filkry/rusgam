@@ -136,4 +136,14 @@ impl SCommandListPool {
         let result = queue.borrow_mut().flush_blocking();
         result
     }
+
+    pub fn get_internal_fence(&self) -> &SFence {
+        &self.activefence
+    }
+
+    pub fn gpu_wait(&self, fence: &SFence, value: u64) -> Result<(), &'static str> {
+        let queue = self.queue.upgrade().expect("queue dropped before list pool");
+        queue.borrow().gpu_wait(fence, value)?;
+        Ok(())
+    }
 }

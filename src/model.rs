@@ -85,6 +85,7 @@ pub struct STexture {
 pub struct SMeshLoader<'a> {
     device: Weak<n12::SDevice>,
     copy_command_list_pool: n12::SCommandListPool,
+    direct_command_list_pool: n12::SCommandListPool,
 
     mesh_pool: SStoragePool<SMesh<'a>>,
 }
@@ -123,12 +124,14 @@ impl<'a> SMeshLoader<'a> {
         device: Weak<n12::SDevice>,
         winapi: &rustywindows::SWinAPI,
         copy_command_queue: Weak<RefCell<n12::SCommandQueue>>,
+        direct_command_queue: Weak<RefCell<n12::SCommandQueue>>,
         pool_id: u64,
         max_mesh_count: u16,
     ) -> Result<Self, &'static str> {
         Ok(Self {
             device: device.clone(),
             copy_command_list_pool: n12::SCommandListPool::create(device.upgrade().expect("bad device").deref(), copy_command_queue, &winapi.rawwinapi(), 1, 2)?,
+            direct_command_list_pool: n12::SCommandListPool::create(device.upgrade().expect("bad device").deref(), direct_command_queue, &winapi.rawwinapi(), 1, 2)?,
             mesh_pool: SStoragePool::create(pool_id, max_mesh_count),
         })
     }
@@ -210,10 +213,35 @@ impl<'a> SMeshLoader<'a> {
 
             drop(copycommandlist);
 
-            let fenceval = self.copy_command_list_pool.execute_and_free_list(handle)?;
-            self.copy_command_list_pool.wait_for_internal_fence_value(fenceval);
-            self.copy_command_list_pool.free_allocators();
-            assert_eq!(self.copy_command_list_pool.num_free_allocators(), 2);
+            let fence_val = self.copy_command_list_pool.execute_and_free_list(handle)?;
+            drop(handle);
+
+            // -- $$$FRK(TODO): we have to wait here because we're going to drop the intermediate resource
+            self.copy_command_list_pool.wait_for_internal_fence_value(fence_val);
+
+            // -- have the direct queue wait on the copy upload to complete
+            self.direct_command_list_pool.gpu_wait(
+                self.copy_command_list_pool.get_internal_fence(),
+                fence_val,
+            )?;
+
+            // -- transition resources
+            let handle  = self.direct_command_list_pool.alloc_list()?;
+            let mut direct_command_list = self.direct_command_list_pool.get_list(handle)?;
+
+            direct_command_list.transition_resource(
+                &vertbufferresource.destinationresource,
+                t12::EResourceStates::CopyDest,
+                t12::EResourceStates::VertexAndConstantBuffer,
+            )?;
+            direct_command_list.transition_resource(
+                &indexbufferresource.destinationresource,
+                t12::EResourceStates::CopyDest,
+                t12::EResourceStates::IndexBuffer,
+            )?;
+
+            drop(direct_command_list);
+            self.direct_command_list_pool.execute_and_free_list(handle)?;
 
             // -- debug
             unsafe {

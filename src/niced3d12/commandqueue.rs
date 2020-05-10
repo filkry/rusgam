@@ -81,6 +81,11 @@ impl SCommandQueue {
         self.fence.wait_for_value(value);
     }
 
+    pub fn gpu_wait(&self, fence: &SFence, value: u64) -> Result<(), &'static str> {
+        self.raw.wait(unsafe { fence.raw() }, value)?;
+        Ok(())
+    }
+
     pub fn flush_blocking(&mut self) -> Result<(), &'static str> {
         let lastfencevalue = self.signal_internal_fence()?;
         self.fence.wait_for_value(lastfencevalue);

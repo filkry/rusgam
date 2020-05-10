@@ -157,6 +157,8 @@ fn main_d3d12() -> Result<(), &'static str> {
     let mut last_ray_hit_pos = Vec3::new(0.0, 0.0, 0.0);
     let mut last_picked_entity : Option<SPoolHandle> = None;
 
+    let mut show_imgui_demo_window = false;
+
     while !shouldquit {
         let curframetime = winapi.curtimemicroseconds();
         let dt = curframetime - lastframetime;
@@ -222,7 +224,7 @@ fn main_d3d12() -> Result<(), &'static str> {
             let (entities, model_xforms, models) = entities.build_render_data(sa);
             render.render(&mut window, &view_matrix, models.as_slice(), model_xforms.as_slice())?;
 
-            if input.left_mouse {
+            if input.left_mouse && !imgui_ctxt.io().want_capture_mouse {
                 let (x_pos, y_pos) = (mouse_pos[0], mouse_pos[1]);
 
                 println!("Left button down: {}, {}", x_pos, y_pos);
@@ -280,8 +282,18 @@ fn main_d3d12() -> Result<(), &'static str> {
             io.display_size = [window.width() as f32, window.height() as f32];
 
             let imgui_ui = imgui_ctxt.frame();
-            let mut opened = true;
-            imgui_ui.show_demo_window(&mut opened);
+            if show_imgui_demo_window {
+                let mut opened = true;
+                imgui_ui.show_demo_window(&mut opened);
+            }
+
+            imgui_ui.main_menu_bar(|| {
+                imgui_ui.menu(imgui::im_str!("Misc"), true, || {
+                    if imgui::MenuItem::new(imgui::im_str!("Toggle Demo Window")).build(&imgui_ui) {
+                        show_imgui_demo_window = !show_imgui_demo_window;
+                    }
+                });
+            });
 
             if let Some(e) = last_picked_entity {
                 entities.show_imgui_window(e, &imgui_ui);

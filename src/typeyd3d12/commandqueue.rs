@@ -44,4 +44,11 @@ impl SCommandQueue {
         self.queue
             .ExecuteCommandLists(1, &(list.raw().as_raw() as *mut ID3D12CommandList));
     }
+
+    pub fn wait(&self, fence: &SFence, value: u64) -> Result<(), &'static str> {
+        let hn = unsafe { self.queue.Wait(fence.raw().as_raw(), value) };
+        returnerrifwinerror!(hn, "Could not wait.");
+
+        Ok(())
+    }
 }

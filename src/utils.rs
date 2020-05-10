@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+//use std::ops::{Add, Sub, Mul};
+
 use safewindows;
 use glm::{Vec3, Vec4, Quat, Mat4};
 
@@ -45,6 +47,28 @@ pub fn clamp<T: Copy + PartialOrd<T>>(val: T, min: T, max: T) -> T {
     }
 
     return val;
+}
+
+// -- $$$FRK(TODO): come back to this, not in the mood right now
+/*
+pub fn lerp<T: Copy + PartialOrd<T> + Add<Output=T> + Sub<Output=T> + Mul<f32>>(start: T, end: T, t: f32) -> T {
+    start + t * (end - start)
+}
+*/
+
+pub fn lerp_f32(start: f32, end: f32, t: f32) -> f32 {
+    start + t * (end - start)
+}
+
+pub fn closest_point_on_line(line_p0: &Vec3, line_p1: &Vec3, p: &Vec3) -> (Vec3, f32) {
+    let line_dir = line_p1 - line_p0;
+    let line_len = glm::l2_norm(&(line_p1 - line_p0));
+    let line_dir_norm = line_dir / line_len;
+
+    let dist_along : f32 = glm::dot(&(p - line_p0), &line_dir_norm);
+
+    let closest_pt = line_p0 + dist_along * line_dir_norm;
+    (closest_pt, dist_along / line_len)
 }
 
 pub fn ray_intersects_triangle(

@@ -37,7 +37,7 @@ mod shadowmapping;
 // -- crate includes
 //use arrayvec::{ArrayVec};
 //use serde::{Serialize, Deserialize};
-use glm::{Vec3/*, Mat4*/};
+use glm::{Vec3, Vec4/*, Mat4*/};
 
 use allocate::{STACK_ALLOCATOR, SMemVec};
 use collections::{SPoolHandle};
@@ -151,6 +151,7 @@ fn main_d3d12() -> Result<(), &'static str> {
     window.show();
 
     let translation_widget = render.new_model("assets/arrow_widget.obj", 1.0, false)?;
+    let mut translation_start_pos : Vec3 = glm::zero();
 
     let mut entities = entity::SEntityBucket::new(67485, 16);
     let rotating_entity = entities.create_entity()?;
@@ -245,14 +246,91 @@ fn main_d3d12() -> Result<(), &'static str> {
         // -- check if the user clicked a translation widget
         let mut hit_translation_widget = false;
         let mut translation_widget_transform = STransform::default();
-        if let Some(e) = last_picked_entity {
-            translation_widget_transform = entities.get_entity_location(e);
-            scale_to_fixed_screen_size(&mut translation_widget_transform, 0.02, render.fovy(), render.znear(), window.width(), window.height(), &camera.pos_world, &camera.forward_world());
+        if input.left_mouse_edge.down() && !imgui_ctxt.io().want_capture_mouse {
+            if let Some(e) = last_picked_entity {
+                translation_widget_transform = entities.get_entity_location(e);
+                scale_to_fixed_screen_size(&mut translation_widget_transform, 0.02, render.fovy(), render.znear(), window.width(), window.height(), &camera.pos_world, &camera.forward_world());
 
-            if let Some(_) = render.ray_intersects(&translation_widget, &cursor_ray.origin, &cursor_ray.dir, &translation_widget_transform) {
-                println!("Hit translation widget!");
-                hit_translation_widget = true;
+                if let Some(_) = render.ray_intersects(&translation_widget, &cursor_ray.origin, &cursor_ray.dir, &translation_widget_transform) {
+                    translation_start_pos = translation_widget_transform.t;
+                    println!("Hit translation widget!");
+                    hit_translation_widget = true;
+                }
             }
+        }
+
+        // -- how to move with translation widget:
+        // + create two very distant points from the widget in world space on the translation axis
+        // + get those points in screen space
+        // + find closest point on that line to cursor
+        // + project closest point in world space
+        // + move object to that position (figure out offset later)
+
+        //if let Some(_) = last_picked_entity {
+        {
+            translation_start_pos = Vec3::new(0.0, 2.0, 0.0);
+
+            // -- assume world X for now
+            let line_p0 = translation_start_pos + Vec3::new(-1.0, 0.0, 0.0);
+            let line_p1 = translation_start_pos + Vec3::new(1.0, 0.0, 0.0);
+
+            println!("Line p0 : {:?}", line_p0);
+            println!("Line p1 : {:?}", line_p1);
+
+            let perspective_matrix = {
+                let aspect = (window.width() as f32) / (window.height() as f32);
+                let zfar = 100.0;
+
+                //SMat44::new_perspective(aspect, fovy, znear, zfar)
+                glm::perspective_lh_zo(aspect, render.fovy(), render.znear(), zfar)
+            };
+
+            let view_perspective_matrix = perspective_matrix * view_matrix;
+
+            let mut line_p0_clip_space = view_perspective_matrix * Vec4::new(line_p0.x, line_p0.y, line_p0.z, 1.0);
+            let mut line_p1_clip_space = view_perspective_matrix * Vec4::new(line_p1.x, line_p1.y, line_p1.z, 1.0);
+            let line_p0_w = line_p0_clip_space.w;
+            let line_p1_w = line_p1_clip_space.w;
+            line_p0_clip_space /= line_p0_w;
+            line_p1_clip_space /= line_p1_w;
+
+            println!("Line p0 clip space: {:?}", line_p0_clip_space);
+            println!("Line p1 clip space: {:?}", line_p1_clip_space);
+
+            let width_f32 = window.width() as f32;
+            let height_f32 = window.height() as f32;
+
+            let line_p0_screen_space = Vec3::new(
+                ((line_p0_clip_space.x + 1.0) / 2.0) * width_f32,
+                ((line_p0_clip_space.y + 1.0) / 2.0) * height_f32,
+                line_p0_clip_space.z,
+            );
+            let line_p1_screen_space = Vec3::new(
+                ((line_p1_clip_space.x + 1.0) / 2.0) * width_f32,
+                ((line_p1_clip_space.y + 1.0) / 2.0) * height_f32,
+                line_p1_clip_space.z,
+            );
+
+            // -- mouse is thought of as on the znear plane, so 0.0
+            let mouse_pos_v = Vec3::new(mouse_pos[0] as f32, mouse_pos[1] as f32, 0.0);
+
+            let (closest_pos_screen_space, t) = utils::closest_point_on_line(&line_p0_screen_space, &line_p1_screen_space, &mouse_pos_v);
+
+            let mut closest_pos_clip_space = Vec4::new(
+                ((closest_pos_screen_space.x / width_f32) * 2.0) - 1.0,
+                ((closest_pos_screen_space.y / height_f32) * 2.0) - 1.0,
+                closest_pos_screen_space.z,
+                1.0,
+            );
+            let closest_pos_w = utils::lerp_f32(line_p0_w, line_p1_w, t);
+
+            closest_pos_clip_space *= closest_pos_w;
+
+            let clip_to_world = glm::inverse(&view_perspective_matrix);
+
+            let closest_pos_world_space = clip_to_world * closest_pos_clip_space;
+
+            entities.set_entity_location(debug_entity, STransform::new_translation(&closest_pos_world_space.xyz()));
         }
 
         // -- render world

@@ -760,6 +760,7 @@ impl<'a> SRender<'a> {
             None,
         );
 
+        // -- reminder: D3D clip space is (-1, 1) x, (-1, 1) y, (0, 1) znear-zfar
         let perspective_matrix: Mat4 = {
             let aspect = (window.width() as f32) / (window.height() as f32);
             let zfar = 100.0;

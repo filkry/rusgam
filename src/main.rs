@@ -16,6 +16,7 @@ mod allocate;
 mod collections;
 mod directxgraphicssamples;
 mod entity;
+mod input;
 mod niced3d12;
 mod rustywindows;
 mod typeyd3d12;
@@ -46,21 +47,6 @@ use typeyd3d12 as t12;
 use utils::{STransform};
 //use model::{SModel, SMeshLoader, STextureLoader};
 
-#[allow(dead_code)]
-pub struct SInput {
-    w: bool,
-    a: bool,
-    s: bool,
-    d: bool,
-    space: bool,
-    c: bool,
-    mouse_dx: i32,
-    mouse_dy: i32,
-    left_mouse: bool,
-    middle_mouse: bool,
-    right_mouse: bool,
-}
-
 enum EMode {
     Play,
     Edit,
@@ -81,13 +67,13 @@ fn main_d3d12() -> Result<(), &'static str> {
     let winapi = rustywindows::SWinAPI::create();
 
     let mut imgui_ctxt = imgui::Context::create();
+    input::setup_imgui_key_map(imgui_ctxt.io_mut());
 
     let mut render = render::SRender::new(&winapi, &mut imgui_ctxt)?;
 
     // -- setup window
     let windowclass = winapi.rawwinapi().registerclassex("rusgam").unwrap();
     let mut window = render.create_window(&windowclass, "rusgam", 1600, 900)?;
-
 
     window.init_render_target_views(render.device())?;
     window.show();
@@ -130,28 +116,12 @@ fn main_d3d12() -> Result<(), &'static str> {
     let mut _framecount: u64 = 0;
     let mut lastframetime = winapi.curtimemicroseconds();
 
-    let mut shouldquit = false;
-
     let start_time = winapi.curtimemicroseconds();
     let rot_axis = Vec3::new(0.0, 1.0, 0.0);
 
     let mut camera = camera::SCamera::new(glm::Vec3::new(0.0, 0.0, -10.0));
 
-    let mut input = SInput{
-        w: false,
-        a: false,
-        s: false,
-        d: false,
-        space: false,
-        c: false,
-
-        mouse_dx: 0,
-        mouse_dy: 0,
-
-        left_mouse: false,
-        middle_mouse: false,
-        right_mouse: false,
-    };
+    let mut input = input::SInput::new();
 
     let mut mode = EMode::Edit;
     let mut last_ray_hit_pos = Vec3::new(0.0, 0.0, 0.0);
@@ -159,7 +129,11 @@ fn main_d3d12() -> Result<(), &'static str> {
 
     let mut show_imgui_demo_window = false;
 
-    while !shouldquit {
+    while !input.q_down {
+        if input.tilde_edge.down() {
+            mode.toggle();
+        }
+
         let curframetime = winapi.curtimemicroseconds();
         let dt = curframetime - lastframetime;
         let _dtms = dt as f64;
@@ -205,7 +179,7 @@ fn main_d3d12() -> Result<(), &'static str> {
         if let EMode::Play = mode {
             can_rotate_camera = true;
         }
-        else if input.middle_mouse {
+        else if input.middle_mouse_down {
             can_rotate_camera = true;
         }
         camera.update_from_input(&input, dts, can_rotate_camera);
@@ -224,7 +198,7 @@ fn main_d3d12() -> Result<(), &'static str> {
             let (entities, model_xforms, models) = entities.build_render_data(sa);
             render.render(&mut window, &view_matrix, models.as_slice(), model_xforms.as_slice())?;
 
-            if input.left_mouse && !imgui_ctxt.io().want_capture_mouse {
+            if input.left_mouse_edge.down() && !imgui_ctxt.io().want_capture_mouse {
                 let (x_pos, y_pos) = (mouse_pos[0], mouse_pos[1]);
 
                 println!("Left button down: {}, {}", x_pos, y_pos);
@@ -269,6 +243,9 @@ fn main_d3d12() -> Result<(), &'static str> {
                     println!("Hit model {} at pos {}, {}, {}", modeli, min_pos.x, min_pos.y, min_pos.z);
                     last_ray_hit_pos = min_pos;
                     last_picked_entity = Some(entities[modeli]);
+                }
+                else {
+                    last_picked_entity = None;
                 }
             }
 
@@ -315,6 +292,8 @@ fn main_d3d12() -> Result<(), &'static str> {
 
         let io = imgui_ctxt.io_mut(); // for filling out io state
         io.mouse_pos = [mouse_pos[0] as f32, mouse_pos[1] as f32];
+
+        let mut input_handler = input.frame(io);
         loop {
             let msg = window.pollmessage();
             match msg {
@@ -324,49 +303,27 @@ fn main_d3d12() -> Result<(), &'static str> {
                         //println!("Paint!");
                         window.dummyrepaint();
                     }
-                    safewindows::EMsgType::KeyDown { key } => match key {
-                        safewindows::EKey::Q => {
-                            shouldquit = true;
-                            //println!("Q keydown");
-                        }
-                        safewindows::EKey::W => input.w = true,
-                        safewindows::EKey::A => input.a = true,
-                        safewindows::EKey::S => input.s = true,
-                        safewindows::EKey::D => input.d = true,
-                        safewindows::EKey::Space => input.space = true,
-                        safewindows::EKey::C => input.c = true,
-                        safewindows::EKey::Tilde => mode.toggle(),
-                        _ => (),
+                    safewindows::EMsgType::KeyDown { key } => {
+                        input_handler.handle_key_down_up(key, true);
                     },
-                    safewindows::EMsgType::KeyUp { key } => match key {
-                        safewindows::EKey::W => input.w = false,
-                        safewindows::EKey::A => input.a = false,
-                        safewindows::EKey::S => input.s = false,
-                        safewindows::EKey::D => input.d = false,
-                        safewindows::EKey::Space => input.space = false,
-                        safewindows::EKey::C => input.c = false,
-                        _ => (),
+                    safewindows::EMsgType::KeyUp { key } => {
+                        input_handler.handle_key_down_up(key, false);
                     },
                     safewindows::EMsgType::LButtonDown{ .. } => {
-                        io.mouse_down[0] = true;
-                        input.left_mouse = true;
-
+                        input_handler.handle_lmouse_down_up(true);
                     },
                     safewindows::EMsgType::LButtonUp{ .. } => {
-                        io.mouse_down[0] = false;
-                        input.left_mouse = false;
+                        input_handler.handle_lmouse_down_up(false);
                     },
                     safewindows::EMsgType::MButtonDown{ .. } => {
-                        input.middle_mouse = true;
+                        input_handler.handle_mmouse_down_up(true);
                     },
                     safewindows::EMsgType::MButtonUp{ .. } => {
-                        input.middle_mouse = false;
+                        input_handler.handle_mmouse_down_up(false);
                     },
                     safewindows::EMsgType::Input{ raw_input } => {
                         if let safewindows::rawinput::ERawInputData::Mouse{data} = raw_input.data {
-                            //println!("Frame {}: Raw Mouse: {}, {}", _framecount, data.last_x, data.last_y);
-                            input.mouse_dx = data.last_x;
-                            input.mouse_dy = data.last_y;
+                            input_handler.handle_mouse_move(data.last_x, data.last_y);
                         }
                     },
                     safewindows::EMsgType::Size => {

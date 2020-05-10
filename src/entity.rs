@@ -66,14 +66,27 @@ impl SEntityBucket {
         (entities, transforms, models)
     }
 
-    pub fn show_imgui_window(&self, entity: SPoolHandle, imgui_ui: &imgui::Ui) {
-        imgui::Window::new(imgui::im_str!("Selected entity"))
-            .size([300.0, 300.0], imgui::Condition::FirstUseEver)
+    pub fn show_imgui_window(&mut self, entity: SPoolHandle, imgui_ui: &imgui::Ui) {
+        use imgui::*;
+
+        Window::new(im_str!("Selected entity"))
+            .size([300.0, 300.0], Condition::FirstUseEver)
             .build(&imgui_ui, || {
                 if let Some(n) = self.entities.get(entity).expect("invalid entity").debug_name {
-                    imgui_ui.text(imgui::im_str!("debug_name: {}", n));
+                    imgui_ui.text(im_str!("debug_name: {}", n));
                 }
-                imgui_ui.text(imgui::im_str!("index: {}, generation: {}", entity.index(), entity.generation()));
+                imgui_ui.text(im_str!("index: {}, generation: {}", entity.index(), entity.generation()));
+                imgui_ui.separator();
+                let mut pos = {
+                    let entity = self.entities.get(entity).expect("invalid entity");
+                    [entity.location.t.x, entity.location.t.y, entity.location.t.z]
+                };
+                if InputFloat3::new(imgui_ui, im_str!("Position"), &mut pos).build() {
+                    let entity = self.entities.get_mut(entity).expect("invalid entity");
+                    entity.location.t.x = pos[0];
+                    entity.location.t.y = pos[1];
+                    entity.location.t.z = pos[2];
+                }
             });
     }
 }

@@ -1,5 +1,7 @@
 use glm::{Vec3, Mat4};
 
+use input;
+
 pub struct SCamera {
     pub pos_world: Vec3,
     x_angle: f32,
@@ -40,28 +42,28 @@ impl SCamera {
         }
     }
 
-    pub fn update_from_input(&mut self, input: &super::SInput, dts: f32, can_rotate_camera: bool) {
+    pub fn update_from_input(&mut self, input: &input::SInput, dts: f32, can_rotate_camera: bool) {
         let forward_world = glm::rotate_y_vec3(&Self::forward_local(), self.y_angle);
         let right_world = glm::rotate_y_vec3(&Self::right_local(), self.y_angle);
 
         const SPEED: f32 = 5.0;
 
-        if input.w {
+        if input.w_down {
             self.pos_world = self.pos_world + forward_world * SPEED * dts;
         }
-        if input.s {
+        if input.s_down {
             self.pos_world = self.pos_world + forward_world * -SPEED * dts;
         }
-        if input.a {
+        if input.a_down {
             self.pos_world = self.pos_world + right_world * -SPEED * dts;
         }
-        if input.d {
+        if input.d_down {
             self.pos_world = self.pos_world + right_world * SPEED * dts;
         }
-        if input.space {
+        if input.space_down {
             self.pos_world = self.pos_world + Self::up_world() * SPEED * dts;
         }
-        if input.c {
+        if input.c_down {
             self.pos_world = self.pos_world + Self::up_world() * -SPEED * dts;
         }
 

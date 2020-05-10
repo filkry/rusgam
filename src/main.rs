@@ -289,27 +289,33 @@ fn main_d3d12() -> Result<(), &'static str> {
 
             let mut line_p0_clip_space = view_perspective_matrix * Vec4::new(line_p0.x, line_p0.y, line_p0.z, 1.0);
             let mut line_p1_clip_space = view_perspective_matrix * Vec4::new(line_p1.x, line_p1.y, line_p1.z, 1.0);
+            //println!("Line p0 clip space: {:?}", line_p0_clip_space);
+            //println!("Line p1 clip space: {:?}", line_p1_clip_space);
+
             let line_p0_w = line_p0_clip_space.w;
             let line_p1_w = line_p1_clip_space.w;
             line_p0_clip_space /= line_p0_w;
             line_p1_clip_space /= line_p1_w;
 
-            println!("Line p0 clip space: {:?}", line_p0_clip_space);
-            println!("Line p1 clip space: {:?}", line_p1_clip_space);
+            //println!("Line p0 clip space NORM: {:?}", line_p0_clip_space);
+            //println!("Line p1 clip space NORM: {:?}", line_p1_clip_space);
 
             let width_f32 = window.width() as f32;
             let height_f32 = window.height() as f32;
 
             let line_p0_screen_space = Vec3::new(
                 ((line_p0_clip_space.x + 1.0) / 2.0) * width_f32,
-                ((line_p0_clip_space.y + 1.0) / 2.0) * height_f32,
+                ((-line_p0_clip_space.y + 1.0) / 2.0) * height_f32,
                 line_p0_clip_space.z,
             );
             let line_p1_screen_space = Vec3::new(
                 ((line_p1_clip_space.x + 1.0) / 2.0) * width_f32,
-                ((line_p1_clip_space.y + 1.0) / 2.0) * height_f32,
+                ((-line_p1_clip_space.y + 1.0) / 2.0) * height_f32,
                 line_p1_clip_space.z,
             );
+
+            println!("Line p0 screen space: {:?}", line_p0_screen_space);
+            println!("Line p1 screen space: {:?}", line_p1_screen_space);
 
             // -- mouse is thought of as on the znear plane, so 0.0
             let mouse_pos_v = Vec3::new(mouse_pos[0] as f32, mouse_pos[1] as f32, 0.0);
@@ -318,7 +324,7 @@ fn main_d3d12() -> Result<(), &'static str> {
 
             let mut closest_pos_clip_space = Vec4::new(
                 ((closest_pos_screen_space.x / width_f32) * 2.0) - 1.0,
-                ((closest_pos_screen_space.y / height_f32) * 2.0) - 1.0,
+                -(((closest_pos_screen_space.y / height_f32) * 2.0) - 1.0),
                 closest_pos_screen_space.z,
                 1.0,
             );

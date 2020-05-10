@@ -61,6 +61,41 @@ impl EMode {
     }
 }
 
+// -- transform, camera pos, and camera forward must be in the same space
+fn scale_to_fixed_screen_size(
+    transform: &mut STransform,
+    pct_of_near_plane_for_one_unit: f32,
+    fovy: f32,
+    znear: f32,
+    window_width: u32,
+    window_height: u32,
+    camera_pos: &Vec3,
+    camera_forward: &Vec3,
+) {
+    let fovx = utils::fovx(fovy, window_width, window_height);
+
+    let to_fixed = transform.t - camera_pos;
+    let dist = glm::length(&to_fixed);
+
+    let angle_from_forward = glm::angle(&to_fixed, &camera_forward);
+    let proj_dist = znear / (angle_from_forward).cos();
+
+    // -- the whole idea of this code is to build a ratio of the similar
+    // -- triangle from the object in world space to the amount of space
+    // -- 1 unit will take up on the near plane projection, then scale it
+    // -- so that space is constant
+    let proj_ratio = proj_dist / dist;
+
+    let unit_in_proj_space = 1.0 * proj_ratio;
+
+    let total_proj_space = 2.0 * znear * (fovx / 2.0).tan();
+    let desired_proj_space = total_proj_space * pct_of_near_plane_for_one_unit;
+
+    let scale = desired_proj_space / unit_in_proj_space;
+
+    transform.s = scale;
+}
+
 fn main_d3d12() -> Result<(), &'static str> {
     render::compile_shaders_if_changed();
 
@@ -149,32 +184,7 @@ fn main_d3d12() -> Result<(), &'static str> {
         entities.set_entity_location(rotating_entity, STransform::new_rotation(&glm::quat_angle_axis(cur_angle, &rot_axis)));
         entities.set_entity_location(debug_entity, STransform::new_translation(&last_ray_hit_pos));
 
-        let mut fixed_size_model_xform = STransform::new_translation(&glm::Vec3::new(0.0, 5.0, 0.0));
-
-        {
-            let fovx = utils::fovx(render.fovy(), window.width(), window.height());
-
-            let to_fixed = fixed_size_model_xform.t - camera.pos_world;
-            let dist = glm::length(&to_fixed);
-
-            let angle_from_forward = glm::angle(&to_fixed, &camera.forward_world());
-            let proj_dist = render.znear() / (angle_from_forward).cos();
-
-            // -- the whole idea of this code is to build a ratio of the similar
-            // -- triangle from the object in world space to the amount of space
-            // -- 1 unit will take up on the near plane projection, then scale it
-            // -- so that space is constant
-            let proj_ratio = proj_dist / dist;
-
-            let unit_in_proj_space = 1.0 * proj_ratio;
-
-            let total_proj_space = 2.0 * render.znear() * (fovx / 2.0).tan();
-            let desired_proj_space = total_proj_space / 10.0;
-
-            let scale = desired_proj_space / unit_in_proj_space;
-
-            fixed_size_model_xform.s = scale;
-        }
+        //let mut fixed_size_model_xform = STransform::new_translation(&glm::Vec3::new(0.0, 5.0, 0.0));
 
         let mut can_rotate_camera = false;
         if let EMode::Play = mode {
@@ -254,7 +264,9 @@ fn main_d3d12() -> Result<(), &'static str> {
         })?;
 
         // -- render non-depth-tested things
-        render.render_no_depth(&mut window, &view_matrix, &[translation_widget], &[STransform::default()])?;
+        let mut widget_transform = STransform::default();
+        scale_to_fixed_screen_size(&mut widget_transform, 0.02, render.fovy(), render.znear(), window.width(), window.height(), &camera.pos_world, &camera.forward_world());
+        render.render_no_depth(&mut window, &view_matrix, &[translation_widget], &[widget_transform])?;
 
         // -- render IMGUI
         // -- set up imgui IO

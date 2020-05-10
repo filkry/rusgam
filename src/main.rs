@@ -306,12 +306,12 @@ fn main_d3d12() -> Result<(), &'static str> {
             let line_p0_screen_space = Vec3::new(
                 ((line_p0_clip_space.x + 1.0) / 2.0) * width_f32,
                 ((-line_p0_clip_space.y + 1.0) / 2.0) * height_f32,
-                line_p0_clip_space.z,
+                0.0, // not valid
             );
             let line_p1_screen_space = Vec3::new(
                 ((line_p1_clip_space.x + 1.0) / 2.0) * width_f32,
                 ((-line_p1_clip_space.y + 1.0) / 2.0) * height_f32,
-                line_p1_clip_space.z,
+                0.0, // not valid
             );
 
             println!("Line p0 screen space: {:?}", line_p0_screen_space);
@@ -320,21 +320,48 @@ fn main_d3d12() -> Result<(), &'static str> {
             // -- mouse is thought of as on the znear plane, so 0.0
             let mouse_pos_v = Vec3::new(mouse_pos[0] as f32, mouse_pos[1] as f32, 0.0);
 
-            let (closest_pos_screen_space, t) = utils::closest_point_on_line(&line_p0_screen_space, &line_p1_screen_space, &mouse_pos_v);
+            let (closest_pos_screen_space, _) = utils::closest_point_on_line(&line_p0_screen_space, &line_p1_screen_space, &mouse_pos_v);
+            println!("closest pos screen space: {:?}", closest_pos_screen_space);
 
-            let mut closest_pos_clip_space = Vec4::new(
-                ((closest_pos_screen_space.x / width_f32) * 2.0) - 1.0,
-                -(((closest_pos_screen_space.y / height_f32) * 2.0) - 1.0),
-                closest_pos_screen_space.z,
-                1.0,
+            let closest_pos_clip_ndc = Vec3::new(
+                (closest_pos_screen_space.x / width_f32) * 2.0 - 1.0,
+                -((closest_pos_screen_space.y / height_f32) * 2.0 - 1.0),
+                0.0, // not valid
             );
-            let closest_pos_w = utils::lerp_f32(line_p0_w, line_p1_w, t);
 
-            closest_pos_clip_space *= closest_pos_w;
+            // the basic idea: we want to find a point P such that for (1) P' = view_perspective_matrix * P,
+            // (3) P'.x / P'.w = cursor_ndc.x AND
+            // P'.y / P'.w = cursor_ndc.y
+            // P must be on the line, so (2) P = line_p0 + t * d, where d = line_p1 - line_p0
+            // we have only one unknown 't', so we only have to solve the equation for the x coordinate OR the y coordinate
+            // If you simplify for just x, you get:
+            // P'.x = dot(view_perspective_matrix.row_0, P);
+            // P'.w = dot(view_perspective_matrix.row_3, P);
+            // combined with (2) and simplified:
+            // P'.x = dot(row_0, line_p0) + t * dot(row_0, d)
+            // P'.w = dot(row_3, line_p0) + t * dot(row_3, d)
+            // combined with (3) gives you:
+            // t = cursor_ndc.x * dot(row_3, line_p0) - dot(row_0, line_p0)
+            //     ------------------------------------------------------------------
+            //     dot(row_0, d) - cursor_ndc.x * dot(row_3, d)
 
-            let clip_to_world = glm::inverse(&view_perspective_matrix);
+            // -- re-used values
+            let d = line_p1 - line_p0;
+            let d_vec4 = Vec4::new(d.x, d.y, d.z, 0.0);
+            let line_p0_vec4 = Vec4::new(line_p0.x, line_p0.y, line_p0.z, 1.0);
 
-            let closest_pos_world_space = clip_to_world * closest_pos_clip_space;
+            let row_0 = glm::row(&view_perspective_matrix, 0);
+            let row_3 = glm::row(&view_perspective_matrix, 3);
+            let row_0_dot_p0 = glm::dot(&row_0, &line_p0_vec4);
+            let row_3_dot_p0 = glm::dot(&row_3, &line_p0_vec4);
+            let row_0_dot_d = glm::dot(&row_0, &d_vec4);
+            let row_3_dot_d = glm::dot(&row_3, &d_vec4);
+
+            let t_numer = closest_pos_clip_ndc.x * row_3_dot_p0 - row_0_dot_p0;
+            let t_denom = row_0_dot_d - closest_pos_clip_ndc.x * row_3_dot_d;
+            let t = t_numer / t_denom;
+
+            let closest_pos_world_space = line_p0 + t * d;
 
             entities.set_entity_location(debug_entity, STransform::new_translation(&closest_pos_world_space.xyz()));
         }

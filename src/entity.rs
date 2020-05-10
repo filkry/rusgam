@@ -40,6 +40,10 @@ impl SEntityBucket {
         self.entities.get_mut(entity).expect("invalid entity").debug_name = Some(debug_name);
     }
 
+    pub fn get_entity_location(&self, entity: SPoolHandle) -> STransform {
+        self.entities.get(entity).expect("invalid entity").location
+    }
+
     pub fn set_entity_location(&mut self, entity: SPoolHandle, location: STransform) {
         self.entities.get_mut(entity).expect("invalid entity").location = location;
     }

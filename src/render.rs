@@ -716,7 +716,11 @@ impl<'a> SRender<'a> {
         ray_dir: &Vec3,
         model_to_ray_space: &STransform,
     ) -> Option<f32> {
-        self.mesh_loader.ray_intersects(model, ray_origin, ray_dir, model_to_ray_space)
+        if model.pickable == false {
+            return None;
+        }
+
+        self.mesh_loader.ray_intersects(model.mesh, ray_origin, ray_dir, model_to_ray_space)
     }
 
     pub fn update_depth_texture_for_window(&mut self, window: &n12::SD3D12Window) -> Result<(), &'static str> {

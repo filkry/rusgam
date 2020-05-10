@@ -103,7 +103,7 @@ pub struct STextureLoader {
 pub struct SModel {
     pub mesh: SPoolHandle,
 
-    pickable: bool,
+    pub pickable: bool,
 
     // -- material info
     diffuse_colour: Vec3,
@@ -273,17 +273,12 @@ impl<'a> SMeshLoader<'a> {
     #[allow(dead_code)]
     pub fn ray_intersects(
         &self,
-        model: &SModel,
+        mesh: SPoolHandle,
         ray_origin: &Vec3,
         ray_dir: &Vec3,
         model_to_ray_space: &STransform,
     ) -> Option<f32> {
-
-        if model.pickable == false {
-            return None;
-        }
-
-        let mesh = self.mesh_pool.get(model.mesh).unwrap();
+        let mesh = self.mesh_pool.get(mesh).unwrap();
 
         break_assert!(mesh.triangle_indices.len() % 3 == 0);
         let num_tris = mesh.triangle_indices.len() / 3;

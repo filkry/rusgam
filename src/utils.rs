@@ -5,6 +5,18 @@ use glm::{Vec3, Vec4, Quat, Mat4};
 
 pub static PI : f32 = 3.14159265358979;
 
+#[derive(Clone, Copy)]
+pub struct STransform {
+    pub t: Vec3,
+    pub r: Quat,
+    pub s: f32,
+}
+
+pub struct SRay {
+    pub origin: Vec3,
+    pub dir: Vec3,
+}
+
 //pub fn hash64<T: Hash>(t: &T) -> u64 {
 //    let mut s = DefaultHasher::new();
 //    t.hash(&mut s);
@@ -94,13 +106,6 @@ pub fn fovx(fovy: f32, width: u32, height: u32) -> f32 {
     let eq_3_rhs = (width as f32) / (height as f32) * (fovy * 0.5).tan();
     let half_fov_x = eq_3_rhs.atan();
     return half_fov_x * 2.0;
-}
-
-#[derive(Clone, Copy)]
-pub struct STransform {
-    pub t: Vec3,
-    pub r: Quat,
-    pub s: f32,
 }
 
 impl Default for STransform {

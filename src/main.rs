@@ -39,7 +39,7 @@ mod shadowmapping;
 //use serde::{Serialize, Deserialize};
 use glm::{Vec3/*, Mat4*/};
 
-use allocate::{STACK_ALLOCATOR};
+use allocate::{STACK_ALLOCATOR, SMemVec};
 use collections::{SPoolHandle};
 use niced3d12 as n12;
 use typeyd3d12 as t12;
@@ -94,6 +94,43 @@ fn scale_to_fixed_screen_size(
     let scale = desired_proj_space / unit_in_proj_space;
 
     transform.s = scale;
+}
+
+fn cursor_ray_world(
+    mouse_pos: [i32; 2],
+    render: &render::SRender,
+    window: &n12::SD3D12Window,
+    camera: &camera::SCamera,
+) -> utils::SRay {
+    let (x_pos, y_pos) = (mouse_pos[0], mouse_pos[1]);
+
+    //println!("Left button down: {}, {}", x_pos, y_pos);
+
+    let half_camera_near_clip_height = (render.fovy()/2.0).tan() * render.znear();
+    let half_camera_near_clip_width = ((window.width() as f32) / (window.height() as f32)) * half_camera_near_clip_height;
+
+    let near_clip_top_left_camera_space = Vec3::new(-half_camera_near_clip_width, half_camera_near_clip_height, render.znear());
+    let near_clip_deltax_camera_space = Vec3::new(2.0 * half_camera_near_clip_width, 0.0, 0.0);
+    let near_clip_deltay_camera_space = Vec3::new(0.0, -2.0 * half_camera_near_clip_height, 0.0);
+
+    let pct_width = (x_pos as f32) / (window.width() as f32);
+    let pct_height = (y_pos as f32) / (window.height() as f32);
+
+    let to_z_near_camera_space = near_clip_top_left_camera_space +
+        pct_width * near_clip_deltax_camera_space +
+        pct_height * near_clip_deltay_camera_space;
+
+    //println!("to_z_near_camera_space: {:?}", to_z_near_camera_space);
+
+    let world_to_view = camera.world_to_view_matrix();
+    let view_to_world = glm::inverse(&world_to_view);
+
+    let to_z_near_world_space = view_to_world * utils::vec3_to_homogenous(&to_z_near_camera_space, 0.0);
+
+    utils::SRay{
+        origin: camera.pos_world,
+        dir: to_z_near_world_space.xyz(),
+    }
 }
 
 fn main_d3d12() -> Result<(), &'static str> {
@@ -198,60 +235,50 @@ fn main_d3d12() -> Result<(), &'static str> {
         input.mouse_dx = 0;
         input.mouse_dy = 0;
         let view_matrix = camera.world_to_view_matrix();
+        let cursor_ray = cursor_ray_world(mouse_pos, &render, &window, &camera);
 
         //println!("View: {}", view_matrix);
         //println!("Perspective: {}", perspective_matrix);
 
         //println!("Frame time: {}us", _dtms);
 
+        // -- check if the user clicked a translation widget
+        let mut hit_translation_widget = false;
+        let mut translation_widget_transform = STransform::default();
+        if let Some(e) = last_picked_entity {
+            translation_widget_transform = entities.get_entity_location(e);
+            scale_to_fixed_screen_size(&mut translation_widget_transform, 0.02, render.fovy(), render.znear(), window.width(), window.height(), &camera.pos_world, &camera.forward_world());
+
+            if let Some(_) = render.ray_intersects(&translation_widget, &cursor_ray.origin, &cursor_ray.dir, &translation_widget_transform) {
+                println!("Hit translation widget!");
+                hit_translation_widget = true;
+            }
+        }
+
         // -- render world
         STACK_ALLOCATOR.with(|sa| -> Result<(), &'static str> {
             let (entities, model_xforms, models) = entities.build_render_data(sa);
             render.render(&mut window, &view_matrix, models.as_slice(), model_xforms.as_slice())?;
 
-            if input.left_mouse_edge.down() && !imgui_ctxt.io().want_capture_mouse {
-                let (x_pos, y_pos) = (mouse_pos[0], mouse_pos[1]);
-
-                println!("Left button down: {}, {}", x_pos, y_pos);
-
-                let half_camera_near_clip_height = (render.fovy()/2.0).tan() * render.znear();
-                let half_camera_near_clip_width = ((window.width() as f32) / (window.height() as f32)) * half_camera_near_clip_height;
-
-                let near_clip_top_left_camera_space = Vec3::new(-half_camera_near_clip_width, half_camera_near_clip_height, render.znear());
-                let near_clip_deltax_camera_space = Vec3::new(2.0 * half_camera_near_clip_width, 0.0, 0.0);
-                let near_clip_deltay_camera_space = Vec3::new(0.0, -2.0 * half_camera_near_clip_height, 0.0);
-
-                let pct_width = (x_pos as f32) / (window.width() as f32);
-                let pct_height = (y_pos as f32) / (window.height() as f32);
-
-                let to_z_near_camera_space = near_clip_top_left_camera_space +
-                    pct_width * near_clip_deltax_camera_space +
-                    pct_height * near_clip_deltay_camera_space;
-
-                println!("to_z_near_camera_space: {:?}", to_z_near_camera_space);
-
-                let world_to_view = camera.world_to_view_matrix();
-                let view_to_world = glm::inverse(&world_to_view);
-
-                let to_z_near_world_space = view_to_world * utils::vec3_to_homogenous(&to_z_near_camera_space, 0.0);
+            if input.left_mouse_edge.down() && !imgui_ctxt.io().want_capture_mouse && !hit_translation_widget {
 
                 let mut min_t = std::f32::MAX;
                 let mut min_model_i = None;
                 let mut min_pos = Vec3::new(0.0, 0.0, 0.0);
 
                 for modeli in 0..models.len() {
-                    if let Some(t) = render.ray_intersects(&models[modeli], &camera.pos_world, &to_z_near_world_space.xyz(), &model_xforms[modeli]) {
+                    if let Some(t) = render.ray_intersects(&models[modeli], &cursor_ray.origin, &cursor_ray.dir, &model_xforms[modeli]) {
                         assert!(t > 0.0);
                         if t < min_t {
                             min_t = t;
                             min_model_i = Some(modeli);
-                            min_pos = camera.pos_world + t * to_z_near_world_space.xyz();
+                            min_pos = camera.pos_world + t * cursor_ray.dir;
                         }
                     }
                 }
 
                 if let Some(modeli) = min_model_i {
-                    println!("Hit model {} at pos {}, {}, {}", modeli, min_pos.x, min_pos.y, min_pos.z);
+                    //println!("Hit model {} at pos {}, {}, {}", modeli, min_pos.x, min_pos.y, min_pos.z);
                     last_ray_hit_pos = min_pos;
                     last_picked_entity = Some(entities[modeli]);
                 }
@@ -264,9 +291,21 @@ fn main_d3d12() -> Result<(), &'static str> {
         })?;
 
         // -- render non-depth-tested things
-        let mut widget_transform = STransform::default();
-        scale_to_fixed_screen_size(&mut widget_transform, 0.02, render.fovy(), render.znear(), window.width(), window.height(), &camera.pos_world, &camera.forward_world());
-        render.render_no_depth(&mut window, &view_matrix, &[translation_widget], &[widget_transform])?;
+        STACK_ALLOCATOR.with(|sa| -> Result<(), &'static str> {
+            let mut no_depth_models = SMemVec::new(sa, 32, 0)?;
+            let mut no_depth_transforms = SMemVec::new(sa, 32, 0)?;
+
+            if let Some(_) = last_picked_entity {
+                no_depth_models.push(translation_widget);
+                no_depth_transforms.push(translation_widget_transform);
+            }
+
+            if no_depth_models.len() > 0 {
+                render.render_no_depth(&mut window, &view_matrix, no_depth_models.as_slice(), no_depth_transforms.as_slice())?;
+            }
+
+            Ok(())
+        })?;
 
         // -- render IMGUI
         // -- set up imgui IO

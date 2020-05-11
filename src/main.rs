@@ -140,6 +140,37 @@ fn cursor_ray_world(
     }
 }
 
+fn world_pos_to_screen_pos(
+    world_pos: &Vec3,
+    view_matrix: &Mat4,
+    window: &n12::SD3D12Window,
+    render: &render::SRender,
+) -> Vec3 {
+    let perspective_matrix = {
+        let aspect = (window.width() as f32) / (window.height() as f32);
+        let zfar = 100.0;
+
+        //SMat44::new_perspective(aspect, fovy, znear, zfar)
+        glm::perspective_lh_zo(aspect, render.fovy(), render.znear(), zfar)
+    };
+
+    let view_perspective_matrix = perspective_matrix * view_matrix;
+
+    let pos_clip_space = view_perspective_matrix * Vec4::new(world_pos.x, world_pos.y, world_pos.z, 1.0);
+    let pos_ndc = pos_clip_space / pos_clip_space.w;
+
+    let width_f32 = window.width() as f32;
+    let height_f32 = window.height() as f32;
+
+    let screen_space = Vec3::new(
+        ((pos_ndc.x + 1.0) / 2.0) * width_f32,
+        ((-pos_ndc.y + 1.0) / 2.0) * height_f32,
+        0.0, // not valid
+    );
+
+    screen_space
+}
+
 fn pos_on_screen_space_line_to_world(
     world_line_p0: &Vec3,
     world_line_p1: &Vec3,
@@ -285,6 +316,7 @@ fn main_d3d12() -> Result<(), &'static str> {
     let translation_widget = render.new_model("assets/arrow_widget.obj", 1.0, false)?;
     let mut translation_start_pos : Vec3 = glm::zero();
     let mut translation_widget_transform = STransform::default();
+    let mut translation_mouse_offset = [0; 2];
 
     let mut entities = entity::SEntityBucket::new(67485, 16);
     let rotating_entity = entities.create_entity()?;
@@ -391,10 +423,18 @@ fn main_d3d12() -> Result<(), &'static str> {
         let mut hit_translation_widget = false;
         if input.left_mouse_edge.down() && !imgui_ctxt.io().want_capture_mouse {
             if let Some(_) = render.ray_intersects(&translation_widget, &cursor_ray.origin, &cursor_ray.dir, &translation_widget_transform) {
+                let e = last_picked_entity.expect("shouldn't be able to translate without entity picked.");
+
                 translation_start_pos = translation_widget_transform.t;
                 println!("Hit translation widget!");
                 hit_translation_widget = true;
                 edit_mode = EEditMode::Translation;
+
+                let e_pos = entities.get_entity_location(e).t;
+                let e_pos_screen = world_pos_to_screen_pos(&e_pos, &view_matrix, &window, &render);
+
+                translation_mouse_offset = [(e_pos_screen.x as i32) - mouse_pos[0],
+                                            (e_pos_screen.y as i32) - mouse_pos[1]];
             }
         }
 
@@ -408,10 +448,13 @@ fn main_d3d12() -> Result<(), &'static str> {
                 let line_p0 = translation_start_pos + Vec3::new(0.0, 0.0, -1.0);
                 let line_p1 = translation_start_pos + Vec3::new(0.0, 0.0, 1.0);
 
+                let offset_mouse_pos = [mouse_pos[0] + translation_mouse_offset[0],
+                                        mouse_pos[1] + translation_mouse_offset[1]];
+
                 let new_world_pos = pos_on_screen_space_line_to_world(
                     &line_p0,
                     &line_p1,
-                    mouse_pos,
+                    offset_mouse_pos,
                     &view_matrix,
                     &window,
                     &render,

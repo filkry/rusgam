@@ -53,10 +53,9 @@ enum EMode {
     Edit,
 }
 
-#[derive(PartialEq)]
 enum EEditMode {
     None,
-    Translation,
+    Translation(usize), // axis of translation
 }
 
 impl EMode {
@@ -228,14 +227,14 @@ fn pos_on_screen_space_line_to_world(
 
     let line_screen_space = line_p1_screen_space - line_p0_screen_space;
 
-    println!("Line p0 screen space: {:?}", line_p0_screen_space);
-    println!("Line p1 screen space: {:?}", line_p1_screen_space);
+    //println!("Line p0 screen space: {:?}", line_p0_screen_space);
+    //println!("Line p1 screen space: {:?}", line_p1_screen_space);
 
     // -- mouse is thought of as on the znear plane, so 0.0
     let mouse_pos_v = Vec3::new(screen_space_pos[0] as f32, screen_space_pos[1] as f32, 0.0);
 
     let (closest_pos_screen_space, _) = utils::closest_point_on_line(&line_p0_screen_space, &line_p1_screen_space, &mouse_pos_v);
-    println!("closest pos screen space: {:?}", closest_pos_screen_space);
+    //println!("closest pos screen space: {:?}", closest_pos_screen_space);
 
     let closest_pos_clip_ndc = Vec3::new(
         (closest_pos_screen_space.x / width_f32) * 2.0 - 1.0,
@@ -313,9 +312,24 @@ fn main_d3d12() -> Result<(), &'static str> {
     window.init_render_target_views(render.device())?;
     window.show();
 
-    let translation_widget = render.new_model("assets/arrow_widget.obj", 1.0, false)?;
+    // -- set up translation widget
+    let mut translation_widgets = [
+        render.new_model("assets/arrow_widget.obj", 1.0, false)?,
+        render.new_model("assets/arrow_widget.obj", 1.0, false)?,
+        render.new_model("assets/arrow_widget.obj", 1.0, false)?,
+    ];
+    translation_widgets[0].diffuse_colour = Vec3::new(1.0, 0.0, 0.0);
+    translation_widgets[1].diffuse_colour = Vec3::new(0.0, 1.0, 0.0);
+    translation_widgets[2].diffuse_colour = Vec3::new(0.0, 0.0, 1.0);
+
     let mut translation_start_pos : Vec3 = glm::zero();
-    let mut translation_widget_transform = STransform::default();
+    let mut translation_widget_transforms = [
+        STransform::default(),
+        STransform::default(),
+        STransform::default(),
+    ];
+    translation_widget_transforms[0].r = glm::quat_angle_axis(utils::PI / 2.0, &Vec3::new(0.0, 1.0, 0.0));
+    translation_widget_transforms[1].r = glm::quat_angle_axis(-utils::PI / 2.0, &Vec3::new(1.0, 0.0, 0.0));
     let mut translation_mouse_offset = [0; 2];
 
     let mut entities = entity::SEntityBucket::new(67485, 16);
@@ -413,57 +427,73 @@ fn main_d3d12() -> Result<(), &'static str> {
         // -- update translation widget
         if mode == EMode::Edit {
             if let Some(e) = last_picked_entity {
-                translation_widget_transform = entities.get_entity_location(e);
+                translation_widget_transforms[0].t = entities.get_entity_location(e).t;
+                translation_widget_transforms[1].t = entities.get_entity_location(e).t;
+                translation_widget_transforms[2].t = entities.get_entity_location(e).t;
                 //println!("Set translation widget: {:?}", translation_widget_transform.t);
-                scale_to_fixed_screen_size(&mut translation_widget_transform, 0.02, render.fovy(), render.znear(), window.width(), window.height(), &camera.pos_world, &camera.forward_world());
+                scale_to_fixed_screen_size(&mut translation_widget_transforms[0], 0.02, render.fovy(), render.znear(), window.width(), window.height(), &camera.pos_world, &camera.forward_world());
+                scale_to_fixed_screen_size(&mut translation_widget_transforms[1], 0.02, render.fovy(), render.znear(), window.width(), window.height(), &camera.pos_world, &camera.forward_world());
+                scale_to_fixed_screen_size(&mut translation_widget_transforms[2], 0.02, render.fovy(), render.znear(), window.width(), window.height(), &camera.pos_world, &camera.forward_world());
             }
         }
 
         // -- check if the user clicked a translation widget
         let mut hit_translation_widget = false;
         if input.left_mouse_edge.down() && !imgui_ctxt.io().want_capture_mouse {
-            if let Some(_) = render.ray_intersects(&translation_widget, &cursor_ray.origin, &cursor_ray.dir, &translation_widget_transform) {
-                let e = last_picked_entity.expect("shouldn't be able to translate without entity picked.");
+            for axis in 0..=2 {
+                if let Some(_) = render.ray_intersects(&translation_widgets[axis], &cursor_ray.origin, &cursor_ray.dir, &translation_widget_transforms[axis]) {
+                    let e = last_picked_entity.expect("shouldn't be able to translate without entity picked.");
 
-                translation_start_pos = translation_widget_transform.t;
-                println!("Hit translation widget!");
-                hit_translation_widget = true;
-                edit_mode = EEditMode::Translation;
+                    let e_pos = entities.get_entity_location(e).t;
 
-                let e_pos = entities.get_entity_location(e).t;
-                let e_pos_screen = world_pos_to_screen_pos(&e_pos, &view_matrix, &window, &render);
+                    translation_start_pos = e_pos;
+                    println!("Hit translation widget!");
+                    hit_translation_widget = true;
+                    edit_mode = EEditMode::Translation(axis);
 
-                translation_mouse_offset = [(e_pos_screen.x as i32) - mouse_pos[0],
-                                            (e_pos_screen.y as i32) - mouse_pos[1]];
+                    let e_pos_screen = world_pos_to_screen_pos(&e_pos, &view_matrix, &window, &render);
+
+                    translation_mouse_offset = [(e_pos_screen.x as i32) - mouse_pos[0],
+                                                (e_pos_screen.y as i32) - mouse_pos[1]];
+
+                    break;
+                }
             }
         }
 
-        if mode == EMode::Edit && edit_mode == EEditMode::Translation {
-            if !input.left_mouse_down {
-                edit_mode = EEditMode::None;
-            }
-            else {
-                assert!(last_picked_entity.is_some(), "translating but no entity!");
+        if mode == EMode::Edit {
+            if let EEditMode::Translation(axis) = edit_mode {
+                if !input.left_mouse_down {
+                    edit_mode = EEditMode::None;
+                }
+                else {
+                    assert!(last_picked_entity.is_some(), "translating but no entity!");
 
-                let line_p0 = translation_start_pos + Vec3::new(0.0, 0.0, -1.0);
-                let line_p1 = translation_start_pos + Vec3::new(0.0, 0.0, 1.0);
+                    let mut line_dir : Vec3 = glm::zero();
+                    line_dir[axis] = 1.0;
 
-                let offset_mouse_pos = [mouse_pos[0] + translation_mouse_offset[0],
-                                        mouse_pos[1] + translation_mouse_offset[1]];
+                    let line_p0 = translation_start_pos + -line_dir;
+                    let line_p1 = translation_start_pos + line_dir;
 
-                let new_world_pos = pos_on_screen_space_line_to_world(
-                    &line_p0,
-                    &line_p1,
-                    offset_mouse_pos,
-                    &view_matrix,
-                    &window,
-                    &render,
-                );
+                    let offset_mouse_pos = [mouse_pos[0] + translation_mouse_offset[0],
+                                            mouse_pos[1] + translation_mouse_offset[1]];
 
-                entities.set_entity_location(
-                    last_picked_entity.expect(""),
-                    STransform::new_translation(&new_world_pos)
-                );
+                    let new_world_pos = pos_on_screen_space_line_to_world(
+                        &line_p0,
+                        &line_p1,
+                        offset_mouse_pos,
+                        &view_matrix,
+                        &window,
+                        &render,
+                    );
+
+                    entities.set_entity_location(
+                        last_picked_entity.expect(""),
+                        STransform::new_translation(&new_world_pos)
+                    );
+
+                    translation_widget_transforms[axis].t = new_world_pos;
+                }
             }
         }
 
@@ -508,8 +538,10 @@ fn main_d3d12() -> Result<(), &'static str> {
             let mut no_depth_transforms = SMemVec::new(sa, 32, 0)?;
 
             if let Some(_) = last_picked_entity {
-                no_depth_models.push(translation_widget);
-                no_depth_transforms.push(translation_widget_transform);
+                for axis in 0..=2 {
+                    no_depth_models.push(translation_widgets[axis]);
+                    no_depth_transforms.push(translation_widget_transforms[axis]);
+                }
             }
 
             if no_depth_models.len() > 0 {

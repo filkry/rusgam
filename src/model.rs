@@ -106,7 +106,7 @@ pub struct SModel {
     pub pickable: bool,
 
     // -- material info
-    diffuse_colour: Vec3,
+    pub diffuse_colour: Vec3,
     diffuse_texture: Option<SPoolHandle>,
     diffuse_weight: f32,
     is_lit: bool,

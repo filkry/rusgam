@@ -424,19 +424,6 @@ fn main_d3d12() -> Result<(), &'static str> {
 
         //println!("Frame time: {}us", _dtms);
 
-        // -- update translation widget
-        if mode == EMode::Edit {
-            if let Some(e) = last_picked_entity {
-                translation_widget_transforms[0].t = entities.get_entity_location(e).t;
-                translation_widget_transforms[1].t = entities.get_entity_location(e).t;
-                translation_widget_transforms[2].t = entities.get_entity_location(e).t;
-                //println!("Set translation widget: {:?}", translation_widget_transform.t);
-                scale_to_fixed_screen_size(&mut translation_widget_transforms[0], 0.02, render.fovy(), render.znear(), window.width(), window.height(), &camera.pos_world, &camera.forward_world());
-                scale_to_fixed_screen_size(&mut translation_widget_transforms[1], 0.02, render.fovy(), render.znear(), window.width(), window.height(), &camera.pos_world, &camera.forward_world());
-                scale_to_fixed_screen_size(&mut translation_widget_transforms[2], 0.02, render.fovy(), render.znear(), window.width(), window.height(), &camera.pos_world, &camera.forward_world());
-            }
-        }
-
         // -- check if the user clicked a translation widget
         let mut hit_translation_widget = false;
         if input.left_mouse_edge.down() && !imgui_ctxt.io().want_capture_mouse {
@@ -491,9 +478,20 @@ fn main_d3d12() -> Result<(), &'static str> {
                         last_picked_entity.expect(""),
                         STransform::new_translation(&new_world_pos)
                     );
-
-                    translation_widget_transforms[axis].t = new_world_pos;
                 }
+            }
+        }
+
+        // -- update translation widget
+        if mode == EMode::Edit {
+            if let Some(e) = last_picked_entity {
+                translation_widget_transforms[0].t = entities.get_entity_location(e).t;
+                translation_widget_transforms[1].t = entities.get_entity_location(e).t;
+                translation_widget_transforms[2].t = entities.get_entity_location(e).t;
+                //println!("Set translation widget: {:?}", translation_widget_transform.t);
+                scale_to_fixed_screen_size(&mut translation_widget_transforms[0], 0.02, render.fovy(), render.znear(), window.width(), window.height(), &camera.pos_world, &camera.forward_world());
+                scale_to_fixed_screen_size(&mut translation_widget_transforms[1], 0.02, render.fovy(), render.znear(), window.width(), window.height(), &camera.pos_world, &camera.forward_world());
+                scale_to_fixed_screen_size(&mut translation_widget_transforms[2], 0.02, render.fovy(), render.znear(), window.width(), window.height(), &camera.pos_world, &camera.forward_world());
             }
         }
 

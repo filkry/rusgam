@@ -334,7 +334,6 @@ fn main_d3d12() -> Result<(), &'static str> {
 
     let mut entities = entity::SEntityBucket::new(67485, 16);
     let rotating_entity = entities.create_entity()?;
-    let debug_entity = entities.create_entity()?;
     {
         // -- set up entities
         let ent2 = entities.create_entity()?;
@@ -361,7 +360,6 @@ fn main_d3d12() -> Result<(), &'static str> {
         entities.set_entity_model(ent2, model1.clone());
         entities.set_entity_model(ent3, model3);
         entities.set_entity_model(room, room_model);
-        entities.set_entity_model(debug_entity, debug_model);
     }
 
     // -- update loop
@@ -401,7 +399,6 @@ fn main_d3d12() -> Result<(), &'static str> {
         // -- update
         let cur_angle = ((total_time as f32) / 1_000_000.0) * (3.14159 / 4.0);
         entities.set_entity_location(rotating_entity, STransform::new_rotation(&glm::quat_angle_axis(cur_angle, &rot_axis)));
-        entities.set_entity_location(debug_entity, STransform::new_translation(&last_ray_hit_pos));
 
         //let mut fixed_size_model_xform = STransform::new_translation(&glm::Vec3::new(0.0, 5.0, 0.0));
 

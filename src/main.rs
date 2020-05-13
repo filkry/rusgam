@@ -462,6 +462,14 @@ fn main_d3d12() -> Result<(), &'static str> {
                     let line_p0 = translation_start_pos + -line_dir;
                     let line_p1 = translation_start_pos + line_dir;
 
+                    let mut render_color : Vec3 = glm::zero();
+                    render_color[axis] = 1.0;
+                    render.add_debug_line(
+                        &(translation_start_pos + -100.0 * line_dir),
+                        &(translation_start_pos + 100.0 * line_dir),
+                        &render_color,
+                    );
+
                     let offset_mouse_pos = [mouse_pos[0] + translation_mouse_offset[0],
                                             mouse_pos[1] + translation_mouse_offset[1]];
 
@@ -548,6 +556,9 @@ fn main_d3d12() -> Result<(), &'static str> {
 
             Ok(())
         })?;
+
+        // -- render debug lines
+        render.render_debug_lines(&mut window, &view_matrix)?;
 
         // -- render IMGUI
         // -- set up imgui IO

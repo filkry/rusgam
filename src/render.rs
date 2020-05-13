@@ -63,9 +63,29 @@ struct SNoDepthPipelineStateStream<'a> {
     rtv_formats: n12::SPipelineStateStreamRTVFormats<'a>,
 }
 
+#[allow(unused_variables)]
+#[allow(unused_mut)]
+#[repr(C)]
+struct SDebugLinePipelineStateStream<'a> {
+    root_signature: n12::SPipelineStateStreamRootSignature<'a>,
+    input_layout: n12::SPipelineStateStreamInputLayout<'a>,
+    primitive_topology: n12::SPipelineStateStreamPrimitiveTopology,
+    vertex_shader: n12::SPipelineStateStreamVertexShader<'a>,
+    pixel_shader: n12::SPipelineStateStreamPixelShader<'a>,
+    depth_stencil_format: n12::SPipelineStateStreamDepthStencilFormat,
+    rtv_formats: n12::SPipelineStateStreamRTVFormats<'a>,
+}
+
 #[derive(Serialize, Deserialize)]
 struct SBuiltShaderMetadata {
     src_write_time: std::time::SystemTime,
+}
+
+#[allow(dead_code)]
+struct SDebugLine {
+    start: Vec3,
+    end: Vec3,
+    colour: Vec3,
 }
 
 pub struct SRender<'a> {
@@ -113,13 +133,13 @@ pub struct SRender<'a> {
     // -- debug render stuff
     debug_line_pipeline_state: t12::SPipelineState,
     debug_line_root_signature: n12::SRootSignature,
-    debug_line_vp_root_param_idx: t12::SPipelineState,
+    debug_line_vp_root_param_idx: usize,
     _debug_line_vert_byte_code: t12::SShaderBytecode,
     _debug_line_pixel_byte_code: t12::SShaderBytecode,
-    debug_lines: [SMemVec::<'a, SDebugLine>; 2],
-    debug_line_vertex_buffer_intermediate_resource: [n12::SResource; 2],
-    debug_line_vertex_buffer_resource: [n12::SResource; 2],
-    debug_line_vertex_buffer_view: [t12::SIndexBufferView; 2],
+    debug_lines: SMemVec::<'a, SDebugLine>,
+    debug_line_vertex_buffer_intermediate_resource: [Option<n12::SResource>; 2],
+    debug_line_vertex_buffer_resource: [Option<n12::SResource>; 2],
+    debug_line_vertex_buffer_view: [Option<t12::SVertexBufferView>; 2],
 
     frame_fence_values: [u64; 2],
 
@@ -141,6 +161,8 @@ pub fn compile_shaders_if_changed() {
         ("shadow_pixel", "ps_6_0"),
         ("imgui_vertex", "vs_6_0"),
         ("imgui_pixel", "ps_6_0"),
+        ("debug_line_vertex", "vs_6_0"),
+        ("debug_line_pixel", "ps_6_0"),
     ];
 
     for (shader_name, type_) in &shaders {
@@ -590,7 +612,6 @@ impl<'a> SRender<'a> {
         ];
 
         // ======================================================================
-
         // -- setup no depth test pipeline
         // ======================================================================
         let no_depth_depth_stencil_desc = t12::SDepthStencilDesc {
@@ -616,6 +637,86 @@ impl<'a> SRender<'a> {
         let no_depth_pipeline_state = device
             .raw()
             .create_pipeline_state(&no_depth_pipeline_state_stream_desc)?;
+
+        // ======================================================================
+        // -- setup debug line pipeline
+        // ======================================================================
+        let debug_line_root_signature_flags = {
+            use t12::ERootSignatureFlags::*;
+
+            t12::SRootSignatureFlags::create(&[
+                AllowInputAssemblerInputLayout,
+                DenyHullShaderRootAccess,
+                DenyDomainShaderRootAccess,
+                DenyGeometryShaderRootAccess,
+                DenyPixelShaderRootAccess,
+            ])
+        };
+
+        let vp_root_parameter = t12::SRootParameter {
+            type_: t12::ERootParameterType::E32BitConstants,
+            type_data: t12::ERootParameterTypeData::Constants {
+                constants: t12::SRootConstants {
+                    shader_register: 0,
+                    register_space: 0,
+                    num_32_bit_values: (size_of::<Mat4>() * 3 / 4) as u32,
+                },
+            },
+            shader_visibility: t12::EShaderVisibility::Vertex,
+        };
+
+        let mut debug_line_root_signature_desc = t12::SRootSignatureDesc::new(debug_line_root_signature_flags);
+        debug_line_root_signature_desc.parameters.push(vp_root_parameter);
+        let debug_line_vp_root_param_idx = debug_line_root_signature_desc.parameters.len() - 1;
+
+        let debug_line_root_signature =
+            device.create_root_signature(debug_line_root_signature_desc,
+                                         t12::ERootSignatureVersion::V1)?;
+
+        let mut debug_line_input_layout_desc = t12::SInputLayoutDesc::create(&[
+            t12::SInputElementDesc::create(
+                "POSITION",
+                0,
+                t12::EDXGIFormat::R32G32B32Float,
+                0,
+                winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
+                t12::EInputClassification::PerVertexData,
+                0,
+            ),
+            t12::SInputElementDesc::create(
+                "COLOR",
+                0,
+                t12::EDXGIFormat::R32G32B32Float,
+                0,
+                winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
+                t12::EInputClassification::PerVertexData,
+                0,
+            ),
+        ]);
+
+        let debug_line_vertblob = t12::read_file_to_blob("shaders_built/debug_line_vertex.cso")?;
+        let debug_line_pixelblob = t12::read_file_to_blob("shaders_built/debug_line_pixel.cso")?;
+
+        let debug_line_vert_byte_code = t12::SShaderBytecode::create(debug_line_vertblob);
+        let debug_line_pixel_byte_code = t12::SShaderBytecode::create(debug_line_pixelblob);
+
+        let debug_line_pipeline_state_stream = SDebugLinePipelineStateStream {
+            root_signature: n12::SPipelineStateStreamRootSignature::create(&debug_line_root_signature),
+            input_layout: n12::SPipelineStateStreamInputLayout::create(&mut debug_line_input_layout_desc),
+            primitive_topology: n12::SPipelineStateStreamPrimitiveTopology::create(
+                t12::EPrimitiveTopologyType::Line,
+            ),
+            vertex_shader: n12::SPipelineStateStreamVertexShader::create(&debug_line_vert_byte_code),
+            pixel_shader: n12::SPipelineStateStreamPixelShader::create(&debug_line_pixel_byte_code),
+            depth_stencil_format: n12::SPipelineStateStreamDepthStencilFormat::create(
+                t12::EDXGIFormat::D32Float,
+            ),
+            rtv_formats: n12::SPipelineStateStreamRTVFormats::create(&rtv_formats),
+        };
+        let debug_line_pipeline_state_stream_desc = t12::SPipelineStateStreamDesc::create(&debug_line_pipeline_state_stream);
+        let debug_line_pipeline_state = device
+            .raw()
+            .create_pipeline_state(&debug_line_pipeline_state_stream_desc)?;
 
         // ======================================================================
 
@@ -663,6 +764,16 @@ impl<'a> SRender<'a> {
             imgui_vert_buffer_views,
             imgui_index_buffer_resources,
             imgui_index_buffer_views,
+
+            debug_line_pipeline_state,
+            debug_line_root_signature,
+            debug_line_vp_root_param_idx,
+            _debug_line_vert_byte_code: debug_line_vert_byte_code,
+            _debug_line_pixel_byte_code: debug_line_pixel_byte_code,
+            debug_lines: SMemVec::new(&SYSTEM_ALLOCATOR, 1024, 0)?,
+            debug_line_vertex_buffer_intermediate_resource: [None, None],
+            debug_line_vertex_buffer_resource: [None, None],
+            debug_line_vertex_buffer_view: [None, None],
 
             frame_fence_values: [0; 2],
         })
@@ -1126,33 +1237,46 @@ impl<'a> SRender<'a> {
         Ok(())
     }
 
-    pub fn render_debug_lines(&mut self, window: &mut n12::SD3D12Window) -> Result<(), &'static str> {
-        let back_buffer_idx = window.currentbackbufferidx();
+    pub fn render_debug_lines(&mut self, window: &mut n12::SD3D12Window, view_matrix: &Mat4) -> Result<(), &'static str> {
+        let back_buffer_idx = window.currentbackbufferindex();
+
+        /* A very basic test
+        self.debug_lines.push(SDebugLine{
+            start: Vec3::new(-5.0, 2.0, 0.0),
+            end: Vec3::new(5.0, 2.0, 0.0),
+            colour: Vec3::new(1.0, 0.0, 0.0),
+        });
+        */
+
+        if self.debug_lines.len() == 0 {
+            return Ok(());
+        }
 
         // -- create/upload vertex buffer
+        // -- must match SDebugLineShaderVert in debug_line_vertex.hlsl
         #[repr(C)]
         struct SDebugLineShaderVert {
             pos: [f32; 3],
-            colour: [f32; 4],
+            colour: [f32; 3],
         }
         impl SDebugLineShaderVert {
-            fn new(pos: &Vec3, colour: &Vec4) -> Self {
+            fn new(pos: &Vec3, colour: &Vec3) -> Self {
                 Self {
                     pos: [pos.x, pos.y, pos.z],
-                    colour: [colour.x, colour.y, colour.z, colour.w],
+                    colour: [colour.x, colour.y, colour.z],
                 }
             }
         }
 
         // -- generate data and copy to GPU
         STACK_ALLOCATOR.with(|sa| -> Result<(), &'static str> {
-            let vertex_buffer_data = SMemVec::new(
+            let mut vertex_buffer_data = SMemVec::new(
                 sa,
-                self.debug_lines[back_buffer_idx].len() * 2,
+                self.debug_lines.len() * 2,
                 0,
             )?;
 
-            for line in self.debug_lines {
+            for line in self.debug_lines.as_slice() {
                 vertex_buffer_data.push(SDebugLineShaderVert::new(&line.start, &line.colour));
                 vertex_buffer_data.push(SDebugLineShaderVert::new(&line.end, &line.colour));
             }
@@ -1160,11 +1284,11 @@ impl<'a> SRender<'a> {
             let handle = self.copy_command_pool.alloc_list()?;
             let mut copy_command_list = self.copy_command_pool.get_list(handle)?;
 
-            let mut vert_buffer_resource = {
+            let vert_buffer_resource = {
                 let vertbufferflags = t12::SResourceFlags::from(t12::EResourceFlags::ENone);
                 copy_command_list.update_buffer_resource(
                     self.device.deref(),
-                    vertex_buffer_data,
+                    vertex_buffer_data.as_slice(),
                     vertbufferflags
                 )?
             };
@@ -1183,11 +1307,13 @@ impl<'a> SRender<'a> {
             )?;
 
             self.debug_line_vertex_buffer_intermediate_resource[back_buffer_idx] =
-                vert_buffer_resource.intermediateresource;
+                Some(vert_buffer_resource.intermediateresource);
             self.debug_line_vertex_buffer_resource[back_buffer_idx] =
-                vert_buffer_resource.destinationresource;
-            self.debug_line_vertex_buffer_view[back_buffer_idx] = vertex_buffer_view;
-        }
+                Some(vert_buffer_resource.destinationresource);
+            self.debug_line_vertex_buffer_view[back_buffer_idx] = Some(vertex_buffer_view);
+
+            Ok(())
+        })?;
 
         // -- set up pipeline and render lines
         let handle = self.direct_command_pool.alloc_list()?;
@@ -1227,7 +1353,9 @@ impl<'a> SRender<'a> {
 
         // -- set up input assembler
         list.ia_set_primitive_topology(t12::EPrimitiveTopology::LineList);
-        list.ia_set_vertex_buffers(0, &[&self.debug_line_vertex_buffer_view[back_buffer_idx]]);
+        let vert_buffer_view = self.debug_line_vertex_buffer_view[back_buffer_idx].
+            as_ref().expect("should have generated resource earlier in this function");
+        list.ia_set_vertex_buffers(0, &[vert_buffer_view]);
 
         let scissorrect = t12::SRect {
             left: 0,
@@ -1238,13 +1366,15 @@ impl<'a> SRender<'a> {
         list.rs_set_scissor_rects(t12::SScissorRects::create(&[&scissorrect]));
 
         for i in 0..self.debug_lines.len() {
-            list.draw_instanced(2, 1, i * 2, 0);
+            list.draw_instanced(2, 1, (i * 2) as u32, 0);
         }
 
         // -- execute on the queue
         drop(list);
-        assert_eq!(window.currentbackbufferindex(), backbufferidx);
+        assert_eq!(window.currentbackbufferindex(), back_buffer_idx);
         self.direct_command_pool.execute_and_free_list(handle)?;
+
+        self.debug_lines.clear();
 
         Ok(())
     }
@@ -1281,6 +1411,14 @@ impl<'a> SRender<'a> {
         }
 
         panic!("We don't have any other textures!!!!");
+    }
+
+    pub fn add_debug_line(&mut self, start: &Vec3, end: &Vec3, color: &Vec3) {
+        self.debug_lines.push(SDebugLine {
+            start: start.clone(),
+            end: end.clone(),
+            colour: color.clone(),
+        });
     }
 
     pub fn flush(&mut self) -> Result<(), &'static str> {

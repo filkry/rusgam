@@ -252,13 +252,31 @@ impl EPrimitiveTopologyType {
 #[derive(Copy, Clone, PartialEq)]
 pub enum EPrimitiveTopology {
     // -- not comprehensive, too many to type at once, add as needed
+    Undefined,
+    PointList,
+    LineList,
+    LineStrip,
     TriangleList,
+    TriangleStrip,
+    LineListAdj,
+    LineStripAdj,
+    TriangleListAdj,
+    TriangleStripAdj,
 }
 
 impl EPrimitiveTopology {
     pub fn d3dtype(&self) -> D3D12_PRIMITIVE_TOPOLOGY {
         match self {
+            Self::Undefined => d3dcommon::D3D_PRIMITIVE_TOPOLOGY_UNDEFINED,
+            Self::PointList => d3dcommon::D3D_PRIMITIVE_TOPOLOGY_POINTLIST,
+            Self::LineList => d3dcommon::D3D_PRIMITIVE_TOPOLOGY_LINELIST,
+            Self::LineStrip => d3dcommon::D3D_PRIMITIVE_TOPOLOGY_LINESTRIP,
             Self::TriangleList => d3dcommon::D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST,
+            Self::TriangleStrip => d3dcommon::D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP,
+            Self::LineListAdj => d3dcommon::D3D_PRIMITIVE_TOPOLOGY_LINELIST_ADJ,
+            Self::LineStripAdj => d3dcommon::D3D_PRIMITIVE_TOPOLOGY_LINESTRIP_ADJ,
+            Self::TriangleListAdj => d3dcommon::D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST_ADJ,
+            Self::TriangleStripAdj => d3dcommon::D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP_ADJ,
         }
     }
 }

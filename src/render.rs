@@ -110,6 +110,17 @@ pub struct SRender<'a> {
     imgui_index_buffer_resources: [SMemVec::<'a, n12::SResource>; 2],
     imgui_index_buffer_views: [SMemVec::<'a, t12::SIndexBufferView>; 2],
 
+    // -- debug render stuff
+    debug_line_pipeline_state: t12::SPipelineState,
+    debug_line_root_signature: n12::SRootSignature,
+    debug_line_vp_root_param_idx: t12::SPipelineState,
+    _debug_line_vert_byte_code: t12::SShaderBytecode,
+    _debug_line_pixel_byte_code: t12::SShaderBytecode,
+    debug_lines: [SMemVec::<'a, SDebugLine>; 2],
+    debug_line_vertex_buffer_intermediate_resource: [n12::SResource; 2],
+    debug_line_vertex_buffer_resource: [n12::SResource; 2],
+    debug_line_vertex_buffer_view: [t12::SIndexBufferView; 2],
+
     frame_fence_values: [u64; 2],
 
     // -- these things need to drop last, due to Weak references to them
@@ -1105,6 +1116,129 @@ impl<'a> SRender<'a> {
                     imgui::DrawCmd::RawCallback{..} => {},
                 }
             }
+        }
+
+        // -- execute on the queue
+        drop(list);
+        assert_eq!(window.currentbackbufferindex(), backbufferidx);
+        self.direct_command_pool.execute_and_free_list(handle)?;
+
+        Ok(())
+    }
+
+    pub fn render_debug_lines(&mut self, window: &mut n12::SD3D12Window) -> Result<(), &'static str> {
+        let back_buffer_idx = window.currentbackbufferidx();
+
+        // -- create/upload vertex buffer
+        #[repr(C)]
+        struct SDebugLineShaderVert {
+            pos: [f32; 3],
+            colour: [f32; 4],
+        }
+        impl SDebugLineShaderVert {
+            fn new(pos: &Vec3, colour: &Vec4) -> Self {
+                Self {
+                    pos: [pos.x, pos.y, pos.z],
+                    colour: [colour.x, colour.y, colour.z, colour.w],
+                }
+            }
+        }
+
+        // -- generate data and copy to GPU
+        STACK_ALLOCATOR.with(|sa| -> Result<(), &'static str> {
+            let vertex_buffer_data = SMemVec::new(
+                sa,
+                self.debug_lines[back_buffer_idx].len() * 2,
+                0,
+            )?;
+
+            for line in self.debug_lines {
+                vertex_buffer_data.push(SDebugLineShaderVert::new(&line.start, &line.colour));
+                vertex_buffer_data.push(SDebugLineShaderVert::new(&line.end, &line.colour));
+            }
+
+            let handle = self.copy_command_pool.alloc_list()?;
+            let mut copy_command_list = self.copy_command_pool.get_list(handle)?;
+
+            let mut vert_buffer_resource = {
+                let vertbufferflags = t12::SResourceFlags::from(t12::EResourceFlags::ENone);
+                copy_command_list.update_buffer_resource(
+                    self.device.deref(),
+                    vertex_buffer_data,
+                    vertbufferflags
+                )?
+            };
+            let vertex_buffer_view = vert_buffer_resource
+                .destinationresource
+                .create_vertex_buffer_view()?;
+
+            drop(copy_command_list);
+            let fence_val = self.copy_command_pool.execute_and_free_list(handle)?;
+            drop(handle);
+
+            // -- have the direct queue wait on the copy upload to complete
+            self.direct_command_pool.gpu_wait(
+                self.copy_command_pool.get_internal_fence(),
+                fence_val,
+            )?;
+
+            self.debug_line_vertex_buffer_intermediate_resource[back_buffer_idx] =
+                vert_buffer_resource.intermediateresource;
+            self.debug_line_vertex_buffer_resource[back_buffer_idx] =
+                vert_buffer_resource.destinationresource;
+            self.debug_line_vertex_buffer_view[back_buffer_idx] = vertex_buffer_view;
+        }
+
+        // -- set up pipeline and render lines
+        let handle = self.direct_command_pool.alloc_list()?;
+        let mut list = self.direct_command_pool.get_list(handle)?;
+
+        list.set_pipeline_state(&self.debug_line_pipeline_state);
+        // root signature has to be set explicitly despite being on PSO, according to tutorial
+        list.set_graphics_root_signature(&self.debug_line_root_signature.raw());
+
+        // -- setup rasterizer state
+        let viewport = t12::SViewport::new(
+            0.0,
+            0.0,
+            window.width() as f32,
+            window.height() as f32,
+            None,
+            None,
+        );
+        list.rs_set_viewports(&[&viewport]);
+
+        // -- setup the output merger
+        let render_target_view = window.currentrendertargetdescriptor()?;
+        let depth_texture_view = self._depth_texture_view.as_ref().expect("no depth texture").cpu_descriptor(0);
+        list.om_set_render_targets(&[&render_target_view], false, &depth_texture_view);
+
+        let perspective_matrix: Mat4 = {
+            let aspect = (window.width() as f32) / (window.height() as f32);
+            let zfar = 100.0;
+
+            //SMat44::new_perspective(aspect, fovy, znear, zfar)
+            glm::perspective_lh_zo(aspect, self.fovy(), self.znear(), zfar)
+        };
+        let view_perspective = perspective_matrix * view_matrix;
+
+        list.set_graphics_root_32_bit_constants(self.debug_line_vp_root_param_idx as u32,
+                                                &view_perspective, 0);
+
+        // -- set up input assembler
+        list.ia_set_primitive_topology(t12::EPrimitiveTopology::LineList);
+        list.ia_set_vertex_buffers(0, &[&self.debug_line_vertex_buffer_view[back_buffer_idx]]);
+
+        let scissorrect = t12::SRect {
+            left: 0,
+            right: std::i32::MAX,
+            top: 0,
+            bottom: std::i32::MAX,
+        };
+        list.rs_set_scissor_rects(t12::SScissorRects::create(&[&scissorrect]));
+
+        for i in 0..self.debug_lines.len() {
+            list.draw_instanced(2, 1, i * 2, 0);
         }
 
         // -- execute on the queue

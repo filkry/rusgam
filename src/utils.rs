@@ -19,6 +19,11 @@ pub struct SRay {
     pub dir: Vec3,
 }
 
+pub struct SPlane {
+    pub p: Vec3,
+    pub normal: Vec3,
+}
+
 //pub fn hash64<T: Hash>(t: &T) -> u64 {
 //    let mut s = DefaultHasher::new();
 //    t.hash(&mut s);
@@ -113,6 +118,31 @@ pub fn ray_intersects_triangle(
     }
 
     return None;
+}
+
+impl SPlane {
+    pub fn new(point_on_plane: &Vec3, plane_normal: &Vec3) -> Self {
+        Self {
+            p: point_on_plane.clone(),
+            normal: plane_normal.clone(),
+        }
+    }
+}
+
+pub fn ray_plane_intersection(ray: &SRay, plane: &SPlane) -> Option<Vec3> {
+    use glm::dot;
+
+    let denom = dot(&ray.dir, &plane.normal);
+
+    const EPSILON: f32 = 0.000_000_1;
+    if denom.abs() < EPSILON {
+        return None;
+    }
+
+    let num = dot(&plane.p, &plane.normal) - dot(&ray.origin, &plane.normal);
+    let t = num / denom;
+
+    Some(ray.origin + t * ray.dir)
 }
 
 pub fn vec3_to_homogenous(vec: &Vec3, w: f32) -> Vec4 {

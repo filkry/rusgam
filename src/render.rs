@@ -615,7 +615,7 @@ impl<'a> SRender<'a> {
         // -- setup no depth test pipeline
         // ======================================================================
         let no_depth_depth_stencil_desc = t12::SDepthStencilDesc {
-            depth_enable: false,
+            depth_enable: true,
             ..Default::default()
         };
 
@@ -976,7 +976,7 @@ impl<'a> SRender<'a> {
         }
     }
 
-    pub fn render_no_depth(&mut self, window: &mut n12::SD3D12Window, view_matrix: &Mat4, models: &[SModel], model_xforms: &[STransform]) -> Result<(), &'static str> {
+    pub fn render_draw_over(&mut self, window: &mut n12::SD3D12Window, view_matrix: &Mat4, models: &[SModel], model_xforms: &[STransform]) -> Result<(), &'static str> {
         let viewport = t12::SViewport::new(
             0.0,
             0.0,
@@ -1007,6 +1007,9 @@ impl<'a> SRender<'a> {
 
             {
                 let mut list = self.direct_command_pool.get_list(handle)?;
+
+                // -- clear depth texture so we can draw over
+                list.clear_depth_stencil_view(self._depth_texture_view.as_ref().expect("no depth texture").cpu_descriptor(0), 1.0)?;
 
                 let render_target_view = window.currentrendertargetdescriptor()?;
                 let depth_texture_view = self._depth_texture_view.as_ref().expect("no depth texture").cpu_descriptor(0);

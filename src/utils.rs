@@ -129,7 +129,7 @@ impl SPlane {
     }
 }
 
-pub fn ray_plane_intersection(ray: &SRay, plane: &SPlane) -> Option<Vec3> {
+pub fn ray_plane_intersection(ray: &SRay, plane: &SPlane) -> Option<(Vec3, f32)> {
     use glm::dot;
 
     let denom = dot(&ray.dir, &plane.normal);
@@ -142,7 +142,7 @@ pub fn ray_plane_intersection(ray: &SRay, plane: &SPlane) -> Option<Vec3> {
     let num = dot(&plane.p, &plane.normal) - dot(&ray.origin, &plane.normal);
     let t = num / denom;
 
-    Some(ray.origin + t * ray.dir)
+    Some((ray.origin + t * ray.dir, t))
 }
 
 pub fn vec3_to_homogenous(vec: &Vec3, w: f32) -> Vec4 {

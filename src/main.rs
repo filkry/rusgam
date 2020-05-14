@@ -509,24 +509,26 @@ fn main_d3d12() -> Result<(), &'static str> {
                 }
             }
             else if edit_mode == EEditMode::Rotation {
+
+                let mut min_t = None;
                 for axis in 0..=2 {
                     if let Some(_) = render.ray_intersects(&rotation_widgets[axis], &cursor_ray.origin, &cursor_ray.dir, &rotation_widget_transforms[axis]) {
                         let e = last_picked_entity.expect("shouldn't be able to rotate without entity picked.");
 
                         let e_loc = entities.get_entity_location(e);
 
-                        rotation_start_ori = e_loc.r;
-
                         let mut plane_normal : Vec3 = glm::zero();
                         plane_normal[axis] = 1.0;
                         let plane = utils::SPlane::new(&e_loc.t, &plane_normal);
                         let cursor_ray_world = cursor_ray_world(mouse_pos, &render, &window, &camera);
 
-                        if let Some(cursor_pos_world) = utils::ray_plane_intersection(&cursor_ray_world, &plane) {
-                            rotation_start_entity_to_cursor = cursor_pos_world - e_loc.t;
-
-                            edit_mode = EEditMode::RotationDragging(axis);
-                            break;
+                        if let Some((cursor_pos_world, t)) = utils::ray_plane_intersection(&cursor_ray_world, &plane) {
+                            if min_t.is_none() || min_t.unwrap() > t {
+                                rotation_start_ori = e_loc.r;
+                                rotation_start_entity_to_cursor = cursor_pos_world - e_loc.t;
+                                edit_mode = EEditMode::RotationDragging(axis);
+                                min_t = Some(t);
+                            }
                         }
                     }
                 }
@@ -591,7 +593,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                     let plane = utils::SPlane::new(&e_loc.t, &plane_normal);
 
                     let cursor_ray_world = cursor_ray_world(mouse_pos, &render, &window, &camera);
-                    if let Some(cursor_pos_world) = utils::ray_plane_intersection(&cursor_ray_world, &plane) {
+                    if let Some((cursor_pos_world, _)) = utils::ray_plane_intersection(&cursor_ray_world, &plane) {
                         let entity_to_cursor = cursor_pos_world - e_loc.t;
 
                         let rotation = glm::quat_rotation(&rotation_start_entity_to_cursor,
@@ -667,35 +669,35 @@ fn main_d3d12() -> Result<(), &'static str> {
             Ok(())
         })?;
 
-        // -- render non-depth-tested things
+        // -- render debug lines
+        render.render_debug_lines(&mut window, &view_matrix)?;
+
+        // -- render things that should draw over everything else
         STACK_ALLOCATOR.with(|sa| -> Result<(), &'static str> {
-            let mut no_depth_models = SMemVec::new(sa, 32, 0)?;
-            let mut no_depth_transforms = SMemVec::new(sa, 32, 0)?;
+            let mut draw_over_models = SMemVec::new(sa, 32, 0)?;
+            let mut draw_over_transforms = SMemVec::new(sa, 32, 0)?;
 
             if mode == EMode::Edit && last_picked_entity.is_some() {
                 if edit_mode.show_translation_widgets() {
                     for axis in 0..=2 {
-                        no_depth_models.push(translation_widgets[axis]);
-                        no_depth_transforms.push(translation_widget_transforms[axis]);
+                        draw_over_models.push(translation_widgets[axis]);
+                        draw_over_transforms.push(translation_widget_transforms[axis]);
                     }
                 }
                 if edit_mode.show_rotation_widgets() {
                     for axis in 0..=2 {
-                        no_depth_models.push(rotation_widgets[axis]);
-                        no_depth_transforms.push(rotation_widget_transforms[axis]);
+                        draw_over_models.push(rotation_widgets[axis]);
+                        draw_over_transforms.push(rotation_widget_transforms[axis]);
                     }
                 }
             }
 
-            if no_depth_models.len() > 0 {
-                render.render_no_depth(&mut window, &view_matrix, no_depth_models.as_slice(), no_depth_transforms.as_slice())?;
+            if draw_over_models.len() > 0 {
+                render.render_draw_over(&mut window, &view_matrix, draw_over_models.as_slice(), draw_over_transforms.as_slice())?;
             }
 
             Ok(())
         })?;
-
-        // -- render debug lines
-        render.render_debug_lines(&mut window, &view_matrix)?;
 
         // -- render IMGUI
         // -- set up imgui IO

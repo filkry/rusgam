@@ -86,18 +86,18 @@ impl EEditMode {
         }
     }
 
-    pub fn show_translation_widgets(&self) -> bool {
+    pub fn show_translation_widget(&self, query_axis: usize) -> bool {
         match self {
             Self::Translation => true,
-            Self::TranslationDragging(_) => true,
+            Self::TranslationDragging(axis) => *axis == query_axis,
             _ => false,
         }
     }
 
-    pub fn show_rotation_widgets(&self) -> bool {
+    pub fn show_rotation_widget(&self, query_axis: usize) -> bool {
         match self {
             Self::Rotation => true,
-            Self::RotationDragging(_) => true,
+            Self::RotationDragging(axis) => *axis == query_axis,
             _ => false,
         }
     }
@@ -678,14 +678,14 @@ fn main_d3d12() -> Result<(), &'static str> {
             let mut draw_over_transforms = SMemVec::new(sa, 32, 0)?;
 
             if mode == EMode::Edit && last_picked_entity.is_some() {
-                if edit_mode.show_translation_widgets() {
-                    for axis in 0..=2 {
+                for axis in 0..=2 {
+                    if edit_mode.show_translation_widget(axis) {
                         draw_over_models.push(translation_widgets[axis]);
                         draw_over_transforms.push(translation_widget_transforms[axis]);
                     }
                 }
-                if edit_mode.show_rotation_widgets() {
-                    for axis in 0..=2 {
+                for axis in 0..=2 {
+                    if edit_mode.show_rotation_widget(axis) {
                         draw_over_models.push(rotation_widgets[axis]);
                         draw_over_transforms.push(rotation_widget_transforms[axis]);
                     }

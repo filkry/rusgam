@@ -298,6 +298,25 @@ impl SInput {
         self.y_edge = EInputEdge::Unchanged;
         self.z_edge = EInputEdge::Unchanged;
         self.space_edge = EInputEdge::Unchanged;
+        self.space_edge = EInputEdge::Unchanged;
+        self.tilde_edge = EInputEdge::Unchanged;
+        self.tab_edge = EInputEdge::Unchanged;
+        self.left_arrow_edge = EInputEdge::Unchanged;
+        self.right_arrow_edge = EInputEdge::Unchanged;
+        self.down_arrow_edge = EInputEdge::Unchanged;
+        self.up_arrow_edge = EInputEdge::Unchanged;
+        self.page_up_edge = EInputEdge::Unchanged;
+        self.page_down_edge = EInputEdge::Unchanged;
+        self.home_edge = EInputEdge::Unchanged;
+        self.end_edge = EInputEdge::Unchanged;
+        self.insert_edge = EInputEdge::Unchanged;
+        self.delete_edge = EInputEdge::Unchanged;
+        self.backspace_edge = EInputEdge::Unchanged;
+        self.enter_edge = EInputEdge::Unchanged;
+        self.escape_edge = EInputEdge::Unchanged;
+        self.key_pad_enter_edge = EInputEdge::Unchanged;
+        self.minus_edge = EInputEdge::Unchanged;
+
         self.left_mouse_edge = EInputEdge::Unchanged;
         self.middle_mouse_edge = EInputEdge::Unchanged;
         self.right_mouse_edge = EInputEdge::Unchanged;

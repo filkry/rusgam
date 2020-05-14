@@ -429,6 +429,7 @@ impl<'a> SInputEventHandler<'a> {
             EKey::Escape => change!(escape_down, escape_edge, None, Some(EKey::Escape as usize)),
             EKey::KeyPadEnter => change!(key_pad_enter_down, key_pad_enter_edge, None, Some(EKey::KeyPadEnter as usize)),
             EKey::Minus => change!(minus_down, minus_edge, Some('-'), None),
+            EKey::Tilde => change!(tilde_down, tilde_edge, Some('~'), None),
 
             _ => (),
         }

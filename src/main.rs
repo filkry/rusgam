@@ -354,9 +354,9 @@ fn main_d3d12() -> Result<(), &'static str> {
         render.new_model("assets/arrow_widget.obj", 1.0, false)?,
         render.new_model("assets/arrow_widget.obj", 1.0, false)?,
     ];
-    translation_widgets[0].diffuse_colour = Vec3::new(1.0, 0.0, 0.0);
-    translation_widgets[1].diffuse_colour = Vec3::new(0.0, 1.0, 0.0);
-    translation_widgets[2].diffuse_colour = Vec3::new(0.0, 0.0, 1.0);
+    translation_widgets[0].diffuse_colour = Vec4::new(1.0, 0.0, 0.0, 1.0);
+    translation_widgets[1].diffuse_colour = Vec4::new(0.0, 1.0, 0.0, 1.0);
+    translation_widgets[2].diffuse_colour = Vec4::new(0.0, 0.0, 1.0, 1.0);
 
     // -- set up rotation widget
     let mut rotation_widgets = [
@@ -364,9 +364,9 @@ fn main_d3d12() -> Result<(), &'static str> {
         render.new_model("assets/ring_widget.obj", 1.0, false)?,
         render.new_model("assets/ring_widget.obj", 1.0, false)?,
     ];
-    rotation_widgets[0].diffuse_colour = Vec3::new(1.0, 0.0, 0.0);
-    rotation_widgets[1].diffuse_colour = Vec3::new(0.0, 1.0, 0.0);
-    rotation_widgets[2].diffuse_colour = Vec3::new(0.0, 0.0, 1.0);
+    rotation_widgets[0].diffuse_colour = Vec4::new(1.0, 0.0, 0.0, 1.0);
+    rotation_widgets[1].diffuse_colour = Vec4::new(0.0, 1.0, 0.0, 1.0);
+    rotation_widgets[2].diffuse_colour = Vec4::new(0.0, 0.0, 1.0, 1.0);
 
     let mut translation_start_pos : Vec3 = glm::zero();
     let mut translation_widget_transforms = [
@@ -397,7 +397,9 @@ fn main_d3d12() -> Result<(), &'static str> {
         let room = entities.create_entity()?;
 
         let model1 = render.new_model("assets/first_test_asset.obj", 1.0, true)?;
-        let model3 = render.new_model("assets/test_untextured_flat_colour_cube.obj", 1.0, true)?;
+        let model2 = model1.clone();
+        let mut model3 = render.new_model("assets/test_untextured_flat_colour_cube.obj", 1.0, true)?;
+        model3.diffuse_colour.w = 0.1;
         let room_model = render.new_model("assets/test_open_room.obj", 1.0, true)?;
         let mut debug_model = render.new_model("assets/debug_icosphere.obj", 1.0, true)?;
         debug_model.set_pickable(false);
@@ -413,7 +415,7 @@ fn main_d3d12() -> Result<(), &'static str> {
         entities.set_entity_location(room, STransform::new_translation(&glm::Vec3::new(0.0, -2.0, 0.0)));
 
         entities.set_entity_model(rotating_entity, model1.clone());
-        entities.set_entity_model(ent2, model1.clone());
+        entities.set_entity_model(ent2, model2);
         entities.set_entity_model(ent3, model3);
         entities.set_entity_model(room, room_model);
     }

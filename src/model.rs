@@ -4,7 +4,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::rc::Weak;
 
-use glm::{Vec3, Vec2, Mat4};
+use glm::{Vec4, Vec3, Vec2, Mat4};
 use arrayvec::{ArrayString};
 
 use t12;
@@ -106,7 +106,7 @@ pub struct SModel {
     pub pickable: bool,
 
     // -- material info
-    pub diffuse_colour: Vec3,
+    pub diffuse_colour: Vec4,
     diffuse_texture: Option<SPoolHandle>,
     diffuse_weight: f32,
     is_lit: bool,
@@ -115,7 +115,7 @@ pub struct SModel {
 // -- used to fill out shader metadata, must match STextureMetadata in pixel.hlsl
 #[repr(C)]
 pub struct STextureMetadata {
-    diffuse_colour: Vec3,
+    diffuse_colour: Vec4,
     has_diffuse_texture: f32,
     diffuse_weight: f32,
     is_lit: f32,
@@ -538,7 +538,7 @@ impl SModel {
         assert_eq!(models.len(), 1);
 
         let mesh = mesh_loader.get_or_create_mesh(obj_file, &models[0].mesh);
-        let mut diffuse_colour = Vec3::new(0.0, 0.0, 0.0);
+        let mut diffuse_colour : Vec4 = glm::zero();
         let mut diffuse_texture : Option<SPoolHandle> = None;
 
         if materials.len() > 0 {
@@ -547,6 +547,7 @@ impl SModel {
             diffuse_colour[0] = materials[0].diffuse[0];
             diffuse_colour[1] = materials[0].diffuse[1];
             diffuse_colour[2] = materials[0].diffuse[2];
+            diffuse_colour[3] = 1.0;
 
             if materials[0].diffuse_texture.len() > 0 {
                 diffuse_texture = Some(texture_loader.get_or_create_texture(&materials[0].diffuse_texture)?)

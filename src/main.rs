@@ -398,8 +398,7 @@ fn main_d3d12() -> Result<(), &'static str> {
 
         let model1 = render.new_model("assets/first_test_asset.obj", 1.0, true)?;
         let model2 = model1.clone();
-        let mut model3 = render.new_model("assets/test_untextured_flat_colour_cube.obj", 1.0, true)?;
-        model3.diffuse_colour.w = 0.1;
+        let model3 = render.new_model("assets/test_untextured_flat_colour_cube.obj", 1.0, true)?;
         let room_model = render.new_model("assets/test_open_room.obj", 1.0, true)?;
         let mut debug_model = render.new_model("assets/debug_icosphere.obj", 1.0, true)?;
         debug_model.set_pickable(false);
@@ -609,6 +608,19 @@ fn main_d3d12() -> Result<(), &'static str> {
                         entities.set_entity_location(
                             last_picked_entity.expect(""),
                             new_e_loc,
+                        );
+
+                        let mut render_color : Vec3 = glm::zero();
+                        render_color[axis] = 1.0;
+                        render.add_debug_line(
+                            &e_loc.t,
+                            &(e_loc.t + rotation_start_entity_to_cursor),
+                            &render_color,
+                        );
+                        render.add_debug_line(
+                            &e_loc.t,
+                            &cursor_pos_world,
+                            &render_color,
                         );
                     }
                 }

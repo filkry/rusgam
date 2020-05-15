@@ -25,7 +25,6 @@ mod enumflags;
 mod camera;
 mod model;
 mod render;
-mod shadowmapping;
 
 // -- std includes
 //use std::cell::RefCell;

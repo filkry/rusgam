@@ -21,7 +21,7 @@ struct SShadowPipelineStateStream<'a> {
     depth_stencil_format: n12::SPipelineStateStreamDepthStencilFormat,
 }
 
-pub struct SShadowMappingPipeline {
+pub struct SShadowMapRenderer {
     _vertex_byte_code: t12::SShaderBytecode,
     _pixel_byte_code: t12::SShaderBytecode,
 

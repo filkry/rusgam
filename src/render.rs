@@ -81,13 +81,6 @@ struct SBuiltShaderMetadata {
     src_write_time: std::time::SystemTime,
 }
 
-#[allow(dead_code)]
-struct SDebugLine {
-    start: Vec3,
-    end: Vec3,
-    colour: Vec3,
-}
-
 pub struct SRender<'a> {
     factory: n12::SFactory,
     _adapter: n12::SAdapter, // -- maybe don't need to keep
@@ -112,35 +105,12 @@ pub struct SRender<'a> {
     root_signature: n12::SRootSignature,
     pipeline_state: t12::SPipelineState,
 
-    shadow_mapping_pipeline: shadowmapping::SShadowMappingPipeline,
-
-    no_depth_pipeline_state: t12::SPipelineState,
-
-    // -- imgui stuff
-    imgui_font_texture: SPoolHandle,
-    imgui_font_texture_id: imgui::TextureId,
-    imgui_root_signature: n12::SRootSignature,
-    imgui_pipeline_state: t12::SPipelineState,
-    imgui_orthomat_root_param_idx: usize,
-    imgui_texture_descriptor_table_param_idx: usize,
-    _imgui_vert_byte_code: t12::SShaderBytecode,
-    _imgui_pixel_byte_code: t12::SShaderBytecode,
-    imgui_vert_buffer_resources: [SMemVec::<'a, n12::SResource>; 2],
-    imgui_vert_buffer_views: [SMemVec::<'a, t12::SVertexBufferView>; 2],
-    imgui_index_buffer_resources: [SMemVec::<'a, n12::SResource>; 2],
-    imgui_index_buffer_views: [SMemVec::<'a, t12::SIndexBufferView>; 2],
+    // -- helper renderers
+    shadow_map_renderer: shadowmapping::SShadowMapRenderer,
+    imgui_renderer: SImguiRenderer,
+    dynamic_renderer: SDynamicRenderer,
 
     // -- debug render stuff
-    debug_line_pipeline_state: t12::SPipelineState,
-    debug_line_root_signature: n12::SRootSignature,
-    debug_line_vp_root_param_idx: usize,
-    _debug_line_vert_byte_code: t12::SShaderBytecode,
-    _debug_line_pixel_byte_code: t12::SShaderBytecode,
-    debug_lines: SMemVec::<'a, SDebugLine>,
-    debug_line_vertex_buffer_intermediate_resource: [Option<n12::SResource>; 2],
-    debug_line_vertex_buffer_resource: [Option<n12::SResource>; 2],
-    debug_line_vertex_buffer_view: [Option<t12::SVertexBufferView>; 2],
-
     frame_fence_values: [u64; 2],
 
     // -- these things need to drop last, due to Weak references to them

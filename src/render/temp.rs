@@ -288,6 +288,16 @@ impl<'a> SRenderTemp<'a> {
             self.line_in_world_indices.push(idx);
         }
     }
+
+    pub fn clear_tables(&mut self) {
+        self.lines.clear();
+        self.line_in_world_indices.clear();
+        self.line_over_world_indices.clear();
+        self.models.clear();
+        self.model_xforms.clear();
+        self.model_in_world_indices.clear();
+        self.model_over_world_indices.clear();
+    }
 }
 
 impl<'a> super::SRender<'a> {
@@ -338,7 +348,7 @@ impl<'a> super::SRender<'a> {
 
         // -- generate data and copy to GPU
         // -- $$$FRK(TODO): move this step to earlier in render?
-        STACK_ALLOCATOR.with(|sa| -> Result<(), &'static str> {
+        let lines_to_draw = STACK_ALLOCATOR.with(|sa| -> Result<bool, &'static str> {
             let tr = &mut self.render_temp;
 
             let mut vertex_buffer_data = SMemVec::new(
@@ -353,6 +363,10 @@ impl<'a> super::SRender<'a> {
                 let line = &tr.lines[*i as usize];
                 vertex_buffer_data.push(SDebugLineShaderVert::new(&line.start, &line.colour));
                 vertex_buffer_data.push(SDebugLineShaderVert::new(&line.end, &line.colour));
+            }
+
+            if vertex_buffer_data.len() == 0 {
+                return Ok(false);
             }
 
             let mut handle = self.copy_command_pool.alloc_list()?;
@@ -386,8 +400,12 @@ impl<'a> super::SRender<'a> {
                 Some(vert_buffer_resource.destinationresource);
             tr.line_vertex_buffer_view[back_buffer_idx] = Some(vertex_buffer_view);
 
-            Ok(())
+            Ok(true)
         })?;
+
+        if !lines_to_draw {
+            return Ok(());
+        }
 
         // -- set up pipeline and render lines
         let mut handle = self.direct_command_pool.alloc_list()?;
@@ -447,8 +465,6 @@ impl<'a> super::SRender<'a> {
         drop(list);
         assert_eq!(window.currentbackbufferindex(), back_buffer_idx);
         self.direct_command_pool.execute_and_free_list(&mut handle)?;
-
-        self.render_temp.lines.clear();
 
         Ok(())
     }
@@ -523,9 +539,6 @@ impl<'a> super::SRender<'a> {
         drop(list);
         assert_eq!(window.currentbackbufferindex(), back_buffer_idx);
         self.direct_command_pool.execute_and_free_list(&mut handle)?;
-
-        self.render_temp.models.clear();
-        self.render_temp.model_xforms.clear();
 
         Ok(())
     }

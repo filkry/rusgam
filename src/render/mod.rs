@@ -571,7 +571,7 @@ impl<'a> SRender<'a> {
         // -- $$$FRK(TODO): should initialize the shadow map depth buffer to empty, so we still get light if we don't render maps
         self.render_shadow_maps(world_models, world_model_xforms)?;
         self.render_world(window, view_matrix, world_models, world_model_xforms)?;
-        //self.render_temp_in_world(window, view_matrix)?;
+        self.render_temp_in_world(window, view_matrix)?;
 
         // -- clear depth buffer again
         {
@@ -582,11 +582,13 @@ impl<'a> SRender<'a> {
             self.direct_command_pool.execute_and_free_list(&mut handle)?;
         }
 
-        //self.render_temp_over_world(window, view_matrix)?;
+        self.render_temp_over_world(window, view_matrix)?;
         if let Some(idd) = imgui_draw_data {
             self.render_imgui(window, idd)?;
         }
         self.present(window)?;
+
+        self.render_temp.clear_tables();
 
         Ok(())
     }

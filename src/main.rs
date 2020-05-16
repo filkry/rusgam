@@ -480,12 +480,7 @@ fn main_d3d12() -> Result<(), &'static str> {
         input.mouse_dx = 0;
         input.mouse_dy = 0;
         let view_matrix = camera.world_to_view_matrix();
-        //let cursor_ray = cursor_ray_world(mouse_pos, &render, &window, &camera);
-        assert!(false, "This is not good");
-        let cursor_ray = utils::SRay {
-            origin: glm::zero(),
-            dir: glm::zero(),
-        };
+        let cursor_ray = cursor_ray_world(mouse_pos, &render, &window, &camera);
 
         //println!("View: {}", view_matrix);
         //println!("Perspective: {}", perspective_matrix);

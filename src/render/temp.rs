@@ -133,8 +133,8 @@ impl<'a> SRenderTemp<'a> {
             ),
         ]);
 
-        let line_vertblob = t12::read_file_to_blob("shaders_built/line_vertex.cso")?;
-        let line_pixelblob = t12::read_file_to_blob("shaders_built/line_pixel.cso")?;
+        let line_vertblob = t12::read_file_to_blob("shaders_built/debug_line_vertex.cso")?;
+        let line_pixelblob = t12::read_file_to_blob("shaders_built/debug_line_pixel.cso")?;
 
         let line_vert_byte_code = t12::SShaderBytecode::create(line_vertblob);
         let line_pixel_byte_code = t12::SShaderBytecode::create(line_pixelblob);

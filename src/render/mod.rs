@@ -98,6 +98,8 @@ pub fn compile_shaders_if_changed() {
         ("imgui_pixel", "ps_6_0"),
         ("debug_line_vertex", "vs_6_0"),
         ("debug_line_pixel", "ps_6_0"),
+        ("temp_mesh_vertex", "vs_6_0"),
+        ("temp_mesh_pixel", "ps_6_0"),
     ];
 
     for (shader_name, type_) in &shaders {
@@ -566,9 +568,9 @@ impl<'a> SRender<'a> {
             self.setup_imgui_draw_data_resources(window, idd)?;
         }
 
-        self.render_shadow_maps(world_models, world_model_xforms)?;
+        //self.render_shadow_maps(world_models, world_model_xforms)?;
         self.render_world(window, view_matrix, world_models, world_model_xforms)?;
-        self.render_temp_in_world(window, view_matrix)?;
+        //self.render_temp_in_world(window, view_matrix)?;
 
         // -- clear depth buffer again
         {
@@ -579,7 +581,7 @@ impl<'a> SRender<'a> {
             self.direct_command_pool.execute_and_free_list(handle)?;
         }
 
-        self.render_temp_over_world(window, view_matrix)?;
+        //self.render_temp_over_world(window, view_matrix)?;
         if let Some(idd) = imgui_draw_data {
             self.render_imgui(window, idd)?;
         }
@@ -703,5 +705,11 @@ impl<'a> SRender<'a> {
 
     pub fn flush(&mut self) -> Result<(), &'static str> {
         self.direct_command_queue.borrow_mut().flush_blocking()
+    }
+}
+
+impl<'a> Drop for SRender<'a> {
+    fn drop(&mut self) {
+        self.flush().unwrap();
     }
 }

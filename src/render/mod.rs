@@ -568,7 +568,7 @@ impl<'a> SRender<'a> {
             self.setup_imgui_draw_data_resources(window, idd)?;
         }
 
-        //self.render_shadow_maps(world_models, world_model_xforms)?;
+        self.render_shadow_maps(world_models, world_model_xforms)?;
         self.render_world(window, view_matrix, world_models, world_model_xforms)?;
         //self.render_temp_in_world(window, view_matrix)?;
 

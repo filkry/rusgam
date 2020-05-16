@@ -355,8 +355,8 @@ impl<'a> super::SRender<'a> {
                 vertex_buffer_data.push(SDebugLineShaderVert::new(&line.end, &line.colour));
             }
 
-            let handle = self.copy_command_pool.alloc_list()?;
-            let mut copy_command_list = self.copy_command_pool.get_list(handle)?;
+            let mut handle = self.copy_command_pool.alloc_list()?;
+            let mut copy_command_list = self.copy_command_pool.get_list(&handle)?;
 
             let vert_buffer_resource = {
                 let vertbufferflags = t12::SResourceFlags::from(t12::EResourceFlags::ENone);
@@ -371,7 +371,7 @@ impl<'a> super::SRender<'a> {
                 .create_vertex_buffer_view()?;
 
             drop(copy_command_list);
-            let fence_val = self.copy_command_pool.execute_and_free_list(handle)?;
+            let fence_val = self.copy_command_pool.execute_and_free_list(&mut handle)?;
             drop(handle);
 
             // -- have the direct queue wait on the copy upload to complete
@@ -390,8 +390,8 @@ impl<'a> super::SRender<'a> {
         })?;
 
         // -- set up pipeline and render lines
-        let handle = self.direct_command_pool.alloc_list()?;
-        let mut list = self.direct_command_pool.get_list(handle)?;
+        let mut handle = self.direct_command_pool.alloc_list()?;
+        let mut list = self.direct_command_pool.get_list(&handle)?;
 
         list.set_pipeline_state(&self.render_temp.line_pipeline_state);
         // root signature has to be set explicitly despite being on PSO, according to tutorial
@@ -446,7 +446,7 @@ impl<'a> super::SRender<'a> {
         // -- execute on the queue
         drop(list);
         assert_eq!(window.currentbackbufferindex(), back_buffer_idx);
-        self.direct_command_pool.execute_and_free_list(handle)?;
+        self.direct_command_pool.execute_and_free_list(&mut handle)?;
 
         self.render_temp.lines.clear();
 
@@ -462,8 +462,8 @@ impl<'a> super::SRender<'a> {
         let back_buffer_idx = window.currentbackbufferindex();
 
         // -- set up pipeline and render models
-        let handle = self.direct_command_pool.alloc_list()?;
-        let mut list = self.direct_command_pool.get_list(handle)?;
+        let mut handle = self.direct_command_pool.alloc_list()?;
+        let mut list = self.direct_command_pool.get_list(&handle)?;
 
         list.set_pipeline_state(&self.render_temp.mesh_pipeline_state);
         // root signature has to be set explicitly despite being on PSO, according to tutorial
@@ -522,7 +522,7 @@ impl<'a> super::SRender<'a> {
         // -- execute on the queue
         drop(list);
         assert_eq!(window.currentbackbufferindex(), back_buffer_idx);
-        self.direct_command_pool.execute_and_free_list(handle)?;
+        self.direct_command_pool.execute_and_free_list(&mut handle)?;
 
         self.render_temp.models.clear();
         self.render_temp.model_xforms.clear();

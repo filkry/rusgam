@@ -192,7 +192,7 @@ impl<'a> SRender<'a> {
         ));
         unsafe { direct_command_queue.borrow_mut().set_debug_name("render direct queue"); }
         let mut direct_command_pool =
-            n12::SCommandListPool::create(&device, Rc::downgrade(&direct_command_queue), &winapi.rawwinapi(), 1, 10)?;
+            n12::SCommandListPool::create(&device, Rc::downgrade(&direct_command_queue), &winapi.rawwinapi(), 1, 20)?;
 
         let dsv_heap = Rc::new(n12::descriptorallocator::SDescriptorAllocator::new(
             &device,
@@ -540,8 +540,8 @@ impl<'a> SRender<'a> {
         {
             let backbuffer = window.currentbackbuffer();
 
-            let handle = self.direct_command_pool.alloc_list()?;
-            let mut list = self.direct_command_pool.get_list(handle)?;
+            let mut handle = self.direct_command_pool.alloc_list()?;
+            let mut list = self.direct_command_pool.get_list(&handle)?;
 
             // -- transition to render target
             // -- $$$FRK(TODO): could make a model where you call beginrender() to get a render state that will transition the resource on create and drop
@@ -560,7 +560,7 @@ impl<'a> SRender<'a> {
             list.clear_depth_stencil_view(self._depth_texture_view.as_ref().expect("no depth texture").cpu_descriptor(0), 1.0)?;
 
             drop(list);
-            self.direct_command_pool.execute_and_free_list(handle)?;
+            self.direct_command_pool.execute_and_free_list(&mut handle)?;
         }
 
         // -- kick off imgui copies
@@ -574,11 +574,11 @@ impl<'a> SRender<'a> {
 
         // -- clear depth buffer again
         {
-            let handle = self.direct_command_pool.alloc_list()?;
-            let mut list = self.direct_command_pool.get_list(handle)?;
+            let mut handle = self.direct_command_pool.alloc_list()?;
+            let mut list = self.direct_command_pool.get_list(&handle)?;
             list.clear_depth_stencil_view(self._depth_texture_view.as_ref().expect("no depth texture").cpu_descriptor(0), 1.0)?;
             drop(list);
-            self.direct_command_pool.execute_and_free_list(handle)?;
+            self.direct_command_pool.execute_and_free_list(&mut handle)?;
         }
 
         //self.render_temp_over_world(window, view_matrix)?;
@@ -595,8 +595,8 @@ impl<'a> SRender<'a> {
         world_models: &[SModel],
         world_model_xforms: &[STransform],
     ) -> Result<(), &'static str> {
-        let handle = self.direct_command_pool.alloc_list()?;
-        let mut list = self.direct_command_pool.get_list(handle)?;
+        let mut handle = self.direct_command_pool.alloc_list()?;
+        let mut list = self.direct_command_pool.get_list(&handle)?;
 
         self.render_shadow_map.render(
             &self.mesh_loader,
@@ -608,7 +608,7 @@ impl<'a> SRender<'a> {
 
         drop(list);
 
-        let fence_val = self.direct_command_pool.execute_and_free_list(handle)?;
+        let fence_val = self.direct_command_pool.execute_and_free_list(&mut handle)?;
         self.direct_command_pool.wait_for_internal_fence_value(fence_val);
 
         Ok(())
@@ -638,10 +638,10 @@ impl<'a> SRender<'a> {
             let backbufferidx = window.currentbackbufferindex();
             assert!(backbufferidx == window.swapchain.current_backbuffer_index());
 
-            let handle = self.direct_command_pool.alloc_list()?;
+            let mut handle = self.direct_command_pool.alloc_list()?;
 
             {
-                let mut list = self.direct_command_pool.get_list(handle)?;
+                let mut list = self.direct_command_pool.get_list(&handle)?;
 
                 let render_target_view = window.currentrendertargetdescriptor()?;
                 let depth_texture_view = self._depth_texture_view.as_ref().expect("no depth texture").cpu_descriptor(0);
@@ -672,15 +672,15 @@ impl<'a> SRender<'a> {
 
             // -- execute on the queue
             assert_eq!(window.currentbackbufferindex(), backbufferidx);
-            self.direct_command_pool.execute_and_free_list(handle)?;
+            self.direct_command_pool.execute_and_free_list(&mut handle)?;
 
             Ok(())
         }
     }
 
     pub fn present(&mut self, window: &mut n12::SD3D12Window) -> Result<(), &'static str> {
-        let handle = self.direct_command_pool.alloc_list()?;
-        let mut list = self.direct_command_pool.get_list(handle)?;
+        let mut handle = self.direct_command_pool.alloc_list()?;
+        let mut list = self.direct_command_pool.get_list(&handle)?;
 
         let backbuffer = window.currentbackbuffer();
 
@@ -692,7 +692,7 @@ impl<'a> SRender<'a> {
         )?;
 
         drop(list);
-        self.direct_command_pool.execute_and_free_list(handle)?;
+        self.direct_command_pool.execute_and_free_list(&mut handle)?;
 
         self.frame_fence_values[window.currentbackbufferindex()] =
             self.direct_command_queue.borrow_mut().signal_internal_fence()?;

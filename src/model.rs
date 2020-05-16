@@ -195,8 +195,8 @@ impl<'a> SMeshLoader<'a> {
 
         // -- generate vertex/index resources and views
         let (vertbufferresource, vertexbufferview, indexbufferresource, indexbufferview) = {
-            let handle = self.copy_command_list_pool.alloc_list()?;
-            let mut copycommandlist = self.copy_command_list_pool.get_list(handle)?;
+            let mut handle = self.copy_command_list_pool.alloc_list()?;
+            let mut copycommandlist = self.copy_command_list_pool.get_list(&handle)?;
 
             let mut vertbufferresource = {
                 let vertbufferflags = t12::SResourceFlags::from(t12::EResourceFlags::ENone);
@@ -224,7 +224,7 @@ impl<'a> SMeshLoader<'a> {
 
             drop(copycommandlist);
 
-            let fence_val = self.copy_command_list_pool.execute_and_free_list(handle)?;
+            let fence_val = self.copy_command_list_pool.execute_and_free_list(&mut handle)?;
             drop(handle);
 
             // -- $$$FRK(TODO): we have to wait here because we're going to drop the intermediate resource
@@ -237,8 +237,8 @@ impl<'a> SMeshLoader<'a> {
             )?;
 
             // -- transition resources
-            let handle  = self.direct_command_list_pool.alloc_list()?;
-            let mut direct_command_list = self.direct_command_list_pool.get_list(handle)?;
+            let mut handle  = self.direct_command_list_pool.alloc_list()?;
+            let mut direct_command_list = self.direct_command_list_pool.get_list(&handle)?;
 
             direct_command_list.transition_resource(
                 &vertbufferresource.destinationresource,
@@ -252,7 +252,7 @@ impl<'a> SMeshLoader<'a> {
             )?;
 
             drop(direct_command_list);
-            self.direct_command_list_pool.execute_and_free_list(handle)?;
+            self.direct_command_list_pool.execute_and_free_list(&mut handle)?;
 
             // -- debug
             unsafe {
@@ -404,8 +404,8 @@ impl STextureLoader {
     pub fn create_texture_rgba32_from_resource(&mut self, uid: Option<u64>, texture_resource: Option<n12::SResource>) -> Result<SPoolHandle, &'static str> {
         // -- transition texture to PixelShaderResource
         {
-            let handle = self.direct_command_list_pool.alloc_list()?;
-            let mut list = self.direct_command_list_pool.get_list(handle)?;
+            let mut handle = self.direct_command_list_pool.alloc_list()?;
+            let mut list = self.direct_command_list_pool.get_list(&handle)?;
 
             list.transition_resource(
                 &texture_resource.as_ref().unwrap(),
@@ -416,7 +416,7 @@ impl STextureLoader {
 
             drop(list);
 
-            let fenceval = self.direct_command_list_pool.execute_and_free_list(handle)?;
+            let fenceval = self.direct_command_list_pool.execute_and_free_list(&mut handle)?;
             self.direct_command_list_pool.wait_for_internal_fence_value(fenceval);
         }
 
@@ -455,8 +455,8 @@ impl STextureLoader {
 
     pub fn create_texture_rgba32_from_bytes(&mut self, width: u32, height: u32, data: &[u8]) -> Result<SPoolHandle, &'static str> {
         let texture_resource = {
-            let handle = self.copy_command_list_pool.alloc_list()?;
-            let mut copycommandlist = self.copy_command_list_pool.get_list(handle)?;
+            let mut handle = self.copy_command_list_pool.alloc_list()?;
+            let mut copycommandlist = self.copy_command_list_pool.get_list(&handle)?;
 
             let (mut _intermediate_resource, mut resource) = n12::load_texture_rgba32_from_bytes(
                 self.device.upgrade().expect("dropped device").deref(),
@@ -468,7 +468,7 @@ impl STextureLoader {
 
             drop(copycommandlist);
 
-            let fenceval = self.copy_command_list_pool.execute_and_free_list(handle)?;
+            let fenceval = self.copy_command_list_pool.execute_and_free_list(&mut handle)?;
             self.copy_command_list_pool.wait_for_internal_fence_value(fenceval);
             self.copy_command_list_pool.free_allocators();
             assert_eq!(self.copy_command_list_pool.num_free_allocators(), 2);
@@ -504,8 +504,8 @@ impl STextureLoader {
         }
 
         let texture_resource = {
-            let handle = self.copy_command_list_pool.alloc_list()?;
-            let mut copycommandlist = self.copy_command_list_pool.get_list(handle)?;
+            let mut handle = self.copy_command_list_pool.alloc_list()?;
+            let mut copycommandlist = self.copy_command_list_pool.get_list(&handle)?;
 
             let mut texture_asset = ArrayString::<[_; 128]>::new();
             texture_asset.push_str("assets/");
@@ -517,7 +517,7 @@ impl STextureLoader {
 
             drop(copycommandlist);
 
-            let fenceval = self.copy_command_list_pool.execute_and_free_list(handle)?;
+            let fenceval = self.copy_command_list_pool.execute_and_free_list(&mut handle)?;
             self.copy_command_list_pool.wait_for_internal_fence_value(fenceval);
             self.copy_command_list_pool.free_allocators();
             assert_eq!(self.copy_command_list_pool.num_free_allocators(), 2);

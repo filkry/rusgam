@@ -265,8 +265,8 @@ impl<'a> super::SRender<'a> {
         ri.int_index_buffer_resources[backbufferidx].clear();
         ri.index_buffer_views[backbufferidx].clear();
 
-        let handle = self.copy_command_pool.alloc_list()?;
-        let mut copy_command_list = self.copy_command_pool.get_list(handle)?;
+        let mut handle = self.copy_command_pool.alloc_list()?;
+        let mut copy_command_list = self.copy_command_pool.get_list(&handle)?;
 
         for draw_list in draw_data.draw_lists() {
             let (vertbufferresource, vertexbufferview, indexbufferresource, indexbufferview) = {
@@ -314,13 +314,13 @@ impl<'a> super::SRender<'a> {
             ri.index_buffer_views[backbufferidx].push(indexbufferview);
         }
         drop(copy_command_list);
-        self.copy_command_pool.execute_and_free_list(handle)?;
+        self.copy_command_pool.execute_and_free_list(&mut handle)?;
         drop(handle);
 
 
         // -- wait on copies on direct queue, then transition resources
-        let handle  = self.direct_command_pool.alloc_list()?;
-        let mut direct_command_list = self.direct_command_pool.get_list(handle)?;
+        let mut handle  = self.direct_command_pool.alloc_list()?;
+        let mut direct_command_list = self.direct_command_pool.get_list(&handle)?;
 
         // -- have the direct queue wait on the copy upload to complete
         self.direct_command_pool.gpu_wait(
@@ -344,7 +344,7 @@ impl<'a> super::SRender<'a> {
         }
 
         drop(direct_command_list);
-        self.direct_command_pool.execute_and_free_list(handle)?;
+        self.direct_command_pool.execute_and_free_list(&mut handle)?;
 
         Ok(())
     }
@@ -354,8 +354,8 @@ impl<'a> super::SRender<'a> {
 
         let backbufferidx = window.currentbackbufferindex();
 
-        let handle = self.direct_command_pool.alloc_list()?;
-        let mut list = self.direct_command_pool.get_list(handle)?;
+        let mut handle = self.direct_command_pool.alloc_list()?;
+        let mut list = self.direct_command_pool.get_list(&handle)?;
 
         // -- set up pipeline
         list.set_pipeline_state(&ri.pipeline_state);
@@ -446,7 +446,7 @@ impl<'a> super::SRender<'a> {
         // -- execute on the queue
         drop(list);
         assert_eq!(window.currentbackbufferindex(), backbufferidx);
-        self.direct_command_pool.execute_and_free_list(handle)?;
+        self.direct_command_pool.execute_and_free_list(&mut handle)?;
 
         Ok(())
     }

@@ -26,6 +26,11 @@ pub struct SCommandListPool {
     activeallocators: Vec<SCommandListPoolActiveAllocator>,
 }
 
+pub struct SListHandle {
+    handle: SPoolHandle,
+    freed: bool,
+}
+
 impl SCommandListPool {
     pub fn create(
         device: &SDevice,
@@ -82,7 +87,7 @@ impl SCommandListPool {
             .retain(|alloc| alloc.reusefencevalue > completedvalue);
     }
 
-    pub fn alloc_list(&mut self) -> Result<SPoolHandle, &'static str> {
+    pub fn alloc_list(&mut self) -> Result<SListHandle, &'static str> {
         self.free_allocators();
 
         if self.lists.full() || self.allocators.full() {
@@ -98,26 +103,29 @@ impl SCommandListPool {
         list.list.borrow_mut().reset(allocator)?;
         list.allocator = allocatorhandle;
 
-        Ok(listhandle)
+        Ok(SListHandle{
+            handle: listhandle,
+            freed: false,
+        })
     }
 
-    pub fn get_list(&self, handle: SPoolHandle) -> Result<RefMut<SCommandList>, &'static str> {
-        let list = self.lists.get(handle)?;
+    pub fn get_list(&self, handle: &SListHandle) -> Result<RefMut<SCommandList>, &'static str> {
+        let list = self.lists.get(handle.handle)?;
         Ok(list.list.borrow_mut())
     }
 
-    pub fn execute_and_free_list(&mut self, handle: SPoolHandle) -> Result<u64, &'static str> {
+    pub fn execute_and_free_list(&mut self, handle: &mut SListHandle) -> Result<u64, &'static str> {
         let queue = self.queue.upgrade().expect("dropped queue before list");
 
         let allocator = {
-            let list = self.lists.get_mut(handle)?;
+            let list = self.lists.get_mut(handle.handle)?;
             assert!(list.list.borrow().get_type() == queue.borrow().type_());
             queue.borrow().execute_command_list(list.list.borrow_mut().deref_mut())?;
 
             assert!(list.allocator.valid());
             list.allocator
         };
-        self.lists.free(handle);
+        self.lists.free(handle.handle);
 
         let fenceval = queue.borrow().signal(&mut self.activefence)?;
 
@@ -125,6 +133,8 @@ impl SCommandListPool {
             handle: allocator,
             reusefencevalue: fenceval,
         });
+
+        handle.freed = true;
 
         Ok(fenceval)
     }
@@ -147,5 +157,11 @@ impl SCommandListPool {
         let queue = self.queue.upgrade().expect("queue dropped before list pool");
         queue.borrow().gpu_wait(fence, value)?;
         Ok(())
+    }
+}
+
+impl Drop for SListHandle {
+    fn drop(&mut self) {
+        break_assert!(self.freed);
     }
 }

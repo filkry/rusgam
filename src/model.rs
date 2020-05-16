@@ -375,7 +375,7 @@ impl<'a> SMeshLoader<'a> {
         cl.set_graphics_root_32_bit_constants(0, &mvp, 0);
 
         // -- draw
-        self.bind_buffers_and_draw(mesh_handle, cl);
+        self.bind_buffers_and_draw(mesh_handle, cl)?;
 
         Ok(())
     }

@@ -1,5 +1,5 @@
 // -- std includes
-use std::ops::{Deref, DerefMut};
+use std::ops::{Deref};
 use std::mem::{size_of};
 
 // -- crate includes
@@ -10,7 +10,7 @@ use niced3d12 as n12;
 use typeyd3d12 as t12;
 use allocate::{SMemVec, STACK_ALLOCATOR, SYSTEM_ALLOCATOR};
 use model;
-use model::{SModel, SMeshLoader, STextureLoader};
+use model::{SModel};
 use utils::{STransform};
 
 #[allow(unused_variables)]
@@ -214,7 +214,7 @@ impl<'a> SRenderTemp<'a> {
         let mesh_vert_byte_code = t12::SShaderBytecode::create(mesh_vertblob);
         let mesh_pixel_byte_code = t12::SShaderBytecode::create(mesh_pixelblob);
 
-        let mesh_pipeline_state_stream = SLinePipelineStateStream {
+        let mesh_pipeline_state_stream = SMeshPipelineStateStream {
             root_signature: n12::SPipelineStateStreamRootSignature::create(&mesh_root_signature),
             input_layout: n12::SPipelineStateStreamInputLayout::create(&mut mesh_input_layout_desc),
             primitive_topology: n12::SPipelineStateStreamPrimitiveTopology::create(
@@ -306,8 +306,6 @@ impl<'a> super::SRender<'a> {
     }
 
     pub fn render_temp_lines(&mut self, window: &mut n12::SD3D12Window, view_matrix: &Mat4, in_world: bool) -> Result<(), &'static str> {
-        assert!(false, "Did not handle in_world");
-
         let back_buffer_idx = window.currentbackbufferindex();
 
         /* A very basic test
@@ -349,7 +347,10 @@ impl<'a> super::SRender<'a> {
                 0,
             )?;
 
-            for line in tr.lines.as_slice() {
+            let line_indices = if in_world { &tr.line_in_world_indices } else { &tr.line_over_world_indices };
+
+            for i in line_indices.as_slice() {
+                let line = &tr.lines[*i as usize];
                 vertex_buffer_data.push(SDebugLineShaderVert::new(&line.start, &line.colour));
                 vertex_buffer_data.push(SDebugLineShaderVert::new(&line.end, &line.colour));
             }
@@ -515,7 +516,7 @@ impl<'a> super::SRender<'a> {
             list.set_graphics_root_32_bit_constants(self.render_temp.mesh_color_root_param_idx as u32,
                                                     &self.render_temp.models[ii].diffuse_colour, 0);
 
-            self.mesh_loader.bind_buffers_and_draw(self.render_temp.models[ii].mesh, &mut list);
+            self.mesh_loader.bind_buffers_and_draw(self.render_temp.models[ii].mesh, &mut list)?;
         }
 
         // -- execute on the queue

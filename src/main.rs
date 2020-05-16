@@ -38,7 +38,7 @@ mod render;
 //use serde::{Serialize, Deserialize};
 use glm::{Vec3, Vec4, Mat4};
 
-use allocate::{STACK_ALLOCATOR, SMemVec};
+use allocate::{STACK_ALLOCATOR};
 use collections::{SPoolHandle};
 use niced3d12 as n12;
 use typeyd3d12 as t12;
@@ -633,7 +633,6 @@ fn main_d3d12() -> Result<(), &'static str> {
                 }
             }
         }
-        /*
 
         // -- update edit widgets
         if mode == EMode::Edit {
@@ -671,11 +670,12 @@ fn main_d3d12() -> Result<(), &'static str> {
         }
 
         // -- update IMGUI
+        let io = imgui_ctxt.io_mut();
+        io.display_size = [window.width() as f32, window.height() as f32];
+        let imgui_want_capture_mouse = io.want_capture_mouse;
+
         let imgui_ui = imgui_ctxt.frame();
         if let EMode::Edit = mode {
-
-            let io = imgui_ctxt.io_mut();
-            io.display_size = [window.width() as f32, window.height() as f32];
 
             if show_imgui_demo_window {
                 let mut opened = true;
@@ -703,7 +703,7 @@ fn main_d3d12() -> Result<(), &'static str> {
             render.render_frame(&mut window, &view_matrix, models.as_slice(), model_xforms.as_slice(), Some(&imgui_draw_data))?;
 
             // -- cast rays against world
-            if input.left_mouse_edge.down() && !imgui_ctxt.io().want_capture_mouse && !edit_mode.eats_mouse() {
+            if input.left_mouse_edge.down() && !imgui_want_capture_mouse && !edit_mode.eats_mouse() {
 
                 let mut min_t = std::f32::MAX;
                 let mut min_model_i = None;
@@ -732,9 +732,6 @@ fn main_d3d12() -> Result<(), &'static str> {
 
             Ok(())
         })?;
-
-        */
-
 
         lastframetime = curframetime;
         _framecount += 1;

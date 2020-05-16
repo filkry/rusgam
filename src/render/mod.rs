@@ -435,7 +435,7 @@ impl<'a> SRender<'a> {
         self.znear
     }
 
-    pub fn temp(&mut self) -> &'a mut SRenderTemp {
+    pub fn temp(&mut self) -> &mut SRenderTemp<'a> {
         &mut self.render_temp
     }
 

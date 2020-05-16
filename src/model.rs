@@ -18,6 +18,7 @@ use utils;
 use utils::{STransform};
 
 // -- must match SVertexPosColorUV vertex.hlsl
+#[allow(dead_code)]
 #[repr(C)]
 struct SVertexPosColourUV {
     position: Vec3,
@@ -41,15 +42,6 @@ pub fn model_per_vertex_input_layout_desc() -> t12::SInputLayoutDesc {
             "NORMAL",
             0,
             t12::EDXGIFormat::R32G32B32Float,
-            0,
-            winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
-            t12::EInputClassification::PerVertexData,
-            0,
-        ),
-        t12::SInputElementDesc::create(
-            "COLOR",
-            0,
-            t12::EDXGIFormat::R32G32B32A32Float,
             0,
             winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
             t12::EInputClassification::PerVertexData,

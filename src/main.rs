@@ -480,7 +480,12 @@ fn main_d3d12() -> Result<(), &'static str> {
         input.mouse_dx = 0;
         input.mouse_dy = 0;
         let view_matrix = camera.world_to_view_matrix();
-        let cursor_ray = cursor_ray_world(mouse_pos, &render, &window, &camera);
+        //let cursor_ray = cursor_ray_world(mouse_pos, &render, &window, &camera);
+        assert!(false, "This is not good");
+        let cursor_ray = utils::SRay {
+            origin: glm::zero(),
+            dir: glm::zero(),
+        };
 
         //println!("View: {}", view_matrix);
         //println!("Perspective: {}", perspective_matrix);
@@ -552,10 +557,11 @@ fn main_d3d12() -> Result<(), &'static str> {
 
                     let mut render_color : Vec3 = glm::zero();
                     render_color[axis] = 1.0;
-                    render.add_debug_line(
+                    render.temp().draw_line(
                         &(translation_start_pos + -100.0 * line_dir),
                         &(translation_start_pos + 100.0 * line_dir),
                         &render_color,
+                        true,
                     );
 
                     let offset_mouse_pos = [mouse_pos[0] + translation_mouse_offset[0],
@@ -611,20 +617,23 @@ fn main_d3d12() -> Result<(), &'static str> {
 
                         let mut render_color : Vec3 = glm::zero();
                         render_color[axis] = 1.0;
-                        render.add_debug_line(
+                        render.temp().draw_line(
                             &e_loc.t,
                             &(e_loc.t + rotation_start_entity_to_cursor),
                             &render_color,
+                            true,
                         );
-                        render.add_debug_line(
+                        render.temp().draw_line(
                             &e_loc.t,
                             &cursor_pos_world,
                             &render_color,
+                            true,
                         );
                     }
                 }
             }
         }
+        /*
 
         // -- update edit widgets
         if mode == EMode::Edit {
@@ -647,11 +656,53 @@ fn main_d3d12() -> Result<(), &'static str> {
             }
         }
 
-        // -- render world
+        // -- draw edit widgets
+        if mode == EMode::Edit && last_picked_entity.is_some() {
+            for axis in 0..=2 {
+                if edit_mode.show_translation_widget(axis) {
+                    render.temp().draw_model(&translation_widgets[axis], &translation_widget_transforms[axis], true);
+                }
+            }
+            for axis in 0..=2 {
+                if edit_mode.show_rotation_widget(axis) {
+                    render.temp().draw_model(&rotation_widgets[axis], &rotation_widget_transforms[axis], true);
+                }
+            }
+        }
+
+        // -- update IMGUI
+        let imgui_ui = imgui_ctxt.frame();
+        if let EMode::Edit = mode {
+
+            let io = imgui_ctxt.io_mut();
+            io.display_size = [window.width() as f32, window.height() as f32];
+
+            if show_imgui_demo_window {
+                let mut opened = true;
+                imgui_ui.show_demo_window(&mut opened);
+            }
+
+            imgui_ui.main_menu_bar(|| {
+                imgui_ui.menu(imgui::im_str!("Misc"), true, || {
+                    if imgui::MenuItem::new(imgui::im_str!("Toggle Demo Window")).build(&imgui_ui) {
+                        show_imgui_demo_window = !show_imgui_demo_window;
+                    }
+                });
+            });
+
+            if let Some(e) = last_picked_entity {
+                entities.show_imgui_window(e, &imgui_ui);
+            }
+        }
+
         STACK_ALLOCATOR.with(|sa| -> Result<(), &'static str> {
             let (entities, model_xforms, models) = entities.build_render_data(sa);
-            render.render(&mut window, &view_matrix, models.as_slice(), model_xforms.as_slice())?;
+            let imgui_draw_data = imgui_ui.render();
 
+            // -- render world
+            render.render_frame(&mut window, &view_matrix, models.as_slice(), model_xforms.as_slice(), Some(&imgui_draw_data))?;
+
+            // -- cast rays against world
             if input.left_mouse_edge.down() && !imgui_ctxt.io().want_capture_mouse && !edit_mode.eats_mouse() {
 
                 let mut min_t = std::f32::MAX;
@@ -682,68 +733,8 @@ fn main_d3d12() -> Result<(), &'static str> {
             Ok(())
         })?;
 
-        // -- render debug lines
-        render.render_debug_lines(&mut window, &view_matrix)?;
+        */
 
-        // -- render things that should draw over everything else
-        STACK_ALLOCATOR.with(|sa| -> Result<(), &'static str> {
-            let mut draw_over_models = SMemVec::new(sa, 32, 0)?;
-            let mut draw_over_transforms = SMemVec::new(sa, 32, 0)?;
-
-            if mode == EMode::Edit && last_picked_entity.is_some() {
-                for axis in 0..=2 {
-                    if edit_mode.show_translation_widget(axis) {
-                        draw_over_models.push(translation_widgets[axis]);
-                        draw_over_transforms.push(translation_widget_transforms[axis]);
-                    }
-                }
-                for axis in 0..=2 {
-                    if edit_mode.show_rotation_widget(axis) {
-                        draw_over_models.push(rotation_widgets[axis]);
-                        draw_over_transforms.push(rotation_widget_transforms[axis]);
-                    }
-                }
-            }
-
-            if draw_over_models.len() > 0 {
-                render.render_draw_over(&mut window, &view_matrix, draw_over_models.as_slice(), draw_over_transforms.as_slice())?;
-            }
-
-            Ok(())
-        })?;
-
-        // -- render IMGUI
-        // -- set up imgui IO
-        if let EMode::Edit = mode {
-
-            let io = imgui_ctxt.io_mut();
-            io.display_size = [window.width() as f32, window.height() as f32];
-
-            let imgui_ui = imgui_ctxt.frame();
-            if show_imgui_demo_window {
-                let mut opened = true;
-                imgui_ui.show_demo_window(&mut opened);
-            }
-
-            imgui_ui.main_menu_bar(|| {
-                imgui_ui.menu(imgui::im_str!("Misc"), true, || {
-                    if imgui::MenuItem::new(imgui::im_str!("Toggle Demo Window")).build(&imgui_ui) {
-                        show_imgui_demo_window = !show_imgui_demo_window;
-                    }
-                });
-            });
-
-            if let Some(e) = last_picked_entity {
-                entities.show_imgui_window(e, &imgui_ui);
-            }
-
-            let imgui_draw_data = imgui_ui.render();
-
-            render.setup_imgui_draw_data_resources(&window, &imgui_draw_data)?;
-            render.render_imgui(&mut window, imgui_draw_data)?;
-        }
-
-        render.present(&mut window)?;
 
         lastframetime = curframetime;
         _framecount += 1;

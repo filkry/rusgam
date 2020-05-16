@@ -171,6 +171,7 @@ impl SRect {
 pub enum EDXGIFormat {
     Unknown,
     R32G32B32A32Typeless,
+    R32G32B32A32Float,
     R32G32B32Float,
     R32G32Float,
     R32Typeless,
@@ -186,6 +187,7 @@ impl EDXGIFormat {
         match self {
             Self::Unknown => dxgiformat::DXGI_FORMAT_UNKNOWN,
             Self::R32G32B32A32Typeless => dxgiformat::DXGI_FORMAT_R32G32B32A32_TYPELESS,
+            Self::R32G32B32A32Float => dxgiformat::DXGI_FORMAT_R32G32B32A32_FLOAT,
             Self::R32G32B32Float => dxgiformat::DXGI_FORMAT_R32G32B32_FLOAT,
             Self::R32G32Float => dxgiformat::DXGI_FORMAT_R32G32_FLOAT,
             Self::D32Float => dxgiformat::DXGI_FORMAT_D32_FLOAT,

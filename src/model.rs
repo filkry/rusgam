@@ -18,7 +18,7 @@ use utils;
 use utils::{STransform};
 
 // -- must match SVertexPosColorUV vertex.hlsl
-#[allow(dead_code)]
+#[repr(C)]
 struct SVertexPosColourUV {
     position: Vec3,
     normal: Vec3,
@@ -41,6 +41,15 @@ pub fn model_per_vertex_input_layout_desc() -> t12::SInputLayoutDesc {
             "NORMAL",
             0,
             t12::EDXGIFormat::R32G32B32Float,
+            0,
+            winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
+            t12::EInputClassification::PerVertexData,
+            0,
+        ),
+        t12::SInputElementDesc::create(
+            "COLOR",
+            0,
+            t12::EDXGIFormat::R32G32B32A32Float,
             0,
             winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
             t12::EInputClassification::PerVertexData,
@@ -107,7 +116,7 @@ pub struct SModel {
 
     // -- material info
     pub diffuse_colour: Vec4,
-    diffuse_texture: Option<SPoolHandle>,
+    pub diffuse_texture: Option<SPoolHandle>,
     diffuse_weight: f32,
     is_lit: bool,
 }
@@ -319,6 +328,20 @@ impl<'a> SMeshLoader<'a> {
         return min_t;
     }
 
+    pub fn bind_buffers_and_draw(
+        &self,
+        mesh_handle: SPoolHandle,
+        cl: &mut n12::SCommandList,
+    ) -> Result<(), &'static str> {
+        let mesh = self.mesh_pool.get(mesh_handle)?;
+
+        cl.ia_set_vertex_buffers(0, &[&mesh.vertex_buffer_view]);
+        cl.ia_set_index_buffer(&mesh.index_buffer_view);
+        cl.draw_indexed_instanced(mesh.triangle_indices.len() as u32, 1, 0, 0, 0);
+
+        Ok(())
+    }
+
     pub fn render(
         &self,
         mesh_handle: SPoolHandle,
@@ -326,16 +349,12 @@ impl<'a> SMeshLoader<'a> {
         view_projection: &glm::Mat4,
         model_xform: &STransform,
     ) -> Result<(), &'static str> {
-        let mesh = self.mesh_pool.get(mesh_handle)?;
-
         // -- assuming the same pipline state, root signature, viewport, scissor rect,
         // -- render target, for every model for now. These are set
         // -- outside of here
 
         // -- setup input assembler
         cl.ia_set_primitive_topology(t12::EPrimitiveTopology::TriangleList);
-        cl.ia_set_vertex_buffers(0, &[&mesh.vertex_buffer_view]);
-        cl.ia_set_index_buffer(&mesh.index_buffer_view);
 
         #[allow(dead_code)]
         struct SModelViewProjection {
@@ -356,7 +375,7 @@ impl<'a> SMeshLoader<'a> {
         cl.set_graphics_root_32_bit_constants(0, &mvp, 0);
 
         // -- draw
-        cl.draw_indexed_instanced(mesh.triangle_indices.len() as u32, 1, 0, 0, 0);
+        self.bind_buffers_and_draw(mesh_handle, cl);
 
         Ok(())
     }

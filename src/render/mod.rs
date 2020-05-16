@@ -12,7 +12,7 @@ use glm::{Vec3, Mat4};
 
 use niced3d12 as n12;
 use typeyd3d12 as t12;
-use allocate::{SMemVec, STACK_ALLOCATOR, SYSTEM_ALLOCATOR};
+use allocate::{SMemVec, STACK_ALLOCATOR};
 use model;
 use model::{SModel, SMeshLoader, STextureLoader};
 use safewindows;
@@ -22,8 +22,10 @@ use utils::{STransform};
 
 mod shadowmapping;
 mod render_imgui;
+mod temp;
 
 use self::render_imgui::{SRenderImgui};
+use self::temp::{SRenderTemp};
 
 #[allow(unused_variables)]
 #[allow(unused_mut)]
@@ -38,86 +40,41 @@ struct SPipelineStateStream<'a> {
     rtv_formats: n12::SPipelineStateStreamRTVFormats<'a>,
 }
 
-#[allow(unused_variables)]
-#[allow(unused_mut)]
-#[repr(C)]
-struct SNoDepthPipelineStateStream<'a> {
-    root_signature: n12::SPipelineStateStreamRootSignature<'a>,
-    input_layout: n12::SPipelineStateStreamInputLayout<'a>,
-    primitive_topology: n12::SPipelineStateStreamPrimitiveTopology,
-    vertex_shader: n12::SPipelineStateStreamVertexShader<'a>,
-    pixel_shader: n12::SPipelineStateStreamPixelShader<'a>,
-    depth_stencil_format: n12::SPipelineStateStreamDepthStencilFormat,
-    depth_stencil_desc: n12::SPipelineStateStreamDepthStencilDesc,
-    rtv_formats: n12::SPipelineStateStreamRTVFormats<'a>,
-}
-
-#[allow(unused_variables)]
-#[allow(unused_mut)]
-#[repr(C)]
-struct SDebugLinePipelineStateStream<'a> {
-    root_signature: n12::SPipelineStateStreamRootSignature<'a>,
-    input_layout: n12::SPipelineStateStreamInputLayout<'a>,
-    primitive_topology: n12::SPipelineStateStreamPrimitiveTopology,
-    vertex_shader: n12::SPipelineStateStreamVertexShader<'a>,
-    pixel_shader: n12::SPipelineStateStreamPixelShader<'a>,
-    depth_stencil_format: n12::SPipelineStateStreamDepthStencilFormat,
-    rtv_formats: n12::SPipelineStateStreamRTVFormats<'a>,
-}
-
 #[derive(Serialize, Deserialize)]
 struct SBuiltShaderMetadata {
     src_write_time: std::time::SystemTime,
-}
-
-#[allow(dead_code)]
-struct SDebugLine {
-    start: Vec3,
-    end: Vec3,
-    colour: Vec3,
 }
 
 pub struct SRender<'a> {
     factory: n12::SFactory,
     _adapter: n12::SAdapter, // -- maybe don't need to keep
 
-    direct_command_pool: n12::SCommandListPool,
-    copy_command_pool: n12::SCommandListPool,
-
-    _depth_texture_resource: Option<n12::SResource>,
-    _depth_texture_view: Option<n12::SDescriptorAllocatorAllocation>,
-
     // -- these depend on the heaps existing, so should be dropped first
     mesh_loader: SMeshLoader<'a>,
     texture_loader: STextureLoader,
+
+    direct_command_pool: n12::SCommandListPool,
+    copy_command_pool: n12::SCommandListPool,
+
+    // -- global RTV properties
+    _depth_texture_resource: Option<n12::SResource>,
+    _depth_texture_view: Option<n12::SDescriptorAllocatorAllocation>,
 
     scissorrect: t12::SRect,
     fovy: f32,
     znear: f32,
 
+    // -- main world rendering data
     _vert_byte_code: t12::SShaderBytecode,
     _pixel_byte_code: t12::SShaderBytecode,
 
     root_signature: n12::SRootSignature,
     pipeline_state: t12::SPipelineState,
 
-    shadow_mapping_pipeline: shadowmapping::SShadowMappingPipeline,
-
-    no_depth_pipeline_state: t12::SPipelineState,
-
-    // -- imgui stuff
+    // -- data for rendering sub-tasks
+    render_shadow_map: shadowmapping::SShadowMappingPipeline,
     render_imgui: SRenderImgui<'a>,
-
-    // -- debug render stuff
-    debug_line_pipeline_state: t12::SPipelineState,
-    debug_line_root_signature: n12::SRootSignature,
-    debug_line_vp_root_param_idx: usize,
-    _debug_line_vert_byte_code: t12::SShaderBytecode,
-    _debug_line_pixel_byte_code: t12::SShaderBytecode,
-    debug_lines: SMemVec::<'a, SDebugLine>,
-    debug_line_vertex_buffer_intermediate_resource: [Option<n12::SResource>; 2],
-    debug_line_vertex_buffer_resource: [Option<n12::SResource>; 2],
-    debug_line_vertex_buffer_view: [Option<t12::SVertexBufferView>; 2],
+    render_temp: SRenderTemp<'a>,
 
     frame_fence_values: [u64; 2],
 
@@ -423,117 +380,10 @@ impl<'a> SRender<'a> {
         let znear = 0.1;
 
         // -- setup shadow mapping
-        let shadow_mapping_pipeline = shadowmapping::setup_shadow_mapping_pipeline(
+        let render_shadow_map = shadowmapping::setup_shadow_mapping_pipeline(
             &device, &mut direct_command_pool, Rc::downgrade(&dsv_heap), Rc::downgrade(&srv_heap), 128, 128)?;
-
         let render_imgui = SRenderImgui::new(imgui_ctxt, &mut texture_loader, &device)?;
-
-        // ======================================================================
-        // -- setup no depth test pipeline
-        // ======================================================================
-        let no_depth_depth_stencil_desc = t12::SDepthStencilDesc {
-            depth_enable: true,
-            ..Default::default()
-        };
-
-        let no_depth_pipeline_state_stream = SNoDepthPipelineStateStream {
-            root_signature: n12::SPipelineStateStreamRootSignature::create(&root_signature),
-            input_layout: n12::SPipelineStateStreamInputLayout::create(&mut input_layout_desc),
-            primitive_topology: n12::SPipelineStateStreamPrimitiveTopology::create(
-                t12::EPrimitiveTopologyType::Triangle,
-            ),
-            vertex_shader: n12::SPipelineStateStreamVertexShader::create(&vert_byte_code),
-            pixel_shader: n12::SPipelineStateStreamPixelShader::create(&pixel_byte_code),
-            depth_stencil_desc: n12::SPipelineStateStreamDepthStencilDesc::create(no_depth_depth_stencil_desc),
-            depth_stencil_format: n12::SPipelineStateStreamDepthStencilFormat::create(
-                t12::EDXGIFormat::D32Float,
-            ),
-            rtv_formats: n12::SPipelineStateStreamRTVFormats::create(&rtv_formats),
-        };
-        let no_depth_pipeline_state_stream_desc = t12::SPipelineStateStreamDesc::create(&no_depth_pipeline_state_stream);
-        let no_depth_pipeline_state = device
-            .raw()
-            .create_pipeline_state(&no_depth_pipeline_state_stream_desc)?;
-
-        // ======================================================================
-        // -- setup debug line pipeline
-        // ======================================================================
-        let debug_line_root_signature_flags = {
-            use t12::ERootSignatureFlags::*;
-
-            t12::SRootSignatureFlags::create(&[
-                AllowInputAssemblerInputLayout,
-                DenyHullShaderRootAccess,
-                DenyDomainShaderRootAccess,
-                DenyGeometryShaderRootAccess,
-                DenyPixelShaderRootAccess,
-            ])
-        };
-
-        let vp_root_parameter = t12::SRootParameter {
-            type_: t12::ERootParameterType::E32BitConstants,
-            type_data: t12::ERootParameterTypeData::Constants {
-                constants: t12::SRootConstants {
-                    shader_register: 0,
-                    register_space: 0,
-                    num_32_bit_values: (size_of::<Mat4>() * 3 / 4) as u32,
-                },
-            },
-            shader_visibility: t12::EShaderVisibility::Vertex,
-        };
-
-        let mut debug_line_root_signature_desc = t12::SRootSignatureDesc::new(debug_line_root_signature_flags);
-        debug_line_root_signature_desc.parameters.push(vp_root_parameter);
-        let debug_line_vp_root_param_idx = debug_line_root_signature_desc.parameters.len() - 1;
-
-        let debug_line_root_signature =
-            device.create_root_signature(debug_line_root_signature_desc,
-                                         t12::ERootSignatureVersion::V1)?;
-
-        let mut debug_line_input_layout_desc = t12::SInputLayoutDesc::create(&[
-            t12::SInputElementDesc::create(
-                "POSITION",
-                0,
-                t12::EDXGIFormat::R32G32B32Float,
-                0,
-                winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
-                t12::EInputClassification::PerVertexData,
-                0,
-            ),
-            t12::SInputElementDesc::create(
-                "COLOR",
-                0,
-                t12::EDXGIFormat::R32G32B32Float,
-                0,
-                winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
-                t12::EInputClassification::PerVertexData,
-                0,
-            ),
-        ]);
-
-        let debug_line_vertblob = t12::read_file_to_blob("shaders_built/debug_line_vertex.cso")?;
-        let debug_line_pixelblob = t12::read_file_to_blob("shaders_built/debug_line_pixel.cso")?;
-
-        let debug_line_vert_byte_code = t12::SShaderBytecode::create(debug_line_vertblob);
-        let debug_line_pixel_byte_code = t12::SShaderBytecode::create(debug_line_pixelblob);
-
-        let debug_line_pipeline_state_stream = SDebugLinePipelineStateStream {
-            root_signature: n12::SPipelineStateStreamRootSignature::create(&debug_line_root_signature),
-            input_layout: n12::SPipelineStateStreamInputLayout::create(&mut debug_line_input_layout_desc),
-            primitive_topology: n12::SPipelineStateStreamPrimitiveTopology::create(
-                t12::EPrimitiveTopologyType::Line,
-            ),
-            vertex_shader: n12::SPipelineStateStreamVertexShader::create(&debug_line_vert_byte_code),
-            pixel_shader: n12::SPipelineStateStreamPixelShader::create(&debug_line_pixel_byte_code),
-            depth_stencil_format: n12::SPipelineStateStreamDepthStencilFormat::create(
-                t12::EDXGIFormat::D32Float,
-            ),
-            rtv_formats: n12::SPipelineStateStreamRTVFormats::create(&rtv_formats),
-        };
-        let debug_line_pipeline_state_stream_desc = t12::SPipelineStateStreamDesc::create(&debug_line_pipeline_state_stream);
-        let debug_line_pipeline_state = device
-            .raw()
-            .create_pipeline_state(&debug_line_pipeline_state_stream_desc)?;
+        let render_temp = SRenderTemp::new(&device)?;
 
         // ======================================================================
 
@@ -565,21 +415,9 @@ impl<'a> SRender<'a> {
             root_signature,
             pipeline_state,
 
-            shadow_mapping_pipeline,
-
-            no_depth_pipeline_state,
-
+            render_shadow_map,
             render_imgui,
-
-            debug_line_pipeline_state,
-            debug_line_root_signature,
-            debug_line_vp_root_param_idx,
-            _debug_line_vert_byte_code: debug_line_vert_byte_code,
-            _debug_line_pixel_byte_code: debug_line_pixel_byte_code,
-            debug_lines: SMemVec::new(&SYSTEM_ALLOCATOR, 1024, 0)?,
-            debug_line_vertex_buffer_intermediate_resource: [None, None],
-            debug_line_vertex_buffer_resource: [None, None],
-            debug_line_vertex_buffer_view: [None, None],
+            render_temp,
 
             frame_fence_values: [0; 2],
         })
@@ -595,6 +433,10 @@ impl<'a> SRender<'a> {
 
     pub fn znear(&self) -> f32 {
         self.znear
+    }
+
+    pub fn temp(&mut self) -> &'a mut SRenderTemp {
+        &mut self.render_temp
     }
 
     pub fn create_window(
@@ -678,7 +520,99 @@ impl<'a> SRender<'a> {
         Ok(())
     }
 
-    pub fn render(&mut self, window: &mut n12::SD3D12Window, view_matrix: &Mat4, models: &[SModel], model_xforms: &[STransform]) -> Result<(), &'static str> {
+    pub fn render_frame(
+        &mut self,
+        window: &mut n12::SD3D12Window,
+        view_matrix: &Mat4,
+        world_models: &[SModel],
+        world_model_xforms: &[STransform],
+        imgui_draw_data: Option<&imgui::DrawData>,
+    ) -> Result<(), &'static str> {
+        let back_buffer_idx = window.currentbackbufferindex();
+
+        // -- wait for buffer to be available
+        self.direct_command_queue.borrow()
+            .wait_for_internal_fence_value(self.frame_fence_values[back_buffer_idx]);
+
+        // -- clear RTV and depth buffer, transition
+        {
+            let backbuffer = window.currentbackbuffer();
+
+            let handle = self.direct_command_pool.alloc_list()?;
+            let mut list = self.direct_command_pool.get_list(handle)?;
+
+            // -- transition to render target
+            // -- $$$FRK(TODO): could make a model where you call beginrender() to get a render state that will transition the resource on create and drop
+            list.transition_resource(
+                backbuffer,
+                t12::EResourceStates::Present,
+                t12::EResourceStates::RenderTarget,
+            )?;
+
+            // -- clear
+            let clearcolour = [0.4, 0.6, 0.9, 1.0];
+            list.clear_render_target_view(
+                window.currentrendertargetdescriptor()?,
+                &clearcolour,
+            )?;
+            list.clear_depth_stencil_view(self._depth_texture_view.as_ref().expect("no depth texture").cpu_descriptor(0), 1.0)?;
+
+            drop(list);
+            self.direct_command_pool.execute_and_free_list(handle)?;
+        }
+
+        // -- kick off imgui copies
+        if let Some(idd) = imgui_draw_data {
+            self.setup_imgui_draw_data_resources(window, idd)?;
+        }
+
+        self.render_shadow_maps(world_models, world_model_xforms)?;
+        self.render_world(window, view_matrix, world_models, world_model_xforms)?;
+        self.render_temp_in_world(window, view_matrix)?;
+
+        // -- clear depth buffer again
+        {
+            let handle = self.direct_command_pool.alloc_list()?;
+            let mut list = self.direct_command_pool.get_list(handle)?;
+            list.clear_depth_stencil_view(self._depth_texture_view.as_ref().expect("no depth texture").cpu_descriptor(0), 1.0)?;
+            drop(list);
+            self.direct_command_pool.execute_and_free_list(handle)?;
+        }
+
+        self.render_temp_over_world(window, view_matrix)?;
+        if let Some(idd) = imgui_draw_data {
+            self.render_imgui(window, idd)?;
+        }
+        self.present(window)?;
+
+        Ok(())
+    }
+
+    pub fn render_shadow_maps(
+        &mut self,
+        world_models: &[SModel],
+        world_model_xforms: &[STransform],
+    ) -> Result<(), &'static str> {
+        let handle = self.direct_command_pool.alloc_list()?;
+        let mut list = self.direct_command_pool.get_list(handle)?;
+
+        self.render_shadow_map.render(
+            &self.mesh_loader,
+            &Vec3::new(5.0, 5.0, 5.0),
+            list.deref_mut(),
+            world_models,
+            world_model_xforms,
+        )?;
+
+        drop(list);
+
+        let fence_val = self.direct_command_pool.execute_and_free_list(handle)?;
+        self.direct_command_pool.wait_for_internal_fence_value(fence_val);
+
+        Ok(())
+    }
+
+    pub fn render_world(&mut self, window: &mut n12::SD3D12Window, view_matrix: &Mat4, world_models: &[SModel], world_model_xforms: &[STransform]) -> Result<(), &'static str> {
         let viewport = t12::SViewport::new(
             0.0,
             0.0,
@@ -697,29 +631,6 @@ impl<'a> SRender<'a> {
             glm::perspective_lh_zo(aspect, self.fovy(), self.znear(), zfar)
         };
 
-        // -- wait for buffer to be available
-        self.direct_command_queue.borrow()
-            .wait_for_internal_fence_value(self.frame_fence_values[window.currentbackbufferindex()]);
-
-        // -- render shadowmaps
-        {
-            let handle = self.direct_command_pool.alloc_list()?;
-            let mut list = self.direct_command_pool.get_list(handle)?;
-
-            self.shadow_mapping_pipeline.render(
-                &self.mesh_loader,
-                &Vec3::new(5.0, 5.0, 5.0),
-                list.deref_mut(),
-                models,
-                model_xforms,
-            )?;
-
-            drop(list);
-
-            let fence_val = self.direct_command_pool.execute_and_free_list(handle)?;
-            self.direct_command_pool.wait_for_internal_fence_value(fence_val);
-        }
-
         // -- render
         {
             let backbufferidx = window.currentbackbufferindex();
@@ -730,25 +641,8 @@ impl<'a> SRender<'a> {
             {
                 let mut list = self.direct_command_pool.get_list(handle)?;
 
-                let backbuffer = window.currentbackbuffer();
                 let render_target_view = window.currentrendertargetdescriptor()?;
                 let depth_texture_view = self._depth_texture_view.as_ref().expect("no depth texture").cpu_descriptor(0);
-
-                // -- transition to render target
-                // -- $$$FRK(TODO): could make a model where you call beginrender() to get a render state that will transition the resource on create and drop
-                list.transition_resource(
-                    backbuffer,
-                    t12::EResourceStates::Present,
-                    t12::EResourceStates::RenderTarget,
-                )?;
-
-                // -- clear
-                let clearcolour = [0.4, 0.6, 0.9, 1.0];
-                list.clear_render_target_view(
-                    window.currentrendertargetdescriptor()?,
-                    &clearcolour,
-                )?;
-                list.clear_depth_stencil_view(self._depth_texture_view.as_ref().expect("no depth texture").cpu_descriptor(0), 1.0)?;
 
                 // -- set up pipeline
                 list.set_pipeline_state(&self.pipeline_state);
@@ -767,10 +661,10 @@ impl<'a> SRender<'a> {
                 });
 
                 let view_perspective = perspective_matrix * view_matrix;
-                for modeli in 0..models.len() {
-                    list.set_graphics_root_descriptor_table(3, &self.shadow_mapping_pipeline.srv().gpu_descriptor(0));
-                    models[modeli].set_texture_root_parameters(&self.texture_loader, list.deref_mut(), 1, 2);
-                    self.mesh_loader.render(models[modeli].mesh, list.deref_mut(), &view_perspective, &model_xforms[modeli])?;
+                for modeli in 0..world_models.len() {
+                    list.set_graphics_root_descriptor_table(3, &self.render_shadow_map.srv().gpu_descriptor(0));
+                    world_models[modeli].set_texture_root_parameters(&self.texture_loader, list.deref_mut(), 1, 2);
+                    self.mesh_loader.render(world_models[modeli].mesh, list.deref_mut(), &view_perspective, &world_model_xforms[modeli])?;
                 }
             }
 
@@ -780,218 +674,6 @@ impl<'a> SRender<'a> {
 
             Ok(())
         }
-    }
-
-    pub fn render_draw_over(&mut self, window: &mut n12::SD3D12Window, view_matrix: &Mat4, models: &[SModel], model_xforms: &[STransform]) -> Result<(), &'static str> {
-        let viewport = t12::SViewport::new(
-            0.0,
-            0.0,
-            window.width() as f32,
-            window.height() as f32,
-            None,
-            None,
-        );
-
-        let perspective_matrix: Mat4 = {
-            let aspect = (window.width() as f32) / (window.height() as f32);
-            let zfar = 100.0;
-
-            //SMat44::new_perspective(aspect, fovy, znear, zfar)
-            glm::perspective_lh_zo(aspect, self.fovy(), self.znear(), zfar)
-        };
-
-        // -- wait for buffer to be available
-        self.direct_command_queue.borrow()
-            .wait_for_internal_fence_value(self.frame_fence_values[window.currentbackbufferindex()]);
-
-        // -- render
-        {
-            let backbufferidx = window.currentbackbufferindex();
-            assert!(backbufferidx == window.swapchain.current_backbuffer_index());
-
-            let handle = self.direct_command_pool.alloc_list()?;
-
-            {
-                let mut list = self.direct_command_pool.get_list(handle)?;
-
-                // -- clear depth texture so we can draw over
-                list.clear_depth_stencil_view(self._depth_texture_view.as_ref().expect("no depth texture").cpu_descriptor(0), 1.0)?;
-
-                let render_target_view = window.currentrendertargetdescriptor()?;
-                let depth_texture_view = self._depth_texture_view.as_ref().expect("no depth texture").cpu_descriptor(0);
-
-                // -- set up pipeline
-                list.set_pipeline_state(&self.no_depth_pipeline_state);
-                // root signature has to be set explicitly despite being on PSO, according to tutorial
-                list.set_graphics_root_signature(&self.root_signature.raw());
-
-                // -- setup rasterizer state
-                list.rs_set_viewports(&[&viewport]);
-                list.rs_set_scissor_rects(t12::SScissorRects::create(&[&self.scissorrect]));
-
-                // -- setup the output merger
-                list.om_set_render_targets(&[&render_target_view], false, &depth_texture_view);
-
-                self.srv_heap.with_raw_heap(|rh| {
-                    list.set_descriptor_heaps(&[rh]);
-                });
-
-                let view_perspective = perspective_matrix * view_matrix;
-                for modeli in 0..models.len() {
-                    list.set_graphics_root_descriptor_table(3, &self.shadow_mapping_pipeline.srv().gpu_descriptor(0));
-                    models[modeli].set_texture_root_parameters(&self.texture_loader, list.deref_mut(), 1, 2);
-                    self.mesh_loader.render(models[modeli].mesh, list.deref_mut(), &view_perspective, &model_xforms[modeli])?;
-                }
-            }
-
-            // -- execute on the queue
-            assert_eq!(window.currentbackbufferindex(), backbufferidx);
-            self.direct_command_pool.execute_and_free_list(handle)?;
-
-            Ok(())
-        }
-    }
-
-    pub fn render_debug_lines(&mut self, window: &mut n12::SD3D12Window, view_matrix: &Mat4) -> Result<(), &'static str> {
-        let back_buffer_idx = window.currentbackbufferindex();
-
-        /* A very basic test
-        self.debug_lines.push(SDebugLine{
-            start: Vec3::new(-5.0, 2.0, 0.0),
-            end: Vec3::new(5.0, 2.0, 0.0),
-            colour: Vec3::new(1.0, 0.0, 0.0),
-        });
-        */
-
-        if self.debug_lines.len() == 0 {
-            return Ok(());
-        }
-
-        // -- create/upload vertex buffer
-        // -- must match SDebugLineShaderVert in debug_line_vertex.hlsl
-        #[repr(C)]
-        struct SDebugLineShaderVert {
-            pos: [f32; 3],
-            colour: [f32; 3],
-        }
-        impl SDebugLineShaderVert {
-            fn new(pos: &Vec3, colour: &Vec3) -> Self {
-                Self {
-                    pos: [pos.x, pos.y, pos.z],
-                    colour: [colour.x, colour.y, colour.z],
-                }
-            }
-        }
-
-        // -- generate data and copy to GPU
-        STACK_ALLOCATOR.with(|sa| -> Result<(), &'static str> {
-            let mut vertex_buffer_data = SMemVec::new(
-                sa,
-                self.debug_lines.len() * 2,
-                0,
-            )?;
-
-            for line in self.debug_lines.as_slice() {
-                vertex_buffer_data.push(SDebugLineShaderVert::new(&line.start, &line.colour));
-                vertex_buffer_data.push(SDebugLineShaderVert::new(&line.end, &line.colour));
-            }
-
-            let handle = self.copy_command_pool.alloc_list()?;
-            let mut copy_command_list = self.copy_command_pool.get_list(handle)?;
-
-            let vert_buffer_resource = {
-                let vertbufferflags = t12::SResourceFlags::from(t12::EResourceFlags::ENone);
-                copy_command_list.update_buffer_resource(
-                    self.device.deref(),
-                    vertex_buffer_data.as_slice(),
-                    vertbufferflags
-                )?
-            };
-            let vertex_buffer_view = vert_buffer_resource
-                .destinationresource
-                .create_vertex_buffer_view()?;
-
-            drop(copy_command_list);
-            let fence_val = self.copy_command_pool.execute_and_free_list(handle)?;
-            drop(handle);
-
-            // -- have the direct queue wait on the copy upload to complete
-            self.direct_command_pool.gpu_wait(
-                self.copy_command_pool.get_internal_fence(),
-                fence_val,
-            )?;
-
-            self.debug_line_vertex_buffer_intermediate_resource[back_buffer_idx] =
-                Some(vert_buffer_resource.intermediateresource);
-            self.debug_line_vertex_buffer_resource[back_buffer_idx] =
-                Some(vert_buffer_resource.destinationresource);
-            self.debug_line_vertex_buffer_view[back_buffer_idx] = Some(vertex_buffer_view);
-
-            Ok(())
-        })?;
-
-        // -- set up pipeline and render lines
-        let handle = self.direct_command_pool.alloc_list()?;
-        let mut list = self.direct_command_pool.get_list(handle)?;
-
-        list.set_pipeline_state(&self.debug_line_pipeline_state);
-        // root signature has to be set explicitly despite being on PSO, according to tutorial
-        list.set_graphics_root_signature(&self.debug_line_root_signature.raw());
-
-        // -- setup rasterizer state
-        let viewport = t12::SViewport::new(
-            0.0,
-            0.0,
-            window.width() as f32,
-            window.height() as f32,
-            None,
-            None,
-        );
-        list.rs_set_viewports(&[&viewport]);
-
-        // -- setup the output merger
-        let render_target_view = window.currentrendertargetdescriptor()?;
-        let depth_texture_view = self._depth_texture_view.as_ref().expect("no depth texture").cpu_descriptor(0);
-        list.om_set_render_targets(&[&render_target_view], false, &depth_texture_view);
-
-        let perspective_matrix: Mat4 = {
-            let aspect = (window.width() as f32) / (window.height() as f32);
-            let zfar = 100.0;
-
-            //SMat44::new_perspective(aspect, fovy, znear, zfar)
-            glm::perspective_lh_zo(aspect, self.fovy(), self.znear(), zfar)
-        };
-        let view_perspective = perspective_matrix * view_matrix;
-
-        list.set_graphics_root_32_bit_constants(self.debug_line_vp_root_param_idx as u32,
-                                                &view_perspective, 0);
-
-        // -- set up input assembler
-        list.ia_set_primitive_topology(t12::EPrimitiveTopology::LineList);
-        let vert_buffer_view = self.debug_line_vertex_buffer_view[back_buffer_idx].
-            as_ref().expect("should have generated resource earlier in this function");
-        list.ia_set_vertex_buffers(0, &[vert_buffer_view]);
-
-        let scissorrect = t12::SRect {
-            left: 0,
-            right: std::i32::MAX,
-            top: 0,
-            bottom: std::i32::MAX,
-        };
-        list.rs_set_scissor_rects(t12::SScissorRects::create(&[&scissorrect]));
-
-        for i in 0..self.debug_lines.len() {
-            list.draw_instanced(2, 1, (i * 2) as u32, 0);
-        }
-
-        // -- execute on the queue
-        drop(list);
-        assert_eq!(window.currentbackbufferindex(), back_buffer_idx);
-        self.direct_command_pool.execute_and_free_list(handle)?;
-
-        self.debug_lines.clear();
-
-        Ok(())
     }
 
     pub fn present(&mut self, window: &mut n12::SD3D12Window) -> Result<(), &'static str> {
@@ -1017,14 +699,6 @@ impl<'a> SRender<'a> {
         window.present()?;
 
         Ok(())
-    }
-
-    pub fn add_debug_line(&mut self, start: &Vec3, end: &Vec3, color: &Vec3) {
-        self.debug_lines.push(SDebugLine {
-            start: start.clone(),
-            end: end.clone(),
-            colour: color.clone(),
-        });
     }
 
     pub fn flush(&mut self) -> Result<(), &'static str> {

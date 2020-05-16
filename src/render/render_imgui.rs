@@ -37,8 +37,10 @@ pub(super) struct SRenderImgui<'a> {
     _vert_byte_code: t12::SShaderBytecode,
     _pixel_byte_code: t12::SShaderBytecode,
     vert_buffer_resources: [SMemVec::<'a, n12::SResource>; 2],
+    int_vert_buffer_resources: [SMemVec::<'a, n12::SResource>; 2],
     vert_buffer_views: [SMemVec::<'a, t12::SVertexBufferView>; 2],
     index_buffer_resources: [SMemVec::<'a, n12::SResource>; 2],
+    int_index_buffer_resources: [SMemVec::<'a, n12::SResource>; 2],
     index_buffer_views: [SMemVec::<'a, t12::SIndexBufferView>; 2],
 }
 
@@ -207,10 +209,17 @@ impl<'a> SRenderImgui<'a> {
             SMemVec::new(&SYSTEM_ALLOCATOR, 128, 0)?,
             SMemVec::new(&SYSTEM_ALLOCATOR, 128, 0)?,
         ];
+        let int_vert_buffer_resources = [
+            SMemVec::new(&SYSTEM_ALLOCATOR, 128, 0)?,
+            SMemVec::new(&SYSTEM_ALLOCATOR, 128, 0)?,
+        ];
         let vert_buffer_views = [SMemVec::new(&SYSTEM_ALLOCATOR, 128, 0)?,
             SMemVec::new(&SYSTEM_ALLOCATOR, 128, 0)?,
         ];
         let index_buffer_resources = [SMemVec::new(&SYSTEM_ALLOCATOR, 128, 0)?,
+            SMemVec::new(&SYSTEM_ALLOCATOR, 128, 0)?,
+        ];
+        let int_index_buffer_resources = [SMemVec::new(&SYSTEM_ALLOCATOR, 128, 0)?,
             SMemVec::new(&SYSTEM_ALLOCATOR, 128, 0)?,
         ];
         let index_buffer_views = [SMemVec::new(&SYSTEM_ALLOCATOR, 128, 0)?,
@@ -227,8 +236,10 @@ impl<'a> SRenderImgui<'a> {
             _vert_byte_code: vert_byte_code,
             _pixel_byte_code: pixel_byte_code,
             vert_buffer_resources,
+            int_vert_buffer_resources,
             vert_buffer_views,
             index_buffer_resources,
+            int_index_buffer_resources,
             index_buffer_views,
         })
     }
@@ -248,93 +259,92 @@ impl<'a> super::SRender<'a> {
 
         let backbufferidx = window.currentbackbufferindex();
         ri.vert_buffer_resources[backbufferidx].clear();
+        ri.int_vert_buffer_resources[backbufferidx].clear();
         ri.vert_buffer_views[backbufferidx].clear();
         ri.index_buffer_resources[backbufferidx].clear();
+        ri.int_index_buffer_resources[backbufferidx].clear();
         ri.index_buffer_views[backbufferidx].clear();
+
+        let handle = self.copy_command_pool.alloc_list()?;
+        let mut copy_command_list = self.copy_command_pool.get_list(handle)?;
 
         for draw_list in draw_data.draw_lists() {
             let (vertbufferresource, vertexbufferview, indexbufferresource, indexbufferview) = {
-                //STACK_ALLOCATOR.with(|sa| {
-                    //let vert_vec = SMemVec::<SImguiVertData>::new(draw_list.vtx_buffer().len(), 0, &sa)?;
-                    //let idx_vec = SMemVec::<u16>::new(draw_list.idx_buffer().len(), 0, &sa)?;
-                    //panic!("need to impl copy to vecs above.");
+                // -- $$$FRK(TODO): we should be able to update the data in the resource, rather than creating a new one?
+                let mut vertbufferresource = {
+                    let vertbufferflags = t12::SResourceFlags::from(t12::EResourceFlags::ENone);
+                    copy_command_list.update_buffer_resource(
+                        self.device.deref(),
+                        draw_list.vtx_buffer(),
+                        vertbufferflags
+                    )?
+                };
+                let vertexbufferview = vertbufferresource
+                    .destinationresource
+                    .create_vertex_buffer_view()?;
 
-                    let handle = self.copy_command_pool.alloc_list()?;
-                    let mut copy_command_list = self.copy_command_pool.get_list(handle)?;
+                let mut indexbufferresource = {
+                    let indexbufferflags = t12::SResourceFlags::from(t12::EResourceFlags::ENone);
+                    copy_command_list.update_buffer_resource(
+                        self.device.deref(),
+                        draw_list.idx_buffer(),
+                        indexbufferflags
+                    )?
+                };
+                let indexbufferview = indexbufferresource
+                    .destinationresource
+                    .create_index_buffer_view(t12::EDXGIFormat::R16UINT)?;
 
-                    // -- $$$FRK(TODO): we should be able to update the data in the resource, rather than creating a new one?
-                    let mut vertbufferresource = {
-                        let vertbufferflags = t12::SResourceFlags::from(t12::EResourceFlags::ENone);
-                        copy_command_list.update_buffer_resource(
-                            self.device.deref(),
-                            draw_list.vtx_buffer(),
-                            vertbufferflags
-                        )?
-                    };
-                    let vertexbufferview = vertbufferresource
-                        .destinationresource
-                        .create_vertex_buffer_view()?;
+                unsafe {
+                    vertbufferresource.destinationresource.set_debug_name("imgui vert dest");
+                    vertbufferresource.intermediateresource.set_debug_name("imgui vert inter");
+                    indexbufferresource.destinationresource.set_debug_name("imgui index dest");
+                    indexbufferresource.intermediateresource.set_debug_name("imgui index inter");
+                }
 
-                    let mut indexbufferresource = {
-                        let indexbufferflags = t12::SResourceFlags::from(t12::EResourceFlags::ENone);
-                        copy_command_list.update_buffer_resource(
-                            self.device.deref(),
-                            draw_list.idx_buffer(),
-                            indexbufferflags
-                        )?
-                    };
-                    let indexbufferview = indexbufferresource
-                        .destinationresource
-                        .create_index_buffer_view(t12::EDXGIFormat::R16UINT)?;
-
-                    drop(copy_command_list);
-
-                    let fence_val = self.copy_command_pool.execute_and_free_list(handle)?;
-                    drop(handle);
-
-                    // -- $$$FRK(TODO): we have to wait here because we're going to drop the intermediate resource
-                    self.copy_command_pool.wait_for_internal_fence_value(fence_val);
-
-                    // -- have the direct queue wait on the copy upload to complete
-                    self.direct_command_pool.gpu_wait(
-                        self.copy_command_pool.get_internal_fence(),
-                        fence_val,
-                    )?;
-
-                    let handle  = self.direct_command_pool.alloc_list()?;
-                    let mut direct_command_list = self.direct_command_pool.get_list(handle)?;
-
-                    direct_command_list.transition_resource(
-                        &vertbufferresource.destinationresource,
-                        t12::EResourceStates::CopyDest,
-                        t12::EResourceStates::VertexAndConstantBuffer,
-                    )?;
-                    direct_command_list.transition_resource(
-                        &indexbufferresource.destinationresource,
-                        t12::EResourceStates::CopyDest,
-                        t12::EResourceStates::IndexBuffer,
-                    )?;
-
-                    drop(direct_command_list);
-                    self.direct_command_pool.execute_and_free_list(handle)?;
-
-                    unsafe {
-                        vertbufferresource.destinationresource.set_debug_name("imgui vert dest");
-                        vertbufferresource.intermediateresource.set_debug_name("imgui vert inter");
-                        indexbufferresource.destinationresource.set_debug_name("imgui index dest");
-                        indexbufferresource.intermediateresource.set_debug_name("imgui index inter");
-                    }
-
-                    (vertbufferresource, vertexbufferview, indexbufferresource, indexbufferview)
-                //})
+                (vertbufferresource, vertexbufferview, indexbufferresource, indexbufferview)
             };
 
-            // -- save the data until the next frame? double buffering will probably break this
+            // -- save the data until the next frame
             ri.vert_buffer_resources[backbufferidx].push(vertbufferresource.destinationresource);
+            ri.int_vert_buffer_resources[backbufferidx].push(vertbufferresource.intermediateresource);
             ri.vert_buffer_views[backbufferidx].push(vertexbufferview);
             ri.index_buffer_resources[backbufferidx].push(indexbufferresource.destinationresource);
+            ri.int_index_buffer_resources[backbufferidx].push(indexbufferresource.intermediateresource);
             ri.index_buffer_views[backbufferidx].push(indexbufferview);
         }
+        drop(copy_command_list);
+        self.copy_command_pool.execute_and_free_list(handle)?;
+        drop(handle);
+
+
+        // -- wait on copies on direct queue, then transition resources
+        let handle  = self.direct_command_pool.alloc_list()?;
+        let mut direct_command_list = self.direct_command_pool.get_list(handle)?;
+
+        // -- have the direct queue wait on the copy upload to complete
+        self.direct_command_pool.gpu_wait(
+            self.copy_command_pool.get_internal_fence(),
+            self.copy_command_pool.get_internal_fence().last_signalled_value(),
+        )?;
+
+        for dest_resource in ri.vert_buffer_resources[backbufferidx].as_slice() {
+            direct_command_list.transition_resource(
+                &dest_resource,
+                t12::EResourceStates::CopyDest,
+                t12::EResourceStates::VertexAndConstantBuffer,
+            )?;
+        }
+        for dest_resource in ri.index_buffer_resources[backbufferidx].as_slice() {
+            direct_command_list.transition_resource(
+                &dest_resource,
+                t12::EResourceStates::CopyDest,
+                t12::EResourceStates::IndexBuffer,
+            )?;
+        }
+
+        drop(direct_command_list);
+        self.direct_command_pool.execute_and_free_list(handle)?;
 
         Ok(())
     }

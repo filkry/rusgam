@@ -22,6 +22,10 @@ impl SFence {
         &self.raw
     }
 
+    pub fn last_signalled_value(&self) -> u64 {
+        self.nextfencevalue - 1
+    }
+
     pub fn completed_value(&self) -> u64 {
         self.raw.getcompletedvalue()
     }

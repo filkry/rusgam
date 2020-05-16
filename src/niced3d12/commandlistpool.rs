@@ -2,6 +2,8 @@ use std::rc::Weak;
 use std::cell::{RefCell, RefMut};
 use std::ops::{DerefMut};
 
+//use safewindows::{break_err};
+
 use super::*;
 
 struct SCommandListPoolList {
@@ -84,7 +86,7 @@ impl SCommandListPool {
         self.free_allocators();
 
         if self.lists.full() || self.allocators.full() {
-            return Err("no available command list or allocator");
+            break_err!(Err("no available command list or allocator"));
         }
 
         let allocatorhandle = self.allocators.alloc()?;

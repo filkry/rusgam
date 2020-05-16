@@ -801,6 +801,11 @@ fn main_d3d12() -> Result<(), &'static str> {
 fn debug_test() {}
 
 fn main() {
+    use std::panic;
+    panic::set_hook(Box::new(|_| {
+        safewindows::break_if_debugging();
+    }));
+
     debug_test();
 
     main_d3d12().unwrap();

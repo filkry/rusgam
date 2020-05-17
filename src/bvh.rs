@@ -1,4 +1,4 @@
-use allocate::{STACK_ALLOCATOR, SMemQueue};
+use allocate::{STACK_ALLOCATOR, SMemQueue, SMemVec};
 use collections::{SPoolHandle, SPool};
 use safewindows;
 use utils::{SAABB};
@@ -239,5 +239,13 @@ impl Tree {
         }
 
         leaf_handle
+    }
+
+    pub fn get_bvh_heirarchy_for_entry(&self, entry: SPoolHandle, output: &mut SMemVec<SAABB>) {
+        let mut cur_handle = entry;
+        while cur_handle.valid() {
+            output.push(self.nodes.get_unchecked(cur_handle).bounds().unwrap().clone());
+            cur_handle = self.nodes.get_unchecked(cur_handle).parent();
+        }
     }
 }

@@ -8,6 +8,7 @@ struct SEntity {
     debug_name: Option<&'static str>,
     location: STransform,
     model: Option<SModel>,
+    bvh_entry: SPoolHandle,
 }
 
 #[allow(dead_code)]
@@ -21,6 +22,7 @@ impl SEntity {
             debug_name: None,
             location: STransform::default(),
             model: None,
+            bvh_entry: SPoolHandle::default(),
         }
     }
 }
@@ -50,6 +52,14 @@ impl SEntityBucket {
 
     pub fn set_entity_model(&mut self, entity: SPoolHandle, model: SModel) {
         self.entities.get_mut(entity).expect("invalid entity").model = Some(model);
+    }
+
+    pub fn get_entity_bvh_entry(&mut self, entity: SPoolHandle) -> SPoolHandle {
+        self.entities.get_mut(entity).expect("invalid entity").bvh_entry
+    }
+
+    pub fn set_entity_bvh_entry(&mut self, entity: SPoolHandle, bvh_entry: SPoolHandle) {
+        self.entities.get_mut(entity).expect("invalid entity").bvh_entry = bvh_entry;
     }
 
     pub fn build_render_data<'a>(&self, allocator: &'a dyn TMemAllocator) -> (SMemVec<'a, SPoolHandle>, SMemVec<'a, STransform>, SMemVec<'a, SModel>) {

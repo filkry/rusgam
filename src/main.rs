@@ -39,7 +39,7 @@ mod render;
 //use serde::{Serialize, Deserialize};
 use glm::{Vec3, Vec4, Mat4};
 
-use allocate::{STACK_ALLOCATOR, SYSTEM_ALLOCATOR};
+use allocate::{STACK_ALLOCATOR, SYSTEM_ALLOCATOR, SMemVec};
 use collections::{SPoolHandle};
 use niced3d12 as n12;
 use typeyd3d12 as t12;
@@ -421,11 +421,12 @@ fn main_d3d12() -> Result<(), &'static str> {
     // -- test initialize a BVH
     let mut bvh = bvh::Tree::new();
     {
-        let (entities, transforms, models) = entities.build_render_data(&SYSTEM_ALLOCATOR);
-        for i in 0..entities.len() {
+        let (entity_handles, transforms, models) = entities.build_render_data(&SYSTEM_ALLOCATOR);
+        for i in 0..entity_handles.len() {
             let mesh_local_aabb = render.mesh_loader().get_mesh_local_aabb(models[i].mesh);
             let transformed_aabb = utils::SAABB::transform(&mesh_local_aabb, &transforms[i]);
-            bvh.insert(entities[i], &transformed_aabb);
+            let entry = bvh.insert(entity_handles[i], &transformed_aabb);
+            entities.set_entity_bvh_entry(entity_handles[i], entry);
         }
     }
 
@@ -703,9 +704,15 @@ fn main_d3d12() -> Result<(), &'static str> {
             }
         }
 
-        let mut aabb = utils::SAABB::new(&Vec3::new(0.0, 2.0, 0.0));
-        aabb.expand(&Vec3::new(1.0, 3.0, 1.0));
-        render.temp().draw_aabb(&aabb, &Vec4::new(1.0, 0.0, 0.0, 0.1), true);
+        if let Some(e) = last_picked_entity {
+            STACK_ALLOCATOR.with(|sa| {
+                let mut aabbs = SMemVec::new(sa, 32, 0).unwrap();
+                bvh.get_bvh_heirarchy_for_entry(entities.get_entity_bvh_entry(e), &mut aabbs);
+                for aabb in aabbs.as_slice() {
+                    render.temp().draw_aabb(aabb, &Vec4::new(1.0, 0.0, 0.0, 1.0), true);
+                }
+            });
+        }
 
         STACK_ALLOCATOR.with(|sa| -> Result<(), &'static str> {
             let (entities, model_xforms, models) = entities.build_render_data(sa);

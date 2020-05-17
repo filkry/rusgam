@@ -45,6 +45,11 @@ impl SAABB {
             max: glm::max2(&a.min, &b.min),
         }
     }
+
+    pub fn surface_area(&self) -> f32 {
+        let d = self.max - self.min;
+        return 2.0 * (d.x * d.y + d.y * d.z + d.z * d.x);
+    }
 }
 
 impl Default for SAABB {

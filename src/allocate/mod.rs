@@ -7,6 +7,8 @@ use std::ops::{Deref, DerefMut, Index, IndexMut};
 
 use utils::align_up;
 
+pub mod memqueue;
+
 pub static SYSTEM_ALLOCATOR: SSystemAllocator = SSystemAllocator {};
 
 thread_local! {

@@ -39,14 +39,14 @@ impl ENode {
         }
     }
 
-    pub fn bounds(&self) -> &SAABB {
+    pub fn bounds(&self) -> Option<&SAABB> {
         match self {
             Self::Free(dummy_bounds) => {
                 break_assert!(false);
-                &dummy_bounds
+                None
             },
-            Self::Leaf(leaf) => &leaf.bounds,
-            Self::Internal(internal) => &internal.bounds,
+            Self::Leaf(leaf) => Some(&leaf.bounds),
+            Self::Internal(internal) => Some(&internal.bounds),
         }
     }
 
@@ -102,7 +102,7 @@ impl Tree {
         let new_parent_handle = self.nodes.alloc().unwrap();
         {
             let new_bounds = SAABB::union(
-                self.nodes.get_unchecked(sibling_handle).bounds(),
+                self.nodes.get_unchecked(sibling_handle).bounds().unwrap(),
                 bounds,
             );
             let new_parent = self.nodes.get_mut_unchecked(new_parent_handle);
@@ -153,10 +153,10 @@ impl Tree {
 
             let mut new_bounds = SAABB::default();
             if child1.valid() {
-                new_bounds = SAABB::union(&new_bounds, &self.nodes.get_unchecked(child1).bounds());
+                new_bounds = SAABB::union(&new_bounds, &self.nodes.get_unchecked(child1).bounds().unwrap());
             }
             if child2.valid() {
-                new_bounds = SAABB::union(&new_bounds, &self.nodes.get_unchecked(child2).bounds());
+                new_bounds = SAABB::union(&new_bounds, &self.nodes.get_unchecked(child2).bounds().unwrap());
             }
             self.nodes.get_mut_unchecked(cur_handle).set_bounds(&new_bounds);
             cur_handle = self.nodes.get_unchecked(cur_handle).parent();

@@ -480,6 +480,10 @@ impl<'a> SRender<'a> {
         SModel::new_from_obj(obj_file_path, &mut self.mesh_loader, &mut self.texture_loader, diffuse_weight, is_lit)
     }
 
+    pub fn mesh_loader(&self) -> &SMeshLoader {
+        &self.mesh_loader
+    }
+
     #[allow(dead_code)]
     pub fn ray_intersects(
         &self,

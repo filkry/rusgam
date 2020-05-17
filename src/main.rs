@@ -39,7 +39,7 @@ mod render;
 //use serde::{Serialize, Deserialize};
 use glm::{Vec3, Vec4, Mat4};
 
-use allocate::{STACK_ALLOCATOR};
+use allocate::{STACK_ALLOCATOR, SYSTEM_ALLOCATOR};
 use collections::{SPoolHandle};
 use niced3d12 as n12;
 use typeyd3d12 as t12;
@@ -390,12 +390,11 @@ fn main_d3d12() -> Result<(), &'static str> {
 
     let mut entities = entity::SEntityBucket::new(67485, 16);
     let rotating_entity = entities.create_entity()?;
+    let ent2 = entities.create_entity()?;
+    let ent3 = entities.create_entity()?;
+    let room = entities.create_entity()?;
     {
         // -- set up entities
-        let ent2 = entities.create_entity()?;
-        let ent3 = entities.create_entity()?;
-        let room = entities.create_entity()?;
-
         let model1 = render.new_model("assets/first_test_asset.obj", 1.0, true)?;
         let model2 = model1.clone();
         let model3 = render.new_model("assets/test_untextured_flat_colour_cube.obj", 1.0, true)?;
@@ -417,6 +416,17 @@ fn main_d3d12() -> Result<(), &'static str> {
         entities.set_entity_model(ent2, model2);
         entities.set_entity_model(ent3, model3);
         entities.set_entity_model(room, room_model);
+    }
+
+    // -- test initialize a BVH
+    let mut bvh = bvh::Tree::new();
+    {
+        let (entities, transforms, models) = entities.build_render_data(&SYSTEM_ALLOCATOR);
+        for i in 0..entities.len() {
+            let mesh_local_aabb = render.mesh_loader().get_mesh_local_aabb(models[i].mesh);
+            let transformed_aabb = utils::SAABB::transform(&mesh_local_aabb, &transforms[i]);
+            bvh.insert(entities[i], &transformed_aabb);
+        }
     }
 
     // -- update loop

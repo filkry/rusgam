@@ -66,6 +66,7 @@ pub struct SMesh<'a> {
     uid: u64,
 
     per_vertex_data: SMemVec<'a, SVertexPosColourUV>,
+    local_aabb: utils::SAABB,
     pub(super) triangle_indices: SMemVec<'a, u16>,
 
     pub(super) vertex_buffer_resource: n12::SResource,
@@ -257,10 +258,16 @@ impl<'a> SMeshLoader<'a> {
             (vertbufferresource, vertexbufferview, indexbufferresource, indexbufferview)
         };
 
+        let mut local_aabb = utils::SAABB::default();
+        for v in vert_vec.as_slice() {
+            local_aabb.expand(&v.position);
+        }
+
         let mesh = SMesh{
             uid: uid,
             per_vertex_data: vert_vec,
             triangle_indices: index_vec,
+            local_aabb,
 
             vertex_buffer_resource: vertbufferresource.destinationresource,
             vertex_buffer_view: vertexbufferview,
@@ -269,6 +276,11 @@ impl<'a> SMeshLoader<'a> {
         };
 
         return self.mesh_pool.insert_val(mesh)
+    }
+
+    pub fn get_mesh_local_aabb(&self, mesh: SPoolHandle) -> &utils::SAABB {
+        let mesh = self.mesh_pool.get(mesh).unwrap();
+        &mesh.local_aabb
     }
 
     #[allow(dead_code)]

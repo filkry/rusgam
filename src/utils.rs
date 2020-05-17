@@ -46,9 +46,34 @@ impl SAABB {
         }
     }
 
+    pub fn transform(aabb: &Self, b: &STransform) -> Self {
+        let verts = [
+            Vec3::new(aabb.min.x, aabb.min.y, aabb.min.z),
+            Vec3::new(aabb.min.x, aabb.min.y, aabb.max.z),
+            Vec3::new(aabb.min.x, aabb.max.y, aabb.min.z),
+            Vec3::new(aabb.min.x, aabb.max.y, aabb.max.z),
+            Vec3::new(aabb.max.x, aabb.min.y, aabb.min.z),
+            Vec3::new(aabb.max.x, aabb.min.y, aabb.max.z),
+            Vec3::new(aabb.max.x, aabb.max.y, aabb.min.z),
+            Vec3::new(aabb.max.x, aabb.max.y, aabb.max.z),
+        ];
+
+        let mut result = Self::default();
+        for v in &verts {
+            result.expand(&b.mul_point(v));
+        }
+
+        result
+    }
+
     pub fn surface_area(&self) -> f32 {
         let d = self.max - self.min;
         return 2.0 * (d.x * d.y + d.y * d.z + d.z * d.x);
+    }
+
+    pub fn expand(&mut self, p: &Vec3) {
+        self.min = glm::min2(&self.min, p);
+        self.max = glm::max2(&self.min, p);
     }
 }
 

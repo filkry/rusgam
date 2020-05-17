@@ -189,7 +189,7 @@ impl<T> SPool<T> {
 }
 
 impl<T: Clone> SPool<T> {
-    pub fn create_from_val(id: u64, max: u16, default_val: T) -> Self {
+    pub fn create_from_val(_id: u64, max: u16, default_val: T) -> Self {
         let mut result = Self {
             buffer: Vec::new(),
             generations: Vec::new(),

@@ -17,12 +17,12 @@ struct SInternalNode {
 }
 
 enum ENode {
-    Free(SAABB),
+    Free,
     Leaf(SLeafNode),
     Internal(SInternalNode),
 }
 
-struct Tree {
+pub struct Tree {
     nodes: SPool<ENode>,
     node_count: u32,
     root: SPoolHandle,
@@ -31,7 +31,7 @@ struct Tree {
 impl ENode {
     pub fn parent(&self) -> SPoolHandle {
         match self {
-            Self::Free(_) => {
+            Self::Free => {
                 break_assert!(false);
                 SPoolHandle::default()
             },
@@ -42,7 +42,7 @@ impl ENode {
 
     pub fn bounds(&self) -> Option<&SAABB> {
         match self {
-            Self::Free(dummy_bounds) => {
+            Self::Free => {
                 break_assert!(false);
                 None
             },
@@ -53,7 +53,7 @@ impl ENode {
 
     pub fn set_parent(&mut self, new_parent: SPoolHandle) {
         match self {
-            Self::Free(_) => {
+            Self::Free => {
                 break_assert!(false);
             },
             Self::Leaf(leaf) => { leaf.parent = new_parent },
@@ -63,12 +63,18 @@ impl ENode {
 
     pub fn set_bounds(&mut self, new_bounds: &SAABB) {
         match self {
-            Self::Free(_) => {
+            Self::Free => {
                 break_assert!(false);
             },
             Self::Leaf(leaf) => { leaf.bounds = new_bounds.clone() },
             Self::Internal(internal) => { internal.bounds = new_bounds.clone() },
         }
+    }
+}
+
+impl Default for ENode {
+    fn default() -> Self {
+        Self::Free
     }
 }
 
@@ -135,6 +141,14 @@ impl Tree {
 
             best
         })
+    }
+
+    pub fn new() -> Self {
+        Self {
+            nodes: SPool::create_default(0, 1024),
+            node_count: 0,
+            root: SPoolHandle::default(),
+        }
     }
 
     pub fn insert(&mut self, owner: SPoolHandle, bounds: &SAABB) -> SPoolHandle {

@@ -9,6 +9,8 @@ use utils::align_up;
 
 pub mod memqueue;
 
+pub use self::memqueue::*;
+
 pub static SYSTEM_ALLOCATOR: SSystemAllocator = SSystemAllocator {};
 
 thread_local! {

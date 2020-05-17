@@ -56,7 +56,7 @@ impl SAABB {
     pub fn union(a: &Self, b: &Self) -> Self {
         Self{
             min: glm::min2(&a.min, &b.min),
-            max: glm::max2(&a.min, &b.min),
+            max: glm::max2(&a.max, &b.max),
         }
     }
 

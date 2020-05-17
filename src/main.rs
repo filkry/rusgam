@@ -705,15 +705,16 @@ fn main_d3d12() -> Result<(), &'static str> {
         }
 
         // -- draw every object's AABB
+        /*
         let (entity_handles, transforms, models) = entities.build_render_data(&SYSTEM_ALLOCATOR);
         for i in 0..entity_handles.len() {
             let mesh_local_aabb = render.mesh_loader().get_mesh_local_aabb(models[i].mesh);
             let transformed_aabb = utils::SAABB::transform(&mesh_local_aabb, &transforms[i]);
             render.temp().draw_aabb(&transformed_aabb, &Vec4::new(1.0, 0.0, 0.0, 1.0), true);
         }
+        */
 
         // -- draw selected object's BVH heirarchy
-        /*
         if let Some(e) = last_picked_entity {
             STACK_ALLOCATOR.with(|sa| {
                 let mut aabbs = SMemVec::new(sa, 32, 0).unwrap();
@@ -723,7 +724,6 @@ fn main_d3d12() -> Result<(), &'static str> {
                 }
             });
         }
-        */
 
         STACK_ALLOCATOR.with(|sa| -> Result<(), &'static str> {
             let (entities, model_xforms, models) = entities.build_render_data(sa);

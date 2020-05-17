@@ -24,7 +24,6 @@ enum ENode {
 
 pub struct Tree {
     nodes: SPool<ENode>,
-    node_count: u32,
     root: SPoolHandle,
 }
 
@@ -98,6 +97,7 @@ impl Tree {
 
         STACK_ALLOCATOR.with(|sa| -> SPoolHandle {
             let mut search_queue = SMemQueue::<SSearch>::new(sa, self.nodes.used()).unwrap();
+            break_assert!(self.root.valid());
             let mut best = self.root;
             let mut best_cost = self.union(query_node, best).surface_area();
             search_queue.push_back(SSearch{
@@ -146,12 +146,12 @@ impl Tree {
     pub fn new() -> Self {
         Self {
             nodes: SPool::create_default(0, 1024),
-            node_count: 0,
             root: SPoolHandle::default(),
         }
     }
 
     pub fn insert(&mut self, owner: SPoolHandle, bounds: &SAABB) -> SPoolHandle {
+        let first : bool = self.nodes.used() == 0;
         let leaf_handle = self.nodes.alloc().unwrap();
 
         // -- initialize node
@@ -164,7 +164,7 @@ impl Tree {
             });
         }
 
-        if self.node_count == 0 {
+        if first {
             self.root = leaf_handle;
             return leaf_handle;
         }

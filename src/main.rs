@@ -561,8 +561,9 @@ fn main_d3d12() -> Result<(), &'static str> {
                     let line_p0 = translation_start_pos + -line_dir;
                     let line_p1 = translation_start_pos + line_dir;
 
-                    let mut render_color : Vec3 = glm::zero();
+                    let mut render_color : Vec4 = glm::zero();
                     render_color[axis] = 1.0;
+                    render_color.w = 1.0;
                     render.temp().draw_line(
                         &(translation_start_pos + -100.0 * line_dir),
                         &(translation_start_pos + 100.0 * line_dir),
@@ -621,8 +622,9 @@ fn main_d3d12() -> Result<(), &'static str> {
                             new_e_loc,
                         );
 
-                        let mut render_color : Vec3 = glm::zero();
+                        let mut render_color : Vec4 = glm::zero();
                         render_color[axis] = 1.0;
+                        render_color.w = 1.0;
                         render.temp().draw_line(
                             &e_loc.t,
                             &(e_loc.t + rotation_start_entity_to_cursor),
@@ -700,6 +702,10 @@ fn main_d3d12() -> Result<(), &'static str> {
                 entities.show_imgui_window(e, &imgui_ui);
             }
         }
+
+        let mut aabb = utils::SAABB::new(&Vec3::new(0.0, 2.0, 0.0));
+        aabb.expand(&Vec3::new(1.0, 3.0, 1.0));
+        render.temp().draw_aabb(&aabb, &Vec4::new(1.0, 0.0, 0.0, 0.1), true);
 
         STACK_ALLOCATOR.with(|sa| -> Result<(), &'static str> {
             let (entities, model_xforms, models) = entities.build_render_data(sa);

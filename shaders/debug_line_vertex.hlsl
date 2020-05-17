@@ -2,7 +2,7 @@
 struct SDebugLineShaderVert
 {
     float3 position : POSITION;
-    float3 color   : COLOR;
+    float4 color   : COLOR;
 };
 
 struct SViewProjection {
@@ -14,7 +14,7 @@ ConstantBuffer<SViewProjection> viewprojection : register(b0);
 struct SVertexShaderOutput
 {
     float4 position : SV_Position;
-    float3 color : COLOR;
+    float4 color : COLOR;
 };
 
 SVertexShaderOutput main(SDebugLineShaderVert input)

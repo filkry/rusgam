@@ -26,7 +26,7 @@ pub struct SPlane {
     pub normal: Vec3,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct SAABB {
     pub min: Vec3,
     pub max: Vec3,
@@ -39,6 +39,20 @@ pub struct SAABB {
 //}
 
 impl SAABB {
+    pub fn new(p: &Vec3) -> Self {
+        Self {
+            min: p.clone(),
+            max: p.clone(),
+        }
+    }
+
+    pub fn zero() -> Self {
+        Self {
+            min: glm::zero(),
+            max: glm::zero(),
+        }
+    }
+
     pub fn union(a: &Self, b: &Self) -> Self {
         Self{
             min: glm::min2(&a.min, &b.min),
@@ -58,9 +72,9 @@ impl SAABB {
             Vec3::new(aabb.max.x, aabb.max.y, aabb.max.z),
         ];
 
-        let mut result = Self::default();
-        for v in &verts {
-            result.expand(&b.mul_point(v));
+        let mut result = Self::new(&verts[0]);
+        for i in 1..8 {
+            result.expand(&b.mul_point(&verts[i]));
         }
 
         result
@@ -74,15 +88,6 @@ impl SAABB {
     pub fn expand(&mut self, p: &Vec3) {
         self.min = glm::min2(&self.min, p);
         self.max = glm::max2(&self.min, p);
-    }
-}
-
-impl Default for SAABB {
-    fn default() -> Self {
-        Self{
-            min: glm::zero(),
-            max: glm::zero(),
-        }
     }
 }
 

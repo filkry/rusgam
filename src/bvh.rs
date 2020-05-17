@@ -86,7 +86,7 @@ impl Tree {
             (Some(a_aabb_int), Some(b_aabb_int)) => SAABB::union(a_aabb_int, b_aabb_int),
             (Some(a_aabb_int), None) => a_aabb_int.clone(),
             (None, Some(b_aabb_int)) => b_aabb_int.clone(),
-            (None, None) => SAABB::default(),
+            (None, None) => SAABB::zero(),
         }
     }
 
@@ -227,7 +227,7 @@ impl Tree {
                 }
             };
 
-            let mut new_bounds = SAABB::default();
+            let mut new_bounds = SAABB::zero();
             if child1.valid() {
                 new_bounds = SAABB::union(&new_bounds, &self.nodes.get_unchecked(child1).bounds().unwrap());
             }

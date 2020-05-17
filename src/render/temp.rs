@@ -11,7 +11,7 @@ use typeyd3d12 as t12;
 use allocate::{SMemVec, STACK_ALLOCATOR, SYSTEM_ALLOCATOR};
 use model;
 use model::{SModel};
-use utils::{STransform};
+use utils::{STransform, SAABB};
 
 #[allow(unused_variables)]
 #[allow(unused_mut)]
@@ -43,7 +43,7 @@ struct SLinePipelineStateStream<'a> {
 struct SLine {
     start: Vec3,
     end: Vec3,
-    colour: Vec3,
+    colour: Vec4,
 }
 
 pub struct SRenderTemp<'a> {
@@ -274,7 +274,7 @@ impl<'a> SRenderTemp<'a> {
         }
     }
 
-    pub fn draw_line(&mut self, start: &Vec3, end: &Vec3, color: &Vec3, over_world: bool) {
+    pub fn draw_line(&mut self, start: &Vec3, end: &Vec3, color: &Vec4, over_world: bool) {
         self.lines.push(SLine {
             start: start.clone(),
             end: end.clone(),
@@ -287,6 +287,32 @@ impl<'a> SRenderTemp<'a> {
         else {
             self.line_in_world_indices.push(idx);
         }
+    }
+
+    pub fn draw_aabb(&mut self, aabb: &SAABB, color: &Vec4, over_world: bool) {
+        let verts = [
+            Vec3::new(aabb.min.x, aabb.min.y, aabb.min.z),
+            Vec3::new(aabb.min.x, aabb.min.y, aabb.max.z),
+            Vec3::new(aabb.min.x, aabb.max.y, aabb.min.z),
+            Vec3::new(aabb.min.x, aabb.max.y, aabb.max.z),
+            Vec3::new(aabb.max.x, aabb.min.y, aabb.min.z),
+            Vec3::new(aabb.max.x, aabb.min.y, aabb.max.z),
+            Vec3::new(aabb.max.x, aabb.max.y, aabb.min.z),
+            Vec3::new(aabb.max.x, aabb.max.y, aabb.max.z),
+        ];
+
+        self.draw_line(&verts[0], &verts[1], color, over_world);
+        self.draw_line(&verts[1], &verts[3], color, over_world);
+        self.draw_line(&verts[3], &verts[2], color, over_world);
+        self.draw_line(&verts[2], &verts[0], color, over_world);
+        self.draw_line(&verts[0+4], &verts[1+4], color, over_world);
+        self.draw_line(&verts[1+4], &verts[3+4], color, over_world);
+        self.draw_line(&verts[3+4], &verts[2+4], color, over_world);
+        self.draw_line(&verts[2+4], &verts[0+4], color, over_world);
+        self.draw_line(&verts[0], &verts[0+4], color, over_world);
+        self.draw_line(&verts[1], &verts[1+4], color, over_world);
+        self.draw_line(&verts[3], &verts[3+4], color, over_world);
+        self.draw_line(&verts[2], &verts[2+4], color, over_world);
     }
 
     pub fn clear_tables(&mut self) {
@@ -335,13 +361,13 @@ impl<'a> super::SRender<'a> {
         #[repr(C)]
         struct SDebugLineShaderVert {
             pos: [f32; 3],
-            colour: [f32; 3],
+            colour: [f32; 4],
         }
         impl SDebugLineShaderVert {
-            fn new(pos: &Vec3, colour: &Vec3) -> Self {
+            fn new(pos: &Vec3, colour: &Vec4) -> Self {
                 Self {
                     pos: [pos.x, pos.y, pos.z],
-                    colour: [colour.x, colour.y, colour.z],
+                    colour: [colour.x, colour.y, colour.z, colour.w],
                 }
             }
         }

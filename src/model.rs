@@ -258,16 +258,21 @@ impl<'a> SMeshLoader<'a> {
             (vertbufferresource, vertexbufferview, indexbufferresource, indexbufferview)
         };
 
-        let mut local_aabb = utils::SAABB::default();
+        let mut local_aabb : Option<utils::SAABB> = None;
         for v in vert_vec.as_slice() {
-            local_aabb.expand(&v.position);
+            if let Some(mut aabb) = local_aabb {
+                aabb.expand(&v.position);
+            }
+            else {
+                local_aabb = Some(utils::SAABB::new(&v.position));
+            }
         }
 
         let mesh = SMesh{
             uid: uid,
             per_vertex_data: vert_vec,
             triangle_indices: index_vec,
-            local_aabb,
+            local_aabb: local_aabb.unwrap(),
 
             vertex_buffer_resource: vertbufferresource.destinationresource,
             vertex_buffer_view: vertexbufferview,

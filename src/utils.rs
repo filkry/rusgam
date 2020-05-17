@@ -14,14 +14,22 @@ pub struct STransform {
     pub s: f32,
 }
 
+#[derive(Clone, Copy)]
 pub struct SRay {
     pub origin: Vec3,
     pub dir: Vec3,
 }
 
+#[derive(Clone, Copy)]
 pub struct SPlane {
     pub p: Vec3,
     pub normal: Vec3,
+}
+
+#[derive(Clone, Copy)]
+pub struct SAABB {
+    pub min: Vec3,
+    pub max: Vec3,
 }
 
 //pub fn hash64<T: Hash>(t: &T) -> u64 {
@@ -29,6 +37,24 @@ pub struct SPlane {
 //    t.hash(&mut s);
 //    s.finish()
 //}
+
+impl SAABB {
+    pub fn union(a: &Self, b: &Self) -> Self {
+        Self{
+            min: glm::min2(&a.min, &b.min),
+            max: glm::max2(&a.min, &b.min),
+        }
+    }
+}
+
+impl Default for SAABB {
+    fn default() -> Self {
+        Self{
+            min: glm::zero(),
+            max: glm::zero(),
+        }
+    }
+}
 
 pub fn align_up(size: usize, align: usize) -> usize {
     if size % align == 0 {

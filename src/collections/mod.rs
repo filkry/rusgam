@@ -5,9 +5,8 @@ use std::collections::VecDeque;
 
 pub mod freelistallocator;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 pub struct SPoolHandle {
-    poolid: u64,
     index: u16,
     generation: u16,
 }
@@ -33,7 +32,6 @@ impl SPoolHandle {
 impl Default for SPoolHandle {
     fn default() -> Self {
         SPoolHandle {
-            poolid: std::u64::MAX,
             index: std::u16::MAX,
             generation: std::u16::MAX,
         }
@@ -44,8 +42,6 @@ impl Default for SPoolHandle {
 // -- that don't need to be re-initialized
 pub struct SPool<T> {
     // -- $$$FRK(TODO): make this into a string, only in debug builds?
-    id: u64, // -- for making sure we have the right pool
-
     buffer: Vec<T>,
     generations: Vec<u16>,
     max: u16,
@@ -54,12 +50,11 @@ pub struct SPool<T> {
 
 impl<T> SPool<T> {
     // -- $$$FRK(TODO): I'd like to make these IDs either really smart, or just random
-    pub fn create<F>(id: u64, max: u16, init_func: F) -> Self
+    pub fn create<F>(_id: u64, max: u16, init_func: F) -> Self
     where
         F: Fn() -> T,
     {
         let mut result = Self {
-            id: id,
             buffer: Vec::with_capacity(max as usize),
             generations: Vec::with_capacity(max as usize),
             max: max,
@@ -76,9 +71,8 @@ impl<T> SPool<T> {
         result
     }
 
-    pub fn create_from_vec(id: u64, max: u16, contents: Vec<T>) -> Self {
+    pub fn create_from_vec(_id: u64, max: u16, contents: Vec<T>) -> Self {
         let mut result = Self {
-            id: id,
             buffer: contents,
             generations: Vec::with_capacity(max as usize),
             max: max,
@@ -117,7 +111,6 @@ impl<T> SPool<T> {
                 Ok(SPoolHandle {
                     index: newidx,
                     generation: self.generations[idx],
-                    poolid: self.id,
                 })
             }
             None => Err("Cannot alloc from full SPool."),
@@ -162,7 +155,6 @@ impl<T> SPool<T> {
 
     fn handle_for_index(&self, index: u16) -> SPoolHandle {
         SPoolHandle{
-            poolid: self.id,
             index: index,
             generation: self.generations[index as usize],
         }
@@ -189,7 +181,6 @@ impl<T> SPool<T> {
             Ok(SPoolHandle {
                 index: index,
                 generation: self.generations[index as usize],
-                poolid: self.id,
             })
         } else {
             Err("Out of bounds index")
@@ -200,7 +191,6 @@ impl<T> SPool<T> {
 impl<T: Clone> SPool<T> {
     pub fn create_from_val(id: u64, max: u16, default_val: T) -> Self {
         let mut result = Self {
-            id: id,
             buffer: Vec::new(),
             generations: Vec::new(),
             max: max,

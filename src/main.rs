@@ -13,6 +13,7 @@ extern crate imgui;
 #[macro_use]
 mod safewindows;
 mod allocate;
+mod bvh;
 mod collections;
 mod directxgraphicssamples;
 mod entity;

@@ -152,6 +152,14 @@ impl<T> SPool<T> {
         }
     }
 
+    pub fn get_unchecked(&mut self, handle: SPoolHandle) -> &T {
+        &self.buffer[handle.index as usize]
+    }
+
+    pub fn get_mut_unchecked(&mut self, handle: SPoolHandle) -> &mut T {
+        &mut self.buffer[handle.index as usize]
+    }
+
     fn handle_for_index(&self, index: u16) -> SPoolHandle {
         SPoolHandle{
             poolid: self.id,

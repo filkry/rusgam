@@ -50,12 +50,16 @@ impl SEntityBucket {
         self.entities.get_mut(entity).expect("invalid entity").location = location;
     }
 
+    pub fn get_entity_model(&self, entity: SPoolHandle) -> Option<SModel> {
+        self.entities.get(entity).expect("invalid entity").model
+    }
+
     pub fn set_entity_model(&mut self, entity: SPoolHandle, model: SModel) {
         self.entities.get_mut(entity).expect("invalid entity").model = Some(model);
     }
 
-    pub fn get_entity_bvh_entry(&mut self, entity: SPoolHandle) -> SPoolHandle {
-        self.entities.get_mut(entity).expect("invalid entity").bvh_entry
+    pub fn get_entity_bvh_entry(&self, entity: SPoolHandle) -> SPoolHandle {
+        self.entities.get(entity).expect("invalid entity").bvh_entry
     }
 
     pub fn set_entity_bvh_entry(&mut self, entity: SPoolHandle, bvh_entry: SPoolHandle) {

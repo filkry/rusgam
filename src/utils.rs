@@ -72,7 +72,7 @@ impl SAABB {
             Vec3::new(aabb.max.x, aabb.max.y, aabb.max.z),
         ];
 
-        let mut result = Self::new(&verts[0]);
+        let mut result = Self::new(&b.mul_point(&verts[0]));
         for i in 1..8 {
             result.expand(&b.mul_point(&verts[i]));
         }
@@ -87,7 +87,7 @@ impl SAABB {
 
     pub fn expand(&mut self, p: &Vec3) {
         self.min = glm::min2(&self.min, p);
-        self.max = glm::max2(&self.min, p);
+        self.max = glm::max2(&self.max, p);
     }
 }
 

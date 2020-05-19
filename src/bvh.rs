@@ -22,7 +22,7 @@ enum ENode {
     Internal(SInternalNode),
 }
 
-pub struct Tree {
+pub struct STree {
     nodes: SPool<ENode>,
     root: SPoolHandle,
 }
@@ -77,7 +77,7 @@ impl Default for ENode {
     }
 }
 
-impl Tree {
+impl STree {
     fn union(&self, a: SPoolHandle, b: SPoolHandle) -> SAABB {
         let a_aabb = self.nodes.get_unchecked(a).bounds();
         let b_aabb = self.nodes.get_unchecked(b).bounds();

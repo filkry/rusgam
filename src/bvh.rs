@@ -53,6 +53,16 @@ impl ENode {
         }
     }
 
+    pub fn clear_parent(&mut self) {
+        match self {
+            Self::Free => {
+                break_assert!(false);
+            },
+            Self::Leaf(leaf) => { leaf.parent.invalidate() },
+            Self::Internal(internal) => { internal.parent.invalidate() },
+        }
+    }
+
     pub fn set_parent(&mut self, new_parent: SPoolHandle) {
         match self {
             Self::Free => {
@@ -93,6 +103,8 @@ impl STree {
     }
 
     fn find_best_sibling(&self, query_node: SPoolHandle) -> SPoolHandle {
+        self.tree_valid();
+
         struct SSearch {
             node_handle: SPoolHandle,
             inherited_cost: f32,
@@ -305,6 +317,14 @@ impl STree {
                         return false;
                     }
                 }
+                else {
+                    // -- if we are the root, should invalid parent
+                    let parent_handle = self.nodes.get(cur_handle).unwrap().parent();
+                    if parent_handle.valid() {
+                        break_assert!(false);
+                        return false;
+                    }
+                }
 
                 // -- if internal, check validity
                 let node = self.nodes.get(cur_handle).unwrap();
@@ -387,6 +407,7 @@ impl STree {
                     break_assert!(false);
                 }
             }
+            *self.nodes.get_mut(handle_to_delete).unwrap() = ENode::Free;
             self.nodes.free(handle_to_delete);
 
             if other_child_handle.valid() {
@@ -405,7 +426,10 @@ impl STree {
                     else {
                         break_assert!(false);
                     }
+                    *self.nodes.get_mut(parent_handle).unwrap() = ENode::Free;
                     self.nodes.free(parent_handle);
+
+                    self.nodes.get_mut(other_child_handle).unwrap().set_parent(parent_parent_handle);
 
                     // -- recompute AABBs up the tree
                     let mut recompute_handle = parent_parent_handle;
@@ -417,8 +441,11 @@ impl STree {
                 else {
                     // -- parent was root, now other_child is the root
                     break_assert!(self.root == parent_handle);
+                    *self.nodes.get_mut(parent_handle).unwrap() = ENode::Free;
                     self.nodes.free(parent_handle);
                     self.root = other_child_handle;
+
+                    self.nodes.get_mut(other_child_handle).unwrap().clear_parent();
                 }
 
                 handle_to_delete.invalidate();

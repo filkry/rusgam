@@ -7,6 +7,9 @@ use allocate::{SMemVec, TMemAllocator};
 use entity;
 use bvh;
 
+// -- $$$FRK(TODO): originally I thought I might want to keep SDataRefs around, but maybe not?
+// -- If I don't, then this can become Box<RefCell> and the usage syntax can become cleaner (no
+// -- SDataRef::with, ::with_mut lambda shenanigans)
 struct SData<T> {
     data: Rc<RefCell<T>>, // $$$FRK(TODO): write Rc+Weak that can go in my own allocators
 }

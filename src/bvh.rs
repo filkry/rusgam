@@ -245,6 +245,8 @@ impl STree {
             cur_handle = self.nodes.get(cur_handle).unwrap().parent();
         }
 
+        self.tree_valid();
+
         leaf_handle
     }
 
@@ -256,12 +258,116 @@ impl STree {
         }
     }
 
+    fn tree_valid(&self) -> bool {
+        STACK_ALLOCATOR.with(|sa| -> bool {
+            let mut search_queue = SMemQueue::<SPoolHandle>::new(sa, self.nodes.used()).unwrap();
+            search_queue.push_back(self.root);
+
+            while let Some(cur_handle) = search_queue.pop_front() {
+                // -- check handle is valid
+                if !self.nodes.get(cur_handle).is_ok() {
+                    break_assert!(false);
+                    return false;
+                }
+
+                // -- check we are a valid node type
+                if let ENode::Free = self.nodes.get(cur_handle).unwrap() {
+                    break_assert!(false);
+                    return false;
+                }
+
+                // -- check valid parent
+                if !(self.root == cur_handle) {
+                    let parent_handle = self.nodes.get(cur_handle).unwrap().parent();
+
+                    // -- parent handle is valid
+                    if !parent_handle.valid() {
+                        break_assert!(false);
+                        return false;
+                    }
+
+                    // -- parent handle can be resolved
+                    if !self.nodes.get(parent_handle).is_ok() {
+                        break_assert!(false);
+                        return false;
+                    }
+
+                    // -- parent is an internal node, and cur_handle is child of parent
+                    let parent = self.nodes.get(parent_handle).unwrap();
+                    if let ENode::Internal(internal) = parent {
+                        if !(internal.child1 == cur_handle || internal.child2 == cur_handle) {
+                            break_assert!(false);
+                            return false;
+                        }
+                    }
+                    else {
+                        break_assert!(false);
+                        return false;
+                    }
+                }
+
+                // -- if internal, check validity
+                let node = self.nodes.get(cur_handle).unwrap();
+                if let ENode::Internal(internal) = node {
+
+                    // -- must have at least one valid child
+                    if !internal.child1.valid() && !internal.child2.valid() {
+                        break_assert!(false);
+                        return false;
+                    }
+
+                    // -- must have different children
+                    if internal.child1 == internal.child2 {
+                        break_assert!(false);
+                        return false;
+                    }
+
+                    // -- children must resolve if valid
+                    if internal.child1.valid() {
+                        if !self.nodes.get(internal.child1).is_ok() {
+                            break_assert!(false);
+                            return false;
+                        }
+                    }
+                    if internal.child2.valid() {
+                        if !self.nodes.get(internal.child2).is_ok() {
+                            break_assert!(false);
+                            return false;
+                        }
+                    }
+
+                    // -- aabb must contain child aabbs
+                    /*
+                    let child1_aabb = self.nodes.get(internal.child1).unwrap().bounds();
+                    let child2_aabb = self.nodes.get(internal.child2).unwrap().bounds();
+
+                    if !internal.bounds.contains(child1_aabb) || !internal.bounds.contains(child2_aabb) {
+                        break_assert!(false);
+                        return false;
+                    }
+                    */
+
+                    // -- push children to recursively test
+                    if internal.child1.valid() {
+                        search_queue.push_back(internal.child1);
+                    }
+                    if internal.child2.valid() {
+                        search_queue.push_back(internal.child2);
+                    }
+                }
+            }
+
+            return true;
+        })
+    }
+
     pub fn remove(&mut self, entry: SPoolHandle) {
         let mut handle_to_delete = entry;
         drop(entry);
 
         while handle_to_delete.valid() {
             let parent_handle = self.nodes.get(handle_to_delete).unwrap().parent();
+            let parent_parent_handle = self.nodes.get(parent_handle).unwrap().parent();
 
             let mut other_child_handle = SPoolHandle::default();
             {
@@ -284,22 +390,35 @@ impl STree {
             self.nodes.free(handle_to_delete);
 
             if other_child_handle.valid() {
-                // -- replace parent with other_child, recompute aabbs up three
-                let mut replace_parent = self.nodes.get(other_child_handle).unwrap().clone();
-                self.nodes.free(other_child_handle);
+                if parent_parent_handle.valid() {
+                    // -- patch other_child in to replace parent in parent_parent
+                    let parent_parent = self.nodes.get_mut(parent_parent_handle).unwrap(); // $$$FRK(TODO): change to unchecked when more confident
+                    if let ENode::Internal(int) = parent_parent {
+                        if int.child1 == parent_handle {
+                            int.child1 = other_child_handle;
+                        }
+                        else {
+                            break_assert!(int.child2 == parent_handle);
+                            int.child2 = other_child_handle;
+                        }
+                    }
+                    else {
+                        break_assert!(false);
+                    }
+                    self.nodes.free(parent_handle);
 
-                let parent = self.nodes.get_mut(parent_handle).unwrap();
-                //break_assert!(let Internal(_) = parent); // validate it's an internal node
-                let parent_parent_handle = parent.parent();
-
-                replace_parent.set_parent(parent_parent_handle);
-                *parent = replace_parent;
-                drop(parent);
-
-                let mut recompute_handle = parent_parent_handle;
-                while recompute_handle.valid() {
-                    self.update_bounds_from_children(recompute_handle);
-                    recompute_handle = self.nodes.get(recompute_handle).unwrap().parent();
+                    // -- recompute AABBs up the tree
+                    let mut recompute_handle = parent_parent_handle;
+                    while recompute_handle.valid() {
+                        self.update_bounds_from_children(recompute_handle);
+                        recompute_handle = self.nodes.get(recompute_handle).unwrap().parent();
+                    }
+                }
+                else {
+                    // -- parent was root, now other_child is the root
+                    break_assert!(self.root == parent_handle);
+                    self.nodes.free(parent_handle);
+                    self.root = other_child_handle;
                 }
 
                 handle_to_delete.invalidate();
@@ -316,5 +435,7 @@ impl STree {
                 handle_to_delete = parent_handle;
             }
         }
+
+        self.tree_valid();
     }
 }

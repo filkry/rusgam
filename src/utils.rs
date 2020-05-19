@@ -26,7 +26,7 @@ pub struct SPlane {
     pub normal: Vec3,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SAABB {
     pub min: Vec3,
     pub max: Vec3,

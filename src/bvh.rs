@@ -273,6 +273,11 @@ impl STree {
     fn tree_valid(&self) -> bool {
         STACK_ALLOCATOR.with(|sa| -> bool {
             let mut search_queue = SMemQueue::<SPoolHandle>::new(sa, self.nodes.used()).unwrap();
+            let mut child_count = SMemVec::<u16>::new(sa, self.nodes.max() as usize, 0).unwrap();
+            for _ in 0..self.nodes.max() {
+                child_count.push(0);
+            }
+
             search_queue.push_back(self.root);
 
             while let Some(cur_handle) = search_queue.pop_front() {
@@ -316,6 +321,12 @@ impl STree {
                         break_assert!(false);
                         return false;
                     }
+
+                    child_count[parent_handle.index() as usize] += 1;
+                    if child_count[parent_handle.index() as usize] > 2 {
+                        break_assert!(false);
+                        return false;
+                    }
                 }
                 else {
                     // -- if we are the root, should invalid parent
@@ -356,16 +367,23 @@ impl STree {
                         }
                     }
 
-                    // -- aabb must contain child aabbs
-                    /*
+                    // -- aabb must be tight around child aabbs
                     let child1_aabb = self.nodes.get(internal.child1).unwrap().bounds();
                     let child2_aabb = self.nodes.get(internal.child2).unwrap().bounds();
+                    let unified_aabb = match (child1_aabb, child2_aabb) {
+                        (Some(c1_aabb_int), Some(c2_aabb_int)) => SAABB::union(c1_aabb_int, c2_aabb_int),
+                        (Some(c1_aabb_int), None) => c1_aabb_int.clone(),
+                        (None, Some(c2_aabb_int)) => c2_aabb_int.clone(),
+                        (None, None) => {
+                            break_assert!(false);
+                            return false;
+                        },
+                    };
 
-                    if !internal.bounds.contains(child1_aabb) || !internal.bounds.contains(child2_aabb) {
+                    if !(internal.bounds == unified_aabb) {
                         break_assert!(false);
                         return false;
                     }
-                    */
 
                     // -- push children to recursively test
                     if internal.child1.valid() {

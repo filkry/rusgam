@@ -24,6 +24,7 @@ pub struct SDataBucket<'a> {
     entries: SMemVec<'a, EDataEntry>,
 }
 
+/*
 pub struct SDataBucketOwner<'a> {
     bucket: Rc<RefCell<SDataBucket<'a>>>,
 }
@@ -31,6 +32,7 @@ pub struct SDataBucketOwner<'a> {
 pub struct SDataBucketRef<'a> {
     bucket: Weak<RefCell<SDataBucket<'a>>>,
 }
+*/
 
 impl<T> SData<T> {
     pub fn new(d: T) -> Self {
@@ -110,6 +112,7 @@ impl<'a> SDataBucket<'a> {
     }
 }
 
+/*
 impl<'a> SDataBucketOwner<'a> {
     pub fn new(max_entries: usize, allocator: &'a dyn TMemAllocator) -> Self {
         Self {
@@ -137,3 +140,4 @@ impl<'a> SDataBucketRef<'a> {
         function(data.deref_mut());
     }
 }
+*/

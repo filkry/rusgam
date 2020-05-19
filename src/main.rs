@@ -413,9 +413,9 @@ fn main_d3d12() -> Result<(), &'static str> {
         entities.set_entity_debug_name(ent3, "tst_coloured_cube");
         entities.set_entity_debug_name(room, "tst_room");
 
-        entities.set_entity_location(ent2, STransform::new_translation(&glm::Vec3::new(3.0, 0.0, 0.0)));
-        entities.set_entity_location(ent3, STransform::new_translation(&glm::Vec3::new(0.0, 2.0, 0.0)));
-        entities.set_entity_location(room, STransform::new_translation(&glm::Vec3::new(0.0, -2.0, 0.0)));
+        entities.set_entity_location(ent2, STransform::new_translation(&glm::Vec3::new(3.0, 0.0, 0.0)), &data_bucket);
+        entities.set_entity_location(ent3, STransform::new_translation(&glm::Vec3::new(0.0, 2.0, 0.0)), &data_bucket);
+        entities.set_entity_location(room, STransform::new_translation(&glm::Vec3::new(0.0, -2.0, 0.0)), &data_bucket);
 
         entities.set_entity_model(rotating_entity, model1.clone());
         entities.set_entity_model(ent2, model2);
@@ -488,7 +488,7 @@ fn main_d3d12() -> Result<(), &'static str> {
         // -- update
         let cur_angle = ((total_time as f32) / 1_000_000.0) * (3.14159 / 4.0);
         data_bucket.get_entities().unwrap().with_mut(|entities: &mut SEntityBucket| {
-            entities.set_entity_location(rotating_entity, STransform::new_rotation(&glm::quat_angle_axis(cur_angle, &rot_axis)));
+            entities.set_entity_location(rotating_entity, STransform::new_rotation(&glm::quat_angle_axis(cur_angle, &rot_axis)), &data_bucket);
         });
 
         //let mut fixed_size_model_xform = STransform::new_translation(&glm::Vec3::new(0.0, 5.0, 0.0));
@@ -606,6 +606,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                         entities.set_entity_location(
                             last_picked_entity.expect(""),
                             new_e_loc,
+                            &data_bucket,
                         );
                     }
                 }
@@ -637,6 +638,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                             entities.set_entity_location(
                                 last_picked_entity.expect(""),
                                 new_e_loc,
+                                &data_bucket,
                             );
 
                             let mut render_color : Vec4 = glm::zero();

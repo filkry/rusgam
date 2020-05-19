@@ -51,9 +51,11 @@ impl SEntityBucket {
     pub fn set_entity_location(&mut self, entity: SPoolHandle, location: STransform, data_bucket: &SDataBucket) {
         self.entities.get_mut(entity).expect("invalid entity").location = location;
 
-        data_bucket.get_bvh().unwrap().with_mut(|bvh: &mut bvh::STree| {
-            bvh.do_mutable_thing();
-        });
+        if let Some(bvh) = data_bucket.get_bvh() {
+            bvh.with_mut(|bvh: &mut bvh::STree| {
+                bvh.do_mutable_thing();
+            });
+        }
     }
 
     pub fn get_entity_model(&self, entity: SPoolHandle) -> Option<SModel> {

@@ -722,6 +722,11 @@ fn main_d3d12() -> Result<(), &'static str> {
                         show_imgui_demo_window = !show_imgui_demo_window;
                     }
                 });
+
+                data_bucket.get_bvh().unwrap().with(|bvh: &bvh::STree| {
+                    bvh.imgui_menu(&imgui_ui);
+                });
+
             });
 
             if let Some(e) = last_picked_entity {

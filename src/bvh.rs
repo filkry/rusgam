@@ -120,6 +120,8 @@ impl STree {
                 inherited_cost: best_cost - self.nodes.get(best).unwrap().bounds().unwrap().surface_area(),
             });
 
+            let query_node_sa = self.nodes.get(query_node).unwrap().bounds().unwrap().surface_area();
+
             while let Some(cur_search) = search_queue.pop_front() {
                 let direct_cost = self.union(query_node, cur_search.node_handle).surface_area();
                 let total_cost = direct_cost + cur_search.inherited_cost;
@@ -130,10 +132,10 @@ impl STree {
 
                 if let ENode::Internal(internal) = self.nodes.get(cur_search.node_handle).unwrap() {
                     let cur_node_sa = internal.bounds.surface_area();
-                    let new_inherited_cost = total_cost - cur_node_sa;
+                    let new_inherited_cost = direct_cost - cur_node_sa;
                     let children_inherited_cost = new_inherited_cost + cur_search.inherited_cost;
 
-                    let lower_bound_cost = cur_node_sa + children_inherited_cost;
+                    let lower_bound_cost = query_node_sa + children_inherited_cost;
 
                     if lower_bound_cost < best_cost {
                         if internal.child1.valid() {
@@ -341,8 +343,8 @@ impl STree {
                 let node = self.nodes.get(cur_handle).unwrap();
                 if let ENode::Internal(internal) = node {
 
-                    // -- must have at least one valid child
-                    if !internal.child1.valid() && !internal.child2.valid() {
+                    // -- both children must be valid
+                    if !internal.child1.valid() || !internal.child2.valid() {
                         break_assert!(false);
                         return false;
                     }
@@ -354,44 +356,31 @@ impl STree {
                     }
 
                     // -- children must resolve if valid
-                    if internal.child1.valid() {
-                        if !self.nodes.get(internal.child1).is_ok() {
-                            break_assert!(false);
-                            return false;
-                        }
+                    if !self.nodes.get(internal.child1).is_ok() {
+                        break_assert!(false);
+                        return false;
                     }
-                    if internal.child2.valid() {
-                        if !self.nodes.get(internal.child2).is_ok() {
-                            break_assert!(false);
-                            return false;
-                        }
+                    if !self.nodes.get(internal.child2).is_ok() {
+                        break_assert!(false);
+                        return false;
                     }
 
                     // -- aabb must be tight around child aabbs
-                    let child1_aabb = self.nodes.get(internal.child1).unwrap().bounds();
-                    let child2_aabb = self.nodes.get(internal.child2).unwrap().bounds();
-                    let unified_aabb = match (child1_aabb, child2_aabb) {
-                        (Some(c1_aabb_int), Some(c2_aabb_int)) => SAABB::union(c1_aabb_int, c2_aabb_int),
-                        (Some(c1_aabb_int), None) => c1_aabb_int.clone(),
-                        (None, Some(c2_aabb_int)) => c2_aabb_int.clone(),
-                        (None, None) => {
-                            break_assert!(false);
-                            return false;
-                        },
-                    };
+                    let child1_aabb = self.nodes.get(internal.child1).unwrap().bounds().unwrap();
+                    let child2_aabb = self.nodes.get(internal.child2).unwrap().bounds().unwrap();
+                    let unified_aabb = SAABB::union(child1_aabb, child2_aabb);
 
                     if !(internal.bounds == unified_aabb) {
+                        println!("Mismatch:");
+                        println!("{:?}", internal.bounds);
+                        println!("{:?}", internal.bounds);
                         break_assert!(false);
                         return false;
                     }
 
                     // -- push children to recursively test
-                    if internal.child1.valid() {
-                        search_queue.push_back(internal.child1);
-                    }
-                    if internal.child2.valid() {
-                        search_queue.push_back(internal.child2);
-                    }
+                    search_queue.push_back(internal.child1);
+                    search_queue.push_back(internal.child2);
                 }
             }
 
@@ -482,5 +471,32 @@ impl STree {
         }
 
         self.tree_valid();
+    }
+
+    pub fn imgui_menu(&self, imgui_ui: &imgui::Ui) {
+        use imgui::*;
+
+        STACK_ALLOCATOR.with(|sa| {
+            let mut to_show = SMemVec::<SPoolHandle>::new(sa, self.nodes.used() as usize, 0).unwrap();
+            to_show.push(self.root);
+
+            imgui_ui.menu(imgui::im_str!("BVH"), true, || {
+
+                while let Some(cur_handle) = to_show.pop() {
+                    if imgui_ui.collapsing_header(&im_str!("Node {}.{}", cur_handle.index(), cur_handle.generation())).build() {
+                        imgui_ui.indent();
+                        let node = self.nodes.get(cur_handle).unwrap();
+                        if let ENode::Leaf(leaf) = node {
+                            imgui_ui.text(&im_str!("Owner: {}.{}", leaf.owner.index(), leaf.owner.generation()));
+                            imgui_ui.unindent();
+                        }
+                        else if let ENode::Internal(internal) = node {
+                            to_show.push(internal.child1);
+                            to_show.push(internal.child2);
+                        }
+                    }
+                }
+            });
+        });
     }
 }

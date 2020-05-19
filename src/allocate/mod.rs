@@ -369,6 +369,19 @@ impl<'a, T> SMemVec<'a, T> {
         std::mem::forget(value);
     }
 
+    pub fn pop(&mut self) -> Option<T> {
+        if self.len == 0 {
+            return None;
+        }
+
+        let mut replacement = unsafe { std::mem::MaybeUninit::<T>::zeroed().assume_init() };
+        let last_idx = self.len() - 1;
+        std::mem::swap(&mut self[last_idx], &mut replacement);
+
+        self.len -= 1;
+        return Some(replacement);
+    }
+
     pub fn clear(&mut self) {
         for item in self.as_mut_slice() {
             unsafe {

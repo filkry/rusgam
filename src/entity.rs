@@ -1,6 +1,6 @@
 use allocate::{TMemAllocator, SMemVec};
 use model::SModel;
-use utils::{STransform};
+use utils::{STransform, SAABB};
 use collections::{SStoragePool, SPoolHandle};
 use databucket::{SDataBucket};
 use bvh;
@@ -10,6 +10,7 @@ struct SEntity {
     debug_name: Option<&'static str>,
     location: STransform,
     model: Option<SModel>,
+    identity_aabb: Option<SAABB>, // $$$FRK(TODO): ONLY putting this in here right now to avoid moving the renderer!
     bvh_entry: SPoolHandle,
 }
 
@@ -24,6 +25,7 @@ impl SEntity {
             debug_name: None,
             location: STransform::default(),
             model: None,
+            identity_aabb: None,
             bvh_entry: SPoolHandle::default(),
         }
     }
@@ -53,7 +55,16 @@ impl SEntityBucket {
 
         if let Some(bvh) = data_bucket.get_bvh() {
             bvh.with_mut(|bvh: &mut bvh::STree| {
-                bvh.do_mutable_thing();
+                let bvh_entry = self.get_entity_bvh_entry(entity);
+                let identity_aabb_opt = self.entities.get(entity).unwrap().identity_aabb;
+                if let Some(identity_aabb) = identity_aabb_opt {
+                    if bvh_entry.valid() {
+                        bvh.remove(bvh_entry);
+                        let transformed_aabb = SAABB::transform(&identity_aabb, &location);
+                        let entry = bvh.insert(entity, &transformed_aabb);
+                        self.set_entity_bvh_entry(entity, entry);
+                    }
+                }
             });
         }
     }
@@ -62,8 +73,10 @@ impl SEntityBucket {
         self.entities.get(entity).expect("invalid entity").model
     }
 
-    pub fn set_entity_model(&mut self, entity: SPoolHandle, model: SModel) {
-        self.entities.get_mut(entity).expect("invalid entity").model = Some(model);
+    pub fn set_entity_model(&mut self, entity: SPoolHandle, model: SModel, identity_aabb: &SAABB) {
+        let data = self.entities.get_mut(entity).expect("invalid entity");
+        data.model = Some(model);
+        data.identity_aabb = Some(identity_aabb.clone());
     }
 
     pub fn get_entity_bvh_entry(&self, entity: SPoolHandle) -> SPoolHandle {

@@ -145,11 +145,11 @@ impl<T> SPool<T> {
         }
     }
 
-    pub fn get_unchecked(&self, handle: SPoolHandle) -> &T {
+    pub unsafe fn get_unchecked(&self, handle: SPoolHandle) -> &T {
         &self.buffer[handle.index as usize]
     }
 
-    pub fn get_mut_unchecked(&mut self, handle: SPoolHandle) -> &mut T {
+    pub unsafe fn get_mut_unchecked(&mut self, handle: SPoolHandle) -> &mut T {
         &mut self.buffer[handle.index as usize]
     }
 

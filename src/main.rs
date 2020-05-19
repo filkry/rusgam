@@ -417,10 +417,14 @@ fn main_d3d12() -> Result<(), &'static str> {
         entities.set_entity_location(ent3, STransform::new_translation(&glm::Vec3::new(0.0, 2.0, 0.0)), &data_bucket);
         entities.set_entity_location(room, STransform::new_translation(&glm::Vec3::new(0.0, -2.0, 0.0)), &data_bucket);
 
-        entities.set_entity_model(rotating_entity, model1.clone());
-        entities.set_entity_model(ent2, model2);
-        entities.set_entity_model(ent3, model3);
-        entities.set_entity_model(room, room_model);
+        entities.set_entity_model(rotating_entity, model1.clone(),
+                                  &render.mesh_loader().get_mesh_local_aabb(model1.mesh));
+        entities.set_entity_model(ent2, model2,
+                                  &render.mesh_loader().get_mesh_local_aabb(model2.mesh));
+        entities.set_entity_model(ent3, model3,
+                                  &render.mesh_loader().get_mesh_local_aabb(model3.mesh));
+        entities.set_entity_model(room, room_model,
+                                  &render.mesh_loader().get_mesh_local_aabb(room_model.mesh));
     }
 
     data_bucket.add_entities(entities);

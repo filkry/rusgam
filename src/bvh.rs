@@ -3,12 +3,14 @@ use collections::{SPoolHandle, SPool};
 use safewindows;
 use utils::{SAABB};
 
+#[derive(Clone)]
 struct SLeafNode {
     bounds: SAABB,
     parent: SPoolHandle,
     owner: SPoolHandle,
 }
 
+#[derive(Clone)]
 struct SInternalNode {
     bounds: SAABB,
     parent: SPoolHandle,
@@ -16,6 +18,7 @@ struct SInternalNode {
     child2: SPoolHandle,
 }
 
+#[derive(Clone)]
 enum ENode {
     Free,
     Leaf(SLeafNode),
@@ -79,8 +82,8 @@ impl Default for ENode {
 
 impl STree {
     fn union(&self, a: SPoolHandle, b: SPoolHandle) -> SAABB {
-        let a_aabb = self.nodes.get_unchecked(a).bounds();
-        let b_aabb = self.nodes.get_unchecked(b).bounds();
+        let a_aabb = self.nodes.get(a).unwrap().bounds();
+        let b_aabb = self.nodes.get(b).unwrap().bounds();
         match (a_aabb, b_aabb) {
             (Some(a_aabb_int), Some(b_aabb_int)) => SAABB::union(a_aabb_int, b_aabb_int),
             (Some(a_aabb_int), None) => a_aabb_int.clone(),
@@ -102,7 +105,7 @@ impl STree {
             let mut best_cost = self.union(query_node, best).surface_area();
             search_queue.push_back(SSearch{
                 node_handle: best,
-                inherited_cost: best_cost - self.nodes.get_unchecked(best).bounds().unwrap().surface_area(),
+                inherited_cost: best_cost - self.nodes.get(best).unwrap().bounds().unwrap().surface_area(),
             });
 
             while let Some(cur_search) = search_queue.pop_front() {
@@ -113,7 +116,7 @@ impl STree {
                     best_cost = total_cost;
                 }
 
-                if let ENode::Internal(internal) = self.nodes.get_unchecked(cur_search.node_handle) {
+                if let ENode::Internal(internal) = self.nodes.get(cur_search.node_handle).unwrap() {
                     let cur_node_sa = internal.bounds.surface_area();
                     let new_inherited_cost = total_cost - cur_node_sa;
                     let children_inherited_cost = new_inherited_cost + cur_search.inherited_cost;
@@ -150,6 +153,27 @@ impl STree {
         }
     }
 
+    fn update_bounds_from_children(&mut self, node_handle: SPoolHandle) {
+        let (child1, child2) = {
+            if let ENode::Internal(internal) = self.nodes.get(node_handle).unwrap() {
+                (internal.child1, internal.child2)
+            }
+            else {
+                break_assert!(false);
+                (SPoolHandle::default(), SPoolHandle::default())
+            }
+        };
+
+        let mut new_bounds = SAABB::zero();
+        if child1.valid() {
+            new_bounds = SAABB::union(&new_bounds, &self.nodes.get(child1).unwrap().bounds().unwrap());
+        }
+        if child2.valid() {
+            new_bounds = SAABB::union(&new_bounds, &self.nodes.get(child2).unwrap().bounds().unwrap());
+        }
+        self.nodes.get_mut(node_handle).unwrap().set_bounds(&new_bounds);
+    }
+
     pub fn insert(&mut self, owner: SPoolHandle, bounds: &SAABB) -> SPoolHandle {
         let first : bool = self.nodes.used() == 0;
         let leaf_handle = self.nodes.alloc().unwrap();
@@ -173,15 +197,15 @@ impl STree {
         let sibling_handle = self.find_best_sibling(leaf_handle);
 
         // -- Step 2: create a new parent
-        let old_parent_handle = self.nodes.get_unchecked(sibling_handle).parent();
+        let old_parent_handle = self.nodes.get(sibling_handle).unwrap().parent();
 
         let new_parent_handle = self.nodes.alloc().unwrap();
         {
             let new_bounds = SAABB::union(
-                self.nodes.get_unchecked(sibling_handle).bounds().unwrap(),
+                self.nodes.get(sibling_handle).unwrap().bounds().unwrap(),
                 bounds,
             );
-            let new_parent = self.nodes.get_mut_unchecked(new_parent_handle);
+            let new_parent = self.nodes.get_mut(new_parent_handle).unwrap();
             *new_parent = ENode::Internal(SInternalNode{
                 bounds: new_bounds,
                 parent: old_parent_handle,
@@ -190,13 +214,13 @@ impl STree {
             });
         }
 
-        self.nodes.get_mut_unchecked(sibling_handle).set_parent(new_parent_handle);
-        self.nodes.get_mut_unchecked(leaf_handle).set_parent(new_parent_handle);
+        self.nodes.get_mut(sibling_handle).unwrap().set_parent(new_parent_handle);
+        self.nodes.get_mut(leaf_handle).unwrap().set_parent(new_parent_handle);
 
         if old_parent_handle.valid() {
             // -- sibling was not the root
 
-            if let ENode::Internal(internal) = self.nodes.get_mut_unchecked(old_parent_handle) {
+            if let ENode::Internal(internal) = self.nodes.get_mut(old_parent_handle).unwrap() {
                 // -- update old parent's child to the new parent
                 if internal.child1 == sibling_handle {
                     internal.child1 = new_parent_handle;
@@ -215,27 +239,10 @@ impl STree {
         }
 
         // -- Step 3: walk up, refitting AABBs
-        let mut cur_handle = self.nodes.get_unchecked(leaf_handle).parent();
+        let mut cur_handle = self.nodes.get(leaf_handle).unwrap().parent();
         while cur_handle.valid() {
-            let (child1, child2) = {
-                if let ENode::Internal(internal) = self.nodes.get_unchecked(cur_handle) {
-                    (internal.child1, internal.child2)
-                }
-                else {
-                    break_assert!(false);
-                    (SPoolHandle::default(), SPoolHandle::default())
-                }
-            };
-
-            let mut new_bounds = SAABB::zero();
-            if child1.valid() {
-                new_bounds = SAABB::union(&new_bounds, &self.nodes.get_unchecked(child1).bounds().unwrap());
-            }
-            if child2.valid() {
-                new_bounds = SAABB::union(&new_bounds, &self.nodes.get_unchecked(child2).bounds().unwrap());
-            }
-            self.nodes.get_mut_unchecked(cur_handle).set_bounds(&new_bounds);
-            cur_handle = self.nodes.get_unchecked(cur_handle).parent();
+            self.update_bounds_from_children(cur_handle);
+            cur_handle = self.nodes.get(cur_handle).unwrap().parent();
         }
 
         leaf_handle
@@ -244,12 +251,70 @@ impl STree {
     pub fn get_bvh_heirarchy_for_entry(&self, entry: SPoolHandle, output: &mut SMemVec<SAABB>) {
         let mut cur_handle = entry;
         while cur_handle.valid() {
-            output.push(self.nodes.get_unchecked(cur_handle).bounds().unwrap().clone());
-            cur_handle = self.nodes.get_unchecked(cur_handle).parent();
+            output.push(self.nodes.get(cur_handle).unwrap().bounds().unwrap().clone());
+            cur_handle = self.nodes.get(cur_handle).unwrap().parent();
         }
     }
 
-    pub fn do_mutable_thing(&mut self) {
+    pub fn remove(&mut self, entry: SPoolHandle) {
+        let mut handle_to_delete = entry;
+        drop(entry);
 
+        while handle_to_delete.valid() {
+            let parent_handle = self.nodes.get(handle_to_delete).unwrap().parent();
+
+            let mut other_child_handle = SPoolHandle::default();
+            {
+                let parent = self.nodes.get_mut(parent_handle).unwrap(); // $$$FRK(TODO): change to unchecked when more confident
+                if let ENode::Internal(int) = parent {
+                    if int.child1 == handle_to_delete {
+                        int.child1.invalidate();
+                        other_child_handle = int.child2;
+                    }
+                    else {
+                        break_assert!(int.child2 == handle_to_delete);
+                        int.child2.invalidate();
+                        other_child_handle = int.child1;
+                    }
+                }
+                else {
+                    break_assert!(false);
+                }
+            }
+            self.nodes.free(handle_to_delete);
+
+            if other_child_handle.valid() {
+                // -- replace parent with other_child, recompute aabbs up three
+                let mut replace_parent = self.nodes.get(other_child_handle).unwrap().clone();
+                self.nodes.free(other_child_handle);
+
+                let parent = self.nodes.get_mut(parent_handle).unwrap();
+                //break_assert!(let Internal(_) = parent); // validate it's an internal node
+                let parent_parent_handle = parent.parent();
+
+                replace_parent.set_parent(parent_parent_handle);
+                *parent = replace_parent;
+                drop(parent);
+
+                let mut recompute_handle = parent_parent_handle;
+                while recompute_handle.valid() {
+                    self.update_bounds_from_children(recompute_handle);
+                    recompute_handle = self.nodes.get(recompute_handle).unwrap().parent();
+                }
+
+                handle_to_delete.invalidate();
+            }
+            else {
+                // -- recursively delete the parent, since it's an internal node with no children
+                if let ENode::Internal(int) = self.nodes.get(parent_handle).unwrap() {
+                    break_assert!(int.child1.valid() && int.child2.valid())
+                }
+                else {
+                    break_assert!(false);
+                }
+
+                handle_to_delete = parent_handle;
+            }
+        }
     }
 }

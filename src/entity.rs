@@ -2,6 +2,8 @@ use allocate::{TMemAllocator, SMemVec};
 use model::SModel;
 use utils::{STransform};
 use collections::{SStoragePool, SPoolHandle};
+use databucket::{SDataBucket};
+use bvh;
 
 #[allow(dead_code)]
 struct SEntity {
@@ -46,8 +48,12 @@ impl SEntityBucket {
         self.entities.get(entity).expect("invalid entity").location
     }
 
-    pub fn set_entity_location(&mut self, entity: SPoolHandle, location: STransform) {
+    pub fn set_entity_location(&mut self, entity: SPoolHandle, location: STransform, data_bucket: &SDataBucket) {
         self.entities.get_mut(entity).expect("invalid entity").location = location;
+
+        data_bucket.get_bvh().unwrap().with_mut(|bvh: &mut bvh::STree| {
+            bvh.do_mutable_thing();
+        });
     }
 
     pub fn get_entity_model(&self, entity: SPoolHandle) -> Option<SModel> {

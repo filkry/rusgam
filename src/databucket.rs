@@ -24,6 +24,14 @@ pub struct SDataBucket<'a> {
     entries: SMemVec<'a, EDataEntry>,
 }
 
+pub struct SDataBucketOwner<'a> {
+    bucket: Rc<RefCell<SDataBucket<'a>>>,
+}
+
+pub struct SDataBucketRef<'a> {
+    bucket: Weak<RefCell<SDataBucket<'a>>>,
+}
+
 impl<T> SData<T> {
     pub fn new(d: T) -> Self {
         Self {
@@ -99,5 +107,33 @@ impl<'a> SDataBucket<'a> {
         }
 
         None
+    }
+}
+
+impl<'a> SDataBucketOwner<'a> {
+    pub fn new(max_entries: usize, allocator: &'a dyn TMemAllocator) -> Self {
+        Self {
+            bucket: Rc::new(RefCell::new(
+                SDataBucket::new(max_entries, allocator)
+            ))
+        }
+    }
+}
+
+impl<'a> SDataBucketRef<'a> {
+    pub fn with<F>(&self, mut function: F) where
+    F: FnMut(&SDataBucket<'a>)
+    {
+        let rc = self.bucket.upgrade().expect("dropped data bucket before ref!");
+        let data = rc.borrow();
+        function(data.deref());
+    }
+
+    pub fn with_mut<F>(&self, mut function: F) where
+    F: FnMut(&SDataBucket<'a>)
+    {
+        let rc = self.bucket.upgrade().expect("dropped data bucket before ref!");
+        let mut data = rc.borrow_mut();
+        function(data.deref_mut());
     }
 }

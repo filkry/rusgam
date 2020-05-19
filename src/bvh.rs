@@ -248,4 +248,8 @@ impl STree {
             cur_handle = self.nodes.get_unchecked(cur_handle).parent();
         }
     }
+
+    pub fn do_mutable_thing(&mut self) {
+
+    }
 }

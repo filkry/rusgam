@@ -517,7 +517,7 @@ fn main_d3d12() -> Result<(), &'static str> {
         //println!("Frame time: {}us", _dtms);
 
         // -- check if the user clicked an edit widget
-        if input.left_mouse_edge.down() && !imgui_ctxt.io().want_capture_mouse {
+        if input.left_mouse_edge.down() && !imgui_ctxt.io().want_capture_mouse && mode == EMode::Edit && last_picked_entity.is_some() {
             data_bucket.get_entities().unwrap().with(|entities: &SEntityBucket| {
                 if edit_mode == EEditMode::Translation {
                     for axis in 0..=2 {

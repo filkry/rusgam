@@ -5,7 +5,7 @@ use std::collections::VecDeque;
 
 pub mod freelistallocator;
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub struct SPoolHandle {
     index: u16,
     generation: u16,

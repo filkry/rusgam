@@ -178,13 +178,14 @@ impl STree {
             }
         };
 
-        let mut new_bounds = SAABB::zero();
-        if child1.valid() {
-            new_bounds = SAABB::union(&new_bounds, &self.nodes.get(child1).unwrap().bounds().unwrap());
-        }
-        if child2.valid() {
-            new_bounds = SAABB::union(&new_bounds, &self.nodes.get(child2).unwrap().bounds().unwrap());
-        }
+        break_assert!(child1.valid());
+        break_assert!(child2.valid());
+
+        let new_bounds = SAABB::union(
+            &self.nodes.get(child1).unwrap().bounds().unwrap(),
+            &self.nodes.get(child2).unwrap().bounds().unwrap(),
+        );
+
         self.nodes.get_mut(node_handle).unwrap().set_bounds(&new_bounds);
     }
 
@@ -373,7 +374,7 @@ impl STree {
                     if !(internal.bounds == unified_aabb) {
                         println!("Mismatch:");
                         println!("{:?}", internal.bounds);
-                        println!("{:?}", internal.bounds);
+                        println!("{:?}", unified_aabb);
                         break_assert!(false);
                         return false;
                     }

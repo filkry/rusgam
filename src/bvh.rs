@@ -189,6 +189,82 @@ impl STree {
         self.nodes.get_mut(node_handle).unwrap().set_bounds(&new_bounds);
     }
 
+    fn replace_child_without_updating_bounds(&mut self, parent: SPoolHandle, original_child: SPoolHandle, new_child: SPoolHandle) {
+        if let ENode::Internal(internal) = self.nodes.get_mut(parent).unwrap() {
+            if internal.child1 == original_child {
+                internal.child1 = new_child;
+            }
+            else if internal.child2 == original_child {
+                internal.child2 = new_child;
+            }
+            else {
+                break_assert!(false);
+            }
+        }
+        else {
+            break_assert!(false);
+        }
+    }
+
+    fn swap_nodes_without_updating_bounds(&mut self, node_a: SPoolHandle, node_b: SPoolHandle) {
+        let node_a_original_parent = self.nodes.get(node_a).unwrap().parent();
+        let node_b_original_parent = self.nodes.get(node_b).unwrap().parent();
+
+        self.nodes.get_mut(node_a).unwrap().set_parent(node_b_original_parent);
+        self.replace_child_without_updating_bounds(node_b_original_parent, node_b, node_a);
+
+        self.nodes.get_mut(node_b).unwrap().set_parent(node_a_original_parent);
+        self.replace_child_without_updating_bounds(node_a_original_parent, node_a, node_b);
+    }
+
+    fn rotate_children_grandchildren(&mut self, node_handle: SPoolHandle) {
+        let mut best_swap_child : Option<SPoolHandle> = None;
+        let mut best_swap_other_child : Option<SPoolHandle> = None;
+        let mut best_swap_grandchild : Option<SPoolHandle> = None;
+        let mut best_sa_diff : Option<f32> = None;
+
+        if let ENode::Internal(internal) = self.nodes.get(node_handle).unwrap() {
+            let mut test_grandchild = |
+                swap_child : SPoolHandle,
+                other_child : SPoolHandle,
+                swap_child_cur_sa : f32,
+                swap_grandchild : SPoolHandle,
+                other_grandchild : SPoolHandle,
+            | {
+                let possible_bounds = SAABB::union(
+                    &self.nodes.get(swap_child).unwrap().bounds().unwrap(),
+                    &self.nodes.get(other_grandchild).unwrap().bounds().unwrap(),
+                );
+                let possible_sa = possible_bounds.surface_area();
+                let sa_diff = swap_child_cur_sa - possible_sa;
+                if (sa_diff > 0.0) && (best_sa_diff.is_none() || best_sa_diff.unwrap() < sa_diff) {
+                    best_swap_child = Some(swap_child);
+                    best_swap_other_child = Some(other_child);
+                    best_swap_grandchild = Some(swap_grandchild);
+                    best_sa_diff = Some(sa_diff);
+                }
+            };
+
+            let mut test_child = |swap_child : SPoolHandle, other_child: SPoolHandle| {
+                let cur_bounds = self.nodes.get(other_child).unwrap().bounds().unwrap();
+                let cur_sa = cur_bounds.surface_area();
+                if let ENode::Internal(other_child_internal) = self.nodes.get(other_child).unwrap() {
+                    test_grandchild(swap_child, other_child, cur_sa, other_child_internal.child1, other_child_internal.child2);
+                    test_grandchild(swap_child, other_child, cur_sa, other_child_internal.child2, other_child_internal.child1);
+                }
+            };
+
+            // -- looking at grandchildren under child2
+            test_child(internal.child1, internal.child2);
+            test_child(internal.child2, internal.child1);
+        }
+
+        if best_sa_diff.is_some() {
+            self.swap_nodes_without_updating_bounds(best_swap_child.unwrap(), best_swap_grandchild.unwrap());
+            self.update_bounds_from_children(best_swap_other_child.unwrap());
+        }
+    }
+
     pub fn insert(&mut self, owner: SPoolHandle, bounds: &SAABB) -> SPoolHandle {
         let first : bool = self.nodes.used() == 0;
         let leaf_handle = self.nodes.alloc().unwrap();
@@ -257,6 +333,8 @@ impl STree {
         let mut cur_handle = self.nodes.get(leaf_handle).unwrap().parent();
         while cur_handle.valid() {
             self.update_bounds_from_children(cur_handle);
+            self.rotate_children_grandchildren(cur_handle);
+
             cur_handle = self.nodes.get(cur_handle).unwrap().parent();
         }
 
@@ -474,6 +552,88 @@ impl STree {
         self.tree_valid();
     }
 
+    pub fn compute_height(&self) -> usize {
+        struct SSearchItem {
+            node: SPoolHandle,
+            height: usize,
+        }
+
+        let mut max_height = 0;
+
+        STACK_ALLOCATOR.with(|sa| {
+            let mut to_search = SMemVec::<SSearchItem>::new(sa, self.nodes.used() as usize, 0).unwrap();
+            to_search.push(SSearchItem{
+                node: self.root,
+                height: 1,
+            });
+
+            while let Some(search_item) = to_search.pop() {
+                let node = self.nodes.get(search_item.node).unwrap();
+                max_height = std::cmp::max(max_height, search_item.height);
+
+                if let ENode::Leaf(_) = node {
+                    // -- do nothing else
+                }
+                else if let ENode::Internal(internal) = node {
+                    to_search.push(SSearchItem{
+                        node: internal.child1,
+                        height: search_item.height + 1,
+                    });
+                    to_search.push(SSearchItem{
+                        node: internal.child2,
+                        height: search_item.height + 1,
+                    });
+                }
+            }
+        });
+
+        return max_height;
+    }
+
+    pub fn compute_average_leaf_height(&self) -> f32 {
+        struct SSearchItem {
+            node: SPoolHandle,
+            height: f32,
+        }
+
+        let mut total_height = 0.0;
+        let mut num_leaves = 0.0;
+
+        STACK_ALLOCATOR.with(|sa| {
+            let mut to_search = SMemVec::<SSearchItem>::new(sa, self.nodes.used() as usize, 0).unwrap();
+            to_search.push(SSearchItem{
+                node: self.root,
+                height: 1.0,
+            });
+
+            while let Some(search_item) = to_search.pop() {
+                let node = self.nodes.get(search_item.node).unwrap();
+
+                if let ENode::Leaf(_) = node {
+                    total_height += search_item.height;
+                    num_leaves += 1.0;
+                }
+                else if let ENode::Internal(internal) = node {
+                    to_search.push(SSearchItem{
+                        node: internal.child1,
+                        height: search_item.height + 1.0,
+                    });
+                    to_search.push(SSearchItem{
+                        node: internal.child2,
+                        height: search_item.height + 1.0,
+                    });
+                }
+            }
+        });
+
+        if num_leaves > 0.0 {
+            return total_height / num_leaves;
+        }
+        else {
+            return 0.0;
+        }
+    }
+
     pub fn imgui_menu(&self, imgui_ui: &imgui::Ui) {
         use imgui::*;
 
@@ -482,6 +642,8 @@ impl STree {
             to_show.push(self.root);
 
             imgui_ui.menu(imgui::im_str!("BVH"), true, || {
+                imgui_ui.text(&im_str!("Tree height: {}", self.compute_height()));
+                imgui_ui.text(&im_str!("Average leaf height: {}", self.compute_average_leaf_height()));
 
                 while let Some(cur_handle) = to_show.pop() {
                     if imgui_ui.collapsing_header(&im_str!("Node {}.{}", cur_handle.index(), cur_handle.generation())).build() {

@@ -138,7 +138,77 @@ pub fn closest_point_on_line(line_p0: &Vec3, line_p1: &Vec3, p: &Vec3) -> (Vec3,
 }
 
 pub fn ray_intersects_aabb(ray: &SRay, aabb: &SAABB) -> Option<f32> {
-    panic!("Not implemented");
+    // Andrew Woo graphics gems 1990 (p 395-396)
+    // https://web.archive.org/web/20090803054252/http://tog.acm.org/resources/GraphicsGems/gems/RayBox.c
+
+    #[derive(PartialEq, Clone, Copy)]
+    enum EQuadrant {
+        None,
+        Right,
+        Left,
+        Middle,
+    };
+
+    let mut inside = true;
+    let mut quadrant = [EQuadrant::None; 3];
+    let mut max_t = [0.0; 3];
+    let mut candidate_plane = [0.0; 3];
+
+    // -- find candidate planes
+    for i in 0..3 {
+        if ray.origin[i] < aabb.min[i] {
+            quadrant[i] = EQuadrant::Left;
+            candidate_plane[i] = aabb.min[i];
+            inside = false;
+        }
+        else if ray.origin[i] > aabb.max[i] {
+            quadrant[i] = EQuadrant::Right;
+            candidate_plane[i] = aabb.max[i];
+            inside = false;
+        }
+        else {
+            quadrant[i] = EQuadrant::Middle;
+        }
+    }
+
+    // -- ray origin inside the bounding box
+    if inside {
+        return Some(0.0);
+    }
+
+    // -- calculate t distances to candidate planes
+    for i in 0..3 {
+        if quadrant[i] != EQuadrant::Middle && ray.dir[i] != 0.0 {
+            max_t[i] = (candidate_plane[i] - ray.origin[i]) / ray.dir[i];
+        }
+        else {
+            max_t[i] = -1.0;
+        }
+    }
+
+    // -- get the largest max_t for final choice of intersection
+    let mut which_plane = 0;
+    for i in 1..3 {
+        if max_t[which_plane] < max_t[i] {
+            which_plane = i;
+        }
+    }
+
+    // -- check final candidate actually inside box
+    if max_t[which_plane] < 0.0 {
+        return None;
+    }
+
+    for i in 0..3 {
+        if which_plane != i {
+            let coord_i = ray.origin[i] + max_t[which_plane] * ray.dir[i];
+            if coord_i < aabb.min[i] || coord_i > aabb.max[i] {
+                return None;
+            }
+        }
+    }
+
+    return Some(max_t[which_plane]);
 }
 
 pub fn ray_intersects_triangle(

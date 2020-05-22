@@ -461,7 +461,6 @@ fn main_d3d12() -> Result<(), &'static str> {
     let mut mode = EMode::Edit;
     let mut edit_mode = EEditMode::Translation;
 
-    let mut last_ray_hit_pos = Vec3::new(0.0, 0.0, 0.0);
     let mut last_picked_entity : Option<SPoolHandle> = None;
 
     let mut show_imgui_demo_window = false;
@@ -778,43 +777,25 @@ fn main_d3d12() -> Result<(), &'static str> {
             let imgui_draw_data = imgui_ui.render();
             data_bucket.get_entities().unwrap().with(|entities: &SEntityBucket| {
                 data_bucket.get_renderer().unwrap().with_mut(|render: &mut render::SRender| {
-                    let (entities, model_xforms, models) = entities.build_render_data(sa);
+                    let (_entities, model_xforms, models) = entities.build_render_data(sa);
 
                     // -- render world
                     render.render_frame(&mut window, &view_matrix, models.as_slice(), model_xforms.as_slice(), Some(&imgui_draw_data)).unwrap();
-
-                    // -- cast rays against world
-                    if input.left_mouse_edge.down() && !imgui_want_capture_mouse && !edit_mode.eats_mouse() {
-
-                        let mut min_t = std::f32::MAX;
-                        let mut min_model_i = None;
-                        let mut min_pos = Vec3::new(0.0, 0.0, 0.0);
-
-                        for modeli in 0..models.len() {
-                            if let Some(t) = render.ray_intersects(&models[modeli], &cursor_ray.origin, &cursor_ray.dir, &model_xforms[modeli]) {
-                                assert!(t > 0.0);
-                                if t < min_t {
-                                    min_t = t;
-                                    min_model_i = Some(modeli);
-                                    min_pos = camera.pos_world + t * cursor_ray.dir;
-                                }
-                            }
-                        }
-
-                        if let Some(modeli) = min_model_i {
-                            //println!("Hit model {} at pos {}, {}, {}", modeli, min_pos.x, min_pos.y, min_pos.z);
-                            last_ray_hit_pos = min_pos;
-                            last_picked_entity = Some(entities[modeli]);
-                        }
-                        else {
-                            last_picked_entity = None;
-                        }
-                    }
                 });
             });
 
             Ok(())
         })?;
+
+        // -- cast rays against world
+        if input.left_mouse_edge.down() && !imgui_want_capture_mouse && !edit_mode.eats_mouse() {
+            data_bucket.get_bvh().unwrap().with(|bvh: &bvh::STree| {
+                let entity_hit = bvh.cast_ray(&data_bucket, &cursor_ray);
+                if entity_hit.is_some() {
+                    last_picked_entity = entity_hit;
+                }
+            });
+        }
 
         lastframetime = curframetime;
         _framecount += 1;

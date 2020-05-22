@@ -637,8 +637,8 @@ impl STree {
     }
 
     // -- returns "owner" field of hit item
-    pub fn cast_ray(&self, ctxt: &SDataBucket, ray: SRay) -> Option<SPoolHandle> {
-        STACK_ALLOCATOR.with(|sa| {
+    pub fn cast_ray(&self, ctxt: &SDataBucket, ray: &SRay) -> Option<SPoolHandle> {
+        let result = STACK_ALLOCATOR.with(|sa| {
             let mut to_search = SMemVec::<SPoolHandle>::new(sa, self.nodes.used() as usize, 0).unwrap();
             to_search.push(self.root);
 
@@ -670,7 +670,7 @@ impl STree {
             min_owner
         });
 
-        None
+        result
     }
 
     pub fn imgui_menu(&self, imgui_ui: &imgui::Ui) {

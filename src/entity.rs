@@ -88,6 +88,7 @@ impl SEntityBucket {
     }
 
     pub fn build_render_data<'a>(&self, allocator: &'a dyn TMemAllocator) -> (SMemVec<'a, SPoolHandle>, SMemVec<'a, STransform>, SMemVec<'a, SModel>) {
+        // -- $$$FRK(TODO): if the stack allocator is used, returning these is only safe if the caller makes references to each member  (no _)
         let mut entities = SMemVec::<SPoolHandle>::new(allocator, self.entities.used(), 0).expect("alloc fail");
         let mut transforms = SMemVec::<STransform>::new(allocator, self.entities.used(), 0).expect("alloc fail");
         let mut models = SMemVec::<SModel>::new(allocator, self.entities.used(), 0).expect("alloc fail");

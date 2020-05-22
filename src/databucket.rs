@@ -6,6 +6,7 @@ use std::rc::{Rc, Weak};
 use allocate::{SMemVec, TMemAllocator};
 use entity;
 use bvh;
+use render;
 
 // -- $$$FRK(TODO): originally I thought I might want to keep SDataRefs around, but maybe not?
 // -- If I don't, then this can become Box<RefCell> and the usage syntax can become cleaner (no
@@ -18,13 +19,14 @@ pub struct SDataRef<T> {
     data: Weak<RefCell<T>>,
 }
 
-enum EDataEntry {
+enum EDataEntry<'a> {
     BVH(SData<bvh::STree>),
     Entities(SData<entity::SEntityBucket>),
+    Renderer(SData<render::SRender<'a>>),
 }
 
 pub struct SDataBucket<'a> {
-    entries: SMemVec<'a, EDataEntry>,
+    entries: SMemVec<'a, EDataEntry<'a>>,
 }
 
 /*
@@ -52,20 +54,20 @@ impl<T> SData<T> {
 }
 
 impl<T> SDataRef<T> {
-    pub fn with<F>(&self, mut function: F) where
-    F: FnMut(&T)
+    pub fn with<F, R>(&self, mut function: F) -> R where
+    F: FnMut(&T) -> R
     {
         let rc = self.data.upgrade().expect("dropped data bucket before ref!");
         let data = rc.borrow();
-        function(data.deref());
+        function(data.deref())
     }
 
-    pub fn with_mut<F>(&self, mut function: F) where
-    F: FnMut(&mut T)
+    pub fn with_mut<F, R>(&self, mut function: F) -> R where
+    F: FnMut(&mut T) -> R
     {
         let rc = self.data.upgrade().expect("dropped data bucket before ref!");
         let mut data = rc.borrow_mut();
-        function(data.deref_mut());
+        function(data.deref_mut())
     }
 }
 
@@ -88,6 +90,12 @@ impl<'a> SDataBucket<'a> {
         );
     }
 
+    pub fn add_renderer(&mut self, renderer: render::SRender<'a>) {
+        self.entries.push(
+            EDataEntry::Renderer(SData::<render::SRender>::new(renderer))
+        );
+    }
+
     pub fn get_bvh(&self) -> Option<SDataRef<bvh::STree>> {
         for entry in self.entries.as_slice() {
             match entry {
@@ -105,6 +113,19 @@ impl<'a> SDataBucket<'a> {
         for entry in self.entries.as_slice() {
             match entry {
                 EDataEntry::Entities(data) => {
+                    return Some(data.make_ref())
+                },
+                _ => {}
+            }
+        }
+
+        None
+    }
+
+    pub fn get_renderer(&self) -> Option<SDataRef<render::SRender<'a>>> {
+        for entry in self.entries.as_slice() {
+            match entry {
+                EDataEntry::Renderer(data) => {
                     return Some(data.make_ref())
                 },
                 _ => {}

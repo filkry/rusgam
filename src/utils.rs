@@ -137,6 +137,10 @@ pub fn closest_point_on_line(line_p0: &Vec3, line_p1: &Vec3, p: &Vec3) -> (Vec3,
     (closest_pt, dist_along / line_len)
 }
 
+pub fn ray_intersects_aabb(ray: &SRay, aabb: &SAABB) -> Option<f32> {
+    panic!("Not implemented");
+}
+
 pub fn ray_intersects_triangle(
     ray_origin: &Vec3,
     ray_dir: &Vec3,

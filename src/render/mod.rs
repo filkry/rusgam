@@ -13,12 +13,15 @@ use glm::{Vec3, Mat4};
 use niced3d12 as n12;
 use typeyd3d12 as t12;
 use allocate::{SMemVec, STACK_ALLOCATOR};
+use collections::{SPoolHandle};
+use databucket::{SDataBucket};
+use entity::{SEntityBucket};
 use model;
 use model::{SModel, SMeshLoader, STextureLoader};
 use safewindows;
 use rustywindows;
 use utils;
-use utils::{STransform};
+use utils::{STransform, SRay};
 
 mod shadowmapping;
 mod render_imgui;
@@ -720,3 +723,20 @@ impl<'a> Drop for SRender<'a> {
         self.flush().unwrap();
     }
 }
+
+pub fn cast_ray_against_entity_model(ctxt: &SDataBucket, ray: &SRay, entity: SPoolHandle) -> Option<f32> {
+    let mut result = None;
+
+    ctxt.get_entities().unwrap().with(|entities: &SEntityBucket| {
+        ctxt.get_renderer().unwrap().with(|renderer: &SRender| {
+            let entity_to_world = entities.get_entity_location(entity);
+            if let Some(model) = entities.get_entity_model(entity) {
+                result = renderer.ray_intersects(&model, &ray.origin, &ray.dir, &entity_to_world);
+            }
+        });
+    });
+
+    result
+}
+
+

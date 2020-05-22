@@ -444,6 +444,7 @@ fn main_d3d12() -> Result<(), &'static str> {
     }
 
     data_bucket.add_bvh(bvh);
+    data_bucket.add_renderer(render);
 
     // -- update loop
 
@@ -509,7 +510,9 @@ fn main_d3d12() -> Result<(), &'static str> {
         input.mouse_dx = 0;
         input.mouse_dy = 0;
         let view_matrix = camera.world_to_view_matrix();
-        let cursor_ray = cursor_ray_world(mouse_pos, &render, &window, &camera);
+        let cursor_ray = data_bucket.get_renderer().unwrap().with(|render: &render::SRender| {
+            cursor_ray_world(mouse_pos, render, &window, &camera)
+        });
 
         //println!("View: {}", view_matrix);
         //println!("Perspective: {}", perspective_matrix);
@@ -518,189 +521,197 @@ fn main_d3d12() -> Result<(), &'static str> {
 
         // -- check if the user clicked an edit widget
         if input.left_mouse_edge.down() && !imgui_ctxt.io().want_capture_mouse && mode == EMode::Edit && last_picked_entity.is_some() {
-            data_bucket.get_entities().unwrap().with(|entities: &SEntityBucket| {
-                if edit_mode == EEditMode::Translation {
-                    for axis in 0..=2 {
-                        if let Some(_) = render.ray_intersects(&translation_widgets[axis], &cursor_ray.origin, &cursor_ray.dir, &translation_widget_transforms[axis]) {
-                            let e = last_picked_entity.expect("shouldn't be able to translate without entity picked.");
+            data_bucket.get_renderer().unwrap().with(|render: &render::SRender| {
+                data_bucket.get_entities().unwrap().with(|entities: &SEntityBucket| {
+                    if edit_mode == EEditMode::Translation {
+                        for axis in 0..=2 {
+                            if let Some(_) = render.ray_intersects(&translation_widgets[axis], &cursor_ray.origin, &cursor_ray.dir, &translation_widget_transforms[axis]) {
+                                let e = last_picked_entity.expect("shouldn't be able to translate without entity picked.");
 
-                            let e_pos = entities.get_entity_location(e).t;
+                                let e_pos = entities.get_entity_location(e).t;
 
-                            translation_start_pos = e_pos;
-                            edit_mode = EEditMode::TranslationDragging(axis);
+                                translation_start_pos = e_pos;
+                                edit_mode = EEditMode::TranslationDragging(axis);
 
-                            let e_pos_screen = world_pos_to_screen_pos(&e_pos, &view_matrix, &window, &render);
+                                let e_pos_screen = world_pos_to_screen_pos(&e_pos, &view_matrix, &window, &render);
 
-                            translation_mouse_offset = [(e_pos_screen.x as i32) - mouse_pos[0],
-                                                        (e_pos_screen.y as i32) - mouse_pos[1]];
+                                translation_mouse_offset = [(e_pos_screen.x as i32) - mouse_pos[0],
+                                                            (e_pos_screen.y as i32) - mouse_pos[1]];
 
-                            break;
+                                break;
+                            }
                         }
                     }
-                }
-                else if edit_mode == EEditMode::Rotation {
+                    else if edit_mode == EEditMode::Rotation {
 
-                    let mut min_t = None;
-                    for axis in 0..=2 {
-                        if let Some(_) = render.ray_intersects(&rotation_widgets[axis], &cursor_ray.origin, &cursor_ray.dir, &rotation_widget_transforms[axis]) {
-                            let e = last_picked_entity.expect("shouldn't be able to rotate without entity picked.");
+                        let mut min_t = None;
+                        for axis in 0..=2 {
+                            if let Some(_) = render.ray_intersects(&rotation_widgets[axis], &cursor_ray.origin, &cursor_ray.dir, &rotation_widget_transforms[axis]) {
+                                let e = last_picked_entity.expect("shouldn't be able to rotate without entity picked.");
 
-                            let e_loc = entities.get_entity_location(e);
+                                let e_loc = entities.get_entity_location(e);
 
-                            let mut plane_normal : Vec3 = glm::zero();
-                            plane_normal[axis] = 1.0;
-                            let plane = utils::SPlane::new(&e_loc.t, &plane_normal);
-                            let cursor_ray_world = cursor_ray_world(mouse_pos, &render, &window, &camera);
+                                let mut plane_normal : Vec3 = glm::zero();
+                                plane_normal[axis] = 1.0;
+                                let plane = utils::SPlane::new(&e_loc.t, &plane_normal);
+                                let cursor_ray_world = cursor_ray_world(mouse_pos, &render, &window, &camera);
 
-                            if let Some((cursor_pos_world, t)) = utils::ray_plane_intersection(&cursor_ray_world, &plane) {
-                                if min_t.is_none() || min_t.unwrap() > t {
-                                    rotation_start_ori = e_loc.r;
-                                    rotation_start_entity_to_cursor = cursor_pos_world - e_loc.t;
-                                    edit_mode = EEditMode::RotationDragging(axis);
-                                    min_t = Some(t);
+                                if let Some((cursor_pos_world, t)) = utils::ray_plane_intersection(&cursor_ray_world, &plane) {
+                                    if min_t.is_none() || min_t.unwrap() > t {
+                                        rotation_start_ori = e_loc.r;
+                                        rotation_start_entity_to_cursor = cursor_pos_world - e_loc.t;
+                                        edit_mode = EEditMode::RotationDragging(axis);
+                                        min_t = Some(t);
+                                    }
                                 }
                             }
                         }
                     }
-                }
+                });
             });
         }
 
         // -- handle translation/rotation edit mode mouse input
         if mode == EMode::Edit {
-            data_bucket.get_entities().unwrap().with_mut(|entities: &mut SEntityBucket| {
-                if let EEditMode::TranslationDragging(axis) = edit_mode {
-                    if !input.left_mouse_down {
-                        edit_mode = EEditMode::Translation;
-                    }
-                    else {
-                        assert!(last_picked_entity.is_some(), "translating but no entity!");
+            data_bucket.get_renderer().unwrap().with_mut(|render: &mut render::SRender| {
+                data_bucket.get_entities().unwrap().with_mut(|entities: &mut SEntityBucket| {
+                    if let EEditMode::TranslationDragging(axis) = edit_mode {
+                        if !input.left_mouse_down {
+                            edit_mode = EEditMode::Translation;
+                        }
+                        else {
+                            assert!(last_picked_entity.is_some(), "translating but no entity!");
 
-                        let mut line_dir : Vec3 = glm::zero();
-                        line_dir[axis] = 1.0;
+                            let mut line_dir : Vec3 = glm::zero();
+                            line_dir[axis] = 1.0;
 
-                        let line_p0 = translation_start_pos + -line_dir;
-                        let line_p1 = translation_start_pos + line_dir;
+                            let line_p0 = translation_start_pos + -line_dir;
+                            let line_p1 = translation_start_pos + line_dir;
 
-                        let mut render_color : Vec4 = glm::zero();
-                        render_color[axis] = 1.0;
-                        render_color.w = 1.0;
-                        render.temp().draw_line(
-                            &(translation_start_pos + -100.0 * line_dir),
-                            &(translation_start_pos + 100.0 * line_dir),
-                            &render_color,
-                            true,
-                        );
+                            let mut render_color : Vec4 = glm::zero();
+                            render_color[axis] = 1.0;
+                            render_color.w = 1.0;
+                            render.temp().draw_line(
+                                &(translation_start_pos + -100.0 * line_dir),
+                                &(translation_start_pos + 100.0 * line_dir),
+                                &render_color,
+                                true,
+                            );
 
-                        let offset_mouse_pos = [mouse_pos[0] + translation_mouse_offset[0],
-                                                mouse_pos[1] + translation_mouse_offset[1]];
+                            let offset_mouse_pos = [mouse_pos[0] + translation_mouse_offset[0],
+                                                    mouse_pos[1] + translation_mouse_offset[1]];
 
-                        let new_world_pos = pos_on_screen_space_line_to_world(
-                            &line_p0,
-                            &line_p1,
-                            offset_mouse_pos,
-                            &view_matrix,
-                            &window,
-                            &render,
-                        );
+                            let new_world_pos = pos_on_screen_space_line_to_world(
+                                &line_p0,
+                                &line_p1,
+                                offset_mouse_pos,
+                                &view_matrix,
+                                &window,
+                                &render,
+                            );
 
-                        let mut new_e_loc = entities.get_entity_location(last_picked_entity.expect(""));
-                        new_e_loc.t = new_world_pos;
-
-                        entities.set_entity_location(
-                            last_picked_entity.expect(""),
-                            new_e_loc,
-                            &data_bucket,
-                        );
-                    }
-                }
-                else if let EEditMode::RotationDragging(axis) = edit_mode {
-                    if !input.left_mouse_down {
-                        edit_mode = EEditMode::Rotation;
-                    }
-                    else {
-                        assert!(last_picked_entity.is_some(), "rotating but no entity!");
-
-                        let e_loc = entities.get_entity_location(last_picked_entity.expect(""));
-
-                        let mut plane_normal : Vec3 = glm::zero();
-                        plane_normal[axis] = 1.0;
-                        let plane = utils::SPlane::new(&e_loc.t, &plane_normal);
-
-                        let cursor_ray_world = cursor_ray_world(mouse_pos, &render, &window, &camera);
-                        if let Some((cursor_pos_world, _)) = utils::ray_plane_intersection(&cursor_ray_world, &plane) {
-                            let entity_to_cursor = cursor_pos_world - e_loc.t;
-
-                            let rotation = glm::quat_rotation(&rotation_start_entity_to_cursor,
-                                                              &entity_to_cursor);
-
-                            let new_entity_ori = rotation * rotation_start_ori;
-
-                            let mut new_e_loc = e_loc;
-                            new_e_loc.r = new_entity_ori;
+                            let mut new_e_loc = entities.get_entity_location(last_picked_entity.expect(""));
+                            new_e_loc.t = new_world_pos;
 
                             entities.set_entity_location(
                                 last_picked_entity.expect(""),
                                 new_e_loc,
                                 &data_bucket,
                             );
-
-                            let mut render_color : Vec4 = glm::zero();
-                            render_color[axis] = 1.0;
-                            render_color.w = 1.0;
-                            render.temp().draw_line(
-                                &e_loc.t,
-                                &(e_loc.t + rotation_start_entity_to_cursor),
-                                &render_color,
-                                true,
-                            );
-                            render.temp().draw_line(
-                                &e_loc.t,
-                                &cursor_pos_world,
-                                &render_color,
-                                true,
-                            );
                         }
                     }
-                }
+                    else if let EEditMode::RotationDragging(axis) = edit_mode {
+                        if !input.left_mouse_down {
+                            edit_mode = EEditMode::Rotation;
+                        }
+                        else {
+                            assert!(last_picked_entity.is_some(), "rotating but no entity!");
+
+                            let e_loc = entities.get_entity_location(last_picked_entity.expect(""));
+
+                            let mut plane_normal : Vec3 = glm::zero();
+                            plane_normal[axis] = 1.0;
+                            let plane = utils::SPlane::new(&e_loc.t, &plane_normal);
+
+                            let cursor_ray_world = cursor_ray_world(mouse_pos, &render, &window, &camera);
+                            if let Some((cursor_pos_world, _)) = utils::ray_plane_intersection(&cursor_ray_world, &plane) {
+                                let entity_to_cursor = cursor_pos_world - e_loc.t;
+
+                                let rotation = glm::quat_rotation(&rotation_start_entity_to_cursor,
+                                                                  &entity_to_cursor);
+
+                                let new_entity_ori = rotation * rotation_start_ori;
+
+                                let mut new_e_loc = e_loc;
+                                new_e_loc.r = new_entity_ori;
+
+                                entities.set_entity_location(
+                                    last_picked_entity.expect(""),
+                                    new_e_loc,
+                                    &data_bucket,
+                                );
+
+                                let mut render_color : Vec4 = glm::zero();
+                                render_color[axis] = 1.0;
+                                render_color.w = 1.0;
+                                render.temp().draw_line(
+                                    &e_loc.t,
+                                    &(e_loc.t + rotation_start_entity_to_cursor),
+                                    &render_color,
+                                    true,
+                                );
+                                render.temp().draw_line(
+                                    &e_loc.t,
+                                    &cursor_pos_world,
+                                    &render_color,
+                                    true,
+                                );
+                            }
+                        }
+                    }
+                });
             });
         }
 
         // -- update edit widgets
         if mode == EMode::Edit {
             if let Some(e) = last_picked_entity {
-                data_bucket.get_entities().unwrap().with(|entities: &SEntityBucket| {
-                    translation_widget_transforms[0].t = entities.get_entity_location(e).t;
-                    translation_widget_transforms[1].t = entities.get_entity_location(e).t;
-                    translation_widget_transforms[2].t = entities.get_entity_location(e).t;
-                    //println!("Set translation widget: {:?}", translation_widget_transform.t);
-                    scale_to_fixed_screen_size(&mut translation_widget_transforms[0], 0.02, render.fovy(), render.znear(), window.width(), window.height(), &camera.pos_world, &camera.forward_world());
-                    scale_to_fixed_screen_size(&mut translation_widget_transforms[1], 0.02, render.fovy(), render.znear(), window.width(), window.height(), &camera.pos_world, &camera.forward_world());
-                    scale_to_fixed_screen_size(&mut translation_widget_transforms[2], 0.02, render.fovy(), render.znear(), window.width(), window.height(), &camera.pos_world, &camera.forward_world());
+                data_bucket.get_renderer().unwrap().with(|render: &render::SRender| {
+                    data_bucket.get_entities().unwrap().with(|entities: &SEntityBucket| {
+                        translation_widget_transforms[0].t = entities.get_entity_location(e).t;
+                        translation_widget_transforms[1].t = entities.get_entity_location(e).t;
+                        translation_widget_transforms[2].t = entities.get_entity_location(e).t;
+                        //println!("Set translation widget: {:?}", translation_widget_transform.t);
+                        scale_to_fixed_screen_size(&mut translation_widget_transforms[0], 0.02, render.fovy(), render.znear(), window.width(), window.height(), &camera.pos_world, &camera.forward_world());
+                        scale_to_fixed_screen_size(&mut translation_widget_transforms[1], 0.02, render.fovy(), render.znear(), window.width(), window.height(), &camera.pos_world, &camera.forward_world());
+                        scale_to_fixed_screen_size(&mut translation_widget_transforms[2], 0.02, render.fovy(), render.znear(), window.width(), window.height(), &camera.pos_world, &camera.forward_world());
 
-                    rotation_widget_transforms[0].t = entities.get_entity_location(e).t;
-                    rotation_widget_transforms[1].t = entities.get_entity_location(e).t;
-                    rotation_widget_transforms[2].t = entities.get_entity_location(e).t;
-                    //println!("Set translation widget: {:?}", translation_widget_transform.t);
-                    scale_to_fixed_screen_size(&mut rotation_widget_transforms[0], 0.034, render.fovy(), render.znear(), window.width(), window.height(), &camera.pos_world, &camera.forward_world());
-                    scale_to_fixed_screen_size(&mut rotation_widget_transforms[1], 0.034, render.fovy(), render.znear(), window.width(), window.height(), &camera.pos_world, &camera.forward_world());
-                    scale_to_fixed_screen_size(&mut rotation_widget_transforms[2], 0.034, render.fovy(), render.znear(), window.width(), window.height(), &camera.pos_world, &camera.forward_world());
+                        rotation_widget_transforms[0].t = entities.get_entity_location(e).t;
+                        rotation_widget_transforms[1].t = entities.get_entity_location(e).t;
+                        rotation_widget_transforms[2].t = entities.get_entity_location(e).t;
+                        //println!("Set translation widget: {:?}", translation_widget_transform.t);
+                        scale_to_fixed_screen_size(&mut rotation_widget_transforms[0], 0.034, render.fovy(), render.znear(), window.width(), window.height(), &camera.pos_world, &camera.forward_world());
+                        scale_to_fixed_screen_size(&mut rotation_widget_transforms[1], 0.034, render.fovy(), render.znear(), window.width(), window.height(), &camera.pos_world, &camera.forward_world());
+                        scale_to_fixed_screen_size(&mut rotation_widget_transforms[2], 0.034, render.fovy(), render.znear(), window.width(), window.height(), &camera.pos_world, &camera.forward_world());
+                    });
                 });
             }
         }
 
         // -- draw edit widgets
         if mode == EMode::Edit && last_picked_entity.is_some() {
-            for axis in 0..=2 {
-                if edit_mode.show_translation_widget(axis) {
-                    render.temp().draw_model(&translation_widgets[axis], &translation_widget_transforms[axis], true);
+            data_bucket.get_renderer().unwrap().with_mut(|render: &mut render::SRender| {
+                for axis in 0..=2 {
+                    if edit_mode.show_translation_widget(axis) {
+                            render.temp().draw_model(&translation_widgets[axis], &translation_widget_transforms[axis], true);
+                    }
                 }
-            }
-            for axis in 0..=2 {
-                if edit_mode.show_rotation_widget(axis) {
-                    render.temp().draw_model(&rotation_widgets[axis], &rotation_widget_transforms[axis], true);
+                for axis in 0..=2 {
+                    if edit_mode.show_rotation_widget(axis) {
+                        render.temp().draw_model(&rotation_widgets[axis], &rotation_widget_transforms[axis], true);
+                    }
                 }
-            }
+            });
         }
 
         // -- update IMGUI
@@ -751,11 +762,13 @@ fn main_d3d12() -> Result<(), &'static str> {
             STACK_ALLOCATOR.with(|sa| {
                 data_bucket.get_entities().unwrap().with(|entities: &SEntityBucket| {
                     data_bucket.get_bvh().unwrap().with(|bvh: &bvh::STree| {
-                        let mut aabbs = SMemVec::new(sa, 32, 0).unwrap();
-                        bvh.get_bvh_heirarchy_for_entry(entities.get_entity_bvh_entry(e), &mut aabbs);
-                        for aabb in aabbs.as_slice() {
-                            render.temp().draw_aabb(aabb, &Vec4::new(1.0, 0.0, 0.0, 1.0), true);
-                        }
+                        data_bucket.get_renderer().unwrap().with_mut(|render: &mut render::SRender| {
+                            let mut aabbs = SMemVec::new(sa, 32, 0).unwrap();
+                            bvh.get_bvh_heirarchy_for_entry(entities.get_entity_bvh_entry(e), &mut aabbs);
+                            for aabb in aabbs.as_slice() {
+                                render.temp().draw_aabb(aabb, &Vec4::new(1.0, 0.0, 0.0, 1.0), true);
+                            }
+                        });
                     });
                 });
             });
@@ -764,38 +777,40 @@ fn main_d3d12() -> Result<(), &'static str> {
         STACK_ALLOCATOR.with(|sa| -> Result<(), &'static str> {
             let imgui_draw_data = imgui_ui.render();
             data_bucket.get_entities().unwrap().with(|entities: &SEntityBucket| {
-                let (entities, model_xforms, models) = entities.build_render_data(sa);
+                data_bucket.get_renderer().unwrap().with_mut(|render: &mut render::SRender| {
+                    let (entities, model_xforms, models) = entities.build_render_data(sa);
 
-                // -- render world
-                render.render_frame(&mut window, &view_matrix, models.as_slice(), model_xforms.as_slice(), Some(&imgui_draw_data)).unwrap();
+                    // -- render world
+                    render.render_frame(&mut window, &view_matrix, models.as_slice(), model_xforms.as_slice(), Some(&imgui_draw_data)).unwrap();
 
-                // -- cast rays against world
-                if input.left_mouse_edge.down() && !imgui_want_capture_mouse && !edit_mode.eats_mouse() {
+                    // -- cast rays against world
+                    if input.left_mouse_edge.down() && !imgui_want_capture_mouse && !edit_mode.eats_mouse() {
 
-                    let mut min_t = std::f32::MAX;
-                    let mut min_model_i = None;
-                    let mut min_pos = Vec3::new(0.0, 0.0, 0.0);
+                        let mut min_t = std::f32::MAX;
+                        let mut min_model_i = None;
+                        let mut min_pos = Vec3::new(0.0, 0.0, 0.0);
 
-                    for modeli in 0..models.len() {
-                        if let Some(t) = render.ray_intersects(&models[modeli], &cursor_ray.origin, &cursor_ray.dir, &model_xforms[modeli]) {
-                            assert!(t > 0.0);
-                            if t < min_t {
-                                min_t = t;
-                                min_model_i = Some(modeli);
-                                min_pos = camera.pos_world + t * cursor_ray.dir;
+                        for modeli in 0..models.len() {
+                            if let Some(t) = render.ray_intersects(&models[modeli], &cursor_ray.origin, &cursor_ray.dir, &model_xforms[modeli]) {
+                                assert!(t > 0.0);
+                                if t < min_t {
+                                    min_t = t;
+                                    min_model_i = Some(modeli);
+                                    min_pos = camera.pos_world + t * cursor_ray.dir;
+                                }
                             }
                         }
-                    }
 
-                    if let Some(modeli) = min_model_i {
-                        //println!("Hit model {} at pos {}, {}, {}", modeli, min_pos.x, min_pos.y, min_pos.z);
-                        last_ray_hit_pos = min_pos;
-                        last_picked_entity = Some(entities[modeli]);
+                        if let Some(modeli) = min_model_i {
+                            //println!("Hit model {} at pos {}, {}, {}", modeli, min_pos.x, min_pos.y, min_pos.z);
+                            last_ray_hit_pos = min_pos;
+                            last_picked_entity = Some(entities[modeli]);
+                        }
+                        else {
+                            last_picked_entity = None;
+                        }
                     }
-                    else {
-                        last_picked_entity = None;
-                    }
-                }
+                });
             });
 
             Ok(())
@@ -849,7 +864,9 @@ fn main_d3d12() -> Result<(), &'static str> {
                         let newwidth = rect.right - rect.left;
                         let newheight = rect.bottom - rect.top;
 
-                        render.resize_window(&mut window, newwidth, newheight)?;
+                        data_bucket.get_renderer().unwrap().with_mut(|render: &mut render::SRender| {
+                            render.resize_window(&mut window, newwidth, newheight)
+                        })?;
                     }
                     safewindows::EMsgType::Invalid => (),
                 },
@@ -861,10 +878,12 @@ fn main_d3d12() -> Result<(), &'static str> {
     }
 
     // -- wait for all commands to clear
-    render.flush()?;
+    data_bucket.get_renderer().unwrap().with_mut(|render: &mut render::SRender| {
+        render.flush()
+    })?;
 
     // -- find out what we leaked
-    drop(render);
+    //drop(render);
     //let debug_interface = t12::SDXGIDebugInterface::new()?;
     //debug_interface.report_live_objects();
 

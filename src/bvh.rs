@@ -1,7 +1,9 @@
 use allocate::{STACK_ALLOCATOR, SMemQueue, SMemVec};
 use collections::{SPoolHandle, SPool};
+use databucket::{SDataBucket};
+use render;
 use safewindows;
-use utils::{SAABB};
+use utils::{SAABB, SRay, ray_intersects_aabb};
 
 #[derive(Clone)]
 struct SLeafNode {
@@ -632,6 +634,43 @@ impl STree {
         else {
             return 0.0;
         }
+    }
+
+    // -- returns "owner" field of hit item
+    pub fn cast_ray(&self, ctxt: &SDataBucket, ray: SRay) -> Option<SPoolHandle> {
+        STACK_ALLOCATOR.with(|sa| {
+            let mut to_search = SMemVec::<SPoolHandle>::new(sa, self.nodes.used() as usize, 0).unwrap();
+            to_search.push(self.root);
+
+            let mut min_t : Option<f32> = None;
+            let mut min_owner : Option<SPoolHandle> = None;
+
+            while let Some(cur_handle) = to_search.pop() {
+                let node = self.nodes.get(cur_handle).unwrap();
+                let aabb = &node.bounds().unwrap();
+
+                if let Some(t) = ray_intersects_aabb(&ray, aabb) {
+                    if min_t.is_none() || t < min_t.unwrap() {
+                        if let ENode::Internal(internal) = node {
+                            to_search.push(internal.child1);
+                            to_search.push(internal.child2);
+                        }
+                        else if let ENode::Leaf(leaf) = node {
+                            if let Some(t_mesh) = render::cast_ray_against_entity_model(ctxt, &ray, leaf.owner) {
+                                if min_t.is_none() || t_mesh < min_t.unwrap() {
+                                    min_t = Some(t_mesh);
+                                    min_owner = Some(leaf.owner);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            min_owner
+        });
+
+        None
     }
 
     pub fn imgui_menu(&self, imgui_ui: &imgui::Ui) {

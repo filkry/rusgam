@@ -62,6 +62,11 @@ struct S4Simplex {
     c: Vec3,
 }
 
+enum EUpdateSimplexResult {
+    Intersection,
+    NewSimplexAndDir(ESimplex, Vec3),
+}
+
 enum ESimplex {
     One(S1Simplex),
     Two(S2Simplex),
@@ -69,8 +74,17 @@ enum ESimplex {
     Four(S4Simplex),
 }
 
-pub fn update_simplex_result2(a: &Vec3, b: &Vec3, dir: Vec3) -> (ESimplex, Vec3) {
-    (ESimplex::Two(
+pub fn update_simplex_result1(a: &Vec3, dir: Vec3) -> EUpdateSimplexResult {
+    EUpdateSimplexResult::NewSimplexAndDir(ESimplex::One(
+        S2Simplex{
+            a: a,
+        }),
+        dir,
+    )
+}
+
+pub fn update_simplex_result2(a: &Vec3, b: &Vec3, dir: Vec3) -> EUpdateSimplexResult {
+    EUpdateSimplexResult::NewSimplexAndDir(ESimplex::Two(
         S2Simplex{
             a: a,
             b: b,
@@ -79,8 +93,19 @@ pub fn update_simplex_result2(a: &Vec3, b: &Vec3, dir: Vec3) -> (ESimplex, Vec3)
     )
 }
 
+pub fn update_simplex_result3(a: &Vec3, b: &Vec3, c: &Vec3, dir: Vec3) -> EUpdateSimplexResult {
+    EUpdateSimplexResult::NewSimplexAndDir(ESimplex::Three(
+        S3Simplex{
+            a,
+            b,
+            c,
+        }),
+        dir,
+    )
+}
+
 impl S2Simplex {
-    pub fn update_simplex(&self) -> (ESimplex, Vec3) {
+    pub fn update_simplex(&self) -> EUpdateSimplexResult {
         // -- three possible voronoi regions:
         // -- A, B, AB
         // -- but B can't be closest to the origin, or we wouldn't have searched in direction of A
@@ -102,7 +127,7 @@ impl S2Simplex {
 }
 
 impl S3Simplex {
-    pub fn update_simplex(&self) -> (ESimplex, Vec3) {
+    pub fn update_simplex(&self) -> EUpdateSimplexResult {
         // -- eight possible vorinoi regions:
         // -- A, B, C, AB, AC, BC, ABC(above), ABC(below
         // -- B, C, BC are excluded or we would not have search in direction of A
@@ -129,13 +154,13 @@ impl S3Simplex {
         }
 
         // -- check AB
-        if(check_edge(self.a, &ao, self.b, &ab, &abc_perp)) {
+        if check_edge(self.a, &ao, self.b, &ab, &abc_perp) {
             let ab_perp_to_origin = glm::cross(glm::cross(ab, ao), ab);
             return update_simplex_result2(self.a, self.b, ab_perp_to_origin);
         }
 
         // -- check AC
-        if(check_edge(self.a, &ao, self.c, &ac, &abc_perp)) {
+        if check_edge(self.a, &ao, self.c, &ac, &abc_perp) {
             let ac_perp_to_origin = glm::cross(glm::cross(ac, ao), ac);
             return update_simplex_result2(self.a, self.c, ac_perp_to_origin);
         }
@@ -144,19 +169,19 @@ impl S3Simplex {
         // -- need to determine if we are above ABC or below
         if glm::dot(abc_perp, ao) > 0 {
             // -- above
-            update_simplex_result3(self.a, self.b, self.c, abc_perp);
+            return update_simplex_result3(self.a, self.b, self.c, abc_perp);
         }
         else {
             // -- below
             // -- need to swizzle results, as we'll rely on the order to determine "outside"
             // -- face direction in Simplex4 case
-            update_simplex_result3(self.a, self.c, self.b, -abc_perp);
+            return update_simplex_result3(self.a, self.c, self.b, -abc_perp);
         }
     }
 }
 
 impl S4Simplex {
-    pub fn update_simplex(&self) -> (ESimplex, Vec3) {
+    pub fn update_simplex(&self) -> EUpdateSimplexResult {
         // -- possible voronoi regions:
         // -- A, B, C, D, AB, AC, AD, BC, BD, CD, ABC, ABD, ACD, BCD (no negative triangles because if it's inside we are done)
         // -- by reasoning above, only features including A remain:
@@ -241,3 +266,5 @@ impl S4Simplex {
     }
 }
 
+pub fn gjk(pts_a: &[Vec3], pts_b: &[Vec3]) {
+}

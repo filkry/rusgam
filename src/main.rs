@@ -18,6 +18,7 @@ mod collections;
 mod databucket;
 mod directxgraphicssamples;
 mod entity;
+mod gjk;
 mod input;
 mod niced3d12;
 mod rustywindows;

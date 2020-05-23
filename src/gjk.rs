@@ -35,9 +35,181 @@ pub fn minkowski_support_mapping(pts_a: &[Vec3], pts_b: &[Vec3], dir: &Vec3) -> 
     }
 }
 
+// -- third attempt, mixing sources
+
+struct S1Simplex {
+    a: Vec3,
+}
+
+struct S2Simplex {
+    a: Vec3, // newest
+    b: Vec3,
+}
+
+struct S3Simplex {
+    a: Vec3, // newest
+    b: Vec3,
+    c: Vec3,
+}
+
+struct S4Simplex {
+    a: Vec3,
+    b: Vec3,
+    c: Vec3,
+}
+
+enum ESimplex {
+    One(S1Simplex),
+    Two(S2Simplex),
+    Three(S3Simplex),
+    Four(S4Simplex),
+}
+
+pub fn update_simplex_result2(a: &Vec3, b: &Vec3, dir: Vec3) -> (ESimplex, Vec3) {
+    (ESimplex::Two(
+        S2Simplex{
+            a: a,
+            b: b,
+        }),
+        dir,
+    )
+}
+
+impl S2Simplex {
+    pub fn update_simplex(&self) -> (ESimplex, Vec3) {
+        // -- three possible voronoi regions:
+        // -- A, B, AB
+        // -- but B can't be closest to the origin, or we wouldn't have searched in direction of A
+        // -- A can't be closest to origin, or we would have found a further vert in the previous
+        // -- search direction
+        // -- therefore the region must be AB
+
+        let ab = self.b - self.a;
+        let ao = -self.a;
+
+        if glm::dot(ab, ao) > 0 {
+            let origin_dir_perp_ab = glm::cross(glm::cross(ab, ao), ab);
+            return update_simplex_result2(self.a, self.b, origin_dir_perp_ab);
+        }
+        else {
+            return update_simplex_result1(self.a, ao);
+        }
+    }
+}
+
+impl S3Simplex {
+    pub fn update_simplex(&self) -> (ESimplex, Vec3) {
+        // -- eight possible vorinoi regions:
+        // -- A, B, C, AB, AC, BC, ABC(above), ABC(below
+        // -- B, C, BC are excluded or we would not have search in direction of A
+        // -- therefore the region must be A, AC, AB, ABC(above) or ABC(below)
+
+        let ab = self.b - self.a;
+        let ac = self.c - self.a;
+        let ao = -a;
+
+        // -- If we are in A simplex
+        if (glm::dot(a0, ab) <= 0) && (glm::dot(a0, ac) <= 0) {
+            return update_simplex_result1(self.a, ao);
+        }
+
+        let abc_perp = glm::cross(ab, ac);
+
+        let ac_perp_on_tri_plane = glm::cross(abc_perp, ac);
+        let ab_perp_on_tri_plane = glm::cross(ab, abc_perp);
+
+        if glm::dot(ac_perp_on_tri_plane, a0) > 0  {
+            // -- excludes ABC, since this is effectively a plane side test for one plane of the
+            // -- triangles's corresponding prism
+
+            // -- I think this excludes AB, since if a point was outside the planes AB and AC, it
+            // -- would necessarily be further along the previous search direction than A
+            break_assert!(glm::dot(ab_perp_on_tri_plane, a0) <= 0);
+
+            // -- thus, the result must be AC
+            let ac_perp_to_origin = glm::cross(glm::cross(ac, ao), ac);
+
+            update_simplex_result2(self.a, self.c, ac_perp_to_origin)
+        }
+        // -- AC excluded beyond here
+        else if glm::dot(ab_perp_on_tri_plane, a0) > 0  {
+            // -- excludes ABC, since this is effectively a plane side test for one plane of the
+            // -- triangles's corresponding prism
+
+            // -- thus, the result must be AB
+            let ab_perp_to_origin = glm::cross(glm::cross(ab, ao), ab);
+            update_simplex_result2(self.a, self.b, ab_perp_to_origin)
+        }
+        // -- AB, AC excluded beyond here
+        else {
+            // -- need to determine if we are above ABC or below
+            if glm::dot(abc_perp, ao) > 0 {
+                // -- above
+                update_simplex_result3(self.a, self.b, self.c, abc_perp);
+            }
+            else {
+                // -- below
+                // -- need to swizzle results, as we'll rely on the order to determine "outside"
+                // -- face direction in Simplex4 case
+
+                update_simplex_result3(self.a, self.c, self.b, -abc_perp);
+            }
+        }
+    }
+}
+
+impl S4Simplex {
+    pub fn update_simplex(&self) -> (ESimplex, Vec3) {
+        // -- possible voronoi regions:
+        // -- A, B, C, D, AB, AC, AD, BC, BD, CD, ABC, ABD, ACD, BCD
+        // -- A is always the furthest point in the direction perp to ABC, in the direction of O
+        // -- Again, we can exclude any not including A, and A itself, leaving:
+        // -- AB, AC, AD, ABC, ABD, ACD
+
+        // -- verifying triangle winding
+        break_assert!(glm::dot(self.a - self.b, glm::cross(self.c - self.b, self.d - self.b)) > 0);
+
+        // -- we will take an easier approach, and try and figure out which triangle (if any) is
+        // -- closest to origin, then fall back to S3Simplex::update_simplex
+
+        let ab = self.b - self.a;
+        let ac = self.c - self.a;
+        let ad = self.d - self.a;
+        let ao = -a;
+
+        let abc_perp = glm::cross(ab, ac);
+        let abd_perp = glm::cross(ad, ab);
+        let acd_perp = glm::cross(ac, ad);
+
+        if glm::dot(abc_perp, a0) > 0 {
+            // -- could be closest to ABC, ABD or ACD, but not inside
+
+        }
+        else if glm::dot(abd_perp, a0) > 0 {
+            // -- could be closest to ABD or ACD
+
+        }
+        else if glm::dot(acd_perp, a0) > 0 {
+            // -- must be closest to ACD
+            let acd_simplex = S3Simplex{
+                a: self.a,
+                b: self.c,
+                c: self.d,
+            };
+            return acd_simplex.update_simplex();
+        }
+        else {
+            // -- intersection, we are not outside any of the planes
+            let bcd_perp = glm::cross(self.c - self.b, self.d - self.b);
+            break_assert!(glm::dot(bcd_perp, a0) <= 0);
+        }
+    }
+}
+
 // -- casey muratori video
 // -- https://www.youtube.com/watch?v=Qupqu1xe7Io
 // -- for this, we assume that the last point in the simplex is the most recent addition "A"
+/*
 pub fn update_simplex() {
     if simplex.pts.len() == 2 {
         let A = &simplex.pts[1];
@@ -135,6 +307,7 @@ pub fn update_simplex() {
         }
     }
 }
+*/
 
 // -- from Real-time collision detection
 /*

@@ -1,6 +1,11 @@
 // crate imports
 use glm::{Vec3};
 
+use collections::{SPoolHandle};
+use entity::{SEntityBucket};
+use databucket::{SDataBucket};
+use render;
+use render::{SRender};
 use safewindows;
 
 // Implementation of GJK
@@ -79,6 +84,16 @@ pub enum ESimplex {
     Two(S2Simplex),
     Three(S3Simplex),
     Four(S4Simplex),
+}
+
+// -- used Vecs here for ease of use, since it's just a debug thing
+pub struct SGJKDebug {
+    has_pts: bool,
+    cur_step: usize,
+    steps: Vec<EGJKStepResult>,
+    pts_a: Vec<Vec3>,
+    pts_b: Vec<Vec3>,
+    temp_render_token: render::temp::SToken,
 }
 
 impl ESimplex {
@@ -354,3 +369,130 @@ pub fn gjk(pts_a: &[Vec3], pts_b: &[Vec3]) -> bool {
     return false;
 }
 
+impl SGJKDebug {
+    pub fn new(ctxt: &SDataBucket) -> Self {
+        ctxt.get_renderer().unwrap().with_mut(|render: &mut SRender| {
+            Self {
+                has_pts: false,
+                cur_step: 0,
+                steps: Vec::new(),
+                pts_a: Vec::new(),
+                pts_b: Vec::new(),
+                temp_render_token: render.temp().get_token(),
+            }
+        })
+    }
+
+    pub fn reset_to_entities(&mut self, ctxt: &SDataBucket, entity_1: SPoolHandle, entity_2: SPoolHandle) {
+        ctxt.get_entities().unwrap().with(|entities: &SEntityBucket| {
+            ctxt.get_renderer().unwrap().with_mut(|render: &mut SRender| {
+                let world_verts_a = {
+                    let model = entities.get_entity_model(entity_1).unwrap();
+                    let loc = entities.get_entity_location(entity_1);
+                    let per_vert_data = render.mesh_loader().get_per_vertex_data(model.mesh);
+
+                    let mut world_verts = Vec::new();
+
+                    for vd in per_vert_data.as_slice() {
+                        world_verts.push(loc.mul_point(&vd.position));
+                    }
+
+                    world_verts
+                };
+
+                let world_verts_b = {
+                    let model = entities.get_entity_model(entity_2).unwrap();
+                    let loc = entities.get_entity_location(entity_2);
+                    let per_vert_data = render.mesh_loader().get_per_vertex_data(model.mesh);
+
+                    let mut world_verts = Vec::new();
+
+                    for vd in per_vert_data.as_slice() {
+                        world_verts.push(loc.mul_point(&vd.position));
+                    }
+
+                    world_verts
+                };
+
+                self.has_pts = true;
+                self.cur_step = 0;
+                self.steps.clear();
+                self.pts_a = world_verts_a;
+                self.pts_b = world_verts_b;
+            })
+        })
+    }
+
+    pub fn first_step(&self) -> EGJKStepResult {
+        let s = minkowski_support_mapping(self.pts_a.as_slice(), self.pts_b.as_slice(), &Vec3::new(1.0, 1.0, 1.0));
+        let simplex = ESimplex::One(S1Simplex{ a: s.pos, });
+        let dir = -s.pos;
+
+        EGJKStepResult::NewSimplexAndDir(simplex, dir)
+    }
+
+    pub fn step_backward(&mut self) {
+        if self.cur_step > 0 {
+            self.cur_step -= 1;
+        }
+    }
+
+    pub fn step_forward(&mut self) {
+        if self.steps.len() > 0 && self.cur_step < (self.steps.len() - 1) {
+            self.cur_step += 1;
+        }
+        else {
+            let last_step_result = {
+                if self.steps.len() == 0 {
+                    let first_step = self.first_step();
+                    self.steps.push(first_step);
+                }
+                self.steps.last().unwrap()
+            };
+            let next_step_result = match last_step_result {
+                EGJKStepResult::Intersection => None,
+                EGJKStepResult::NoIntersection => None,
+                EGJKStepResult::NewSimplexAndDir(simplex, dir) => {
+                    Some(step_gjk(&self.pts_a, &self.pts_b, simplex.clone(), dir))
+                },
+            };
+
+            if let Some(result) = next_step_result {
+                self.steps.push(result);
+
+                if self.steps.len() > 1 { // handle pushing the very first step
+                    self.cur_step += 1;
+                }
+            }
+        }
+    }
+
+    pub fn render_cur_step(&self, ctxt: &SDataBucket) {
+        use glm::{Vec4};
+
+        ctxt.get_renderer().unwrap().with_mut(|render: &mut SRender| {
+
+            let offset = Vec3::new(0.0, 4.0, 0.0);
+
+            // -- clear old drawings
+            render.temp().clear_token(self.temp_render_token);
+
+            let mut minkowki_diff = Vec::new();
+            for v1 in self.pts_a.as_slice() {
+                for v2 in self.pts_b.as_slice() {
+                    minkowki_diff.push(v1 - v2);
+                }
+            }
+
+            // -- draw the origin
+            render.temp().draw_sphere(&offset, 0.05, &Vec4::new(1.0, 0.0, 0.0, 1.0), false, Some(self.temp_render_token));
+
+            // -- draw the minkowski difference
+            let color = Vec4::new(0.0, 0.0, 1.0, 0.5);
+            for diffv in minkowki_diff.as_slice() {
+                let drawpt = diffv + offset;
+                render.temp().draw_sphere(&drawpt, 0.05, &color, false, Some(self.temp_render_token));
+            }
+        });
+    }
+}

@@ -25,7 +25,7 @@ use utils::{STransform, SRay};
 
 mod shadowmapping;
 mod render_imgui;
-mod temp;
+pub mod temp;
 
 use self::render_imgui::{SRenderImgui};
 use self::temp::{SRenderTemp};

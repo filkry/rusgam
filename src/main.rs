@@ -466,9 +466,7 @@ fn main_d3d12() -> Result<(), &'static str> {
 
     let mut show_imgui_demo_window = false;
 
-    let gjk_temp_render_token = data_bucket.get_renderer().unwrap().with_mut(|render: &mut render::SRender| {
-        render.temp().get_token()
-    });
+    let mut gjk_debug = gjk::SGJKDebug::new(&data_bucket);
 
     while !input.q_down {
         // -- handle edit mode toggles
@@ -756,58 +754,9 @@ fn main_d3d12() -> Result<(), &'static str> {
         // -- test collision against rotating box for selected object
         if input.p_edge.down() {
             if let Some(e) = last_picked_entity {
-                STACK_ALLOCATOR.with(|sa| {
-                    data_bucket.get_renderer().unwrap().with_mut(|render: &mut render::SRender| {
-                        data_bucket.get_entities().unwrap().with(|entities: &SEntityBucket| {
-
-                            let world_verts = {
-                                let model = entities.get_entity_model(e).unwrap();
-                                let loc = entities.get_entity_location(e);
-                                let per_vert_data = render.mesh_loader().get_per_vertex_data(model.mesh);
-
-                                let mut world_verts = SMemVec::new(sa, per_vert_data.len(), 0).unwrap();
-
-                                for vd in per_vert_data.as_slice() {
-                                    world_verts.push(loc.mul_point(&vd.position));
-                                }
-
-                                world_verts
-                            };
-
-                            let rot_box_world_verts = {
-                                let model = entities.get_entity_model(rotating_entity).unwrap();
-                                let loc = entities.get_entity_location(rotating_entity);
-                                let per_vert_data = render.mesh_loader().get_per_vertex_data(model.mesh);
-
-                                let mut world_verts = SMemVec::new(sa, per_vert_data.len(), 0).unwrap();
-
-                                for vd in per_vert_data.as_slice() {
-                                    world_verts.push(loc.mul_point(&vd.position));
-                                }
-
-                                world_verts
-                            };
-
-                            let mut minkowki_diff = SMemVec::new(sa, world_verts.len() * rot_box_world_verts.len(), 0).unwrap();
-                            for v1 in world_verts.as_slice() {
-                                for v2 in rot_box_world_verts.as_slice() {
-                                    minkowki_diff.push(v1 - v2);
-                                }
-                            }
-
-                            let offset = Vec3::new(0.0, 4.0, 0.0);
-                            let color = Vec4::new(0.0, 0.0, 1.0, 0.5);
-                            render.temp().clear_token(gjk_temp_render_token);
-                            for diffv in minkowki_diff.as_slice() {
-                                let drawpt = diffv + offset;
-                                render.temp().draw_sphere(&drawpt, 0.05, &color, false, Some(gjk_temp_render_token)); // FRK(TODO): draw points
-                            }
-
-                            //println!("GJK result: {}", gjk::gjk(world_verts.as_slice(), rot_box_world_verts.as_slice()));
-
-                        });
-                    });
-                });
+                gjk_debug.reset_to_entities(&data_bucket, e, rotating_entity);
+                gjk_debug.step_forward();
+                gjk_debug.render_cur_step(&data_bucket);
             }
         }
 

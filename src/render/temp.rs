@@ -573,15 +573,24 @@ impl<'a> SRenderTemp<'a> {
     }
 
     pub fn clear_token(&mut self, token: SToken) {
-        let mut spherei = 0;
-        while spherei < self.spheres.len() {
-            if self.spheres[spherei].token == token {
-                self.spheres.swap_remove(spherei);
-            }
-            else {
-                spherei += 1;
+        macro_rules! clear_table {
+            ($table:ident) => {
+                let mut i = 0;
+                while i < self.$table.len() {
+                    if self.$table[i].token == token {
+                        self.$table.swap_remove(i);
+                    }
+                    else {
+                        i += 1;
+                    }
+                }
             }
         }
+
+        clear_table!(points);
+        clear_table!(lines);
+        clear_table!(spheres);
+        clear_table!(models);
     }
 
     pub fn draw_model(&mut self, model: &SModel, location: &STransform, over_world: bool) {

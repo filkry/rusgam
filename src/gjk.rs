@@ -344,7 +344,9 @@ pub fn gjk(pts_a: &[Vec3], pts_b: &[Vec3]) -> bool {
                 simplex = new_simplex;
                 dir = new_dir;
             },
-            EGJKStepResult::NoIntersection => unreachable!(),
+            EGJKStepResult::NoIntersection => {
+                return false;
+            },
         }
     }
 

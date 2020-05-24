@@ -281,6 +281,103 @@ impl<'a> SRenderTemp<'a> {
             .create_pipeline_state(&line_pipeline_state_stream_desc)?;
 
         // =========================================================================================
+        // SPHERE pipeline state
+        // =========================================================================================
+
+        let sphere_root_signature_flags = {
+            use t12::ERootSignatureFlags::*;
+
+            t12::SRootSignatureFlags::create(&[
+                AllowInputAssemblerInputLayout,
+                DenyHullShaderRootAccess,
+                DenyDomainShaderRootAccess,
+                DenyGeometryShaderRootAccess,
+                DenyPixelShaderRootAccess,
+            ])
+        };
+
+        let vp_root_parameter = t12::SRootParameter {
+            type_: t12::ERootParameterType::E32BitConstants,
+            type_data: t12::ERootParameterTypeData::Constants {
+                constants: t12::SRootConstants {
+                    shader_register: 0,
+                    register_space: 0,
+                    num_32_bit_values: (size_of::<Mat4>() / size_of::<f32>()) as u32,
+                },
+            },
+            shader_visibility: t12::EShaderVisibility::Vertex,
+        };
+
+        let mut sphere_root_signature_desc = t12::SRootSignatureDesc::new(sphere_root_signature_flags);
+        sphere_root_signature_desc.parameters.push(vp_root_parameter);
+        let sphere_vp_root_param_idx = sphere_root_signature_desc.parameters.len() - 1;
+
+        let sphere_root_signature =
+            device.create_root_signature(sphere_root_signature_desc,
+                                         t12::ERootSignatureVersion::V1)?;
+
+        let vertex_input_slot = 0;
+        let instance_input_slot = 1;
+        let mut sphere_input_layout_desc = t12::SInputLayoutDesc::create(&[
+            t12::SInputElementDesc::create(
+                "VERTPOSITION",
+                0,
+                t12::EDXGIFormat::R32G32B32Float,
+                vertex_input_slot,
+                winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
+                t12::EInputClassification::PerVertexData,
+                0,
+            ),
+            t12::SInputElementDesc::create(
+                "INSTANCEPOSITION",
+                0,
+                t12::EDXGIFormat::R32G32B32Float,
+                instance_input_slot,
+                winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
+                t12::EInputClassification::PerInstanceData,
+                1,
+            ),
+            t12::SInputElementDesc::create(
+                "COLOR",
+                0,
+                t12::EDXGIFormat::R32G32B32Float,
+                instance_input_slot,
+                winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
+                t12::EInputClassification::PerInstanceData,
+                1,
+            ),
+        ]);
+
+        let sphere_vertblob = t12::read_file_to_blob("shaders_built/sphere_vertex.cso")?;
+        let sphere_pixelblob = t12::read_file_to_blob("shaders_built/sphere_pixel.cso")?;
+
+        let sphere_vert_byte_code = t12::SShaderBytecode::create(sphere_vertblob);
+        let sphere_pixel_byte_code = t12::SShaderBytecode::create(sphere_pixelblob);
+
+        let mut rtv_formats = t12::SRTFormatArray {
+            rt_formats: ArrayVec::new(),
+        };
+        rtv_formats.rt_formats.push(t12::EDXGIFormat::R8G8B8A8UNorm);
+
+        let sphere_pipeline_state_stream = SSpherePipelineStateStream {
+            root_signature: n12::SPipelineStateStreamRootSignature::create(&sphere_root_signature),
+            input_layout: n12::SPipelineStateStreamInputLayout::create(&mut sphere_input_layout_desc),
+            primitive_topology: n12::SPipelineStateStreamPrimitiveTopology::create(
+                t12::EPrimitiveTopologyType::Triangle,
+            ),
+            vertex_shader: n12::SPipelineStateStreamVertexShader::create(&sphere_vert_byte_code),
+            pixel_shader: n12::SPipelineStateStreamPixelShader::create(&sphere_pixel_byte_code),
+            depth_stencil_format: n12::SPipelineStateStreamDepthStencilFormat::create(
+                t12::EDXGIFormat::D32Float,
+            ),
+            rtv_formats: n12::SPipelineStateStreamRTVFormats::create(&rtv_formats),
+        };
+        let sphere_pipeline_state_stream_desc = t12::SPipelineStateStreamDesc::create(&sphere_pipeline_state_stream);
+        let sphere_pipeline_state = device
+            .raw()
+            .create_pipeline_state(&sphere_pipeline_state_stream_desc)?;
+
+        // =========================================================================================
         // MESH/MODEL pipeline state
         // =========================================================================================
         let mesh_root_signature_flags = {
@@ -374,6 +471,21 @@ impl<'a> SRenderTemp<'a> {
             line_vertex_buffer_view: [None, None],
             line_in_world_indices: SMemVec::new(&SYSTEM_ALLOCATOR, 1024, 0)?,
             line_over_world_indices: SMemVec::new(&SYSTEM_ALLOCATOR, 1024, 0)?,
+
+            sphere_pipeline_state,
+            sphere_root_signature,
+            sphere_vp_root_param_idx,
+            _sphere_vert_byte_code: sphere_vert_byte_code,
+            _sphere_pixel_byte_code: sphere_pixel_byte_code,
+            spheres: SMemVec::new(&SYSTEM_ALLOCATOR, 1024, 0)?,
+            sphere_vertex_buffer_intermediate_resource: Some(sphere_buffer_int),
+            sphere_vertex_buffer_resource: Some(sphere_vert_buffer_resource),
+            sphere_vertex_buffer_view: Some(sphere_vert_buffer_view),
+            sphere_instance_buffer_intermediate_resource: [None, None],
+            sphere_instance_buffer_resource: [None, None],
+            sphere_instance_buffer_view: [None, None],
+            sphere_in_world_indices: SMemVec::new(&SYSTEM_ALLOCATOR, 1024, 0)?,
+            sphere_over_world_indices: SMemVec::new(&SYSTEM_ALLOCATOR, 1024, 0)?,
 
             mesh_pipeline_state,
             mesh_root_signature,
@@ -477,6 +589,7 @@ impl<'a> super::SRender<'a> {
     pub fn render_temp_in_world(&mut self, window: &mut n12::SD3D12Window, view_matrix: &Mat4) -> Result<(), &'static str> {
         self.render_temp_points(window, view_matrix, true)?;
         self.render_temp_lines(window, view_matrix, true)?;
+        self.render_temp_spheres(window, view_matrix, true)?;
         self.render_temp_models(window, view_matrix, true)?;
 
         Ok(())
@@ -485,6 +598,7 @@ impl<'a> super::SRender<'a> {
     pub fn render_temp_over_world(&mut self, window: &mut n12::SD3D12Window, view_matrix: &Mat4) -> Result<(), &'static str> {
         self.render_temp_points(window, view_matrix, false)?;
         self.render_temp_lines(window, view_matrix, false)?;
+        self.render_temp_spheres(window, view_matrix, false)?;
         self.render_temp_models(window, view_matrix, false)?;
 
         Ok(())
@@ -787,9 +901,162 @@ impl<'a> super::SRender<'a> {
         };
         list.rs_set_scissor_rects(t12::SScissorRects::create(&[&scissorrect]));
 
+        // -- $$$FRK(TODO): this should be doable in one draw call
         for i in 0..self.render_temp.lines.len() {
             list.draw_instanced(2, 1, (i * 2) as u32, 0);
         }
+
+        // -- execute on the queue
+        drop(list);
+        assert_eq!(window.currentbackbufferindex(), back_buffer_idx);
+        self.direct_command_pool.execute_and_free_list(&mut handle)?;
+
+        Ok(())
+    }
+
+    pub fn render_temp_spheres(&mut self, window: &mut n12::SD3D12Window, view_matrix: &Mat4, in_world: bool) -> Result<(), &'static str> {
+        let back_buffer_idx = window.currentbackbufferindex();
+
+        /* A very basic test
+        tr.lines.push(SDebugLine{
+            start: Vec3::new(-5.0, 2.0, 0.0),
+            end: Vec3::new(5.0, 2.0, 0.0),
+            colour: Vec3::new(1.0, 0.0, 0.0),
+        });
+        */
+
+        if self.render_temp.spheres.len() == 0 {
+            return Ok(());
+        }
+
+        // -- create/upload instance buffer
+        #[repr(C)]
+        struct SDebugSphereShaderInstance {
+            pos: [f32; 3],
+            colour: [f32; 4],
+        }
+        impl SDebugSphereShaderInstance {
+            fn new(pos: &Vec3) -> Self {
+                Self {
+                    pos: [pos.x, pos.y, pos.z],
+                    colour: [colour.x, colour.y, colour.z, colour.w],
+                }
+            }
+        }
+
+        // -- generate data and copy to GPU
+        // -- $$$FRK(TODO): move this step to earlier in render?
+        let spheres_to_draw = STACK_ALLOCATOR.with(|sa| -> Result<bool, &'static str> {
+            let tr = &mut self.render_temp;
+
+            let mut instance_buffer_data = SMemVec::new(
+                sa,
+                tr.spheres.len(),
+                0,
+            )?;
+
+            let sphere_indices = if in_world { &tr.sphere_in_world_indices } else { &tr.sphere_over_world_indices };
+
+            for i in sphere_indices.as_slice() {
+                let sphere = &tr.spheres[*i as usize];
+                vertex_buffer_data.push(SDebugSphereShaderInstance::new(&sphere.pos, &sphere.colour));
+            }
+
+            if instance_buffer_data.len() == 0 {
+                return Ok(false);
+            }
+
+            let mut handle = self.copy_command_pool.alloc_list()?;
+            let mut copy_command_list = self.copy_command_pool.get_list(&handle)?;
+
+            let instance_buffer_resource = {
+                let instance_buffer_flags = t12::SResourceFlags::from(t12::EResourceFlags::ENone);
+                copy_command_list.update_buffer_resource(
+                    self.device.deref(),
+                    instance_buffer_data.as_slice(),
+                    instance_buffer_flags
+                )?
+            };
+            let instance_buffer_view = instance_buffer_resource
+                .destinationresource
+                .create_vertex_buffer_view()?;
+
+            drop(copy_command_list);
+            let fence_val = self.copy_command_pool.execute_and_free_list(&mut handle)?;
+            drop(handle);
+
+            // -- have the direct queue wait on the copy upload to complete
+            self.direct_command_pool.gpu_wait(
+                self.copy_command_pool.get_internal_fence(),
+                fence_val,
+            )?;
+
+            tr.sphere_vertex_buffer_intermediate_resource[back_buffer_idx] =
+                Some(vert_buffer_resource.intermediateresource);
+            tr.sphere_vertex_buffer_resource[back_buffer_idx] =
+                Some(vert_buffer_resource.destinationresource);
+            tr.sphere_vertex_buffer_view[back_buffer_idx] = Some(vertex_buffer_view);
+
+            Ok(true)
+        })?;
+
+        if !spheres_to_draw {
+            return Ok(());
+        }
+
+        // -- set up pipeline and render lines
+        let mut handle = self.direct_command_pool.alloc_list()?;
+        let mut list = self.direct_command_pool.get_list(&handle)?;
+
+        list.set_pipeline_state(&self.render_temp.sphere_pipeline_state);
+        // root signature has to be set explicitly despite being on PSO, according to tutorial
+        list.set_graphics_root_signature(&self.render_temp.sphere_root_signature.raw());
+
+        // -- setup rasterizer state
+        let viewport = t12::SViewport::new(
+            0.0,
+            0.0,
+            window.width() as f32,
+            window.height() as f32,
+            None,
+            None,
+        );
+        list.rs_set_viewports(&[&viewport]);
+
+        // -- setup the output merger
+        let render_target_view = window.currentrendertargetdescriptor()?;
+        let depth_texture_view = self._depth_texture_view.as_ref().expect("no depth texture").cpu_descriptor(0);
+        list.om_set_render_targets(&[&render_target_view], false, &depth_texture_view);
+
+        let perspective_matrix: Mat4 = {
+            let aspect = (window.width() as f32) / (window.height() as f32);
+            let zfar = 100.0;
+
+            //SMat44::new_perspective(aspect, fovy, znear, zfar)
+            glm::perspective_lh_zo(aspect, self.fovy(), self.znear(), zfar)
+        };
+        let view_perspective = perspective_matrix * view_matrix;
+
+        list.set_graphics_root_32_bit_constants(self.render_temp.sphere_vp_root_param_idx as u32,
+                                                &view_perspective, 0);
+
+        // -- set up input assembler
+        list.ia_set_primitive_topology(t12::EPrimitiveTopology::TriangleList);
+        let vert_buffer_view = self.render_temp.sphere_vertex_buffer_view.
+            as_ref().expect("should have generated resource earlier in this function");
+        let instance_buffer_view = self.render_temp.sphere_instance_buffer_view[back_buffer_idx].
+            as_ref().expect("should have generated resource earlier in this function");
+        list.ia_set_vertex_buffers(0, &[vert_buffer_view, instance_buffer_view]);
+
+        let scissorrect = t12::SRect {
+            left: 0,
+            right: std::i32::MAX,
+            top: 0,
+            bottom: std::i32::MAX,
+        };
+        list.rs_set_scissor_rects(t12::SScissorRects::create(&[&scissorrect]));
+
+        list.draw_instanced(4 * 6, spheres_to_draw.len(), 0, 0);
 
         // -- execute on the queue
         drop(list);

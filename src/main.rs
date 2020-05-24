@@ -798,7 +798,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                                 render.temp().draw_point(&drawpt, &color, false); // FRK(TODO): draw points
                             }
 
-                            //println!("GJK result: {}", gjk::gjk(world_verts.as_slice(), rot_box_world_verts.as_slice()));
+                            println!("GJK result: {}", gjk::gjk(world_verts.as_slice(), rot_box_world_verts.as_slice()));
 
                         });
                     });

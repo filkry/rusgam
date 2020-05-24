@@ -377,7 +377,7 @@ impl<'a> SRenderTemp<'a> {
             t12::SInputElementDesc::create(
                 "COLOR",
                 0,
-                t12::EDXGIFormat::R32G32B32Float,
+                t12::EDXGIFormat::R32G32B32A32Float,
                 instance_input_slot,
                 winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
                 t12::EInputClassification::PerInstanceData,

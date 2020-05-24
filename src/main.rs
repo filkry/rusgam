@@ -792,13 +792,13 @@ fn main_d3d12() -> Result<(), &'static str> {
                             }
 
                             let offset = Vec3::new(0.0, 4.0, 0.0);
-                            let color = Vec3::new(0.0, 0.0, 1.0);
+                            let color = Vec4::new(0.0, 0.0, 1.0, 0.5);
                             for diffv in minkowki_diff.as_slice() {
                                 let drawpt = diffv + offset;
-                                render.temp().draw_point(&drawpt, &color, false); // FRK(TODO): draw points
+                                render.temp().draw_sphere(&drawpt, 0.05, &color, false); // FRK(TODO): draw points
                             }
 
-                            println!("GJK result: {}", gjk::gjk(world_verts.as_slice(), rot_box_world_verts.as_slice()));
+                            //println!("GJK result: {}", gjk::gjk(world_verts.as_slice(), rot_box_world_verts.as_slice()));
 
                         });
                     });

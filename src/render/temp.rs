@@ -70,6 +70,8 @@ struct SSpherePipelineStateStream<'a> {
 struct SPoint {
     p: Vec3,
     colour: Vec3,
+    over_world: bool,
+    token: u64,
 }
 
 #[allow(dead_code)]
@@ -77,6 +79,8 @@ struct SLine {
     start: Vec3,
     end: Vec3,
     colour: Vec4,
+    over_world: bool,
+    token: u64,
 }
 
 #[allow(dead_code)]
@@ -84,6 +88,15 @@ struct SSphere {
     scale: f32,
     pos: Vec3,
     colour: Vec4,
+    over_world: bool,
+    token: u64,
+}
+
+struct STempModel {
+    model: SModel,
+    location: STransform,
+    over_world: bool,
+    token: u64,
 }
 
 pub struct SRenderTemp<'a> {
@@ -98,8 +111,6 @@ pub struct SRenderTemp<'a> {
     point_vertex_buffer_intermediate_resource: [Option<n12::SResource>; 2],
     point_vertex_buffer_resource: [Option<n12::SResource>; 2],
     point_vertex_buffer_view: [Option<t12::SVertexBufferView>; 2],
-    point_in_world_indices: SMemVec::<'a, u16>,
-    point_over_world_indices: SMemVec::<'a, u16>,
 
     // -- line pipeline stuff
     line_pipeline_state: t12::SPipelineState,
@@ -112,8 +123,6 @@ pub struct SRenderTemp<'a> {
     line_vertex_buffer_intermediate_resource: [Option<n12::SResource>; 2],
     line_vertex_buffer_resource: [Option<n12::SResource>; 2],
     line_vertex_buffer_view: [Option<t12::SVertexBufferView>; 2],
-    line_in_world_indices: SMemVec::<'a, u16>,
-    line_over_world_indices: SMemVec::<'a, u16>,
 
     // -- sphere pipeline stuff
     instance_mesh_pipeline_state: t12::SPipelineState,
@@ -127,8 +136,6 @@ pub struct SRenderTemp<'a> {
     sphere_instance_buffer_intermediate_resource: [Option<n12::SResource>; 2],
     sphere_instance_buffer_resource: [Option<n12::SResource>; 2],
     sphere_instance_buffer_view: [Option<t12::SVertexBufferView>; 2],
-    sphere_in_world_indices: SMemVec::<'a, u16>,
-    sphere_over_world_indices: SMemVec::<'a, u16>,
 
     // -- mesh pipeline stuff
     mesh_pipeline_state: t12::SPipelineState,
@@ -138,10 +145,9 @@ pub struct SRenderTemp<'a> {
     _mesh_vert_byte_code: t12::SShaderBytecode,
     _mesh_pixel_byte_code: t12::SShaderBytecode,
 
-    models: SMemVec::<'a, SModel>,
-    model_xforms: SMemVec::<'a, STransform>,
-    model_in_world_indices: SMemVec::<'a, u16>,
-    model_over_world_indices: SMemVec::<'a, u16>,
+    models: SMemVec::<'a, STempModel>,
+
+    next_token: u64,
 }
 
 impl<'a> SRenderTemp<'a> {
@@ -507,8 +513,6 @@ impl<'a> SRenderTemp<'a> {
             point_vertex_buffer_intermediate_resource: [None, None],
             point_vertex_buffer_resource: [None, None],
             point_vertex_buffer_view: [None, None],
-            point_in_world_indices: SMemVec::new(&SYSTEM_ALLOCATOR, 1024, 0)?,
-            point_over_world_indices: SMemVec::new(&SYSTEM_ALLOCATOR, 1024, 0)?,
 
             line_pipeline_state,
             line_root_signature,
@@ -519,8 +523,6 @@ impl<'a> SRenderTemp<'a> {
             line_vertex_buffer_intermediate_resource: [None, None],
             line_vertex_buffer_resource: [None, None],
             line_vertex_buffer_view: [None, None],
-            line_in_world_indices: SMemVec::new(&SYSTEM_ALLOCATOR, 1024, 0)?,
-            line_over_world_indices: SMemVec::new(&SYSTEM_ALLOCATOR, 1024, 0)?,
 
             instance_mesh_pipeline_state,
             instance_mesh_root_signature,
@@ -533,8 +535,6 @@ impl<'a> SRenderTemp<'a> {
             sphere_instance_buffer_intermediate_resource: [None, None],
             sphere_instance_buffer_resource: [None, None],
             sphere_instance_buffer_view: [None, None],
-            sphere_in_world_indices: SMemVec::new(&SYSTEM_ALLOCATOR, 1024, 0)?,
-            sphere_over_world_indices: SMemVec::new(&SYSTEM_ALLOCATOR, 1024, 0)?,
 
             mesh_pipeline_state,
             mesh_root_signature,
@@ -544,39 +544,29 @@ impl<'a> SRenderTemp<'a> {
             _mesh_pixel_byte_code: mesh_pixel_byte_code,
 
             models: SMemVec::new(&SYSTEM_ALLOCATOR, 1024, 0)?,
-            model_xforms: SMemVec::new(&SYSTEM_ALLOCATOR, 1024, 0)?,
-            model_in_world_indices: SMemVec::new(&SYSTEM_ALLOCATOR, 1024, 0)?,
-            model_over_world_indices: SMemVec::new(&SYSTEM_ALLOCATOR, 1024, 0)?,
+
+            next_token: 1,
         })
     }
 
     pub fn draw_model(&mut self, model: &SModel, location: &STransform, over_world: bool) {
         assert!(model.diffuse_texture.is_none());
 
-        self.models.push(model.clone());
-        self.model_xforms.push(location.clone());
-        assert!(self.models.len() == self.model_xforms.len());
-        let idx = (self.models.len() - 1) as u16;
-        if over_world {
-            self.model_over_world_indices.push(idx);
-        }
-        else {
-            self.model_in_world_indices.push(idx);
-        }
+        self.models.push(STempModel{
+            model: model.clone(),
+            location: location.clone(),
+            over_world,
+            token: std::u64::MAX,
+        });
     }
 
     pub fn draw_point(&mut self, p: &Vec3, color: &Vec3, over_world: bool) {
         self.points.push(SPoint {
             p: p.clone(),
             colour: color.clone(),
+            over_world,
+            token: std::u64::MAX,
         });
-        let idx = (self.points.len() - 1) as u16;
-        if over_world {
-            self.point_over_world_indices.push(idx);
-        }
-        else {
-            self.point_in_world_indices.push(idx);
-        }
     }
 
     pub fn draw_line(&mut self, start: &Vec3, end: &Vec3, color: &Vec4, over_world: bool) {
@@ -584,14 +574,9 @@ impl<'a> SRenderTemp<'a> {
             start: start.clone(),
             end: end.clone(),
             colour: color.clone(),
+            over_world,
+            token: std::u64::MAX,
         });
-        let idx = (self.lines.len() - 1) as u16;
-        if over_world {
-            self.line_over_world_indices.push(idx);
-        }
-        else {
-            self.line_in_world_indices.push(idx);
-        }
     }
 
     pub fn draw_sphere(&mut self, pos: &Vec3, scale: f32, color: &Vec4, over_world: bool) {
@@ -599,14 +584,9 @@ impl<'a> SRenderTemp<'a> {
             scale,
             pos: pos.clone(),
             colour: color.clone(),
+            over_world,
+            token: std::u64::MAX,
         });
-        let idx = (self.spheres.len() - 1) as u16;
-        if over_world {
-            self.sphere_over_world_indices.push(idx);
-        }
-        else {
-            self.sphere_in_world_indices.push(idx);
-        }
     }
 
     pub fn draw_aabb(&mut self, aabb: &SAABB, color: &Vec4, over_world: bool) {
@@ -637,18 +617,9 @@ impl<'a> SRenderTemp<'a> {
 
     pub fn clear_tables(&mut self) {
         self.points.clear();
-        self.point_in_world_indices.clear();
-        self.point_over_world_indices.clear();
         self.lines.clear();
-        self.line_in_world_indices.clear();
-        self.line_over_world_indices.clear();
         self.spheres.clear();
-        self.sphere_in_world_indices.clear();
-        self.sphere_over_world_indices.clear();
         self.models.clear();
-        self.model_xforms.clear();
-        self.model_in_world_indices.clear();
-        self.model_over_world_indices.clear();
     }
 }
 
@@ -714,10 +685,10 @@ impl<'a> super::SRender<'a> {
                 0,
             )?;
 
-            let point_indices = if in_world { &tr.point_in_world_indices } else { &tr.point_over_world_indices };
+            let over_world = !in_world;
+            for point in tr.points.as_slice() {
+                if point.over_world != over_world { continue; }
 
-            for i in point_indices.as_slice() {
-                let point = &tr.points[*i as usize];
                 vertex_buffer_data.push(SDebugPointShaderVert::new(&point.p, &point.colour));
             }
 
@@ -868,10 +839,11 @@ impl<'a> super::SRender<'a> {
                 0,
             )?;
 
-            let line_indices = if in_world { &tr.line_in_world_indices } else { &tr.line_over_world_indices };
+            let over_world = !in_world;
 
-            for i in line_indices.as_slice() {
-                let line = &tr.lines[*i as usize];
+            for line in tr.lines.as_slice() {
+                if line.over_world != over_world { continue; }
+
                 vertex_buffer_data.push(SDebugLineShaderVert::new(&line.start, &line.colour));
                 vertex_buffer_data.push(SDebugLineShaderVert::new(&line.end, &line.colour));
             }
@@ -985,10 +957,12 @@ impl<'a> super::SRender<'a> {
         let back_buffer_idx = window.currentbackbufferindex();
 
         // A very basic test
+        /*
         self.temp().draw_sphere(&Vec3::new(-1.0, 4.0, 0.0), 0.2, &Vec4::new(1.0, 0.0, 0.0, 0.5), false);
         self.temp().draw_sphere(&Vec3::new(0.0, 4.0, 0.0), 1.0, &Vec4::new(1.0, 0.0, 0.0, 0.5), false);
         self.temp().draw_sphere(&Vec3::new(1.0, 4.0, 0.0), 1.0, &Vec4::new(1.0, 0.0, 0.0, 0.5), false);
         self.temp().draw_sphere(&Vec3::new(2.0, 4.0, 0.0), 1.0, &Vec4::new(1.0, 0.0, 0.0, 0.5), false);
+        */
 
         if self.render_temp.spheres.len() == 0 {
             return Ok(());
@@ -1022,10 +996,9 @@ impl<'a> super::SRender<'a> {
                 0,
             )?;
 
-            let sphere_indices = if in_world { &tr.sphere_in_world_indices } else { &tr.sphere_over_world_indices };
-
-            for i in sphere_indices.as_slice() {
-                let sphere = &tr.spheres[*i as usize];
+            let over_world = !in_world;
+            for sphere in tr.spheres.as_slice() {
+                if sphere.over_world != over_world { continue; }
                 instance_buffer_data.push(SDebugSphereShaderInstance::new(sphere.scale, &sphere.pos, &sphere.colour));
             }
 
@@ -1142,7 +1115,6 @@ impl<'a> super::SRender<'a> {
         if self.render_temp.models.len() == 0 {
             return Ok(());
         }
-        assert!(self.render_temp.models.len() == self.render_temp.model_xforms.len());
 
         let back_buffer_idx = window.currentbackbufferindex();
 
@@ -1189,19 +1161,20 @@ impl<'a> super::SRender<'a> {
         };
         list.rs_set_scissor_rects(t12::SScissorRects::create(&[&scissorrect]));
 
-        let indices = if in_world { &self.render_temp.model_in_world_indices } else { &self.render_temp.model_over_world_indices };
+        let over_world = !in_world;
 
-        for i in indices.as_slice() {
-            let ii = *i as usize;
-            let model_matrix = self.render_temp.model_xforms[ii].as_mat4();
+        for model in self.render_temp.models.as_slice() {
+            if model.over_world != over_world { continue; }
+
+            let model_matrix = model.location.as_mat4();
             let mvp = view_projection * model_matrix;
 
             list.set_graphics_root_32_bit_constants(self.render_temp.mesh_mvp_root_param_idx as u32,
                                                     &mvp, 0);
             list.set_graphics_root_32_bit_constants(self.render_temp.mesh_color_root_param_idx as u32,
-                                                    &self.render_temp.models[ii].diffuse_colour, 0);
+                                                    &model.model.diffuse_colour, 0);
 
-            self.mesh_loader.bind_buffers_and_draw(self.render_temp.models[ii].mesh, &mut list)?;
+            self.mesh_loader.bind_buffers_and_draw(model.model.mesh, &mut list)?;
         }
 
         // -- execute on the queue

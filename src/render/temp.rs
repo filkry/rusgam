@@ -415,7 +415,7 @@ impl<'a> SRenderTemp<'a> {
             .create_pipeline_state(&instance_mesh_pipeline_state_stream_desc)?;
 
         // -- sphere mesh
-        let sphere_mesh = SModel::new_from_obj("debug_icosphere.obj", mesh_loader, texture_loader, 1.0, false)?.mesh;
+        let sphere_mesh = SModel::new_from_obj("assets/debug_icosphere.obj", mesh_loader, texture_loader, 1.0, false)?.mesh;
 
         // =========================================================================================
         // MESH/MODEL pipeline state
@@ -584,6 +584,20 @@ impl<'a> SRenderTemp<'a> {
         }
     }
 
+    pub fn draw_sphere(&mut self, pos: &Vec3, color: &Vec4, over_world: bool) {
+        self.spheres.push(SSphere {
+            pos: pos.clone(),
+            colour: color.clone(),
+        });
+        let idx = (self.spheres.len() - 1) as u16;
+        if over_world {
+            self.sphere_over_world_indices.push(idx);
+        }
+        else {
+            self.sphere_in_world_indices.push(idx);
+        }
+    }
+
     pub fn draw_aabb(&mut self, aabb: &SAABB, color: &Vec4, over_world: bool) {
         let verts = [
             Vec3::new(aabb.min.x, aabb.min.y, aabb.min.z),
@@ -617,6 +631,9 @@ impl<'a> SRenderTemp<'a> {
         self.lines.clear();
         self.line_in_world_indices.clear();
         self.line_over_world_indices.clear();
+        self.spheres.clear();
+        self.sphere_in_world_indices.clear();
+        self.sphere_over_world_indices.clear();
         self.models.clear();
         self.model_xforms.clear();
         self.model_in_world_indices.clear();
@@ -956,13 +973,11 @@ impl<'a> super::SRender<'a> {
     pub fn render_temp_spheres(&mut self, window: &mut n12::SD3D12Window, view_matrix: &Mat4, in_world: bool) -> Result<(), &'static str> {
         let back_buffer_idx = window.currentbackbufferindex();
 
-        /* A very basic test
-        tr.lines.push(SDebugLine{
-            start: Vec3::new(-5.0, 2.0, 0.0),
-            end: Vec3::new(5.0, 2.0, 0.0),
-            colour: Vec3::new(1.0, 0.0, 0.0),
-        });
-        */
+        // A very basic test
+        self.temp().draw_sphere(&Vec3::new(-1.0, 4.0, 0.0), &Vec4::new(1.0, 0.0, 0.0, 0.5), false);
+        self.temp().draw_sphere(&Vec3::new(0.0, 4.0, 0.0), &Vec4::new(1.0, 0.0, 0.0, 0.5), false);
+        self.temp().draw_sphere(&Vec3::new(1.0, 4.0, 0.0), &Vec4::new(1.0, 0.0, 0.0, 0.5), false);
+        self.temp().draw_sphere(&Vec3::new(2.0, 4.0, 0.0), &Vec4::new(1.0, 0.0, 0.0, 0.5), false);
 
         if self.render_temp.spheres.len() == 0 {
             return Ok(());

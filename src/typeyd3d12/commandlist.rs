@@ -109,11 +109,29 @@ impl SCommandList {
         start_slot: u32,
         vertex_buffers: &[&SVertexBufferView],
     ) {
-        assert!(vertex_buffers.len() == 1); // didn't want to implement copying d3dtype array
+        assert!(vertex_buffers.len() <= 10);
+
+        let mut raw_array : [D3D12_VERTEX_BUFFER_VIEW ; 10] = [
+            std::mem::MaybeUninit::zeroed().assume_init(),
+            std::mem::MaybeUninit::zeroed().assume_init(),
+            std::mem::MaybeUninit::zeroed().assume_init(),
+            std::mem::MaybeUninit::zeroed().assume_init(),
+            std::mem::MaybeUninit::zeroed().assume_init(),
+            std::mem::MaybeUninit::zeroed().assume_init(),
+            std::mem::MaybeUninit::zeroed().assume_init(),
+            std::mem::MaybeUninit::zeroed().assume_init(),
+            std::mem::MaybeUninit::zeroed().assume_init(),
+            std::mem::MaybeUninit::zeroed().assume_init(),
+        ];
+
+        for (i, vb) in vertex_buffers.iter().enumerate() {
+            raw_array[i] = *vb.raw();
+        }
+
         self.commandlist.IASetVertexBuffers(
             start_slot,
             vertex_buffers.len() as u32,
-            vertex_buffers[0].raw(),
+            &raw_array[0],
         )
     }
 

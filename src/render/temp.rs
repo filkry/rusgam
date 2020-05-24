@@ -52,6 +52,19 @@ struct SLinePipelineStateStream<'a> {
     rtv_formats: n12::SPipelineStateStreamRTVFormats<'a>,
 }
 
+#[allow(unused_variables)]
+#[allow(unused_mut)]
+#[repr(C)]
+struct SSpherePipelineStateStream<'a> {
+    root_signature: n12::SPipelineStateStreamRootSignature<'a>,
+    input_layout: n12::SPipelineStateStreamInputLayout<'a>,
+    primitive_topology: n12::SPipelineStateStreamPrimitiveTopology,
+    vertex_shader: n12::SPipelineStateStreamVertexShader<'a>,
+    pixel_shader: n12::SPipelineStateStreamPixelShader<'a>,
+    depth_stencil_format: n12::SPipelineStateStreamDepthStencilFormat,
+    rtv_formats: n12::SPipelineStateStreamRTVFormats<'a>,
+}
+
 #[allow(dead_code)]
 struct SPoint {
     p: Vec3,
@@ -66,6 +79,7 @@ struct SLine {
 }
 
 pub struct SRenderTemp<'a> {
+    // -- point pipelines stuff
     point_pipeline_state: t12::SPipelineState,
     point_root_signature: n12::SRootSignature,
     point_vp_root_param_idx: usize,
@@ -79,6 +93,7 @@ pub struct SRenderTemp<'a> {
     point_in_world_indices: SMemVec::<'a, u16>,
     point_over_world_indices: SMemVec::<'a, u16>,
 
+    // -- line pipeline stuff
     line_pipeline_state: t12::SPipelineState,
     line_root_signature: n12::SRootSignature,
     line_vp_root_param_idx: usize,
@@ -92,6 +107,24 @@ pub struct SRenderTemp<'a> {
     line_in_world_indices: SMemVec::<'a, u16>,
     line_over_world_indices: SMemVec::<'a, u16>,
 
+    // -- sphere pipeline stuff
+    sphere_pipeline_state: t12::SPipelineState,
+    sphere_root_signature: n12::SRootSignature,
+    sphere_vp_root_param_idx: usize,
+    _sphere_vert_byte_code: t12::SShaderBytecode,
+    _sphere_pixel_byte_code: t12::SShaderBytecode,
+
+    spheres: SMemVec::<'a, SLine>,
+    sphere_vertex_buffer_intermediate_resource: Option<n12::SResource>,
+    sphere_vertex_buffer_resource: Option<n12::SResource>,
+    sphere_vertex_buffer_view: Option<t12::SVertexBufferView>,
+    sphere_instance_buffer_intermediate_resource: [Option<n12::SResource>; 2],
+    sphere_instance_buffer_resource: [Option<n12::SResource>; 2],
+    sphere_instance_buffer_view: [Option<t12::SVertexBufferView>; 2],
+    sphere_in_world_indices: SMemVec::<'a, u16>,
+    sphere_over_world_indices: SMemVec::<'a, u16>,
+
+    // -- mesh pipeline stuff
     mesh_pipeline_state: t12::SPipelineState,
     mesh_root_signature: n12::SRootSignature,
     mesh_mvp_root_param_idx: usize,
@@ -376,6 +409,23 @@ impl<'a> SRenderTemp<'a> {
         let sphere_pipeline_state = device
             .raw()
             .create_pipeline_state(&sphere_pipeline_state_stream_desc)?;
+
+        // -- it's actually a tetrahedron for now
+        let sphere_verts = [
+
+        ];
+
+        let sphere_vert_buffer_resource = {
+            let vertbufferflags = t12::SResourceFlags::from(t12::EResourceFlags::ENone);
+            copy_command_list.update_buffer_resource(
+                self.device.deref(),
+                vertex_buffer_data.as_slice(),
+                vertbufferflags
+            )?
+        };
+        let vertex_buffer_view = vert_buffer_resource
+            .destinationresource
+            .create_vertex_buffer_view()?;
 
         // =========================================================================================
         // MESH/MODEL pipeline state

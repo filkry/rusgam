@@ -81,6 +81,7 @@ struct SLine {
 
 #[allow(dead_code)]
 struct SSphere {
+    scale: f32,
     pos: Vec3,
     colour: Vec4,
 }
@@ -366,6 +367,15 @@ impl<'a> SRenderTemp<'a> {
             mesh_input_elements[1],
             mesh_input_elements[2],
             t12::SInputElementDesc::create(
+                "INSTANCESCALE",
+                0,
+                t12::EDXGIFormat::R32Float,
+                instance_input_slot,
+                winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
+                t12::EInputClassification::PerInstanceData,
+                1,
+            ),
+            t12::SInputElementDesc::create(
                 "INSTANCEPOSITION",
                 0,
                 t12::EDXGIFormat::R32G32B32Float,
@@ -415,7 +425,7 @@ impl<'a> SRenderTemp<'a> {
             .create_pipeline_state(&instance_mesh_pipeline_state_stream_desc)?;
 
         // -- sphere mesh
-        let sphere_mesh = SModel::new_from_obj("assets/debug_icosphere.obj", mesh_loader, texture_loader, 1.0, false)?.mesh;
+        let sphere_mesh = SModel::new_from_obj("assets/debug_unit_sphere.obj", mesh_loader, texture_loader, 1.0, false)?.mesh;
 
         // =========================================================================================
         // MESH/MODEL pipeline state
@@ -584,8 +594,9 @@ impl<'a> SRenderTemp<'a> {
         }
     }
 
-    pub fn draw_sphere(&mut self, pos: &Vec3, color: &Vec4, over_world: bool) {
+    pub fn draw_sphere(&mut self, pos: &Vec3, scale: f32, color: &Vec4, over_world: bool) {
         self.spheres.push(SSphere {
+            scale,
             pos: pos.clone(),
             colour: color.clone(),
         });
@@ -974,10 +985,10 @@ impl<'a> super::SRender<'a> {
         let back_buffer_idx = window.currentbackbufferindex();
 
         // A very basic test
-        self.temp().draw_sphere(&Vec3::new(-1.0, 4.0, 0.0), &Vec4::new(1.0, 0.0, 0.0, 0.5), false);
-        self.temp().draw_sphere(&Vec3::new(0.0, 4.0, 0.0), &Vec4::new(1.0, 0.0, 0.0, 0.5), false);
-        self.temp().draw_sphere(&Vec3::new(1.0, 4.0, 0.0), &Vec4::new(1.0, 0.0, 0.0, 0.5), false);
-        self.temp().draw_sphere(&Vec3::new(2.0, 4.0, 0.0), &Vec4::new(1.0, 0.0, 0.0, 0.5), false);
+        self.temp().draw_sphere(&Vec3::new(-1.0, 4.0, 0.0), 0.2, &Vec4::new(1.0, 0.0, 0.0, 0.5), false);
+        self.temp().draw_sphere(&Vec3::new(0.0, 4.0, 0.0), 1.0, &Vec4::new(1.0, 0.0, 0.0, 0.5), false);
+        self.temp().draw_sphere(&Vec3::new(1.0, 4.0, 0.0), 1.0, &Vec4::new(1.0, 0.0, 0.0, 0.5), false);
+        self.temp().draw_sphere(&Vec3::new(2.0, 4.0, 0.0), 1.0, &Vec4::new(1.0, 0.0, 0.0, 0.5), false);
 
         if self.render_temp.spheres.len() == 0 {
             return Ok(());
@@ -986,12 +997,14 @@ impl<'a> super::SRender<'a> {
         // -- create/upload instance buffer
         #[repr(C)]
         struct SDebugSphereShaderInstance {
+            scale: f32,
             pos: [f32; 3],
             colour: [f32; 4],
         }
         impl SDebugSphereShaderInstance {
-            fn new(pos: &Vec3, colour: &Vec4) -> Self {
+            fn new(scale: f32, pos: &Vec3, colour: &Vec4) -> Self {
                 Self {
+                    scale,
                     pos: [pos.x, pos.y, pos.z],
                     colour: [colour.x, colour.y, colour.z, colour.w],
                 }
@@ -1013,7 +1026,7 @@ impl<'a> super::SRender<'a> {
 
             for i in sphere_indices.as_slice() {
                 let sphere = &tr.spheres[*i as usize];
-                instance_buffer_data.push(SDebugSphereShaderInstance::new(&sphere.pos, &sphere.colour));
+                instance_buffer_data.push(SDebugSphereShaderInstance::new(sphere.scale, &sphere.pos, &sphere.colour));
             }
 
             if instance_buffer_data.len() == 0 {

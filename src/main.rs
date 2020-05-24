@@ -491,10 +491,12 @@ fn main_d3d12() -> Result<(), &'static str> {
         let mouse_pos = window.mouse_pos(&winapi.rawwinapi());
 
         // -- update
+        /*
         let cur_angle = ((total_time as f32) / 1_000_000.0) * (3.14159 / 4.0);
         data_bucket.get_entities().unwrap().with_mut(|entities: &mut SEntityBucket| {
             entities.set_entity_location(rotating_entity, STransform::new_rotation(&glm::quat_angle_axis(cur_angle, &rot_axis)), &data_bucket);
         });
+        */
 
         //let mut fixed_size_model_xform = STransform::new_translation(&glm::Vec3::new(0.0, 5.0, 0.0));
 
@@ -747,15 +749,62 @@ fn main_d3d12() -> Result<(), &'static str> {
             }
         }
 
-        // -- draw every object's AABB
-        /*
-        let (entity_handles, transforms, models) = entities.build_render_data(&SYSTEM_ALLOCATOR);
-        for i in 0..entity_handles.len() {
-            let mesh_local_aabb = render.mesh_loader().get_mesh_local_aabb(models[i].mesh);
-            let transformed_aabb = utils::SAABB::transform(&mesh_local_aabb, &transforms[i]);
-            render.temp().draw_aabb(&transformed_aabb, &Vec4::new(1.0, 0.0, 0.0, 1.0), true);
+        // -- test collision against rotating box for selected object
+        if input.p_edge.down() {
+            if let Some(e) = last_picked_entity {
+                STACK_ALLOCATOR.with(|sa| {
+                    data_bucket.get_renderer().unwrap().with_mut(|render: &mut render::SRender| {
+                        data_bucket.get_entities().unwrap().with(|entities: &SEntityBucket| {
+
+                            let world_verts = {
+                                let model = entities.get_entity_model(e).unwrap();
+                                let loc = entities.get_entity_location(e);
+                                let per_vert_data = render.mesh_loader().get_per_vertex_data(model.mesh);
+
+                                let mut world_verts = SMemVec::new(sa, per_vert_data.len(), 0).unwrap();
+
+                                for vd in per_vert_data.as_slice() {
+                                    world_verts.push(loc.mul_point(&vd.position));
+                                }
+
+                                world_verts
+                            };
+
+                            let rot_box_world_verts = {
+                                let model = entities.get_entity_model(rotating_entity).unwrap();
+                                let loc = entities.get_entity_location(rotating_entity);
+                                let per_vert_data = render.mesh_loader().get_per_vertex_data(model.mesh);
+
+                                let mut world_verts = SMemVec::new(sa, per_vert_data.len(), 0).unwrap();
+
+                                for vd in per_vert_data.as_slice() {
+                                    world_verts.push(loc.mul_point(&vd.position));
+                                }
+
+                                world_verts
+                            };
+
+                            let mut minkowki_diff = SMemVec::new(sa, world_verts.len() * rot_box_world_verts.len(), 0).unwrap();
+                            for v1 in world_verts.as_slice() {
+                                for v2 in rot_box_world_verts.as_slice() {
+                                    minkowki_diff.push(v1 - v2);
+                                }
+                            }
+
+                            let offset = Vec3::new(0.0, 4.0, 0.0);
+                            let color = Vec3::new(0.0, 0.0, 1.0);
+                            for diffv in minkowki_diff.as_slice() {
+                                let drawpt = diffv + offset;
+                                render.temp().draw_point(&drawpt, &color, false); // FRK(TODO): draw points
+                            }
+
+                            //println!("GJK result: {}", gjk::gjk(world_verts.as_slice(), rot_box_world_verts.as_slice()));
+
+                        });
+                    });
+                });
+            }
         }
-        */
 
         // -- draw selected object's BVH heirarchy
         if let Some(e) = last_picked_entity {

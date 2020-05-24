@@ -20,10 +20,10 @@ use utils::{STransform};
 // -- must match SVertexPosColorUV vertex.hlsl
 #[allow(dead_code)]
 #[repr(C)]
-struct SVertexPosColourUV {
-    position: Vec3,
-    normal: Vec3,
-    uv: Vec2,
+pub struct SVertexPosColourUV {
+    pub position: Vec3,
+    pub normal: Vec3,
+    pub uv: Vec2,
 }
 
 // -- must match SVertexPosColorUV vertex.hlsl
@@ -282,6 +282,10 @@ impl<'a> SMeshLoader<'a> {
     pub fn get_mesh_local_aabb(&self, mesh: SPoolHandle) -> &utils::SAABB {
         let mesh = self.mesh_pool.get(mesh).unwrap();
         &mesh.local_aabb
+    }
+
+    pub fn get_per_vertex_data(&self, mesh: SPoolHandle) -> &SMemVec<'a, SVertexPosColourUV> {
+        &self.mesh_pool.get(mesh).unwrap().per_vertex_data
     }
 
     #[allow(dead_code)]

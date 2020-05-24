@@ -41,34 +41,40 @@ fn minkowski_support_mapping(pts_a: &[Vec3], pts_b: &[Vec3], dir: &Vec3) -> SMin
     }
 }
 
-struct S1Simplex {
+#[derive(Clone)]
+pub struct S1Simplex {
     a: Vec3,
 }
 
-struct S2Simplex {
+#[derive(Clone)]
+pub struct S2Simplex {
     a: Vec3, // newest
     b: Vec3,
 }
 
-struct S3Simplex {
+#[derive(Clone)]
+pub struct S3Simplex {
     a: Vec3, // newest
     b: Vec3,
     c: Vec3,
 }
 
-struct S4Simplex {
+#[derive(Clone)]
+pub struct S4Simplex {
     a: Vec3,
     b: Vec3,
     c: Vec3,
     d: Vec3,
 }
 
-enum EUpdateSimplexResult {
+pub enum EGJKStepResult {
+    NoIntersection,
     Intersection,
     NewSimplexAndDir(ESimplex, Vec3),
 }
 
-enum ESimplex {
+#[derive(Clone)]
+pub enum ESimplex {
     One(S1Simplex),
     Two(S2Simplex),
     Three(S3Simplex),
@@ -85,7 +91,7 @@ impl ESimplex {
         }
     }
 
-    pub fn update_simplex(&self) -> EUpdateSimplexResult {
+    pub fn update_simplex(&self) -> EGJKStepResult {
         match self {
             Self::One(_) => unreachable!(),
             Self::Two(simplex) => simplex.update_simplex(),
@@ -95,8 +101,8 @@ impl ESimplex {
     }
 }
 
-fn update_simplex_result1(a: &Vec3, dir: Vec3) -> EUpdateSimplexResult {
-    EUpdateSimplexResult::NewSimplexAndDir(ESimplex::One(
+fn update_simplex_result1(a: &Vec3, dir: Vec3) -> EGJKStepResult {
+    EGJKStepResult::NewSimplexAndDir(ESimplex::One(
         S1Simplex{
             a: a.clone(),
         }),
@@ -104,8 +110,8 @@ fn update_simplex_result1(a: &Vec3, dir: Vec3) -> EUpdateSimplexResult {
     )
 }
 
-fn update_simplex_result2(a: &Vec3, b: &Vec3, dir: Vec3) -> EUpdateSimplexResult {
-    EUpdateSimplexResult::NewSimplexAndDir(ESimplex::Two(
+fn update_simplex_result2(a: &Vec3, b: &Vec3, dir: Vec3) -> EGJKStepResult {
+    EGJKStepResult::NewSimplexAndDir(ESimplex::Two(
         S2Simplex{
             a: a.clone(),
             b: b.clone(),
@@ -114,8 +120,8 @@ fn update_simplex_result2(a: &Vec3, b: &Vec3, dir: Vec3) -> EUpdateSimplexResult
     )
 }
 
-fn update_simplex_result3(a: &Vec3, b: &Vec3, c: &Vec3, dir: Vec3) -> EUpdateSimplexResult {
-    EUpdateSimplexResult::NewSimplexAndDir(ESimplex::Three(
+fn update_simplex_result3(a: &Vec3, b: &Vec3, c: &Vec3, dir: Vec3) -> EGJKStepResult {
+    EGJKStepResult::NewSimplexAndDir(ESimplex::Three(
         S3Simplex{
             a: a.clone(),
             b: b.clone(),
@@ -135,7 +141,7 @@ impl S1Simplex {
 }
 
 impl S2Simplex {
-    fn update_simplex(&self) -> EUpdateSimplexResult {
+    fn update_simplex(&self) -> EGJKStepResult {
         // -- three possible voronoi regions:
         // -- A, B, AB
         // -- but B can't be closest to the origin, or we wouldn't have searched in direction of A
@@ -165,7 +171,7 @@ impl S2Simplex {
 }
 
 impl S3Simplex {
-    fn update_simplex(&self) -> EUpdateSimplexResult {
+    fn update_simplex(&self) -> EGJKStepResult {
         // -- eight possible vorinoi regions:
         // -- A, B, C, AB, AC, BC, ABC(above), ABC(below
         // -- B, C, BC are excluded or we would not have search in direction of A
@@ -175,7 +181,7 @@ impl S3Simplex {
         let ac = self.c - self.a;
         let ao = -self.a;
 
-        // -- If we are in A simplex
+        // -- If we are in A vorinoi
         if (glm::dot(&ao, &ab) <= 0.0) && (glm::dot(&ao, &ac) <= 0.0) {
             return update_simplex_result1(&self.a, ao);
         }
@@ -228,7 +234,7 @@ impl S3Simplex {
 }
 
 impl S4Simplex {
-    fn update_simplex(&self) -> EUpdateSimplexResult {
+    fn update_simplex(&self) -> EGJKStepResult {
         // -- possible voronoi regions:
         // -- A, B, C, D, AB, AC, AD, BC, BD, CD, ABC, ABD, ACD, BCD (no negative triangles because if it's inside we are done)
         // -- by reasoning above, only features including A remain:
@@ -249,10 +255,10 @@ impl S4Simplex {
         // -- check containment
 
         if glm::dot(&abc_perp, &ao) <= 0.0 && glm::dot(&abd_perp, &ao) <= 0.0 && glm::dot(&acd_perp, &ao) <= 0.0 {
-            return EUpdateSimplexResult::Intersection;
+            return EGJKStepResult::Intersection;
         }
 
-        // -- If we are in A simplex
+        // -- If we are in A vorinoi
         if (glm::dot(&ao, &ab) <= 0.0) && (glm::dot(&ao, &ac) <= 0.0) && (glm::dot(&ao, &ad) <= 0.0) {
             return update_simplex_result1(&self.a, ao);
         }
@@ -266,7 +272,7 @@ impl S4Simplex {
             let ineq2 = glm::dot(&-p, &(a - p)) >= 0.0;
             let ineq3 = glm::dot(&ao, &glm::cross(&ap, &counter_clockwise_triangle_perp)) >= 0.0;
             let ineq4 = glm::dot(&ao, &glm::cross(&clockwise_triangle_perp, &ap)) >= 0.0;
-            return ineq1 && ineq2 && ineq3;
+            return ineq1 && ineq2 && ineq3 && ineq4;
         }
 
         // -- check AB
@@ -313,28 +319,32 @@ impl S4Simplex {
     }
 }
 
+pub fn step_gjk(pts_a: &[Vec3], pts_b: &[Vec3], mut simplex: ESimplex, dir: &Vec3) -> EGJKStepResult {
+    let a = minkowski_support_mapping(pts_a, pts_b, &dir);
+    if glm::dot(&a.pos, &dir) < 0.0 {
+        return EGJKStepResult::NoIntersection;
+    }
+
+    simplex.expand(&a.pos);
+    simplex.update_simplex()
+}
+
 pub fn gjk(pts_a: &[Vec3], pts_b: &[Vec3]) -> bool {
     let s = minkowski_support_mapping(pts_a, pts_b, &Vec3::new(1.0, 1.0, 1.0));
     let mut simplex = ESimplex::One(S1Simplex{ a: s.pos, });
     let mut dir = -s.pos;
 
     let max_iters = 64;
-    for i in 0..max_iters {
-        let a = minkowski_support_mapping(pts_a, pts_b, &dir);
-        if glm::dot(&a.pos, &dir) < 0.0 {
-            // no intersection
-            return false;
-        }
-
-        simplex.expand(&a.pos);
-        match simplex.update_simplex() {
-            EUpdateSimplexResult::Intersection => {
+    for _ in 0..max_iters {
+        match step_gjk(pts_a, pts_b, simplex.clone(), &dir) {
+            EGJKStepResult::Intersection => {
                 return true;
             },
-            EUpdateSimplexResult::NewSimplexAndDir(new_simplex, new_dir) => {
+            EGJKStepResult::NewSimplexAndDir(new_simplex, new_dir) => {
                 simplex = new_simplex;
                 dir = new_dir;
             },
+            EGJKStepResult::NoIntersection => unreachable!(),
         }
     }
 

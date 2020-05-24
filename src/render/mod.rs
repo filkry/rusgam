@@ -99,6 +99,8 @@ pub fn compile_shaders_if_changed() {
         ("shadow_pixel", "ps_6_0"),
         ("imgui_vertex", "vs_6_0"),
         ("imgui_pixel", "ps_6_0"),
+        ("point_vertex", "vs_6_0"),
+        ("point_pixel", "ps_6_0"),
         ("debug_line_vertex", "vs_6_0"),
         ("debug_line_pixel", "ps_6_0"),
         ("temp_mesh_vertex", "vs_6_0"),

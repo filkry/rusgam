@@ -7,6 +7,7 @@ use databucket::{SDataBucket};
 use render;
 use render::{SRender};
 use safewindows;
+use imgui;
 
 // Implementation of GJK
 // mixed from various resources:
@@ -86,11 +87,18 @@ pub enum ESimplex {
     Four(S4Simplex),
 }
 
+enum EGJKDebugStep {
+    NoIntersection,
+    Intersection,
+    Expand(ESimplex),
+    UpdateSimplex(EGJKStepResult),
+}
+
 // -- used Vecs here for ease of use, since it's just a debug thing
 pub struct SGJKDebug {
     has_pts: bool,
     cur_step: usize,
-    steps: Vec<EGJKStepResult>,
+    steps: Vec<EGJKDebugStep>,
     pts_a: Vec<Vec3>,
     pts_b: Vec<Vec3>,
     temp_render_token: render::temp::SToken,
@@ -344,6 +352,7 @@ pub fn step_gjk(pts_a: &[Vec3], pts_b: &[Vec3], mut simplex: ESimplex, dir: &Vec
     simplex.update_simplex()
 }
 
+#[allow(dead_code)]
 pub fn gjk(pts_a: &[Vec3], pts_b: &[Vec3]) -> bool {
     let s = minkowski_support_mapping(pts_a, pts_b, &Vec3::new(1.0, 1.0, 1.0));
     let mut simplex = ESimplex::One(S1Simplex{ a: s.pos, });
@@ -423,12 +432,12 @@ impl SGJKDebug {
         })
     }
 
-    pub fn first_step(&self) -> EGJKStepResult {
+    fn first_step(&self) -> EGJKDebugStep {
         let s = minkowski_support_mapping(self.pts_a.as_slice(), self.pts_b.as_slice(), &Vec3::new(1.0, 1.0, 1.0));
         let simplex = ESimplex::One(S1Simplex{ a: s.pos, });
         let dir = -s.pos;
 
-        EGJKStepResult::NewSimplexAndDir(simplex, dir)
+        EGJKDebugStep::UpdateSimplex(EGJKStepResult::NewSimplexAndDir(simplex, dir))
     }
 
     pub fn step_backward(&mut self) {
@@ -450,11 +459,35 @@ impl SGJKDebug {
                 self.steps.last().unwrap()
             };
             let next_step_result = match last_step_result {
-                EGJKStepResult::Intersection => None,
-                EGJKStepResult::NoIntersection => None,
-                EGJKStepResult::NewSimplexAndDir(simplex, dir) => {
-                    Some(step_gjk(&self.pts_a, &self.pts_b, simplex.clone(), dir))
+                EGJKDebugStep::Intersection => None,
+                EGJKDebugStep::NoIntersection => None,
+                EGJKDebugStep::Expand(simplex) => {
+                    // -- step after expand is update
+                    let step_result = simplex.update_simplex();
+
+                    Some(match step_result {
+                        EGJKStepResult::Intersection => EGJKDebugStep::Intersection,
+                        EGJKStepResult::NoIntersection => EGJKDebugStep::NoIntersection,
+                        EGJKStepResult::NewSimplexAndDir(_, _) => EGJKDebugStep::UpdateSimplex(step_result),
+                    })
                 },
+                EGJKDebugStep::UpdateSimplex(gjk_step_result) => {
+                    // -- step after update is expand
+                    if let EGJKStepResult::NewSimplexAndDir(simplex, dir) = gjk_step_result {
+                        let mut new_simplex = simplex.clone();
+                        let a = minkowski_support_mapping(&self.pts_a, &self.pts_b, &dir);
+                        if glm::dot(&a.pos, &dir) < 0.0 {
+                            Some(EGJKDebugStep::NoIntersection)
+                        }
+                        else {
+                            new_simplex.expand(&a.pos);
+                            Some(EGJKDebugStep::Expand(new_simplex))
+                        }
+                    }
+                    else {
+                        None
+                    }
+                }
             };
 
             if let Some(result) = next_step_result {
@@ -472,6 +505,8 @@ impl SGJKDebug {
 
         ctxt.get_renderer().unwrap().with_mut(|render: &mut SRender| {
 
+            let tok = Some(self.temp_render_token);
+
             let offset = Vec3::new(0.0, 4.0, 0.0);
 
             // -- clear old drawings
@@ -485,13 +520,98 @@ impl SGJKDebug {
             }
 
             // -- draw the origin
-            render.temp().draw_sphere(&offset, 0.05, &Vec4::new(1.0, 0.0, 0.0, 1.0), false, Some(self.temp_render_token));
+            render.temp().draw_sphere(&offset, 0.05, &Vec4::new(1.0, 0.0, 0.0, 1.0), false, tok);
 
             // -- draw the minkowski difference
             let color = Vec4::new(0.0, 0.0, 1.0, 0.5);
             for diffv in minkowki_diff.as_slice() {
                 let drawpt = diffv + offset;
-                render.temp().draw_sphere(&drawpt, 0.05, &color, false, Some(self.temp_render_token));
+                render.temp().draw_sphere(&drawpt, 0.05, &color, false, tok);
+            }
+
+            // -- draw the simplex
+            let simplex_color = Vec4::new(0.0, 1.0, 0.0, 0.5);
+            let dir_color = Vec4::new(1.0, 1.0, 1.0, 0.5);
+            let (simplex_to_draw, dir_to_draw) = match &self.steps[self.cur_step] {
+                EGJKDebugStep::NoIntersection => (None, None),
+                EGJKDebugStep::Intersection => (None, None),
+                EGJKDebugStep::Expand(simplex) => (Some(simplex.clone()), None),
+                EGJKDebugStep::UpdateSimplex(step_result) => {
+                    if let EGJKStepResult::NewSimplexAndDir(simplex, dir) = step_result {
+                        (Some(simplex.clone()), Some(dir))
+                    }
+                    else {
+                        (None, None)
+                    }
+                }
+            };
+
+            if let Some(simplex) = simplex_to_draw {
+                let a = match simplex {
+                    ESimplex::One(internal) => {
+                        render.temp().draw_sphere(&(internal.a + offset), 0.06, &simplex_color, false, tok);
+                        internal.a.clone()
+                    },
+                    ESimplex::Two(internal) => {
+                        render.temp().draw_line(&(internal.a + offset), &(internal.b + offset), &simplex_color, false, tok);
+                        internal.a.clone()
+                    },
+                    ESimplex::Three(internal) => {
+                        render.temp().draw_line(&(internal.a + offset), &(internal.b + offset), &simplex_color, false, tok);
+                        render.temp().draw_line(&(internal.b + offset), &(internal.c + offset), &simplex_color, false, tok);
+                        render.temp().draw_line(&(internal.c + offset), &(internal.a + offset), &simplex_color, false, tok);
+                        internal.a.clone()
+                    },
+                    ESimplex::Four(internal) => {
+                        render.temp().draw_line(&(internal.a + offset), &(internal.b + offset), &simplex_color, false, tok);
+                        render.temp().draw_line(&(internal.a + offset), &(internal.c + offset), &simplex_color, false, tok);
+                        render.temp().draw_line(&(internal.a + offset), &(internal.d + offset), &simplex_color, false, tok);
+                        render.temp().draw_line(&(internal.b + offset), &(internal.c + offset), &simplex_color, false, tok);
+                        render.temp().draw_line(&(internal.b + offset), &(internal.d + offset), &simplex_color, false, tok);
+                        render.temp().draw_line(&(internal.c + offset), &(internal.d + offset), &simplex_color, false, tok);
+                        internal.a.clone()
+                    },
+                };
+
+                if let Some(dir) = dir_to_draw {
+                    render.temp().draw_line(&(a + offset), &(a + offset + dir), &dir_color, false, tok);
+                }
+            }
+        });
+    }
+
+    pub fn imgui_menu(&mut self, imgui_ui: &imgui::Ui, ctxt: &SDataBucket, entity_1: Option<SPoolHandle>, entity_2: Option<SPoolHandle>) {
+        use imgui::*;
+
+        imgui_ui.menu(im_str!("GJK"), true, || {
+            if let Some(e1) = entity_1 {
+                if let Some(e2) = entity_2 {
+                    if imgui_ui.small_button(im_str!("Start")) {
+                        self.reset_to_entities(ctxt, e1, e2);
+                        self.step_forward();
+                        self.render_cur_step(ctxt);
+                    }
+                }
+            }
+
+            imgui_ui.text(&im_str!("Active test: {}", self.has_pts));
+            if self.has_pts {
+                imgui_ui.text(&im_str!("Cur step: {}/{}", self.cur_step, self.steps.len() - 1));
+                let step_type_str = match self.steps[self.cur_step] {
+                    EGJKDebugStep::NoIntersection => "No intersection",
+                    EGJKDebugStep::Intersection => "Intersection",
+                    EGJKDebugStep::Expand(_) => "Expand",
+                    EGJKDebugStep::UpdateSimplex(_) => "Update simplex",
+                };
+                imgui_ui.text(&im_str!("Step type: {}", step_type_str));
+                if imgui_ui.small_button(im_str!("Step forward")) {
+                    self.step_forward();
+                    self.render_cur_step(ctxt);
+                }
+                if imgui_ui.small_button(im_str!("Step backward")) {
+                    self.step_backward();
+                    self.render_cur_step(ctxt);
+                }
             }
         });
     }

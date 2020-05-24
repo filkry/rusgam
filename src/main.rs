@@ -600,6 +600,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                                 &(translation_start_pos + 100.0 * line_dir),
                                 &render_color,
                                 true,
+                                None,
                             );
 
                             let offset_mouse_pos = [mouse_pos[0] + translation_mouse_offset[0],
@@ -663,12 +664,14 @@ fn main_d3d12() -> Result<(), &'static str> {
                                     &(e_loc.t + rotation_start_entity_to_cursor),
                                     &render_color,
                                     true,
+                                    None,
                                 );
                                 render.temp().draw_line(
                                     &e_loc.t,
                                     &cursor_pos_world,
                                     &render_color,
                                     true,
+                                    None,
                                 );
                             }
                         }
@@ -742,21 +745,14 @@ fn main_d3d12() -> Result<(), &'static str> {
                     bvh.imgui_menu(&imgui_ui);
                 });
 
+                gjk_debug.imgui_menu(&imgui_ui, &data_bucket, last_picked_entity, Some(rotating_entity));
+
             });
 
             if let Some(e) = last_picked_entity {
                 data_bucket.get_entities().unwrap().with_mut(|entities: &mut SEntityBucket| {
                     entities.show_imgui_window(e, &imgui_ui);
                 });
-            }
-        }
-
-        // -- test collision against rotating box for selected object
-        if input.p_edge.down() {
-            if let Some(e) = last_picked_entity {
-                gjk_debug.reset_to_entities(&data_bucket, e, rotating_entity);
-                gjk_debug.step_forward();
-                gjk_debug.render_cur_step(&data_bucket);
             }
         }
 

@@ -613,13 +613,13 @@ impl<'a> SRenderTemp<'a> {
         });
     }
 
-    pub fn draw_line(&mut self, start: &Vec3, end: &Vec3, color: &Vec4, over_world: bool) {
+    pub fn draw_line(&mut self, start: &Vec3, end: &Vec3, color: &Vec4, over_world: bool, token: Option<SToken>) {
         self.lines.push(SLine {
             start: start.clone(),
             end: end.clone(),
             colour: color.clone(),
             over_world,
-            token: SToken::default(),
+            token: token.unwrap_or(SToken::default()),
         });
     }
 
@@ -645,18 +645,18 @@ impl<'a> SRenderTemp<'a> {
             Vec3::new(aabb.max.x, aabb.max.y, aabb.max.z),
         ];
 
-        self.draw_line(&verts[0], &verts[1], color, over_world);
-        self.draw_line(&verts[1], &verts[3], color, over_world);
-        self.draw_line(&verts[3], &verts[2], color, over_world);
-        self.draw_line(&verts[2], &verts[0], color, over_world);
-        self.draw_line(&verts[0+4], &verts[1+4], color, over_world);
-        self.draw_line(&verts[1+4], &verts[3+4], color, over_world);
-        self.draw_line(&verts[3+4], &verts[2+4], color, over_world);
-        self.draw_line(&verts[2+4], &verts[0+4], color, over_world);
-        self.draw_line(&verts[0], &verts[0+4], color, over_world);
-        self.draw_line(&verts[1], &verts[1+4], color, over_world);
-        self.draw_line(&verts[3], &verts[3+4], color, over_world);
-        self.draw_line(&verts[2], &verts[2+4], color, over_world);
+        self.draw_line(&verts[0], &verts[1], color, over_world, None);
+        self.draw_line(&verts[1], &verts[3], color, over_world, None);
+        self.draw_line(&verts[3], &verts[2], color, over_world, None);
+        self.draw_line(&verts[2], &verts[0], color, over_world, None);
+        self.draw_line(&verts[0+4], &verts[1+4], color, over_world, None);
+        self.draw_line(&verts[1+4], &verts[3+4], color, over_world, None);
+        self.draw_line(&verts[3+4], &verts[2+4], color, over_world, None);
+        self.draw_line(&verts[2+4], &verts[0+4], color, over_world, None);
+        self.draw_line(&verts[0], &verts[0+4], color, over_world, None);
+        self.draw_line(&verts[1], &verts[1+4], color, over_world, None);
+        self.draw_line(&verts[3], &verts[3+4], color, over_world, None);
+        self.draw_line(&verts[2], &verts[2+4], color, over_world, None);
     }
 
     pub fn clear_tables_without_tokens(&mut self) {

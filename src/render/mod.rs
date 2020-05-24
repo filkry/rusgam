@@ -226,7 +226,7 @@ impl<'a> SRender<'a> {
         unsafe { direct_command_queue.borrow_mut().set_debug_name("render copy queue"); }
         let copy_command_pool =
             n12::SCommandListPool::create(&device, Rc::downgrade(&copy_command_queue), &winapi.rawwinapi(), 1, 10)?;
-        let mesh_loader = SMeshLoader::new(Rc::downgrade(&device), &winapi, Rc::downgrade(&copy_command_queue), Rc::downgrade(&direct_command_queue), 23948934, 1024)?;
+        let mut mesh_loader = SMeshLoader::new(Rc::downgrade(&device), &winapi, Rc::downgrade(&copy_command_queue), Rc::downgrade(&direct_command_queue), 23948934, 1024)?;
         let mut texture_loader = STextureLoader::new(Rc::downgrade(&device), &winapi, Rc::downgrade(&copy_command_queue), Rc::downgrade(&direct_command_queue), Rc::downgrade(&srv_heap), 9323, 1024)?;
 
         // -- load shaders
@@ -237,7 +237,7 @@ impl<'a> SRender<'a> {
         let pixel_byte_code = t12::SShaderBytecode::create(pixelblob);
 
         // -- root signature stuff
-        let mut input_layout_desc = model::model_per_vertex_input_layout_desc();
+        let mut input_layout_desc = model::mesh_per_vertex_input_layout_desc();
 
         let mvp_root_parameter = t12::SRootParameter {
             type_: t12::ERootParameterType::E32BitConstants,
@@ -390,7 +390,7 @@ impl<'a> SRender<'a> {
         let render_shadow_map = shadowmapping::setup_shadow_mapping_pipeline(
             &device, &mut direct_command_pool, Rc::downgrade(&dsv_heap), Rc::downgrade(&srv_heap), 128, 128)?;
         let render_imgui = SRenderImgui::new(imgui_ctxt, &mut texture_loader, &device)?;
-        let render_temp = SRenderTemp::new(&device)?;
+        let render_temp = SRenderTemp::new(&device, &mut mesh_loader, &mut texture_loader)?;
 
         // ======================================================================
 

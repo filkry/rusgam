@@ -17,13 +17,13 @@ impl EInputClassification {
 
 #[derive(Copy, Clone)]
 pub struct SInputElementDesc {
-    semantic_name: &'static str,
-    semantic_index: u32,
-    format: EDXGIFormat,
-    input_slot: u32,
-    aligned_byte_offset: u32,
-    input_slot_class: EInputClassification,
-    instance_data_step_rate: u32,
+    pub semantic_name: &'static str,
+    pub semantic_index: u32,
+    pub format: EDXGIFormat,
+    pub input_slot: u32,
+    pub aligned_byte_offset: u32,
+    pub input_slot_class: EInputClassification,
+    pub instance_data_step_rate: u32,
 
     semantic_name_null_terminated: [winapi::um::winnt::CHAR; 32],
 }

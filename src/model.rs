@@ -27,8 +27,8 @@ pub struct SVertexPosColourUV {
 }
 
 // -- must match SVertexPosColorUV vertex.hlsl
-pub fn model_per_vertex_input_layout_desc() -> t12::SInputLayoutDesc {
-    let input_element_desc = [
+pub fn mesh_input_elements() -> [t12::SInputElementDesc; 3] {
+    [
         t12::SInputElementDesc::create(
             "POSITION",
             0,
@@ -56,8 +56,11 @@ pub fn model_per_vertex_input_layout_desc() -> t12::SInputLayoutDesc {
             t12::EInputClassification::PerVertexData,
             0,
         ),
-    ];
+    ]
+}
 
+pub fn mesh_per_vertex_input_layout_desc() -> t12::SInputLayoutDesc {
+    let input_element_desc = mesh_input_elements();
     t12::SInputLayoutDesc::create(&input_element_desc)
 }
 
@@ -335,6 +338,21 @@ impl<'a> SMeshLoader<'a> {
         }
 
         return min_t;
+    }
+
+    pub fn index_count(&self, mesh_handle: SPoolHandle) -> usize {
+        let mesh = self.mesh_pool.get(mesh_handle).expect("querying invalid mesh");
+        mesh.triangle_indices.len()
+    }
+
+    pub fn vertex_buffer_view(&self, mesh_handle: SPoolHandle) -> &t12::SVertexBufferView {
+        let mesh = self.mesh_pool.get(mesh_handle).expect("querying invalid mesh");
+        &mesh.vertex_buffer_view
+    }
+
+    pub fn index_buffer_view(&self, mesh_handle: SPoolHandle) -> &t12::SIndexBufferView {
+        let mesh = self.mesh_pool.get(mesh_handle).expect("querying invalid mesh");
+        &mesh.index_buffer_view
     }
 
     pub fn bind_buffers_and_draw(

@@ -466,6 +466,10 @@ fn main_d3d12() -> Result<(), &'static str> {
 
     let mut show_imgui_demo_window = false;
 
+    let gjk_temp_render_token = data_bucket.get_renderer().unwrap().with_mut(|render: &mut render::SRender| {
+        render.temp().get_token()
+    });
+
     while !input.q_down {
         // -- handle edit mode toggles
         if input.tilde_edge.down() {
@@ -793,9 +797,10 @@ fn main_d3d12() -> Result<(), &'static str> {
 
                             let offset = Vec3::new(0.0, 4.0, 0.0);
                             let color = Vec4::new(0.0, 0.0, 1.0, 0.5);
+                            render.temp().clear_token(gjk_temp_render_token);
                             for diffv in minkowki_diff.as_slice() {
                                 let drawpt = diffv + offset;
-                                render.temp().draw_sphere(&drawpt, 0.05, &color, false); // FRK(TODO): draw points
+                                render.temp().draw_sphere(&drawpt, 0.05, &color, false, Some(gjk_temp_render_token)); // FRK(TODO): draw points
                             }
 
                             //println!("GJK result: {}", gjk::gjk(world_verts.as_slice(), rot_box_world_verts.as_slice()));

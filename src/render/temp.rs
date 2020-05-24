@@ -66,12 +66,17 @@ struct SSpherePipelineStateStream<'a> {
     rtv_formats: n12::SPipelineStateStreamRTVFormats<'a>,
 }
 
+#[derive(PartialEq, Clone, Copy)]
+pub struct SToken {
+    token: u64,
+}
+
 #[allow(dead_code)]
 struct SPoint {
     p: Vec3,
     colour: Vec3,
     over_world: bool,
-    token: u64,
+    token: SToken,
 }
 
 #[allow(dead_code)]
@@ -80,7 +85,7 @@ struct SLine {
     end: Vec3,
     colour: Vec4,
     over_world: bool,
-    token: u64,
+    token: SToken,
 }
 
 #[allow(dead_code)]
@@ -89,14 +94,14 @@ struct SSphere {
     pos: Vec3,
     colour: Vec4,
     over_world: bool,
-    token: u64,
+    token: SToken,
 }
 
 struct STempModel {
     model: SModel,
     location: STransform,
     over_world: bool,
-    token: u64,
+    token: SToken,
 }
 
 pub struct SRenderTemp<'a> {
@@ -148,6 +153,18 @@ pub struct SRenderTemp<'a> {
     models: SMemVec::<'a, STempModel>,
 
     next_token: u64,
+}
+
+impl SToken {
+    fn new(token: u64) -> Self {
+        Self { token }
+    }
+}
+
+impl Default for SToken {
+    fn default() -> Self {
+        Self::new(std::u64::MAX)
+    }
 }
 
 impl<'a> SRenderTemp<'a> {
@@ -549,6 +566,24 @@ impl<'a> SRenderTemp<'a> {
         })
     }
 
+    pub fn get_token(&mut self) -> SToken {
+        let result = SToken::new(self.next_token);
+        self.next_token += 1;
+        result
+    }
+
+    pub fn clear_token(&mut self, token: SToken) {
+        let mut spherei = 0;
+        while spherei < self.spheres.len() {
+            if self.spheres[spherei].token == token {
+                self.spheres.swap_remove(spherei);
+            }
+            else {
+                spherei += 1;
+            }
+        }
+    }
+
     pub fn draw_model(&mut self, model: &SModel, location: &STransform, over_world: bool) {
         assert!(model.diffuse_texture.is_none());
 
@@ -556,7 +591,7 @@ impl<'a> SRenderTemp<'a> {
             model: model.clone(),
             location: location.clone(),
             over_world,
-            token: std::u64::MAX,
+            token: SToken::default(),
         });
     }
 
@@ -565,7 +600,7 @@ impl<'a> SRenderTemp<'a> {
             p: p.clone(),
             colour: color.clone(),
             over_world,
-            token: std::u64::MAX,
+            token: SToken::default(),
         });
     }
 
@@ -575,17 +610,17 @@ impl<'a> SRenderTemp<'a> {
             end: end.clone(),
             colour: color.clone(),
             over_world,
-            token: std::u64::MAX,
+            token: SToken::default(),
         });
     }
 
-    pub fn draw_sphere(&mut self, pos: &Vec3, scale: f32, color: &Vec4, over_world: bool) {
+    pub fn draw_sphere(&mut self, pos: &Vec3, scale: f32, color: &Vec4, over_world: bool, token: Option<SToken>) {
         self.spheres.push(SSphere {
             scale,
             pos: pos.clone(),
             colour: color.clone(),
             over_world,
-            token: std::u64::MAX,
+            token: token.unwrap_or(SToken::default()),
         });
     }
 
@@ -615,11 +650,27 @@ impl<'a> SRenderTemp<'a> {
         self.draw_line(&verts[2], &verts[2+4], color, over_world);
     }
 
-    pub fn clear_tables(&mut self) {
-        self.points.clear();
-        self.lines.clear();
-        self.spheres.clear();
-        self.models.clear();
+    pub fn clear_tables_without_tokens(&mut self) {
+        let def_token = SToken::default();
+
+        macro_rules! clear_table {
+            ($table:ident) => {
+                let mut i = 0;
+                while i < self.$table.len() {
+                    if self.$table[i].token == def_token {
+                        self.$table.swap_remove(i);
+                    }
+                    else {
+                        i += 1;
+                    }
+                }
+            }
+        }
+
+        clear_table!(points);
+        clear_table!(lines);
+        clear_table!(spheres);
+        clear_table!(models);
     }
 }
 

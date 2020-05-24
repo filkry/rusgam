@@ -392,6 +392,18 @@ impl<'a, T> SMemVec<'a, T> {
 
         self.len = 0;
     }
+
+    pub fn swap_remove(&mut self, index: usize) -> T {
+        let last_idx = self.len() - 1;
+        self.as_mut_slice().swap(index, last_idx);
+
+        // -- swap zeroes into the last value and pull out the result
+        let mut result = unsafe { std::mem::MaybeUninit::<T>::zeroed().assume_init() };
+        std::mem::swap(&mut self[last_idx], &mut result);
+        self.len -= 1;
+
+        result
+    }
 }
 
 impl<'a, T> Drop for SMemVec<'a, T> {

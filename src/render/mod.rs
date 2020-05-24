@@ -599,7 +599,7 @@ impl<'a> SRender<'a> {
         }
         self.present(window)?;
 
-        self.render_temp.clear_tables();
+        self.render_temp.clear_tables_without_tokens();
 
         Ok(())
     }

@@ -12,7 +12,6 @@ use imgui;
 //     + basic algorithm structure comes from '06 Casey Mutatori GJK video
 //     + inequalities for finding correct vorinoi region of simplex come from Real-Time Collision Detection
 
-
 #[allow(dead_code)]
 struct SMinkowskiDiffPoint {
     pos: Vec3,
@@ -277,8 +276,11 @@ impl S4Simplex {
         let acd_perp = glm::cross(&ac, &ad);
 
         // -- check containment
+        let inside_abc = glm::dot(&abc_perp, &ao) <= 0.0;
+        let inside_abd = glm::dot(&abd_perp, &ao) <= 0.0;
+        let inside_acd = glm::dot(&acd_perp, &ao) <= 0.0;
 
-        if glm::dot(&abc_perp, &ao) <= 0.0 && glm::dot(&abd_perp, &ao) <= 0.0 && glm::dot(&acd_perp, &ao) <= 0.0 {
+        if inside_abc && inside_abd && inside_acd {
             return EGJKStepResult::Intersection;
         }
 
@@ -331,7 +333,8 @@ impl S4Simplex {
 
         // -- check ABD
         if check_face(&self.a, &ao, &self.c, &abd_perp) {
-            return update_simplex_result3(&self.a, &self.b, &self.d, abd_perp);
+            // -- swizzle here to ensure counter-clockwise
+            return update_simplex_result3(&self.a, &self.d, &self.b, abd_perp);
         }
 
         // -- check ACD
@@ -546,6 +549,8 @@ impl SGJKDebug {
             // -- draw the simplex
             let simplex_color = Vec4::new(0.0, 1.0, 0.0, 0.5);
             let dir_color = Vec4::new(1.0, 1.0, 1.0, 0.5);
+            let normal_color = Vec4::new(0.0, 0.0, 1.0, 0.5);
+            let ao_color = Vec4::new(1.0, 1.0, 1.0, 0.5);
             let (simplex_to_draw, dir_to_draw) = match &self.steps[self.cur_step] {
                 EGJKDebugStep::NoIntersection => (None, None),
                 EGJKDebugStep::Intersection => (None, None),
@@ -582,16 +587,38 @@ impl SGJKDebug {
                         internal.a.clone()
                     },
                     ESimplex::Four(internal) => {
+                        // -- draw points
                         render.temp().draw_sphere(&(internal.a + offset), 0.1, &Vec4::new(1.0, 1.0, 1.0, 1.0), false, tok);
                         render.temp().draw_sphere(&(internal.b + offset), 0.1, &Vec4::new(1.0, 0.0, 0.0, 1.0), false, tok);
                         render.temp().draw_sphere(&(internal.c + offset), 0.1, &Vec4::new(0.0, 1.0, 0.0, 1.0), false, tok);
                         render.temp().draw_sphere(&(internal.d + offset), 0.1, &Vec4::new(0.0, 0.0, 1.0, 1.0), false, tok);
+
+                        // -- draw lines
                         render.temp().draw_line(&(internal.a + offset), &(internal.b + offset), &simplex_color, false, tok);
                         render.temp().draw_line(&(internal.a + offset), &(internal.c + offset), &simplex_color, false, tok);
                         render.temp().draw_line(&(internal.a + offset), &(internal.d + offset), &simplex_color, false, tok);
                         render.temp().draw_line(&(internal.b + offset), &(internal.c + offset), &simplex_color, false, tok);
                         render.temp().draw_line(&(internal.b + offset), &(internal.d + offset), &simplex_color, false, tok);
                         render.temp().draw_line(&(internal.c + offset), &(internal.d + offset), &simplex_color, false, tok);
+
+                        // -- draw normals
+                        // -- copy/pasted from the code, if that changed, this becomes inaccurate
+                        let ab = internal.b - internal.a;
+                        let ac = internal.c - internal.a;
+                        let ad = internal.d - internal.a;
+                        let abc_perp = glm::cross(&ab, &ac);
+                        let abd_perp = glm::cross(&ad, &ab);
+                        let acd_perp = glm::cross(&ac, &ad);
+                        let abc_centroid = (internal.a + internal.b + internal.c) / 3.0;
+                        let abd_centroid = (internal.a + internal.b + internal.d) / 3.0;
+                        let acd_centroid = (internal.a + internal.c + internal.d) / 3.0;
+                        render.temp().draw_line(&(abc_centroid + offset), &(abc_centroid + offset + abc_perp), &normal_color, false, tok);
+                        render.temp().draw_line(&(abd_centroid + offset), &(abd_centroid + offset + abd_perp), &normal_color, false, tok);
+                        render.temp().draw_line(&(acd_centroid + offset), &(acd_centroid + offset + acd_perp), &normal_color, false, tok);
+
+                        // -- draw ao
+                        render.temp().draw_line(&(offset), &(internal.a + offset), &ao_color, false, tok);
+
                         internal.a.clone()
                     },
                 };

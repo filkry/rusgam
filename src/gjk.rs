@@ -212,6 +212,7 @@ impl S3Simplex {
 
         let abc_perp = glm::cross(&ab, &ac);
 
+        // -- ap must be counter-clockwise on the triangle defining abc_perp
         fn check_edge(a: &Vec3, ao: &Vec3, p: &Vec3, ap: &Vec3, abc_perp: &Vec3) -> bool {
             // -- inequalities from Real-time collision detection
             let ineq1 = glm::dot(&ao, &ap) >= 0.0;
@@ -227,7 +228,8 @@ impl S3Simplex {
         }
 
         // -- check AC
-        if check_edge(&self.a, &ao, &self.c, &ac, &abc_perp) {
+        // -- negate the normal because AC is clockwise on a counter-clockwise ABC
+        if check_edge(&self.a, &ao, &self.c, &ac, &-abc_perp) {
             let ac_perp_to_origin = glm::cross(&glm::cross(&ac, &ao), &ac);
             return update_simplex_result2(&self.a, &self.c, ac_perp_to_origin);
         }
@@ -553,16 +555,25 @@ impl SGJKDebug {
                         internal.a.clone()
                     },
                     ESimplex::Two(internal) => {
+                        render.temp().draw_sphere(&(internal.a + offset), 0.1, &Vec4::new(1.0, 1.0, 1.0, 1.0), false, tok);
+                        render.temp().draw_sphere(&(internal.b + offset), 0.1, &Vec4::new(1.0, 0.0, 0.0, 1.0), false, tok);
                         render.temp().draw_line(&(internal.a + offset), &(internal.b + offset), &simplex_color, false, tok);
                         internal.a.clone()
                     },
                     ESimplex::Three(internal) => {
+                        render.temp().draw_sphere(&(internal.a + offset), 0.1, &Vec4::new(1.0, 1.0, 1.0, 1.0), false, tok);
+                        render.temp().draw_sphere(&(internal.b + offset), 0.1, &Vec4::new(1.0, 0.0, 0.0, 1.0), false, tok);
+                        render.temp().draw_sphere(&(internal.c + offset), 0.1, &Vec4::new(0.0, 1.0, 0.0, 1.0), false, tok);
                         render.temp().draw_line(&(internal.a + offset), &(internal.b + offset), &simplex_color, false, tok);
                         render.temp().draw_line(&(internal.b + offset), &(internal.c + offset), &simplex_color, false, tok);
                         render.temp().draw_line(&(internal.c + offset), &(internal.a + offset), &simplex_color, false, tok);
                         internal.a.clone()
                     },
                     ESimplex::Four(internal) => {
+                        render.temp().draw_sphere(&(internal.a + offset), 0.1, &Vec4::new(1.0, 1.0, 1.0, 1.0), false, tok);
+                        render.temp().draw_sphere(&(internal.b + offset), 0.1, &Vec4::new(1.0, 0.0, 0.0, 1.0), false, tok);
+                        render.temp().draw_sphere(&(internal.c + offset), 0.1, &Vec4::new(0.0, 1.0, 0.0, 1.0), false, tok);
+                        render.temp().draw_sphere(&(internal.d + offset), 0.1, &Vec4::new(0.0, 0.0, 1.0, 1.0), false, tok);
                         render.temp().draw_line(&(internal.a + offset), &(internal.b + offset), &simplex_color, false, tok);
                         render.temp().draw_line(&(internal.a + offset), &(internal.c + offset), &simplex_color, false, tok);
                         render.temp().draw_line(&(internal.a + offset), &(internal.d + offset), &simplex_color, false, tok);
@@ -605,6 +616,14 @@ impl SGJKDebug {
                 };
                 imgui_ui.text(&im_str!("Step type: {}", step_type_str));
                 if imgui_ui.small_button(im_str!("Step forward")) {
+                    self.step_forward();
+                    self.render_cur_step(ctxt);
+                }
+                if imgui_ui.small_button(im_str!("Step forward (recompute)")) {
+                    while self.steps.len() > (self.cur_step + 1) {
+                        self.steps.pop();
+                    }
+
                     self.step_forward();
                     self.render_cur_step(ctxt);
                 }

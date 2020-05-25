@@ -463,6 +463,7 @@ fn main_d3d12() -> Result<(), &'static str> {
     let mut edit_mode = EEditMode::Translation;
 
     let mut last_picked_entity : Option<SPoolHandle> = None;
+    let mut draw_selected_bvh  = false;
 
     let mut show_imgui_demo_window = false;
 
@@ -742,7 +743,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                 });
 
                 data_bucket.get_bvh().unwrap().with(|bvh: &bvh::STree| {
-                    bvh.imgui_menu(&imgui_ui);
+                    bvh.imgui_menu(&imgui_ui, &mut draw_selected_bvh);
                 });
 
                 gjk_debug.imgui_menu(&imgui_ui, &data_bucket, last_picked_entity, Some(rotating_entity));
@@ -757,20 +758,22 @@ fn main_d3d12() -> Result<(), &'static str> {
         }
 
         // -- draw selected object's BVH heirarchy
-        if let Some(e) = last_picked_entity {
-            STACK_ALLOCATOR.with(|sa| {
-                data_bucket.get_entities().unwrap().with(|entities: &SEntityBucket| {
-                    data_bucket.get_bvh().unwrap().with(|bvh: &bvh::STree| {
-                        data_bucket.get_renderer().unwrap().with_mut(|render: &mut render::SRender| {
-                            let mut aabbs = SMemVec::new(sa, 32, 0).unwrap();
-                            bvh.get_bvh_heirarchy_for_entry(entities.get_entity_bvh_entry(e), &mut aabbs);
-                            for aabb in aabbs.as_slice() {
-                                render.temp().draw_aabb(aabb, &Vec4::new(1.0, 0.0, 0.0, 1.0), true);
-                            }
+        if draw_selected_bvh {
+            if let Some(e) = last_picked_entity {
+                STACK_ALLOCATOR.with(|sa| {
+                    data_bucket.get_entities().unwrap().with(|entities: &SEntityBucket| {
+                        data_bucket.get_bvh().unwrap().with(|bvh: &bvh::STree| {
+                            data_bucket.get_renderer().unwrap().with_mut(|render: &mut render::SRender| {
+                                let mut aabbs = SMemVec::new(sa, 32, 0).unwrap();
+                                bvh.get_bvh_heirarchy_for_entry(entities.get_entity_bvh_entry(e), &mut aabbs);
+                                for aabb in aabbs.as_slice() {
+                                    render.temp().draw_aabb(aabb, &Vec4::new(1.0, 0.0, 0.0, 1.0), true);
+                                }
+                            });
                         });
                     });
                 });
-            });
+            }
         }
 
         STACK_ALLOCATOR.with(|sa| -> Result<(), &'static str> {

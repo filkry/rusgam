@@ -673,7 +673,7 @@ impl STree {
         result
     }
 
-    pub fn imgui_menu(&self, imgui_ui: &imgui::Ui) {
+    pub fn imgui_menu(&self, imgui_ui: &imgui::Ui, draw_selected_bvh: &mut bool) {
         use imgui::*;
 
         STACK_ALLOCATOR.with(|sa| {
@@ -683,6 +683,7 @@ impl STree {
             imgui_ui.menu(imgui::im_str!("BVH"), true, || {
                 imgui_ui.text(&im_str!("Tree height: {}", self.compute_height()));
                 imgui_ui.text(&im_str!("Average leaf height: {}", self.compute_average_leaf_height()));
+                imgui_ui.checkbox(&im_str!("Draw selected entity's BVH"), draw_selected_bvh);
 
                 while let Some(cur_handle) = to_show.pop() {
                     if imgui_ui.collapsing_header(&im_str!("Node {}.{}", cur_handle.index(), cur_handle.generation())).build() {

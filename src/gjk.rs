@@ -22,7 +22,7 @@ struct SMinkowskiDiffPoint {
 }
 
 fn support_mapping(pts: &[Vec3], dir: &Vec3) -> usize {
-    let mut max_dist = 0.0;
+    let mut max_dist = std::f32::NEG_INFINITY;
     let mut max_idx : usize = 0;
 
     for (idx, cand_p) in pts.iter().enumerate() {
@@ -266,7 +266,7 @@ impl S4Simplex {
         // -- A, AB, AC, AD, ABC, ABD, ACD
 
         // -- verifying triangle winding
-        break_assert!(glm::dot(&(self.a - self.b), &glm::cross(&(self.c - self.b), &(self.d - self.b))) > 0.0);
+        //break_assert!(glm::dot(&(self.a - self.b), &glm::cross(&(self.c - self.b), &(self.d - self.b))) > 0.0);
 
         let ab = self.b - self.a;
         let ac = self.c - self.a;
@@ -322,7 +322,7 @@ impl S4Simplex {
 
         fn check_face(a: &Vec3, ao: &Vec3, non_face_p: &Vec3, face_perp: &Vec3) -> bool {
             // -- inequalities from Real-time collision detection
-            return (glm::dot(ao, face_perp) * glm::dot(&(non_face_p - a), face_perp)) < 0.0;
+            return (glm::dot(ao, face_perp) * glm::dot(&(non_face_p - a), face_perp)) <= 0.0;
         }
 
         // -- check ABC
@@ -337,6 +337,17 @@ impl S4Simplex {
 
         // -- check ACD
         if check_face(&self.a, &ao, &self.b, &acd_perp) {
+            return update_simplex_result3(&self.a, &self.c, &self.d, acd_perp);
+        }
+
+        // -- numerical issues, return any face the point is on the correct side of
+        if glm::dot(&abc_perp, &ao) > 0.0 {
+            return update_simplex_result3(&self.a, &self.b, &self.c, abc_perp);
+        }
+        else if glm::dot(&abd_perp, &ao) > 0.0 {
+            return update_simplex_result3(&self.a, &self.b, &self.d, abd_perp);
+        }
+        else if glm::dot(&acd_perp, &ao) > 0.0 {
             return update_simplex_result3(&self.a, &self.c, &self.d, acd_perp);
         }
 
@@ -376,7 +387,7 @@ pub fn gjk(pts_a: &[Vec3], pts_b: &[Vec3]) -> bool {
         }
     }
 
-    break_assert!(false); // did not converge
+    println!("ERROR: Minkowski did not converge.");
     return false;
 }
 

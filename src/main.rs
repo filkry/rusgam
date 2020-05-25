@@ -776,6 +776,48 @@ fn main_d3d12() -> Result<(), &'static str> {
             }
         }
 
+        // -- draw selected object colliding/not with rotating_entity
+        if let Some(e) = last_picked_entity {
+            STACK_ALLOCATOR.with(|sa| {
+                data_bucket.get_renderer().unwrap().with_mut(|render: &mut render::SRender| {
+                    data_bucket.get_entities().unwrap().with(|entities: &SEntityBucket| {
+                        let loc = entities.get_entity_location(e);
+
+                        let world_verts = {
+                            let model = entities.get_entity_model(e).unwrap();
+                            let per_vert_data = render.mesh_loader().get_per_vertex_data(model.mesh);
+
+                            let mut world_verts = SMemVec::new(sa, per_vert_data.len(), 0).unwrap();
+
+                            for vd in per_vert_data.as_slice() {
+                                world_verts.push(loc.mul_point(&vd.position));
+                            }
+
+                            world_verts
+                        };
+
+                        let rot_box_world_verts = {
+                            let model = entities.get_entity_model(rotating_entity).unwrap();
+                            let loc = entities.get_entity_location(rotating_entity);
+                            let per_vert_data = render.mesh_loader().get_per_vertex_data(model.mesh);
+
+                            let mut world_verts = SMemVec::new(sa, per_vert_data.len(), 0).unwrap();
+
+                            for vd in per_vert_data.as_slice() {
+                                world_verts.push(loc.mul_point(&vd.position));
+                            }
+
+                            world_verts
+                        };
+
+                        if gjk::gjk(world_verts.as_slice(), rot_box_world_verts.as_slice()) {
+                            render.temp().draw_sphere(&loc.t, 1.0, &Vec4::new(1.0, 0.0, 0.0, 0.1), true, None);
+                        }
+                    });
+                });
+            });
+        }
+
         STACK_ALLOCATOR.with(|sa| -> Result<(), &'static str> {
             let imgui_draw_data = imgui_ui.render();
             data_bucket.get_entities().unwrap().with(|entities: &SEntityBucket| {
@@ -783,7 +825,14 @@ fn main_d3d12() -> Result<(), &'static str> {
                     let (_entities, model_xforms, models) = entities.build_render_data(sa);
 
                     // -- render world
-                    render.render_frame(&mut window, &view_matrix, models.as_slice(), model_xforms.as_slice(), Some(&imgui_draw_data)).unwrap();
+                    let render_result = render.render_frame(&mut window, &view_matrix, models.as_slice(), model_xforms.as_slice(), Some(&imgui_draw_data));
+                    match render_result {
+                        Ok(_) => {},
+                        Err(e) => {
+                            println!("ERROR: render failed with error '{}'", e);
+                            panic!();
+                        },
+                    }
                 });
             });
 

@@ -402,7 +402,7 @@ fn main_d3d12() -> Result<(), &'static str> {
         let model1 = render.new_model("assets/first_test_asset.obj", 1.0, true)?;
         let model2 = model1.clone();
         let mut model3 = render.new_model("assets/test_untextured_flat_colour_cube.obj", 1.0, true)?;
-        model3.diffuse_colour.w = 0.3;
+        model3.diffuse_colour.w = 0.9;
         let room_model = render.new_model("assets/test_open_room.obj", 1.0, true)?;
         let mut debug_model = render.new_model("assets/debug_icosphere.obj", 1.0, true)?;
         debug_model.set_pickable(false);
@@ -493,12 +493,10 @@ fn main_d3d12() -> Result<(), &'static str> {
         let mouse_pos = window.mouse_pos(&winapi.rawwinapi());
 
         // -- update
-        /*
-        let cur_angle = ((total_time as f32) / 1_000_000.0) * (3.14159 / 4.0);
+        let cur_angle = ((_total_time as f32) / 1_000_000.0) * (3.14159 / 4.0);
         data_bucket.get_entities().unwrap().with_mut(|entities: &mut SEntityBucket| {
-            entities.set_entity_location(rotating_entity, STransform::new_rotation(&glm::quat_angle_axis(cur_angle, &rot_axis)), &data_bucket);
+            entities.set_entity_location(rotating_entity, STransform::new_rotation(&glm::quat_angle_axis(cur_angle, &_rot_axis)), &data_bucket);
         });
-        */
 
         //let mut fixed_size_model_xform = STransform::new_translation(&glm::Vec3::new(0.0, 5.0, 0.0));
 

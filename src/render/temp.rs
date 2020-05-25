@@ -4,14 +4,13 @@ use std::mem::{size_of};
 
 // -- crate includes
 use arrayvec::{ArrayVec};
-use collections::{SPoolHandle};
 use glm::{Vec3, Vec4, Mat4};
 
 use niced3d12 as n12;
 use typeyd3d12 as t12;
 use allocate::{SMemVec, STACK_ALLOCATOR, SYSTEM_ALLOCATOR};
 use model;
-use model::{SModel, SMeshLoader, STextureLoader};
+use model::{SModel, SMeshLoader, STextureLoader, SMeshHandle};
 use utils::{STransform, SAABB};
 
 #[allow(unused_variables)]
@@ -137,7 +136,7 @@ pub struct SRenderTemp<'a> {
     _instance_mesh_pixel_byte_code: t12::SShaderBytecode,
 
     spheres: SMemVec::<'a, SSphere>,
-    sphere_mesh: SPoolHandle,
+    sphere_mesh: SMeshHandle,
     sphere_instance_buffer_intermediate_resource: [Option<n12::SResource>; 2],
     sphere_instance_buffer_resource: [Option<n12::SResource>; 2],
     sphere_instance_buffer_view: [Option<t12::SVertexBufferView>; 2],

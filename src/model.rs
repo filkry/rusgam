@@ -11,7 +11,8 @@ use t12;
 use n12;
 use n12::descriptorallocator::{descriptor_alloc};
 use allocate::{SMemVec, SYSTEM_ALLOCATOR};
-use collections::{SStoragePool, SPoolHandle};
+use collections;
+use collections::{SStoragePool};
 use safewindows;
 use rustywindows;
 use utils;
@@ -92,8 +93,9 @@ pub struct SMeshLoader<'a> {
     copy_command_list_pool: n12::SCommandListPool,
     direct_command_list_pool: n12::SCommandListPool,
 
-    mesh_pool: SStoragePool<SMesh<'a>>,
+    mesh_pool: SStoragePool<SMesh<'a>, u16, u16>,
 }
+pub type SMeshHandle = collections::SPoolHandle<u16, u16>;
 
 pub struct STextureLoader {
     device: Weak<n12::SDevice>,
@@ -101,18 +103,19 @@ pub struct STextureLoader {
     direct_command_list_pool: n12::SCommandListPool,
     srv_heap: Weak<n12::descriptorallocator::SDescriptorAllocator>,
 
-    texture_pool: SStoragePool<STexture>,
+    texture_pool: SStoragePool<STexture, u16, u16>,
 }
+pub type STextureHandle = collections::SPoolHandle<u16, u16>;
 
 #[derive(Clone, Copy)]
 pub struct SModel {
-    pub mesh: SPoolHandle,
+    pub mesh: SMeshHandle,
 
     pub pickable: bool,
 
     // -- material info
     pub diffuse_colour: Vec4,
-    pub diffuse_texture: Option<SPoolHandle>,
+    pub diffuse_texture: Option<STextureHandle>,
     diffuse_weight: f32,
     is_lit: bool,
 }
@@ -143,7 +146,7 @@ impl<'a> SMeshLoader<'a> {
         })
     }
 
-    pub fn get_or_create_mesh(&mut self, asset_name: &'static str, tobj_mesh: &tobj::Mesh) -> Result<SPoolHandle, &'static str> {
+    pub fn get_or_create_mesh(&mut self, asset_name: &'static str, tobj_mesh: &tobj::Mesh) -> Result<SMeshHandle, &'static str> {
         let uid = {
             let mut s = DefaultHasher::new();
             asset_name.hash(&mut s);
@@ -154,7 +157,7 @@ impl<'a> SMeshLoader<'a> {
         for i in 0..self.mesh_pool.used() {
             if let Some(mesh) = &self.mesh_pool.get_by_index(i as u16).unwrap() {
                 if mesh.uid == uid {
-                    return Ok(self.mesh_pool.handle_for_index(i as u16));
+                    return Ok(self.mesh_pool.handle_for_index(i as u16)?);
                 }
             }
         }
@@ -282,19 +285,19 @@ impl<'a> SMeshLoader<'a> {
         return self.mesh_pool.insert_val(mesh)
     }
 
-    pub fn get_mesh_local_aabb(&self, mesh: SPoolHandle) -> &utils::SAABB {
+    pub fn get_mesh_local_aabb(&self, mesh: SMeshHandle) -> &utils::SAABB {
         let mesh = self.mesh_pool.get(mesh).unwrap();
         &mesh.local_aabb
     }
 
-    pub fn get_per_vertex_data(&self, mesh: SPoolHandle) -> &SMemVec<'a, SVertexPosColourUV> {
+    pub fn get_per_vertex_data(&self, mesh: SMeshHandle) -> &SMemVec<'a, SVertexPosColourUV> {
         &self.mesh_pool.get(mesh).unwrap().per_vertex_data
     }
 
     #[allow(dead_code)]
     pub fn ray_intersects(
         &self,
-        mesh: SPoolHandle,
+        mesh: SMeshHandle,
         ray_origin: &Vec3,
         ray_dir: &Vec3,
         model_to_ray_space: &STransform,
@@ -340,24 +343,24 @@ impl<'a> SMeshLoader<'a> {
         return min_t;
     }
 
-    pub fn index_count(&self, mesh_handle: SPoolHandle) -> usize {
+    pub fn index_count(&self, mesh_handle: SMeshHandle) -> usize {
         let mesh = self.mesh_pool.get(mesh_handle).expect("querying invalid mesh");
         mesh.triangle_indices.len()
     }
 
-    pub fn vertex_buffer_view(&self, mesh_handle: SPoolHandle) -> &t12::SVertexBufferView {
+    pub fn vertex_buffer_view(&self, mesh_handle: SMeshHandle) -> &t12::SVertexBufferView {
         let mesh = self.mesh_pool.get(mesh_handle).expect("querying invalid mesh");
         &mesh.vertex_buffer_view
     }
 
-    pub fn index_buffer_view(&self, mesh_handle: SPoolHandle) -> &t12::SIndexBufferView {
+    pub fn index_buffer_view(&self, mesh_handle: SMeshHandle) -> &t12::SIndexBufferView {
         let mesh = self.mesh_pool.get(mesh_handle).expect("querying invalid mesh");
         &mesh.index_buffer_view
     }
 
     pub fn bind_buffers_and_draw(
         &self,
-        mesh_handle: SPoolHandle,
+        mesh_handle: SMeshHandle,
         cl: &mut n12::SCommandList,
     ) -> Result<(), &'static str> {
         let mesh = self.mesh_pool.get(mesh_handle)?;
@@ -371,7 +374,7 @@ impl<'a> SMeshLoader<'a> {
 
     pub fn render(
         &self,
-        mesh_handle: SPoolHandle,
+        mesh_handle: SMeshHandle,
         cl: &mut n12::SCommandList,
         view_projection: &glm::Mat4,
         model_xform: &STransform,
@@ -428,7 +431,7 @@ impl STextureLoader {
         })
     }
 
-    pub fn create_texture_rgba32_from_resource(&mut self, uid: Option<u64>, texture_resource: Option<n12::SResource>) -> Result<SPoolHandle, &'static str> {
+    pub fn create_texture_rgba32_from_resource(&mut self, uid: Option<u64>, texture_resource: Option<n12::SResource>) -> Result<STextureHandle, &'static str> {
         // -- transition texture to PixelShaderResource
         {
             let mut handle = self.direct_command_list_pool.alloc_list()?;
@@ -480,7 +483,7 @@ impl STextureLoader {
 
     }
 
-    pub fn create_texture_rgba32_from_bytes(&mut self, width: u32, height: u32, data: &[u8]) -> Result<SPoolHandle, &'static str> {
+    pub fn create_texture_rgba32_from_bytes(&mut self, width: u32, height: u32, data: &[u8]) -> Result<STextureHandle, &'static str> {
         let texture_resource = {
             let mut handle = self.copy_command_list_pool.alloc_list()?;
             let mut copycommandlist = self.copy_command_list_pool.get_list(&handle)?;
@@ -511,7 +514,7 @@ impl STextureLoader {
         self.create_texture_rgba32_from_resource(None, texture_resource)
     }
 
-    pub fn get_or_create_texture(&mut self, texture_name: &String) -> Result<SPoolHandle, &'static str> {
+    pub fn get_or_create_texture(&mut self, texture_name: &String) -> Result<STextureHandle, &'static str> {
 
         let uid = {
             let mut s = DefaultHasher::new();
@@ -524,7 +527,7 @@ impl STextureLoader {
             if let Some(texture) = &self.texture_pool.get_by_index(i as u16)? {
                 if let Some(texture_uid) = texture.uid {
                     if texture_uid == uid {
-                        return Ok(self.texture_pool.handle_for_index(i as u16));
+                        return Ok(self.texture_pool.handle_for_index(i as u16)?);
                     }
                 }
             }
@@ -560,7 +563,7 @@ impl STextureLoader {
         self.create_texture_rgba32_from_resource(Some(uid), texture_resource)
     }
 
-    pub fn texture_gpu_descriptor(&self, texture: SPoolHandle) -> Result<t12::SGPUDescriptorHandle, &'static str> {
+    pub fn texture_gpu_descriptor(&self, texture: STextureHandle) -> Result<t12::SGPUDescriptorHandle, &'static str> {
         let texture = self.texture_pool.get(texture)?;
         if let Some(srv) = &texture.diffuse_texture_srv {
             return Ok(srv.gpu_descriptor(0))
@@ -585,7 +588,7 @@ impl SModel {
 
         let mesh = mesh_loader.get_or_create_mesh(obj_file, &models[0].mesh);
         let mut diffuse_colour : Vec4 = glm::zero();
-        let mut diffuse_texture : Option<SPoolHandle> = None;
+        let mut diffuse_texture : Option<STextureHandle> = None;
 
         if materials.len() > 0 {
             assert_eq!(materials.len(), 1);

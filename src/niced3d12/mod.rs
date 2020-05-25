@@ -18,7 +18,6 @@ mod rootsignature;
 mod swapchain;
 mod window;
 
-use collections::{SPool, SPoolHandle};
 use directxgraphicssamples;
 use safewindows;
 use typeyd3d12 as t12;

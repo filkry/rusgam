@@ -8,8 +8,7 @@ use imgui;
 use glm::{Mat4};
 
 use allocate::{SMemVec, SYSTEM_ALLOCATOR};
-use collections::{SPoolHandle};
-use model::{STextureLoader};
+use model::{STextureLoader, STextureHandle};
 use niced3d12 as n12;
 use typeyd3d12 as t12;
 
@@ -28,7 +27,7 @@ struct SImguiPipelineStateStream<'a> {
 }
 
 pub(super) struct SRenderImgui<'a> {
-    font_texture: SPoolHandle,
+    font_texture: STextureHandle,
     font_texture_id: imgui::TextureId,
     root_signature: n12::SRootSignature,
     pipeline_state: t12::SPipelineState,
@@ -244,7 +243,7 @@ impl<'a> SRenderImgui<'a> {
         })
     }
 
-    fn get_imgui_texture(&self, texture_id: imgui::TextureId) -> SPoolHandle {
+    fn get_imgui_texture(&self, texture_id: imgui::TextureId) -> STextureHandle {
         if texture_id == self.font_texture_id {
             return self.font_texture;
         }

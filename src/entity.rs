@@ -11,13 +11,15 @@ struct SEntity {
     location: STransform,
     model: Option<SModel>,
     identity_aabb: Option<SAABB>, // $$$FRK(TODO): ONLY putting this in here right now to avoid moving the renderer!
-    bvh_entry: SPoolHandle,
+    bvh_entry: bvh::SNodeHandle,
 }
 
 #[allow(dead_code)]
 pub struct SEntityBucket {
-    entities: SStoragePool<SEntity>,
+    entities: SStoragePool<SEntity, u16, u16>,
 }
+
+pub type SEntityHandle = SPoolHandle<u16, u16>;
 
 impl SEntity {
     pub fn new() -> Self {
@@ -38,19 +40,19 @@ impl SEntityBucket {
         }
     }
 
-    pub fn create_entity(&mut self) -> Result<SPoolHandle, &'static str> {
+    pub fn create_entity(&mut self) -> Result<SEntityHandle, &'static str> {
         self.entities.insert_val(SEntity::new())
     }
 
-    pub fn set_entity_debug_name(&mut self, entity: SPoolHandle, debug_name: &'static str) {
+    pub fn set_entity_debug_name(&mut self, entity: SEntityHandle, debug_name: &'static str) {
         self.entities.get_mut(entity).expect("invalid entity").debug_name = Some(debug_name);
     }
 
-    pub fn get_entity_location(&self, entity: SPoolHandle) -> STransform {
+    pub fn get_entity_location(&self, entity: SEntityHandle) -> STransform {
         self.entities.get(entity).expect("invalid entity").location
     }
 
-    pub fn set_entity_location(&mut self, entity: SPoolHandle, location: STransform, data_bucket: &SDataBucket) {
+    pub fn set_entity_location(&mut self, entity: SEntityHandle, location: STransform, data_bucket: &SDataBucket) {
         self.entities.get_mut(entity).expect("invalid entity").location = location;
 
         if let Some(bvh) = data_bucket.get_bvh() {
@@ -69,34 +71,34 @@ impl SEntityBucket {
         }
     }
 
-    pub fn get_entity_model(&self, entity: SPoolHandle) -> Option<SModel> {
+    pub fn get_entity_model(&self, entity: SEntityHandle) -> Option<SModel> {
         self.entities.get(entity).expect("invalid entity").model
     }
 
-    pub fn set_entity_model(&mut self, entity: SPoolHandle, model: SModel, identity_aabb: &SAABB) {
+    pub fn set_entity_model(&mut self, entity: SEntityHandle, model: SModel, identity_aabb: &SAABB) {
         let data = self.entities.get_mut(entity).expect("invalid entity");
         data.model = Some(model);
         data.identity_aabb = Some(identity_aabb.clone());
     }
 
-    pub fn get_entity_bvh_entry(&self, entity: SPoolHandle) -> SPoolHandle {
+    pub fn get_entity_bvh_entry(&self, entity: SEntityHandle) -> bvh::SNodeHandle {
         self.entities.get(entity).expect("invalid entity").bvh_entry
     }
 
-    pub fn set_entity_bvh_entry(&mut self, entity: SPoolHandle, bvh_entry: SPoolHandle) {
+    pub fn set_entity_bvh_entry(&mut self, entity: SEntityHandle, bvh_entry: bvh::SNodeHandle) {
         self.entities.get_mut(entity).expect("invalid entity").bvh_entry = bvh_entry;
     }
 
-    pub fn build_render_data<'a>(&self, allocator: &'a dyn TMemAllocator) -> (SMemVec<'a, SPoolHandle>, SMemVec<'a, STransform>, SMemVec<'a, SModel>) {
+    pub fn build_render_data<'a>(&self, allocator: &'a dyn TMemAllocator) -> (SMemVec<'a, SEntityHandle>, SMemVec<'a, STransform>, SMemVec<'a, SModel>) {
         // -- $$$FRK(TODO): if the stack allocator is used, returning these is only safe if the caller makes references to each member  (no _)
-        let mut entities = SMemVec::<SPoolHandle>::new(allocator, self.entities.used(), 0).expect("alloc fail");
+        let mut entities = SMemVec::<SEntityHandle>::new(allocator, self.entities.used(), 0).expect("alloc fail");
         let mut transforms = SMemVec::<STransform>::new(allocator, self.entities.used(), 0).expect("alloc fail");
         let mut models = SMemVec::<SModel>::new(allocator, self.entities.used(), 0).expect("alloc fail");
 
         for entity_idx in 0..self.entities.max() {
             if let Ok(Some(e)) = self.entities.get_by_index(entity_idx) {
                 if let Some(m) = e.model {
-                    entities.push(self.entities.handle_for_index(entity_idx));
+                    entities.push(self.entities.handle_for_index(entity_idx).unwrap());
                     transforms.push(e.location);
                     models.push(m);
                 }
@@ -106,7 +108,7 @@ impl SEntityBucket {
         (entities, transforms, models)
     }
 
-    pub fn show_imgui_window(&mut self, entity: SPoolHandle, imgui_ui: &imgui::Ui) {
+    pub fn show_imgui_window(&mut self, entity: SEntityHandle, imgui_ui: &imgui::Ui) {
         use imgui::*;
 
         Window::new(im_str!("Selected entity"))

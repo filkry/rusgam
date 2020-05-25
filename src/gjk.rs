@@ -1,12 +1,10 @@
 // crate imports
 use glm::{Vec3};
 
-use collections::{SPoolHandle};
-use entity::{SEntityBucket};
+use entity::{SEntityBucket, SEntityHandle};
 use databucket::{SDataBucket};
 use render;
 use render::{SRender};
-use safewindows;
 use imgui;
 
 // Implementation of GJK
@@ -322,7 +320,7 @@ impl S4Simplex {
 
         fn check_face(a: &Vec3, ao: &Vec3, non_face_p: &Vec3, face_perp: &Vec3) -> bool {
             // -- inequalities from Real-time collision detection
-            return (glm::dot(ao, face_perp) * glm::dot(&(non_face_p - a), face_perp)) <= 0.0;
+            return (glm::dot(ao, face_perp) * glm::dot(&(non_face_p - a), face_perp)) < 0.0;
         }
 
         // -- check ABC
@@ -340,6 +338,8 @@ impl S4Simplex {
             return update_simplex_result3(&self.a, &self.c, &self.d, acd_perp);
         }
 
+        // -- $$$FRK(TODO): return an Err here, then use the debugger to see what's happening
+        // -- in more detail
         // -- numerical issues, return any face the point is on the correct side of
         if glm::dot(&abc_perp, &ao) > 0.0 {
             return update_simplex_result3(&self.a, &self.b, &self.c, abc_perp);
@@ -405,7 +405,7 @@ impl SGJKDebug {
         })
     }
 
-    pub fn reset_to_entities(&mut self, ctxt: &SDataBucket, entity_1: SPoolHandle, entity_2: SPoolHandle) {
+    pub fn reset_to_entities(&mut self, ctxt: &SDataBucket, entity_1: SEntityHandle, entity_2: SEntityHandle) {
         ctxt.get_entities().unwrap().with(|entities: &SEntityBucket| {
             ctxt.get_renderer().unwrap().with_mut(|render: &mut SRender| {
                 let world_verts_a = {
@@ -602,7 +602,7 @@ impl SGJKDebug {
         });
     }
 
-    pub fn imgui_menu(&mut self, imgui_ui: &imgui::Ui, ctxt: &SDataBucket, entity_1: Option<SPoolHandle>, entity_2: Option<SPoolHandle>) {
+    pub fn imgui_menu(&mut self, imgui_ui: &imgui::Ui, ctxt: &SDataBucket, entity_1: Option<SEntityHandle>, entity_2: Option<SEntityHandle>) {
         use imgui::*;
 
         imgui_ui.menu(im_str!("GJK"), true, || {

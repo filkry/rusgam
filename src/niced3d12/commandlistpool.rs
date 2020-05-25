@@ -4,30 +4,35 @@ use std::ops::{DerefMut};
 
 //use safewindows::{break_err};
 
-use super::*;
+use collections;
+use collections::{SPool};
+use safewindows;
+
+use super::{SCommandList, SCommandAllocator, SCommandQueue, SFence, SDevice};
 
 struct SCommandListPoolList {
     list: RefCell<SCommandList>,
-    allocator: SPoolHandle,
+    allocator: SAllocatorHandle,
 }
 
 struct SCommandListPoolActiveAllocator {
-    handle: SPoolHandle,
+    handle: SAllocatorHandle,
     reusefencevalue: u64,
 }
 
 pub struct SCommandListPool {
     queue: Weak<RefCell<SCommandQueue>>,
 
-    allocators: SPool<SCommandAllocator>,
-    lists: SPool<SCommandListPoolList>,
+    allocators: SPool<SCommandAllocator, u16, u64>,
+    lists: SPool<SCommandListPoolList, u16, u64>,
 
     activefence: SFence,
     activeallocators: Vec<SCommandListPoolActiveAllocator>,
 }
+type SAllocatorHandle = collections::SPoolHandle<u16, u64>;
 
 pub struct SListHandle {
-    handle: SPoolHandle,
+    handle: collections::SPoolHandle<u16, u64>,
     freed: bool,
 }
 
@@ -62,8 +67,8 @@ impl SCommandListPool {
 
         Ok(Self {
             queue: queue,
-            allocators: SPool::<SCommandAllocator>::create_from_vec(0, num_allocators, allocators),
-            lists: SPool::<SCommandListPoolList>::create_from_vec(1, num_lists, lists),
+            allocators: SPool::<SCommandAllocator, u16, u64>::create_from_vec(0, num_allocators, allocators),
+            lists: SPool::<SCommandListPoolList, u16, u64>::create_from_vec(1, num_lists, lists),
             activefence: device.create_fence(winapi)?,
             activeallocators: Vec::<SCommandListPoolActiveAllocator>::with_capacity(
                 num_allocators as usize,

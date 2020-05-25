@@ -13,9 +13,8 @@ use glm::{Vec3, Mat4};
 use niced3d12 as n12;
 use typeyd3d12 as t12;
 use allocate::{SMemVec, STACK_ALLOCATOR};
-use collections::{SPoolHandle};
 use databucket::{SDataBucket};
-use entity::{SEntityBucket};
+use entity::{SEntityBucket, SEntityHandle};
 use model;
 use model::{SModel, SMeshLoader, STextureLoader};
 use safewindows;
@@ -728,7 +727,7 @@ impl<'a> Drop for SRender<'a> {
     }
 }
 
-pub fn cast_ray_against_entity_model(ctxt: &SDataBucket, ray: &SRay, entity: SPoolHandle) -> Option<f32> {
+pub fn cast_ray_against_entity_model(ctxt: &SDataBucket, ray: &SRay, entity: SEntityHandle) -> Option<f32> {
     let mut result = None;
 
     ctxt.get_entities().unwrap().with(|entities: &SEntityBucket| {

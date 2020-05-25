@@ -5,19 +5,21 @@ use render;
 use safewindows;
 use utils::{SAABB, SRay, ray_intersects_aabb};
 
+pub type SNodeHandle = SPoolHandle<u16, u16>;
+
 #[derive(Clone)]
 struct SLeafNode {
     bounds: SAABB,
-    parent: SPoolHandle,
-    owner: SPoolHandle,
+    parent: SNodeHandle,
+    owner: SNodeHandle,
 }
 
 #[derive(Clone)]
 struct SInternalNode {
     bounds: SAABB,
-    parent: SPoolHandle,
-    child1: SPoolHandle,
-    child2: SPoolHandle,
+    parent: SNodeHandle,
+    child1: SNodeHandle,
+    child2: SNodeHandle,
 }
 
 #[derive(Clone)]
@@ -28,16 +30,16 @@ enum ENode {
 }
 
 pub struct STree {
-    nodes: SPool<ENode>,
-    root: SPoolHandle,
+    nodes: SPool<ENode, u16, u16>,
+    root: SNodeHandle,
 }
 
 impl ENode {
-    pub fn parent(&self) -> SPoolHandle {
+    pub fn parent(&self) -> SNodeHandle {
         match self {
             Self::Free => {
                 break_assert!(false);
-                SPoolHandle::default()
+                SNodeHandle::default()
             },
             Self::Leaf(leaf) => leaf.parent,
             Self::Internal(internal) => internal.parent,
@@ -65,7 +67,7 @@ impl ENode {
         }
     }
 
-    pub fn set_parent(&mut self, new_parent: SPoolHandle) {
+    pub fn set_parent(&mut self, new_parent: SNodeHandle) {
         match self {
             Self::Free => {
                 break_assert!(false);
@@ -93,7 +95,7 @@ impl Default for ENode {
 }
 
 impl STree {
-    fn union(&self, a: SPoolHandle, b: SPoolHandle) -> SAABB {
+    fn union(&self, a: SNodeHandle, b: SNodeHandle) -> SAABB {
         let a_aabb = self.nodes.get(a).unwrap().bounds();
         let b_aabb = self.nodes.get(b).unwrap().bounds();
         match (a_aabb, b_aabb) {
@@ -104,15 +106,15 @@ impl STree {
         }
     }
 
-    fn find_best_sibling(&self, query_node: SPoolHandle) -> SPoolHandle {
+    fn find_best_sibling(&self, query_node: SNodeHandle) -> SNodeHandle {
         self.tree_valid();
 
         struct SSearch {
-            node_handle: SPoolHandle,
+            node_handle: SNodeHandle,
             inherited_cost: f32,
         }
 
-        STACK_ALLOCATOR.with(|sa| -> SPoolHandle {
+        STACK_ALLOCATOR.with(|sa| -> SNodeHandle {
             let mut search_queue = SMemQueue::<SSearch>::new(sa, self.nodes.used()).unwrap();
             break_assert!(self.root.valid());
             let mut best = self.root;
@@ -165,18 +167,18 @@ impl STree {
     pub fn new() -> Self {
         Self {
             nodes: SPool::create_default(0, 1024),
-            root: SPoolHandle::default(),
+            root: SNodeHandle::default(),
         }
     }
 
-    fn update_bounds_from_children(&mut self, node_handle: SPoolHandle) {
+    fn update_bounds_from_children(&mut self, node_handle: SNodeHandle) {
         let (child1, child2) = {
             if let ENode::Internal(internal) = self.nodes.get(node_handle).unwrap() {
                 (internal.child1, internal.child2)
             }
             else {
                 break_assert!(false);
-                (SPoolHandle::default(), SPoolHandle::default())
+                (SNodeHandle::default(), SNodeHandle::default())
             }
         };
 
@@ -191,7 +193,7 @@ impl STree {
         self.nodes.get_mut(node_handle).unwrap().set_bounds(&new_bounds);
     }
 
-    fn replace_child_without_updating_bounds(&mut self, parent: SPoolHandle, original_child: SPoolHandle, new_child: SPoolHandle) {
+    fn replace_child_without_updating_bounds(&mut self, parent: SNodeHandle, original_child: SNodeHandle, new_child: SNodeHandle) {
         if let ENode::Internal(internal) = self.nodes.get_mut(parent).unwrap() {
             if internal.child1 == original_child {
                 internal.child1 = new_child;
@@ -208,7 +210,7 @@ impl STree {
         }
     }
 
-    fn swap_nodes_without_updating_bounds(&mut self, node_a: SPoolHandle, node_b: SPoolHandle) {
+    fn swap_nodes_without_updating_bounds(&mut self, node_a: SNodeHandle, node_b: SNodeHandle) {
         let node_a_original_parent = self.nodes.get(node_a).unwrap().parent();
         let node_b_original_parent = self.nodes.get(node_b).unwrap().parent();
 
@@ -219,19 +221,19 @@ impl STree {
         self.replace_child_without_updating_bounds(node_a_original_parent, node_a, node_b);
     }
 
-    fn rotate_children_grandchildren(&mut self, node_handle: SPoolHandle) {
-        let mut best_swap_child : Option<SPoolHandle> = None;
-        let mut best_swap_other_child : Option<SPoolHandle> = None;
-        let mut best_swap_grandchild : Option<SPoolHandle> = None;
+    fn rotate_children_grandchildren(&mut self, node_handle: SNodeHandle) {
+        let mut best_swap_child : Option<SNodeHandle> = None;
+        let mut best_swap_other_child : Option<SNodeHandle> = None;
+        let mut best_swap_grandchild : Option<SNodeHandle> = None;
         let mut best_sa_diff : Option<f32> = None;
 
         if let ENode::Internal(internal) = self.nodes.get(node_handle).unwrap() {
             let mut test_grandchild = |
-                swap_child : SPoolHandle,
-                other_child : SPoolHandle,
+                swap_child : SNodeHandle,
+                other_child : SNodeHandle,
                 swap_child_cur_sa : f32,
-                swap_grandchild : SPoolHandle,
-                other_grandchild : SPoolHandle,
+                swap_grandchild : SNodeHandle,
+                other_grandchild : SNodeHandle,
             | {
                 let possible_bounds = SAABB::union(
                     &self.nodes.get(swap_child).unwrap().bounds().unwrap(),
@@ -247,7 +249,7 @@ impl STree {
                 }
             };
 
-            let mut test_child = |swap_child : SPoolHandle, other_child: SPoolHandle| {
+            let mut test_child = |swap_child : SNodeHandle, other_child: SNodeHandle| {
                 let cur_bounds = self.nodes.get(other_child).unwrap().bounds().unwrap();
                 let cur_sa = cur_bounds.surface_area();
                 if let ENode::Internal(other_child_internal) = self.nodes.get(other_child).unwrap() {
@@ -267,7 +269,7 @@ impl STree {
         }
     }
 
-    pub fn insert(&mut self, owner: SPoolHandle, bounds: &SAABB) -> SPoolHandle {
+    pub fn insert(&mut self, owner: SNodeHandle, bounds: &SAABB) -> SNodeHandle {
         let first : bool = self.nodes.used() == 0;
         let leaf_handle = self.nodes.alloc().unwrap();
 
@@ -345,7 +347,7 @@ impl STree {
         leaf_handle
     }
 
-    pub fn get_bvh_heirarchy_for_entry(&self, entry: SPoolHandle, output: &mut SMemVec<SAABB>) {
+    pub fn get_bvh_heirarchy_for_entry(&self, entry: SNodeHandle, output: &mut SMemVec<SAABB>) {
         let mut cur_handle = entry;
         while cur_handle.valid() {
             output.push(self.nodes.get(cur_handle).unwrap().bounds().unwrap().clone());
@@ -355,7 +357,7 @@ impl STree {
 
     fn tree_valid(&self) -> bool {
         STACK_ALLOCATOR.with(|sa| -> bool {
-            let mut search_queue = SMemQueue::<SPoolHandle>::new(sa, self.nodes.used()).unwrap();
+            let mut search_queue = SMemQueue::<SNodeHandle>::new(sa, self.nodes.used()).unwrap();
             let mut child_count = SMemVec::<u16>::new(sa, self.nodes.max() as usize, 0).unwrap();
             for _ in 0..self.nodes.max() {
                 child_count.push(0);
@@ -469,7 +471,7 @@ impl STree {
         })
     }
 
-    pub fn remove(&mut self, entry: SPoolHandle) {
+    pub fn remove(&mut self, entry: SNodeHandle) {
         let mut handle_to_delete = entry;
         drop(entry);
 
@@ -477,7 +479,7 @@ impl STree {
             let parent_handle = self.nodes.get(handle_to_delete).unwrap().parent();
             let parent_parent_handle = self.nodes.get(parent_handle).unwrap().parent();
 
-            let mut other_child_handle = SPoolHandle::default();
+            let mut other_child_handle = SNodeHandle::default();
             {
                 let parent = self.nodes.get_mut(parent_handle).unwrap(); // $$$FRK(TODO): change to unchecked when more confident
                 if let ENode::Internal(int) = parent {
@@ -556,7 +558,7 @@ impl STree {
 
     pub fn compute_height(&self) -> usize {
         struct SSearchItem {
-            node: SPoolHandle,
+            node: SNodeHandle,
             height: usize,
         }
 
@@ -594,7 +596,7 @@ impl STree {
 
     pub fn compute_average_leaf_height(&self) -> f32 {
         struct SSearchItem {
-            node: SPoolHandle,
+            node: SNodeHandle,
             height: f32,
         }
 
@@ -637,13 +639,13 @@ impl STree {
     }
 
     // -- returns "owner" field of hit item
-    pub fn cast_ray(&self, ctxt: &SDataBucket, ray: &SRay) -> Option<SPoolHandle> {
+    pub fn cast_ray(&self, ctxt: &SDataBucket, ray: &SRay) -> Option<SNodeHandle> {
         let result = STACK_ALLOCATOR.with(|sa| {
-            let mut to_search = SMemVec::<SPoolHandle>::new(sa, self.nodes.used() as usize, 0).unwrap();
+            let mut to_search = SMemVec::<SNodeHandle>::new(sa, self.nodes.used() as usize, 0).unwrap();
             to_search.push(self.root);
 
             let mut min_t : Option<f32> = None;
-            let mut min_owner : Option<SPoolHandle> = None;
+            let mut min_owner : Option<SNodeHandle> = None;
 
             while let Some(cur_handle) = to_search.pop() {
                 let node = self.nodes.get(cur_handle).unwrap();
@@ -677,7 +679,7 @@ impl STree {
         use imgui::*;
 
         STACK_ALLOCATOR.with(|sa| {
-            let mut to_show = SMemVec::<SPoolHandle>::new(sa, self.nodes.used() as usize, 0).unwrap();
+            let mut to_show = SMemVec::<SNodeHandle>::new(sa, self.nodes.used() as usize, 0).unwrap();
             to_show.push(self.root);
 
             imgui_ui.menu(imgui::im_str!("BVH"), true, || {

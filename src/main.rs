@@ -42,8 +42,7 @@ mod render;
 use glm::{Vec3, Vec4, Mat4};
 
 use allocate::{STACK_ALLOCATOR, SYSTEM_ALLOCATOR, SMemVec};
-use collections::{SPoolHandle};
-use entity::{SEntityBucket};
+use entity::{SEntityBucket, SEntityHandle};
 use niced3d12 as n12;
 use typeyd3d12 as t12;
 //use allocate::{SMemVec, STACK_ALLOCATOR};
@@ -462,7 +461,7 @@ fn main_d3d12() -> Result<(), &'static str> {
     let mut mode = EMode::Edit;
     let mut edit_mode = EEditMode::Translation;
 
-    let mut last_picked_entity : Option<SPoolHandle> = None;
+    let mut last_picked_entity : Option<SEntityHandle> = None;
     let mut draw_selected_bvh  = false;
 
     let mut show_imgui_demo_window = false;

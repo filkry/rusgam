@@ -603,6 +603,7 @@ impl<'a> SRenderTemp<'a> {
         });
     }
 
+    #[allow(dead_code)]
     pub fn draw_point(&mut self, p: &Vec3, color: &Vec3, over_world: bool) {
         self.points.push(SPoint {
             p: p.clone(),

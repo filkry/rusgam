@@ -452,7 +452,7 @@ fn main_d3d12() -> Result<(), &'static str> {
     let mut lastframetime = winapi.curtimemicroseconds();
 
     let start_time = winapi.curtimemicroseconds();
-    let rot_axis = Vec3::new(0.0, 1.0, 0.0);
+    let _rot_axis = Vec3::new(0.0, 1.0, 0.0);
 
     let mut camera = camera::SCamera::new(glm::Vec3::new(0.0, 0.0, -10.0));
 
@@ -488,7 +488,7 @@ fn main_d3d12() -> Result<(), &'static str> {
         let _dtms = dt as f64;
         let dts = (dt as f32) / 1_000_000.0;
 
-        let total_time = curframetime - start_time;
+        let _total_time = curframetime - start_time;
 
         let mouse_pos = window.mouse_pos(&winapi.rawwinapi());
 

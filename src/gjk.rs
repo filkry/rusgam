@@ -13,6 +13,7 @@ use imgui;
 //     + inequalities for finding correct vorinoi region of simplex come from Real-Time Collision Detection
 
 
+#[allow(dead_code)]
 struct SMinkowskiDiffPoint {
     pos: Vec3,
     a_idx: usize,

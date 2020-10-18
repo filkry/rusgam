@@ -4,6 +4,7 @@ use utils::{STransform, SAABB};
 use collections::{SStoragePool, SPoolHandle};
 use databucket::{SDataBucket};
 use bvh;
+use render;
 
 #[allow(dead_code)]
 struct SEntity {
@@ -75,10 +76,13 @@ impl SEntityBucket {
         self.entities.get(entity).expect("invalid entity").model
     }
 
-    pub fn set_entity_model(&mut self, entity: SEntityHandle, model: SModel, identity_aabb: &SAABB) {
+    pub fn set_entity_model(&mut self, entity: SEntityHandle, model: SModel, data_bucket: &SDataBucket) {
         let data = self.entities.get_mut(entity).expect("invalid entity");
         data.model = Some(model);
-        data.identity_aabb = Some(identity_aabb.clone());
+
+        data_bucket.get_renderer().unwrap().with(|render: &render::SRender| {
+            data.identity_aabb = Some(render.mesh_loader().get_mesh_local_aabb(model.mesh).clone());
+        });
     }
 
     pub fn get_entity_bvh_entry(&self, entity: SEntityHandle) -> bvh::SNodeHandle {

@@ -29,6 +29,10 @@ mod camera;
 mod model;
 mod render;
 
+mod flat_shaded_cube_entity;
+mod test_textured_cube_entity;
+mod test_open_room_entity;
+
 // -- std includes
 //use std::cell::RefCell;
 //use std::mem::size_of;
@@ -392,59 +396,41 @@ fn main_d3d12() -> Result<(), &'static str> {
 
     let mut data_bucket = databucket::SDataBucket::new(256, &SYSTEM_ALLOCATOR);
 
-    let mut entities = SEntityBucket::new(67485, 16);
-    let rotating_entity = entities.create_entity()?;
-    let ent2 = entities.create_entity()?;
-    let ent3 = entities.create_entity()?;
-    let room = entities.create_entity()?;
-    {
-        // -- set up entities
-        let model1 = render.new_model("assets/first_test_asset.obj", 1.0, true)?;
-        let model2 = model1.clone();
-        let mut model3 = render.new_model("assets/test_untextured_flat_colour_cube.obj", 1.0, true)?;
-        model3.diffuse_colour.w = 0.9;
-        let room_model = render.new_model("assets/test_open_room.obj", 1.0, true)?;
-        let mut debug_model = render.new_model("assets/debug_icosphere.obj", 1.0, true)?;
-        debug_model.set_pickable(false);
-        //let fixed_size_model = SModel::new_from_obj("assets/test_untextured_flat_colour_cube.obj", &device, &mut copycommandpool, &mut directcommandpool, &srv_heap, true, 1.0)?;
-
-        entities.set_entity_debug_name(rotating_entity, "tst_rotating");
-        entities.set_entity_debug_name(ent2, "tst_textured_cube");
-        entities.set_entity_debug_name(ent3, "tst_coloured_cube");
-        entities.set_entity_debug_name(room, "tst_room");
-
-        entities.set_entity_location(ent2, STransform::new_translation(&glm::Vec3::new(3.0, 0.0, 0.0)), &data_bucket);
-        entities.set_entity_location(ent3, STransform::new_translation(&glm::Vec3::new(0.0, 2.0, 0.0)), &data_bucket);
-        entities.set_entity_location(room, STransform::new_translation(&glm::Vec3::new(0.0, -2.0, 0.0)), &data_bucket);
-
-        entities.set_entity_model(rotating_entity, model1.clone(),
-                                  &render.mesh_loader().get_mesh_local_aabb(model1.mesh));
-        entities.set_entity_model(ent2, model2,
-                                  &render.mesh_loader().get_mesh_local_aabb(model2.mesh));
-        entities.set_entity_model(ent3, model3,
-                                  &render.mesh_loader().get_mesh_local_aabb(model3.mesh));
-        entities.set_entity_model(room, room_model,
-                                  &render.mesh_loader().get_mesh_local_aabb(room_model.mesh));
-    }
-
+    let entities = SEntityBucket::new(67485, 16);
     data_bucket.add_entities(entities);
+    data_bucket.add_renderer(render);
+    let bvh = bvh::STree::new();
+    data_bucket.add_bvh(bvh);
+
+    let rotating_entity = test_textured_cube_entity::create(
+        &data_bucket, Some("tst_rotating"),
+        STransform::new_translation(&glm::Vec3::new(0.0, 0.0, 0.0)))?;
+    test_textured_cube_entity::create(
+        &data_bucket, Some("tst_textured_cube"),
+        STransform::new_translation(&glm::Vec3::new(3.0, 0.0, 0.0)))?;
+    flat_shaded_cube_entity::create(
+        &data_bucket, Some("tst_coloured_cube"), Some(glm::Vec4::new(1.0, 0.0, 0.0, 0.9)),
+        STransform::new_translation(&glm::Vec3::new(0.0, 2.0, 0.0)))?;
+    test_open_room_entity::create(
+        &data_bucket, Some("tst_room"),
+        STransform::new_translation(&glm::Vec3::new(0.0, -2.0, 0.0)))?;
 
     // -- test initialize a BVH
-    let mut bvh = bvh::STree::new();
     {
         data_bucket.get_entities().unwrap().with_mut(|entities: &mut SEntityBucket| {
-            let (entity_handles, transforms, models) = entities.build_render_data(&SYSTEM_ALLOCATOR);
-            for i in 0..entity_handles.len() {
-                let mesh_local_aabb = render.mesh_loader().get_mesh_local_aabb(models[i].mesh);
-                let transformed_aabb = utils::SAABB::transform(&mesh_local_aabb, &transforms[i]);
-                let entry = bvh.insert(entity_handles[i], &transformed_aabb);
-                entities.set_entity_bvh_entry(entity_handles[i], entry);
-            }
+            data_bucket.get_renderer().unwrap().with(|render: &render::SRender| {
+                data_bucket.get_bvh().unwrap().with_mut(|bvh: &mut bvh::STree| {
+                    let (entity_handles, transforms, models) = entities.build_render_data(&SYSTEM_ALLOCATOR);
+                    for i in 0..entity_handles.len() {
+                        let mesh_local_aabb = render.mesh_loader().get_mesh_local_aabb(models[i].mesh);
+                        let transformed_aabb = utils::SAABB::transform(&mesh_local_aabb, &transforms[i]);
+                        let entry = bvh.insert(entity_handles[i], &transformed_aabb);
+                        entities.set_entity_bvh_entry(entity_handles[i], entry);
+                    }
+                })
+            })
         })
     }
-
-    data_bucket.add_bvh(bvh);
-    data_bucket.add_renderer(render);
 
     // -- update loop
 

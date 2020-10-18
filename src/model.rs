@@ -616,6 +616,7 @@ impl SModel {
         })
     }
 
+    #[allow(dead_code)]
     pub fn set_pickable(&mut self, pickable: bool) {
         self.pickable = pickable;
     }

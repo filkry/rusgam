@@ -17,6 +17,7 @@ mod bvh;
 mod collections;
 mod databucket;
 mod directxgraphicssamples;
+mod editmode;
 mod entity;
 mod gjk;
 mod input;
@@ -41,7 +42,7 @@ mod entitytypes;
 // -- crate includes
 //use arrayvec::{ArrayVec};
 //use serde::{Serialize, Deserialize};
-use glm::{Vec3, Vec4, Mat4};
+use glm::{Vec3, Vec4};
 
 use allocate::{STACK_ALLOCATOR, SYSTEM_ALLOCATOR, SMemVec};
 use entity::{SEntityBucket, SEntityHandle};
@@ -105,234 +106,6 @@ impl EEditMode {
             _ => false,
         }
     }
-}
-
-// -- transform, camera pos, and camera forward must be in the same space
-fn scale_to_fixed_screen_size(
-    transform: &mut STransform,
-    pct_of_near_plane_for_one_unit: f32,
-    fovy: f32,
-    znear: f32,
-    window_width: u32,
-    window_height: u32,
-    camera_pos: &Vec3,
-    camera_forward: &Vec3,
-) {
-    let fovx = utils::fovx(fovy, window_width, window_height);
-
-    let to_fixed = transform.t - camera_pos;
-    let dist = glm::length(&to_fixed);
-
-    let angle_from_forward = glm::angle(&to_fixed, &camera_forward);
-    let proj_dist = znear / (angle_from_forward).cos();
-
-    // -- the whole idea of this code is to build a ratio of the similar
-    // -- triangle from the object in world space to the amount of space
-    // -- 1 unit will take up on the near plane projection, then scale it
-    // -- so that space is constant
-    let proj_ratio = proj_dist / dist;
-
-    let unit_in_proj_space = 1.0 * proj_ratio;
-
-    let total_proj_space = 2.0 * znear * (fovx / 2.0).tan();
-    let desired_proj_space = total_proj_space * pct_of_near_plane_for_one_unit;
-
-    let scale = desired_proj_space / unit_in_proj_space;
-
-    transform.s = scale;
-}
-
-fn cursor_ray_world(
-    mouse_pos: [i32; 2],
-    render: &render::SRender,
-    window: &n12::SD3D12Window,
-    camera: &camera::SCamera,
-) -> utils::SRay {
-    let (x_pos, y_pos) = (mouse_pos[0], mouse_pos[1]);
-
-    //println!("Left button down: {}, {}", x_pos, y_pos);
-
-    let half_camera_near_clip_height = (render.fovy()/2.0).tan() * render.znear();
-    let half_camera_near_clip_width = ((window.width() as f32) / (window.height() as f32)) * half_camera_near_clip_height;
-
-    let near_clip_top_left_camera_space = Vec3::new(-half_camera_near_clip_width, half_camera_near_clip_height, render.znear());
-    let near_clip_deltax_camera_space = Vec3::new(2.0 * half_camera_near_clip_width, 0.0, 0.0);
-    let near_clip_deltay_camera_space = Vec3::new(0.0, -2.0 * half_camera_near_clip_height, 0.0);
-
-    let pct_width = (x_pos as f32) / (window.width() as f32);
-    let pct_height = (y_pos as f32) / (window.height() as f32);
-
-    let to_z_near_camera_space = near_clip_top_left_camera_space +
-        pct_width * near_clip_deltax_camera_space +
-        pct_height * near_clip_deltay_camera_space;
-
-    //println!("to_z_near_camera_space: {:?}", to_z_near_camera_space);
-
-    let world_to_view = camera.world_to_view_matrix();
-    let view_to_world = glm::inverse(&world_to_view);
-
-    let to_z_near_world_space = view_to_world * utils::vec3_to_homogenous(&to_z_near_camera_space, 0.0);
-
-    utils::SRay{
-        origin: camera.pos_world,
-        dir: to_z_near_world_space.xyz(),
-    }
-}
-
-fn world_pos_to_screen_pos(
-    world_pos: &Vec3,
-    view_matrix: &Mat4,
-    window: &n12::SD3D12Window,
-    render: &render::SRender,
-) -> Vec3 {
-    let perspective_matrix = {
-        let aspect = (window.width() as f32) / (window.height() as f32);
-        let zfar = 100.0;
-
-        //SMat44::new_perspective(aspect, fovy, znear, zfar)
-        glm::perspective_lh_zo(aspect, render.fovy(), render.znear(), zfar)
-    };
-
-    let view_perspective_matrix = perspective_matrix * view_matrix;
-
-    let pos_clip_space = view_perspective_matrix * Vec4::new(world_pos.x, world_pos.y, world_pos.z, 1.0);
-    let pos_ndc = pos_clip_space / pos_clip_space.w;
-
-    let width_f32 = window.width() as f32;
-    let height_f32 = window.height() as f32;
-
-    let screen_space = Vec3::new(
-        ((pos_ndc.x + 1.0) / 2.0) * width_f32,
-        ((-pos_ndc.y + 1.0) / 2.0) * height_f32,
-        0.0, // not valid
-    );
-
-    screen_space
-}
-
-fn pos_on_screen_space_line_to_world(
-    world_line_p0: &Vec3,
-    world_line_p1: &Vec3,
-    screen_space_pos: [i32; 2],
-    view_matrix: &Mat4,
-    window: &n12::SD3D12Window,
-    render: &render::SRender,
-) -> Vec3 {
-    // -- how to move with translation widget:
-    // + create two very distant points from the widget in world space on the translation axis
-    // + get those points in screen space
-    // + find closest point on that line to cursor
-    // + project closest point in world space
-    // + move object to that position (figure out offset later)
-
-    //println!("Line p0 : {:?}", line_p0);
-    //println!("Line p1 : {:?}", line_p1);
-
-    let perspective_matrix = {
-        let aspect = (window.width() as f32) / (window.height() as f32);
-        let zfar = 100.0;
-
-        //SMat44::new_perspective(aspect, fovy, znear, zfar)
-        glm::perspective_lh_zo(aspect, render.fovy(), render.znear(), zfar)
-    };
-
-    let view_perspective_matrix = perspective_matrix * view_matrix;
-
-    let mut line_p0_clip_space = view_perspective_matrix * Vec4::new(world_line_p0.x, world_line_p0.y, world_line_p0.z, 1.0);
-    let mut line_p1_clip_space = view_perspective_matrix * Vec4::new(world_line_p1.x, world_line_p1.y, world_line_p1.z, 1.0);
-    //println!("Line p0 clip space: {:?}", line_p0_clip_space);
-    //println!("Line p1 clip space: {:?}", line_p1_clip_space);
-
-    let line_p0_w = line_p0_clip_space.w;
-    let line_p1_w = line_p1_clip_space.w;
-    line_p0_clip_space /= line_p0_w;
-    line_p1_clip_space /= line_p1_w;
-
-    //println!("Line p0 clip space NORM: {:?}", line_p0_clip_space);
-    //println!("Line p1 clip space NORM: {:?}", line_p1_clip_space);
-
-    let width_f32 = window.width() as f32;
-    let height_f32 = window.height() as f32;
-
-    let line_p0_screen_space = Vec3::new(
-        ((line_p0_clip_space.x + 1.0) / 2.0) * width_f32,
-        ((-line_p0_clip_space.y + 1.0) / 2.0) * height_f32,
-        0.0, // not valid
-    );
-    let line_p1_screen_space = Vec3::new(
-        ((line_p1_clip_space.x + 1.0) / 2.0) * width_f32,
-        ((-line_p1_clip_space.y + 1.0) / 2.0) * height_f32,
-        0.0, // not valid
-    );
-
-    let line_screen_space = line_p1_screen_space - line_p0_screen_space;
-
-    //println!("Line p0 screen space: {:?}", line_p0_screen_space);
-    //println!("Line p1 screen space: {:?}", line_p1_screen_space);
-
-    // -- mouse is thought of as on the znear plane, so 0.0
-    let mouse_pos_v = Vec3::new(screen_space_pos[0] as f32, screen_space_pos[1] as f32, 0.0);
-
-    let (closest_pos_screen_space, _) = utils::closest_point_on_line(&line_p0_screen_space, &line_p1_screen_space, &mouse_pos_v);
-    //println!("closest pos screen space: {:?}", closest_pos_screen_space);
-
-    let closest_pos_clip_ndc = Vec3::new(
-        (closest_pos_screen_space.x / width_f32) * 2.0 - 1.0,
-        -((closest_pos_screen_space.y / height_f32) * 2.0 - 1.0),
-        0.0, // not valid
-    );
-
-    // the basic idea: we want to find a point P  on a line, such that for
-    // (1) P' = view_perspective_matrix * P,
-    // (3) P'.x / P'.w = cursor_ndc.x AND P'.y / P'.w = cursor_ndc.y
-    //
-    // P must be on the line, so (2) P = line_p0 + t * d, where d = line_p1 - line_p0
-    // we have only one unknown 't', so we can simplify to a single equation in x or y
-    //
-    // If you simplify for just x, you get:
-    // P'.x = dot(view_perspective_matrix.row_0, P);
-    // P'.w = dot(view_perspective_matrix.row_3, P);
-    //
-    // combined with (2) and simplified:
-    // P'.x = dot(row_0, line_p0) + t * dot(row_0, d)
-    // P'.w = dot(row_3, line_p0) + t * dot(row_3, d)
-    //
-    // combined with (3) gives you:
-    // t = cursor_ndc.x * dot(row_3, line_p0) - dot(row_0, line_p0)
-    //     ------------------------------------------------------------------
-    //     dot(row_0, d) - cursor_ndc.x * dot(row_3, d)
-
-    // -- re-used values
-    let d = world_line_p1 - world_line_p0;
-    let d_vec4 = Vec4::new(d.x, d.y, d.z, 0.0);
-    let line_p0_vec4 = Vec4::new(world_line_p0.x, world_line_p0.y, world_line_p0.z, 1.0);
-
-    let row_0 = glm::row(&view_perspective_matrix, 0);
-    let row_1 = glm::row(&view_perspective_matrix, 1);
-    let row_3 = glm::row(&view_perspective_matrix, 3);
-    let row_0_dot_p0 = glm::dot(&row_0, &line_p0_vec4);
-    let row_1_dot_p0 = glm::dot(&row_1, &line_p0_vec4);
-    let row_3_dot_p0 = glm::dot(&row_3, &line_p0_vec4);
-    let row_0_dot_d = glm::dot(&row_0, &d_vec4);
-    let row_1_dot_d = glm::dot(&row_1, &d_vec4);
-    let row_3_dot_d = glm::dot(&row_3, &d_vec4);
-
-    let t = {
-        if line_screen_space.x.abs() > line_screen_space.y.abs() {
-            let t_numer = closest_pos_clip_ndc.x * row_3_dot_p0 - row_0_dot_p0;
-            let t_denom = row_0_dot_d - closest_pos_clip_ndc.x * row_3_dot_d;
-            t_numer / t_denom
-        }
-        else {
-            let t_numer = closest_pos_clip_ndc.y * row_3_dot_p0 - row_1_dot_p0;
-            let t_denom = row_1_dot_d - closest_pos_clip_ndc.y * row_3_dot_d;
-            t_numer / t_denom
-        }
-    };
-
-    let closest_pos_world_space = world_line_p0 + t * d;
-
-    closest_pos_world_space.xyz()
 }
 
 fn main_d3d12() -> Result<(), &'static str> {
@@ -497,7 +270,7 @@ fn main_d3d12() -> Result<(), &'static str> {
         input.mouse_dy = 0;
         let view_matrix = camera.world_to_view_matrix();
         let cursor_ray = data_bucket.get_renderer().unwrap().with(|render: &render::SRender| {
-            cursor_ray_world(mouse_pos, render, &window, &camera)
+            editmode::cursor_ray_world(mouse_pos, render, &window, &camera)
         });
 
         //println!("View: {}", view_matrix);
@@ -519,7 +292,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                                 translation_start_pos = e_pos;
                                 edit_mode = EEditMode::TranslationDragging(axis);
 
-                                let e_pos_screen = world_pos_to_screen_pos(&e_pos, &view_matrix, &window, &render);
+                                let e_pos_screen = editmode::world_pos_to_screen_pos(&e_pos, &view_matrix, &window, &render);
 
                                 translation_mouse_offset = [(e_pos_screen.x as i32) - mouse_pos[0],
                                                             (e_pos_screen.y as i32) - mouse_pos[1]];
@@ -540,7 +313,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                                 let mut plane_normal : Vec3 = glm::zero();
                                 plane_normal[axis] = 1.0;
                                 let plane = utils::SPlane::new(&e_loc.t, &plane_normal);
-                                let cursor_ray_world = cursor_ray_world(mouse_pos, &render, &window, &camera);
+                                let cursor_ray_world = editmode::cursor_ray_world(mouse_pos, &render, &window, &camera);
 
                                 if let Some((cursor_pos_world, t)) = utils::ray_plane_intersection(&cursor_ray_world, &plane) {
                                     if min_t.is_none() || min_t.unwrap() > t {
@@ -588,7 +361,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                             let offset_mouse_pos = [mouse_pos[0] + translation_mouse_offset[0],
                                                     mouse_pos[1] + translation_mouse_offset[1]];
 
-                            let new_world_pos = pos_on_screen_space_line_to_world(
+                            let new_world_pos = editmode::pos_on_screen_space_line_to_world(
                                 &line_p0,
                                 &line_p1,
                                 offset_mouse_pos,
@@ -620,7 +393,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                             plane_normal[axis] = 1.0;
                             let plane = utils::SPlane::new(&e_loc.t, &plane_normal);
 
-                            let cursor_ray_world = cursor_ray_world(mouse_pos, &render, &window, &camera);
+                            let cursor_ray_world = editmode::cursor_ray_world(mouse_pos, &render, &window, &camera);
                             if let Some((cursor_pos_world, _)) = utils::ray_plane_intersection(&cursor_ray_world, &plane) {
                                 let entity_to_cursor = cursor_pos_world - e_loc.t;
 
@@ -671,17 +444,17 @@ fn main_d3d12() -> Result<(), &'static str> {
                         translation_widget_transforms[1].t = entities.get_entity_location(e).t;
                         translation_widget_transforms[2].t = entities.get_entity_location(e).t;
                         //println!("Set translation widget: {:?}", translation_widget_transform.t);
-                        scale_to_fixed_screen_size(&mut translation_widget_transforms[0], 0.02, render.fovy(), render.znear(), window.width(), window.height(), &camera.pos_world, &camera.forward_world());
-                        scale_to_fixed_screen_size(&mut translation_widget_transforms[1], 0.02, render.fovy(), render.znear(), window.width(), window.height(), &camera.pos_world, &camera.forward_world());
-                        scale_to_fixed_screen_size(&mut translation_widget_transforms[2], 0.02, render.fovy(), render.znear(), window.width(), window.height(), &camera.pos_world, &camera.forward_world());
+                        editmode::scale_to_fixed_screen_size(&mut translation_widget_transforms[0], 0.02, render.fovy(), render.znear(), window.width(), window.height(), &camera.pos_world, &camera.forward_world());
+                        editmode::scale_to_fixed_screen_size(&mut translation_widget_transforms[1], 0.02, render.fovy(), render.znear(), window.width(), window.height(), &camera.pos_world, &camera.forward_world());
+                        editmode::scale_to_fixed_screen_size(&mut translation_widget_transforms[2], 0.02, render.fovy(), render.znear(), window.width(), window.height(), &camera.pos_world, &camera.forward_world());
 
                         rotation_widget_transforms[0].t = entities.get_entity_location(e).t;
                         rotation_widget_transforms[1].t = entities.get_entity_location(e).t;
                         rotation_widget_transforms[2].t = entities.get_entity_location(e).t;
                         //println!("Set translation widget: {:?}", translation_widget_transform.t);
-                        scale_to_fixed_screen_size(&mut rotation_widget_transforms[0], 0.034, render.fovy(), render.znear(), window.width(), window.height(), &camera.pos_world, &camera.forward_world());
-                        scale_to_fixed_screen_size(&mut rotation_widget_transforms[1], 0.034, render.fovy(), render.znear(), window.width(), window.height(), &camera.pos_world, &camera.forward_world());
-                        scale_to_fixed_screen_size(&mut rotation_widget_transforms[2], 0.034, render.fovy(), render.znear(), window.width(), window.height(), &camera.pos_world, &camera.forward_world());
+                        editmode::scale_to_fixed_screen_size(&mut rotation_widget_transforms[0], 0.034, render.fovy(), render.znear(), window.width(), window.height(), &camera.pos_world, &camera.forward_world());
+                        editmode::scale_to_fixed_screen_size(&mut rotation_widget_transforms[1], 0.034, render.fovy(), render.znear(), window.width(), window.height(), &camera.pos_world, &camera.forward_world());
+                        editmode::scale_to_fixed_screen_size(&mut rotation_widget_transforms[2], 0.034, render.fovy(), render.znear(), window.width(), window.height(), &camera.pos_world, &camera.forward_world());
                     });
                 });
             }

@@ -29,9 +29,7 @@ mod camera;
 mod model;
 mod render;
 
-mod flat_shaded_cube_entity;
-mod test_textured_cube_entity;
-mod test_open_room_entity;
+mod entitytypes;
 
 // -- std includes
 //use std::cell::RefCell;
@@ -402,16 +400,16 @@ fn main_d3d12() -> Result<(), &'static str> {
     let bvh = bvh::STree::new();
     data_bucket.add_bvh(bvh);
 
-    let rotating_entity = test_textured_cube_entity::create(
+    let rotating_entity = entitytypes::testtexturedcubeentity::create(
         &data_bucket, Some("tst_rotating"),
         STransform::new_translation(&glm::Vec3::new(0.0, 0.0, 0.0)))?;
-    test_textured_cube_entity::create(
+    entitytypes::testtexturedcubeentity::create(
         &data_bucket, Some("tst_textured_cube"),
         STransform::new_translation(&glm::Vec3::new(3.0, 0.0, 0.0)))?;
-    flat_shaded_cube_entity::create(
+    entitytypes::flatshadedcubeentity::create(
         &data_bucket, Some("tst_coloured_cube"), Some(glm::Vec4::new(1.0, 0.0, 0.0, 0.9)),
         STransform::new_translation(&glm::Vec3::new(0.0, 2.0, 0.0)))?;
-    test_open_room_entity::create(
+    entitytypes::testopenroomentity::create(
         &data_bucket, Some("tst_room"),
         STransform::new_translation(&glm::Vec3::new(0.0, -2.0, 0.0)))?;
 

@@ -1,3 +1,6 @@
++ factor out editing layer
++ refactor DataBucket
+
 Things necessary to start messing around with a game:
     + level data:
         + environment definition/placement

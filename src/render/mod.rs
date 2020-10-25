@@ -387,7 +387,6 @@ impl<'a> SRender<'a> {
         let fovy: f32 = utils::PI / 4.0; // 45 degrees
         let znear = 0.1;
 
-        // -- setup shadow mapping
         let render_shadow_map = shadowmapping::setup_shadow_mapping_pipeline(
             &device, &mut direct_command_pool, Rc::downgrade(&dsv_heap), Rc::downgrade(&srv_heap), 128, 128)?;
         let render_imgui = SRenderImgui::new(imgui_ctxt, &mut texture_loader, &device)?;

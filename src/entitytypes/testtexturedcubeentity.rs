@@ -22,8 +22,8 @@ pub fn create(
             entities.set_entity_debug_name(ent, n);
         }
 
-        entities.set_entity_location(ent, starting_location, data_bucket);
         entities.set_entity_model(ent, model, data_bucket);
+        entities.set_entity_location(ent, starting_location, data_bucket);
 
         Ok(ent)
     })

@@ -61,12 +61,13 @@ impl SEntityBucket {
                 let bvh_entry = self.get_entity_bvh_entry(entity);
                 let identity_aabb_opt = self.entities.get(entity).unwrap().identity_aabb;
                 if let Some(identity_aabb) = identity_aabb_opt {
+                    let transformed_aabb = SAABB::transform(&identity_aabb, &location);
+
                     if bvh_entry.valid() {
                         bvh.remove(bvh_entry);
-                        let transformed_aabb = SAABB::transform(&identity_aabb, &location);
-                        let entry = bvh.insert(entity, &transformed_aabb);
-                        self.set_entity_bvh_entry(entity, entry);
                     }
+                    let entry = bvh.insert(entity, &transformed_aabb);
+                    self.set_entity_bvh_entry(entity, entry);
                 }
             });
         }

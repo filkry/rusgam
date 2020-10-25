@@ -255,23 +255,6 @@ fn main_d3d12() -> Result<(), &'static str> {
         &data_bucket, Some("tst_room"),
         STransform::new_translation(&glm::Vec3::new(0.0, -2.0, 0.0)))?;
 
-    // -- test initialize a BVH
-    {
-        data_bucket.get_entities().unwrap().with_mut(|entities: &mut SEntityBucket| {
-            data_bucket.get_renderer().unwrap().with(|render: &render::SRender| {
-                data_bucket.get_bvh().unwrap().with_mut(|bvh: &mut bvh::STree| {
-                    let (entity_handles, transforms, models) = entities.build_render_data(&SYSTEM_ALLOCATOR);
-                    for i in 0..entity_handles.len() {
-                        let mesh_local_aabb = render.mesh_loader().get_mesh_local_aabb(models[i].mesh);
-                        let transformed_aabb = utils::SAABB::transform(&mesh_local_aabb, &transforms[i]);
-                        let entry = bvh.insert(entity_handles[i], &transformed_aabb);
-                        entities.set_entity_bvh_entry(entity_handles[i], entry);
-                    }
-                })
-            })
-        })
-    }
-
     // -- update loop
 
     let mut _framecount: u64 = 0;

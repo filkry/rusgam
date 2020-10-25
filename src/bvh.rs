@@ -640,6 +640,10 @@ impl STree {
 
     // -- returns "owner" field of hit item
     pub fn cast_ray(&self, ctxt: &SDataBucket, ray: &SRay) -> Option<SNodeHandle> {
+        if self.nodes.used() == 0 {
+            return None;
+        }
+
         let result = STACK_ALLOCATOR.with(|sa| {
             let mut to_search = SMemVec::<SNodeHandle>::new(sa, self.nodes.used() as usize, 0).unwrap();
             to_search.push(self.root);
@@ -677,6 +681,10 @@ impl STree {
 
     pub fn imgui_menu(&self, imgui_ui: &imgui::Ui, draw_selected_bvh: &mut bool) {
         use imgui::*;
+
+        if self.nodes.used() == 0 {
+            return;
+        }
 
         STACK_ALLOCATOR.with(|sa| {
             let mut to_show = SMemVec::<SNodeHandle>::new(sa, self.nodes.used() as usize, 0).unwrap();

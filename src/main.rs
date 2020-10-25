@@ -60,8 +60,10 @@ enum EMode {
 
 #[derive(PartialEq, Clone)]
 struct SEditModeTranslationDragging {
+    entity: SEntityHandle,
     axis: usize,
     start_pos: Vec3,
+    mouse_offset: [i32; 2],
 }
 
 #[derive(PartialEq, Clone)]
@@ -115,10 +117,12 @@ impl EEditMode {
 }
 
 impl SEditModeTranslationDragging {
-    pub fn new(axis: usize, start_pos: Vec3) -> Self {
+    pub fn new(entity: SEntityHandle, axis: usize, start_pos: Vec3, mouse_offset: [i32; 2]) -> Self {
         Self{
+            entity,
             axis,
             start_pos,
+            mouse_offset,
         }
     }
 }
@@ -167,7 +171,6 @@ fn main_d3d12() -> Result<(), &'static str> {
     ];
     translation_widget_transforms[0].r = glm::quat_angle_axis(utils::PI / 2.0, &Vec3::new(0.0, 1.0, 0.0));
     translation_widget_transforms[1].r = glm::quat_angle_axis(-utils::PI / 2.0, &Vec3::new(1.0, 0.0, 0.0));
-    let mut translation_mouse_offset = [0; 2];
 
     let mut rotation_start_ori : glm::Quat = glm::zero();
     let mut rotation_start_entity_to_cursor : Vec3 = glm::zero();
@@ -303,12 +306,12 @@ fn main_d3d12() -> Result<(), &'static str> {
 
                                 let e_pos = entities.get_entity_location(e).t;
 
-                                edit_mode = EEditMode::TranslationDragging(SEditModeTranslationDragging::new(axis, e_pos));
-
                                 let e_pos_screen = editmode::world_pos_to_screen_pos(&e_pos, &view_matrix, &window, &render);
 
-                                translation_mouse_offset = [(e_pos_screen.x as i32) - mouse_pos[0],
-                                                            (e_pos_screen.y as i32) - mouse_pos[1]];
+                                let mouse_offset = [(e_pos_screen.x as i32) - mouse_pos[0], (e_pos_screen.y as i32) - mouse_pos[1]];
+
+                                edit_mode = EEditMode::TranslationDragging(SEditModeTranslationDragging::new(e, axis, e_pos, mouse_offset));
+
 
                                 break;
                             }
@@ -352,8 +355,6 @@ fn main_d3d12() -> Result<(), &'static str> {
                             edit_mode = EEditMode::Translation;
                         }
                         else {
-                            assert!(last_picked_entity.is_some(), "translating but no entity!");
-
                             let mut line_dir : Vec3 = glm::zero();
                             line_dir[data.axis] = 1.0;
 
@@ -371,8 +372,8 @@ fn main_d3d12() -> Result<(), &'static str> {
                                 None,
                             );
 
-                            let offset_mouse_pos = [mouse_pos[0] + translation_mouse_offset[0],
-                                                    mouse_pos[1] + translation_mouse_offset[1]];
+                            let offset_mouse_pos = [mouse_pos[0] + data.mouse_offset[0],
+                                                    mouse_pos[1] + data.mouse_offset[1]];
 
                             let new_world_pos = editmode::pos_on_screen_space_line_to_world(
                                 &line_p0,
@@ -383,11 +384,11 @@ fn main_d3d12() -> Result<(), &'static str> {
                                 &render,
                             );
 
-                            let mut new_e_loc = entities.get_entity_location(last_picked_entity.expect(""));
+                            let mut new_e_loc = entities.get_entity_location(data.entity);
                             new_e_loc.t = new_world_pos;
 
                             entities.set_entity_location(
-                                last_picked_entity.expect(""),
+                                data.entity,
                                 new_e_loc,
                                 &data_bucket,
                             );

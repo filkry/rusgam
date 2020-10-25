@@ -66,6 +66,12 @@ struct SEditModeTranslationDragging {
     mouse_offset: [i32; 2],
 }
 
+struct SEditModeContext {
+    editing_entity: Option<SEntityHandle>,
+    translation_widgets: [model::SModel; 3],
+    translation_widget_transforms: [STransform; 3],
+}
+
 #[derive(PartialEq, Clone)]
 enum EEditMode {
     None,
@@ -87,6 +93,34 @@ impl EMode {
                 *edit_mode = EEditMode::Translation;
             },
         }
+    }
+}
+
+impl SEditModeContext {
+    pub fn new(render: &mut render::SRender) -> Result<Self, &'static str> {
+        // -- set up translation widget
+        let mut translation_widgets = [
+            render.new_model("assets/arrow_widget.obj", 1.0, false)?,
+            render.new_model("assets/arrow_widget.obj", 1.0, false)?,
+            render.new_model("assets/arrow_widget.obj", 1.0, false)?,
+        ];
+        translation_widgets[0].diffuse_colour = Vec4::new(1.0, 0.0, 0.0, 1.0);
+        translation_widgets[1].diffuse_colour = Vec4::new(0.0, 1.0, 0.0, 1.0);
+        translation_widgets[2].diffuse_colour = Vec4::new(0.0, 0.0, 1.0, 1.0);
+
+        let mut translation_widget_transforms = [
+            STransform::default(),
+            STransform::default(),
+            STransform::default(),
+        ];
+        translation_widget_transforms[0].r = glm::quat_angle_axis(utils::PI / 2.0, &Vec3::new(0.0, 1.0, 0.0));
+        translation_widget_transforms[1].r = glm::quat_angle_axis(-utils::PI / 2.0, &Vec3::new(1.0, 0.0, 0.0));
+
+        Ok(Self {
+            editing_entity: None,
+            translation_widgets,
+            translation_widget_transforms,
+        })
     }
 }
 
@@ -113,6 +147,29 @@ impl EEditMode {
             Self::RotationDragging(axis) => *axis == query_axis,
             _ => false,
         }
+    }
+
+    pub fn update_translation(
+        em: &mut SEditModeContext,
+        editmode_input: &editmode::SEditModeInput,
+        render: &render::SRender,
+        entities: &SEntityBucket
+    ) -> EEditMode {
+        let e = em.editing_entity.expect("shouldn't be able to translate without entity picked.");
+
+        let cursor_ray = editmode::cursor_ray_world(&editmode_input);
+        for axis in 0..=2 {
+            if let Some(_) = render.ray_intersects(&em.translation_widgets[axis], &cursor_ray.origin, &cursor_ray.dir, &em.translation_widget_transforms[axis]) {
+                let e_pos = entities.get_entity_location(e).t;
+                let e_pos_screen = editmode::world_pos_to_screen_pos(&e_pos, &editmode_input);
+                let mouse_offset = [(e_pos_screen.x as i32) - editmode_input.mouse_window_pos[0], (e_pos_screen.y as i32) - editmode_input.mouse_window_pos[1]];
+
+                return EEditMode::TranslationDragging(SEditModeTranslationDragging::new(e, axis, e_pos, mouse_offset));
+            }
+        }
+
+
+        EEditMode::Translation
     }
 }
 
@@ -196,15 +253,7 @@ fn main_d3d12() -> Result<(), &'static str> {
     window.init_render_target_views(render.device())?;
     window.show();
 
-    // -- set up translation widget
-    let mut translation_widgets = [
-        render.new_model("assets/arrow_widget.obj", 1.0, false)?,
-        render.new_model("assets/arrow_widget.obj", 1.0, false)?,
-        render.new_model("assets/arrow_widget.obj", 1.0, false)?,
-    ];
-    translation_widgets[0].diffuse_colour = Vec4::new(1.0, 0.0, 0.0, 1.0);
-    translation_widgets[1].diffuse_colour = Vec4::new(0.0, 1.0, 0.0, 1.0);
-    translation_widgets[2].diffuse_colour = Vec4::new(0.0, 0.0, 1.0, 1.0);
+    let mut editmode_ctxt = SEditModeContext::new(&mut render).unwrap();
 
     // -- set up rotation widget
     let mut rotation_widgets = [
@@ -215,14 +264,6 @@ fn main_d3d12() -> Result<(), &'static str> {
     rotation_widgets[0].diffuse_colour = Vec4::new(1.0, 0.0, 0.0, 1.0);
     rotation_widgets[1].diffuse_colour = Vec4::new(0.0, 1.0, 0.0, 1.0);
     rotation_widgets[2].diffuse_colour = Vec4::new(0.0, 0.0, 1.0, 1.0);
-
-    let mut translation_widget_transforms = [
-        STransform::default(),
-        STransform::default(),
-        STransform::default(),
-    ];
-    translation_widget_transforms[0].r = glm::quat_angle_axis(utils::PI / 2.0, &Vec3::new(0.0, 1.0, 0.0));
-    translation_widget_transforms[1].r = glm::quat_angle_axis(-utils::PI / 2.0, &Vec3::new(1.0, 0.0, 0.0));
 
     let mut rotation_start_ori : glm::Quat = glm::zero();
     let mut rotation_start_entity_to_cursor : Vec3 = glm::zero();
@@ -270,7 +311,6 @@ fn main_d3d12() -> Result<(), &'static str> {
     let mut mode = EMode::Edit;
     let mut edit_mode = EEditMode::Translation;
 
-    let mut last_picked_entity : Option<SEntityHandle> = None;
     let mut draw_selected_bvh  = false;
 
     let mut show_imgui_demo_window = false;
@@ -331,33 +371,18 @@ fn main_d3d12() -> Result<(), &'static str> {
         //println!("Frame time: {}us", _dtms);
 
         // -- check if the user clicked an edit widget
-        if input.left_mouse_edge.down() && !imgui_ctxt.io().want_capture_mouse && mode == EMode::Edit && last_picked_entity.is_some() {
+        if input.left_mouse_edge.down() && !imgui_ctxt.io().want_capture_mouse && mode == EMode::Edit && editmode_ctxt.editing_entity.is_some() {
             data_bucket.get_renderer().unwrap().with(|render: &render::SRender| {
                 data_bucket.get_entities().unwrap().with(|entities: &SEntityBucket| {
                     if edit_mode == EEditMode::Translation {
-                        for axis in 0..=2 {
-                            if let Some(_) = render.ray_intersects(&translation_widgets[axis], &cursor_ray.origin, &cursor_ray.dir, &translation_widget_transforms[axis]) {
-                                let e = last_picked_entity.expect("shouldn't be able to translate without entity picked.");
-
-                                let e_pos = entities.get_entity_location(e).t;
-
-                                let e_pos_screen = editmode::world_pos_to_screen_pos(&e_pos, &view_matrix, &window, &render);
-
-                                let mouse_offset = [(e_pos_screen.x as i32) - editmode_input.mouse_window_pos[0], (e_pos_screen.y as i32) - editmode_input.mouse_window_pos[1]];
-
-                                edit_mode = EEditMode::TranslationDragging(SEditModeTranslationDragging::new(e, axis, e_pos, mouse_offset));
-
-
-                                break;
-                            }
-                        }
+                        edit_mode = EEditMode::update_translation(&mut editmode_ctxt, &editmode_input, &render, &entities);
                     }
                     else if edit_mode == EEditMode::Rotation {
 
                         let mut min_t = None;
                         for axis in 0..=2 {
                             if let Some(_) = render.ray_intersects(&rotation_widgets[axis], &cursor_ray.origin, &cursor_ray.dir, &rotation_widget_transforms[axis]) {
-                                let e = last_picked_entity.expect("shouldn't be able to rotate without entity picked.");
+                                let e = editmode_ctxt.editing_entity.expect("shouldn't be able to rotate without entity picked.");
 
                                 let e_loc = entities.get_entity_location(e);
 
@@ -393,9 +418,9 @@ fn main_d3d12() -> Result<(), &'static str> {
                             edit_mode = EEditMode::Rotation;
                         }
                         else {
-                            assert!(last_picked_entity.is_some(), "rotating but no entity!");
+                            assert!(editmode_ctxt.editing_entity.is_some(), "rotating but no entity!");
 
-                            let e_loc = entities.get_entity_location(last_picked_entity.expect(""));
+                            let e_loc = entities.get_entity_location(editmode_ctxt.editing_entity.expect(""));
 
                             let mut plane_normal : Vec3 = glm::zero();
                             plane_normal[axis] = 1.0;
@@ -414,7 +439,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                                 new_e_loc.r = new_entity_ori;
 
                                 entities.set_entity_location(
-                                    last_picked_entity.expect(""),
+                                    editmode_ctxt.editing_entity.expect(""),
                                     new_e_loc,
                                     &data_bucket,
                                 );
@@ -445,35 +470,33 @@ fn main_d3d12() -> Result<(), &'static str> {
 
         // -- update edit widgets
         if mode == EMode::Edit {
-            if let Some(e) = last_picked_entity {
-                data_bucket.get_renderer().unwrap().with(|render: &render::SRender| {
-                    data_bucket.get_entities().unwrap().with(|entities: &SEntityBucket| {
-                        translation_widget_transforms[0].t = entities.get_entity_location(e).t;
-                        translation_widget_transforms[1].t = entities.get_entity_location(e).t;
-                        translation_widget_transforms[2].t = entities.get_entity_location(e).t;
-                        //println!("Set translation widget: {:?}", translation_widget_transform.t);
-                        editmode::scale_to_fixed_screen_size(&mut translation_widget_transforms[0], 0.02, render.fovy(), render.znear(), window.width(), window.height(), &camera.pos_world, &camera.forward_world());
-                        editmode::scale_to_fixed_screen_size(&mut translation_widget_transforms[1], 0.02, render.fovy(), render.znear(), window.width(), window.height(), &camera.pos_world, &camera.forward_world());
-                        editmode::scale_to_fixed_screen_size(&mut translation_widget_transforms[2], 0.02, render.fovy(), render.znear(), window.width(), window.height(), &camera.pos_world, &camera.forward_world());
+            if let Some(e) = editmode_ctxt.editing_entity {
+                data_bucket.get_entities().unwrap().with(|entities: &SEntityBucket| {
+                    editmode_ctxt.translation_widget_transforms[0].t = entities.get_entity_location(e).t;
+                    editmode_ctxt.translation_widget_transforms[1].t = entities.get_entity_location(e).t;
+                    editmode_ctxt.translation_widget_transforms[2].t = entities.get_entity_location(e).t;
+                    //println!("Set translation widget: {:?}", translation_widget_transform.t);
+                    editmode::scale_to_fixed_screen_size(&mut editmode_ctxt.translation_widget_transforms[0], 0.02, &editmode_input);
+                    editmode::scale_to_fixed_screen_size(&mut editmode_ctxt.translation_widget_transforms[1], 0.02, &editmode_input);
+                    editmode::scale_to_fixed_screen_size(&mut editmode_ctxt.translation_widget_transforms[2], 0.02, &editmode_input);
 
-                        rotation_widget_transforms[0].t = entities.get_entity_location(e).t;
-                        rotation_widget_transforms[1].t = entities.get_entity_location(e).t;
-                        rotation_widget_transforms[2].t = entities.get_entity_location(e).t;
-                        //println!("Set translation widget: {:?}", translation_widget_transform.t);
-                        editmode::scale_to_fixed_screen_size(&mut rotation_widget_transforms[0], 0.034, render.fovy(), render.znear(), window.width(), window.height(), &camera.pos_world, &camera.forward_world());
-                        editmode::scale_to_fixed_screen_size(&mut rotation_widget_transforms[1], 0.034, render.fovy(), render.znear(), window.width(), window.height(), &camera.pos_world, &camera.forward_world());
-                        editmode::scale_to_fixed_screen_size(&mut rotation_widget_transforms[2], 0.034, render.fovy(), render.znear(), window.width(), window.height(), &camera.pos_world, &camera.forward_world());
-                    });
+                    rotation_widget_transforms[0].t = entities.get_entity_location(e).t;
+                    rotation_widget_transforms[1].t = entities.get_entity_location(e).t;
+                    rotation_widget_transforms[2].t = entities.get_entity_location(e).t;
+                    //println!("Set translation widget: {:?}", translation_widget_transform.t);
+                    editmode::scale_to_fixed_screen_size(&mut rotation_widget_transforms[0], 0.034, &editmode_input);
+                    editmode::scale_to_fixed_screen_size(&mut rotation_widget_transforms[1], 0.034, &editmode_input);
+                    editmode::scale_to_fixed_screen_size(&mut rotation_widget_transforms[2], 0.034, &editmode_input);
                 });
             }
         }
 
         // -- draw edit widgets
-        if mode == EMode::Edit && last_picked_entity.is_some() {
+        if mode == EMode::Edit && editmode_ctxt.editing_entity.is_some() {
             data_bucket.get_renderer().unwrap().with_mut(|render: &mut render::SRender| {
                 for axis in 0..=2 {
                     if edit_mode.show_translation_widget(axis) {
-                            render.temp().draw_model(&translation_widgets[axis], &translation_widget_transforms[axis], true);
+                            render.temp().draw_model(&editmode_ctxt.translation_widgets[axis], &editmode_ctxt.translation_widget_transforms[axis], true);
                     }
                 }
                 for axis in 0..=2 {
@@ -508,11 +531,11 @@ fn main_d3d12() -> Result<(), &'static str> {
                     bvh.imgui_menu(&imgui_ui, &mut draw_selected_bvh);
                 });
 
-                gjk_debug.imgui_menu(&imgui_ui, &data_bucket, last_picked_entity, Some(rotating_entity));
+                gjk_debug.imgui_menu(&imgui_ui, &data_bucket, editmode_ctxt.editing_entity, Some(rotating_entity));
 
             });
 
-            if let Some(e) = last_picked_entity {
+            if let Some(e) = editmode_ctxt.editing_entity {
                 data_bucket.get_entities().unwrap().with_mut(|entities: &mut SEntityBucket| {
                     entities.show_imgui_window(e, &imgui_ui);
                 });
@@ -521,7 +544,7 @@ fn main_d3d12() -> Result<(), &'static str> {
 
         // -- draw selected object's BVH heirarchy
         if draw_selected_bvh {
-            if let Some(e) = last_picked_entity {
+            if let Some(e) = editmode_ctxt.editing_entity {
                 STACK_ALLOCATOR.with(|sa| {
                     data_bucket.get_entities().unwrap().with(|entities: &SEntityBucket| {
                         data_bucket.get_bvh().unwrap().with(|bvh: &bvh::STree| {
@@ -539,7 +562,7 @@ fn main_d3d12() -> Result<(), &'static str> {
         }
 
         // -- draw selected object colliding/not with rotating_entity
-        if let Some(e) = last_picked_entity {
+        if let Some(e) = editmode_ctxt.editing_entity {
             STACK_ALLOCATOR.with(|sa| {
                 data_bucket.get_renderer().unwrap().with_mut(|render: &mut render::SRender| {
                     data_bucket.get_entities().unwrap().with(|entities: &SEntityBucket| {
@@ -606,7 +629,7 @@ fn main_d3d12() -> Result<(), &'static str> {
             data_bucket.get_bvh().unwrap().with(|bvh: &bvh::STree| {
                 let entity_hit = bvh.cast_ray(&data_bucket, &cursor_ray);
                 if entity_hit.is_some() {
-                    last_picked_entity = entity_hit;
+                    editmode_ctxt.editing_entity = entity_hit;
                 }
             });
         }

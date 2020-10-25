@@ -1,5 +1,5 @@
 use camera;
-use glm::{Vec3, Vec4, Mat4};
+use glm::{Vec3, Vec4};
 use niced3d12 as n12;
 use render;
 use rustywindows;
@@ -11,6 +11,7 @@ pub struct SEditModeInput {
     pub window_height: u32,
     pub mouse_window_pos: [i32; 2],
     pub camera_pos_world: Vec3,
+    pub camera_forward: Vec3,
     pub world_to_view_matrix: glm::Mat4,
     pub fovy: f32,
     pub znear: f32,
@@ -28,6 +29,7 @@ impl SEditModeInput {
             window_height: window.height(),
             mouse_window_pos: window.mouse_pos(&winapi.rawwinapi()),
             camera_pos_world: camera.pos_world,
+            camera_forward: camera.forward_world(),
             world_to_view_matrix: camera.world_to_view_matrix(),
             fovy: render.fovy(),
             znear: render.znear(),
@@ -39,20 +41,15 @@ impl SEditModeInput {
 pub fn scale_to_fixed_screen_size(
     transform: &mut STransform,
     pct_of_near_plane_for_one_unit: f32,
-    fovy: f32,
-    znear: f32,
-    window_width: u32,
-    window_height: u32,
-    camera_pos: &Vec3,
-    camera_forward: &Vec3,
+    editmode_input: &SEditModeInput,
 ) {
-    let fovx = utils::fovx(fovy, window_width, window_height);
+    let fovx = utils::fovx(editmode_input.fovy, editmode_input.window_width, editmode_input.window_height);
 
-    let to_fixed = transform.t - camera_pos;
+    let to_fixed = transform.t - editmode_input.camera_pos_world;
     let dist = glm::length(&to_fixed);
 
-    let angle_from_forward = glm::angle(&to_fixed, &camera_forward);
-    let proj_dist = znear / (angle_from_forward).cos();
+    let angle_from_forward = glm::angle(&to_fixed, &editmode_input.camera_forward);
+    let proj_dist = editmode_input.znear / (angle_from_forward).cos();
 
     // -- the whole idea of this code is to build a ratio of the similar
     // -- triangle from the object in world space to the amount of space
@@ -62,7 +59,7 @@ pub fn scale_to_fixed_screen_size(
 
     let unit_in_proj_space = 1.0 * proj_ratio;
 
-    let total_proj_space = 2.0 * znear * (fovx / 2.0).tan();
+    let total_proj_space = 2.0 * editmode_input.znear * (fovx / 2.0).tan();
     let desired_proj_space = total_proj_space * pct_of_near_plane_for_one_unit;
 
     let scale = desired_proj_space / unit_in_proj_space;
@@ -106,25 +103,23 @@ pub fn cursor_ray_world(
 
 pub fn world_pos_to_screen_pos(
     world_pos: &Vec3,
-    view_matrix: &Mat4,
-    window: &n12::SD3D12Window,
-    render: &render::SRender,
+    editmode_input: &SEditModeInput,
 ) -> Vec3 {
     let perspective_matrix = {
-        let aspect = (window.width() as f32) / (window.height() as f32);
+        let aspect = (editmode_input.window_width as f32) / (editmode_input.window_height as f32);
         let zfar = 100.0;
 
         //SMat44::new_perspective(aspect, fovy, znear, zfar)
-        glm::perspective_lh_zo(aspect, render.fovy(), render.znear(), zfar)
+        glm::perspective_lh_zo(aspect, editmode_input.fovy, editmode_input.znear, zfar)
     };
 
-    let view_perspective_matrix = perspective_matrix * view_matrix;
+    let view_perspective_matrix = perspective_matrix * editmode_input.world_to_view_matrix;
 
     let pos_clip_space = view_perspective_matrix * Vec4::new(world_pos.x, world_pos.y, world_pos.z, 1.0);
     let pos_ndc = pos_clip_space / pos_clip_space.w;
 
-    let width_f32 = window.width() as f32;
-    let height_f32 = window.height() as f32;
+    let width_f32 = editmode_input.window_width as f32;
+    let height_f32 = editmode_input.window_height as f32;
 
     let screen_space = Vec3::new(
         ((pos_ndc.x + 1.0) / 2.0) * width_f32,

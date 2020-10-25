@@ -125,6 +125,58 @@ impl SEditModeTranslationDragging {
             mouse_offset,
         }
     }
+
+    pub fn update(
+        &self,
+        input: &input::SInput,
+        editmode_input: &editmode::SEditModeInput,
+        render: &mut render::SRender,
+        entities: &mut SEntityBucket,
+        data_bucket: &databucket::SDataBucket
+    ) -> EEditMode {
+        if !input.left_mouse_down {
+            return EEditMode::Translation;
+        }
+        else {
+            let mut line_dir : Vec3 = glm::zero();
+            line_dir[self.axis] = 1.0;
+
+            let line_p0 = self.start_pos + -line_dir;
+            let line_p1 = self.start_pos + line_dir;
+
+            let mut render_color : Vec4 = glm::zero();
+            render_color[self.axis] = 1.0;
+            render_color.w = 1.0;
+            render.temp().draw_line(
+                &(self.start_pos + -100.0 * line_dir),
+                &(self.start_pos + 100.0 * line_dir),
+                &render_color,
+                true,
+                None,
+            );
+
+            let offset_mouse_pos = [editmode_input.mouse_window_pos[0] + self.mouse_offset[0],
+                                    editmode_input.mouse_window_pos[1] + self.mouse_offset[1]];
+
+            let new_world_pos = editmode::pos_on_screen_space_line_to_world(
+                &line_p0,
+                &line_p1,
+                offset_mouse_pos,
+                &editmode_input,
+            );
+
+            let mut new_e_loc = entities.get_entity_location(self.entity);
+            new_e_loc.t = new_world_pos;
+
+            entities.set_entity_location(
+                self.entity,
+                new_e_loc,
+                &data_bucket,
+            );
+        }
+
+        return EEditMode::TranslationDragging(self.clone());
+    }
 }
 
 fn main_d3d12() -> Result<(), &'static str> {
@@ -264,8 +316,6 @@ fn main_d3d12() -> Result<(), &'static str> {
 
         let _total_time = curframetime - start_time;
 
-        let mouse_pos = window.mouse_pos(&winapi.rawwinapi());
-
         // -- update
         let cur_angle = ((_total_time as f32) / 1_000_000.0) * (3.14159 / 4.0);
         data_bucket.get_entities().unwrap().with_mut(|entities: &mut SEntityBucket| {
@@ -283,12 +333,14 @@ fn main_d3d12() -> Result<(), &'static str> {
         }
         camera.update_from_input(&input, dts, can_rotate_camera);
 
+        let editmode_input = data_bucket.get_renderer().unwrap().with(|render: &render::SRender| {
+            editmode::SEditModeInput::new_for_frame(&window, &winapi, &camera, &render)
+        });
+
         input.mouse_dx = 0;
         input.mouse_dy = 0;
         let view_matrix = camera.world_to_view_matrix();
-        let cursor_ray = data_bucket.get_renderer().unwrap().with(|render: &render::SRender| {
-            editmode::cursor_ray_world(mouse_pos, render, &window, &camera)
-        });
+        let cursor_ray = editmode::cursor_ray_world(&editmode_input);
 
         //println!("View: {}", view_matrix);
         //println!("Perspective: {}", perspective_matrix);
@@ -308,7 +360,7 @@ fn main_d3d12() -> Result<(), &'static str> {
 
                                 let e_pos_screen = editmode::world_pos_to_screen_pos(&e_pos, &view_matrix, &window, &render);
 
-                                let mouse_offset = [(e_pos_screen.x as i32) - mouse_pos[0], (e_pos_screen.y as i32) - mouse_pos[1]];
+                                let mouse_offset = [(e_pos_screen.x as i32) - editmode_input.mouse_window_pos[0], (e_pos_screen.y as i32) - editmode_input.mouse_window_pos[1]];
 
                                 edit_mode = EEditMode::TranslationDragging(SEditModeTranslationDragging::new(e, axis, e_pos, mouse_offset));
 
@@ -329,7 +381,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                                 let mut plane_normal : Vec3 = glm::zero();
                                 plane_normal[axis] = 1.0;
                                 let plane = utils::SPlane::new(&e_loc.t, &plane_normal);
-                                let cursor_ray_world = editmode::cursor_ray_world(mouse_pos, &render, &window, &camera);
+                                let cursor_ray_world = editmode::cursor_ray_world(&editmode_input);
 
                                 if let Some((cursor_pos_world, t)) = utils::ray_plane_intersection(&cursor_ray_world, &plane) {
                                     if min_t.is_none() || min_t.unwrap() > t {
@@ -351,48 +403,7 @@ fn main_d3d12() -> Result<(), &'static str> {
             data_bucket.get_renderer().unwrap().with_mut(|render: &mut render::SRender| {
                 data_bucket.get_entities().unwrap().with_mut(|entities: &mut SEntityBucket| {
                     if let EEditMode::TranslationDragging(data) = edit_mode.clone() {
-                        if !input.left_mouse_down {
-                            edit_mode = EEditMode::Translation;
-                        }
-                        else {
-                            let mut line_dir : Vec3 = glm::zero();
-                            line_dir[data.axis] = 1.0;
-
-                            let line_p0 = data.start_pos + -line_dir;
-                            let line_p1 = data.start_pos + line_dir;
-
-                            let mut render_color : Vec4 = glm::zero();
-                            render_color[data.axis] = 1.0;
-                            render_color.w = 1.0;
-                            render.temp().draw_line(
-                                &(data.start_pos + -100.0 * line_dir),
-                                &(data.start_pos + 100.0 * line_dir),
-                                &render_color,
-                                true,
-                                None,
-                            );
-
-                            let offset_mouse_pos = [mouse_pos[0] + data.mouse_offset[0],
-                                                    mouse_pos[1] + data.mouse_offset[1]];
-
-                            let new_world_pos = editmode::pos_on_screen_space_line_to_world(
-                                &line_p0,
-                                &line_p1,
-                                offset_mouse_pos,
-                                &view_matrix,
-                                &window,
-                                &render,
-                            );
-
-                            let mut new_e_loc = entities.get_entity_location(data.entity);
-                            new_e_loc.t = new_world_pos;
-
-                            entities.set_entity_location(
-                                data.entity,
-                                new_e_loc,
-                                &data_bucket,
-                            );
-                        }
+                        edit_mode = data.update(&input, &editmode_input, render, entities, &data_bucket);
                     }
                     else if let EEditMode::RotationDragging(axis) = edit_mode {
                         if !input.left_mouse_down {
@@ -407,7 +418,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                             plane_normal[axis] = 1.0;
                             let plane = utils::SPlane::new(&e_loc.t, &plane_normal);
 
-                            let cursor_ray_world = editmode::cursor_ray_world(mouse_pos, &render, &window, &camera);
+                            let cursor_ray_world = editmode::cursor_ray_world(&editmode_input);
                             if let Some((cursor_pos_world, _)) = utils::ray_plane_intersection(&cursor_ray_world, &plane) {
                                 let entity_to_cursor = cursor_pos_world - e_loc.t;
 
@@ -624,7 +635,7 @@ fn main_d3d12() -> Result<(), &'static str> {
         // -- $$$FRK(TODO): framerate is uncapped
 
         let io = imgui_ctxt.io_mut(); // for filling out io state
-        io.mouse_pos = [mouse_pos[0] as f32, mouse_pos[1] as f32];
+        io.mouse_pos = [editmode_input.mouse_window_pos[0] as f32, editmode_input.mouse_window_pos[1] as f32];
 
         let mut input_handler = input.frame(io);
         loop {

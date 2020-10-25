@@ -2,8 +2,38 @@ use camera;
 use glm::{Vec3, Vec4, Mat4};
 use niced3d12 as n12;
 use render;
+use rustywindows;
 use utils;
 use utils::{STransform};
+
+pub struct SEditModeInput {
+    pub window_width: u32,
+    pub window_height: u32,
+    pub mouse_window_pos: [i32; 2],
+    pub camera_pos_world: Vec3,
+    pub world_to_view_matrix: glm::Mat4,
+    pub fovy: f32,
+    pub znear: f32,
+}
+
+impl SEditModeInput {
+    pub fn new_for_frame(
+        window: &n12::SD3D12Window,
+        winapi: &rustywindows::SWinAPI,
+        camera: &camera::SCamera,
+        render: &render::SRender,
+    ) -> Self {
+        Self {
+            window_width: window.width(),
+            window_height: window.height(),
+            mouse_window_pos: window.mouse_pos(&winapi.rawwinapi()),
+            camera_pos_world: camera.pos_world,
+            world_to_view_matrix: camera.world_to_view_matrix(),
+            fovy: render.fovy(),
+            znear: render.znear(),
+        }
+    }
+}
 
 // -- transform, camera pos, and camera forward must be in the same space
 pub fn scale_to_fixed_screen_size(
@@ -41,24 +71,21 @@ pub fn scale_to_fixed_screen_size(
 }
 
 pub fn cursor_ray_world(
-    mouse_pos: [i32; 2],
-    render: &render::SRender,
-    window: &n12::SD3D12Window,
-    camera: &camera::SCamera,
+    editmode_input: &SEditModeInput,
 ) -> utils::SRay {
-    let (x_pos, y_pos) = (mouse_pos[0], mouse_pos[1]);
+    let (x_pos, y_pos) = (editmode_input.mouse_window_pos[0], editmode_input.mouse_window_pos[1]);
 
     //println!("Left button down: {}, {}", x_pos, y_pos);
 
-    let half_camera_near_clip_height = (render.fovy()/2.0).tan() * render.znear();
-    let half_camera_near_clip_width = ((window.width() as f32) / (window.height() as f32)) * half_camera_near_clip_height;
+    let half_camera_near_clip_height = (editmode_input.fovy/2.0).tan() * editmode_input.znear;
+    let half_camera_near_clip_width = ((editmode_input.window_width as f32) / (editmode_input.window_height as f32)) * half_camera_near_clip_height;
 
-    let near_clip_top_left_camera_space = Vec3::new(-half_camera_near_clip_width, half_camera_near_clip_height, render.znear());
+    let near_clip_top_left_camera_space = Vec3::new(-half_camera_near_clip_width, half_camera_near_clip_height, editmode_input.znear);
     let near_clip_deltax_camera_space = Vec3::new(2.0 * half_camera_near_clip_width, 0.0, 0.0);
     let near_clip_deltay_camera_space = Vec3::new(0.0, -2.0 * half_camera_near_clip_height, 0.0);
 
-    let pct_width = (x_pos as f32) / (window.width() as f32);
-    let pct_height = (y_pos as f32) / (window.height() as f32);
+    let pct_width = (x_pos as f32) / (editmode_input.window_width as f32);
+    let pct_height = (y_pos as f32) / (editmode_input.window_height as f32);
 
     let to_z_near_camera_space = near_clip_top_left_camera_space +
         pct_width * near_clip_deltax_camera_space +
@@ -66,13 +93,13 @@ pub fn cursor_ray_world(
 
     //println!("to_z_near_camera_space: {:?}", to_z_near_camera_space);
 
-    let world_to_view = camera.world_to_view_matrix();
+    let world_to_view = editmode_input.world_to_view_matrix;
     let view_to_world = glm::inverse(&world_to_view);
 
     let to_z_near_world_space = view_to_world * utils::vec3_to_homogenous(&to_z_near_camera_space, 0.0);
 
     utils::SRay{
-        origin: camera.pos_world,
+        origin: editmode_input.camera_pos_world,
         dir: to_z_near_world_space.xyz(),
     }
 }
@@ -112,9 +139,7 @@ pub fn pos_on_screen_space_line_to_world(
     world_line_p0: &Vec3,
     world_line_p1: &Vec3,
     screen_space_pos: [i32; 2],
-    view_matrix: &Mat4,
-    window: &n12::SD3D12Window,
-    render: &render::SRender,
+    editmode_input: &SEditModeInput,
 ) -> Vec3 {
     // -- how to move with translation widget:
     // + create two very distant points from the widget in world space on the translation axis
@@ -127,14 +152,14 @@ pub fn pos_on_screen_space_line_to_world(
     //println!("Line p1 : {:?}", line_p1);
 
     let perspective_matrix = {
-        let aspect = (window.width() as f32) / (window.height() as f32);
+        let aspect = (editmode_input.window_width as f32) / (editmode_input.window_height as f32);
         let zfar = 100.0;
 
         //SMat44::new_perspective(aspect, fovy, znear, zfar)
-        glm::perspective_lh_zo(aspect, render.fovy(), render.znear(), zfar)
+        glm::perspective_lh_zo(aspect, editmode_input.fovy, editmode_input.znear, zfar)
     };
 
-    let view_perspective_matrix = perspective_matrix * view_matrix;
+    let view_perspective_matrix = perspective_matrix * editmode_input.world_to_view_matrix;
 
     let mut line_p0_clip_space = view_perspective_matrix * Vec4::new(world_line_p0.x, world_line_p0.y, world_line_p0.z, 1.0);
     let mut line_p1_clip_space = view_perspective_matrix * Vec4::new(world_line_p1.x, world_line_p1.y, world_line_p1.z, 1.0);
@@ -149,8 +174,8 @@ pub fn pos_on_screen_space_line_to_world(
     //println!("Line p0 clip space NORM: {:?}", line_p0_clip_space);
     //println!("Line p1 clip space NORM: {:?}", line_p1_clip_space);
 
-    let width_f32 = window.width() as f32;
-    let height_f32 = window.height() as f32;
+    let width_f32 = editmode_input.window_width as f32;
+    let height_f32 = editmode_input.window_height as f32;
 
     let line_p0_screen_space = Vec3::new(
         ((line_p0_clip_space.x + 1.0) / 2.0) * width_f32,

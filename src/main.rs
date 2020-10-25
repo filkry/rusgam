@@ -58,11 +58,17 @@ enum EMode {
     Edit,
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
+struct SEditModeTranslationDragging {
+    axis: usize,
+    start_pos: Vec3,
+}
+
+#[derive(PartialEq, Clone)]
 enum EEditMode {
     None,
     Translation,
-    TranslationDragging(usize), // axis of translation
+    TranslationDragging(SEditModeTranslationDragging), // axis of translation
     Rotation,
     RotationDragging(usize), // axis of rotation
 }
@@ -94,7 +100,7 @@ impl EEditMode {
     pub fn show_translation_widget(&self, query_axis: usize) -> bool {
         match self {
             Self::Translation => true,
-            Self::TranslationDragging(axis) => *axis == query_axis,
+            Self::TranslationDragging(data) => data.axis == query_axis,
             _ => false,
         }
     }
@@ -104,6 +110,15 @@ impl EEditMode {
             Self::Rotation => true,
             Self::RotationDragging(axis) => *axis == query_axis,
             _ => false,
+        }
+    }
+}
+
+impl SEditModeTranslationDragging {
+    pub fn new(axis: usize, start_pos: Vec3) -> Self {
+        Self{
+            axis,
+            start_pos,
         }
     }
 }
@@ -145,7 +160,6 @@ fn main_d3d12() -> Result<(), &'static str> {
     rotation_widgets[1].diffuse_colour = Vec4::new(0.0, 1.0, 0.0, 1.0);
     rotation_widgets[2].diffuse_colour = Vec4::new(0.0, 0.0, 1.0, 1.0);
 
-    let mut translation_start_pos : Vec3 = glm::zero();
     let mut translation_widget_transforms = [
         STransform::default(),
         STransform::default(),
@@ -289,8 +303,7 @@ fn main_d3d12() -> Result<(), &'static str> {
 
                                 let e_pos = entities.get_entity_location(e).t;
 
-                                translation_start_pos = e_pos;
-                                edit_mode = EEditMode::TranslationDragging(axis);
+                                edit_mode = EEditMode::TranslationDragging(SEditModeTranslationDragging::new(axis, e_pos));
 
                                 let e_pos_screen = editmode::world_pos_to_screen_pos(&e_pos, &view_matrix, &window, &render);
 
@@ -334,7 +347,7 @@ fn main_d3d12() -> Result<(), &'static str> {
         if mode == EMode::Edit {
             data_bucket.get_renderer().unwrap().with_mut(|render: &mut render::SRender| {
                 data_bucket.get_entities().unwrap().with_mut(|entities: &mut SEntityBucket| {
-                    if let EEditMode::TranslationDragging(axis) = edit_mode {
+                    if let EEditMode::TranslationDragging(data) = edit_mode.clone() {
                         if !input.left_mouse_down {
                             edit_mode = EEditMode::Translation;
                         }
@@ -342,17 +355,17 @@ fn main_d3d12() -> Result<(), &'static str> {
                             assert!(last_picked_entity.is_some(), "translating but no entity!");
 
                             let mut line_dir : Vec3 = glm::zero();
-                            line_dir[axis] = 1.0;
+                            line_dir[data.axis] = 1.0;
 
-                            let line_p0 = translation_start_pos + -line_dir;
-                            let line_p1 = translation_start_pos + line_dir;
+                            let line_p0 = data.start_pos + -line_dir;
+                            let line_p1 = data.start_pos + line_dir;
 
                             let mut render_color : Vec4 = glm::zero();
-                            render_color[axis] = 1.0;
+                            render_color[data.axis] = 1.0;
                             render_color.w = 1.0;
                             render.temp().draw_line(
-                                &(translation_start_pos + -100.0 * line_dir),
-                                &(translation_start_pos + 100.0 * line_dir),
+                                &(data.start_pos + -100.0 * line_dir),
+                                &(data.start_pos + 100.0 * line_dir),
                                 &render_color,
                                 true,
                                 None,

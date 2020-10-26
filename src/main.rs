@@ -66,10 +66,20 @@ struct SEditModeTranslationDragging {
     mouse_offset: [i32; 2],
 }
 
+#[derive(PartialEq, Clone)]
+struct SEditModeRotationDragging {
+    entity: SEntityHandle,
+    axis: usize,
+    start_ori: glm::Quat,
+    start_entity_to_cursor : Vec3,
+}
+
 struct SEditModeContext {
     editing_entity: Option<SEntityHandle>,
     translation_widgets: [model::SModel; 3],
     translation_widget_transforms: [STransform; 3],
+    rotation_widgets: [model::SModel; 3],
+    rotation_widget_transforms: [STransform; 3],
 }
 
 #[derive(PartialEq, Clone)]
@@ -78,7 +88,7 @@ enum EEditMode {
     Translation,
     TranslationDragging(SEditModeTranslationDragging), // axis of translation
     Rotation,
-    RotationDragging(usize), // axis of rotation
+    RotationDragging(SEditModeRotationDragging), // axis of rotation
 }
 
 impl EMode {
@@ -116,10 +126,30 @@ impl SEditModeContext {
         translation_widget_transforms[0].r = glm::quat_angle_axis(utils::PI / 2.0, &Vec3::new(0.0, 1.0, 0.0));
         translation_widget_transforms[1].r = glm::quat_angle_axis(-utils::PI / 2.0, &Vec3::new(1.0, 0.0, 0.0));
 
+        // -- set up rotation widget
+        let mut rotation_widgets = [
+            render.new_model("assets/ring_widget.obj", 1.0, false)?,
+            render.new_model("assets/ring_widget.obj", 1.0, false)?,
+            render.new_model("assets/ring_widget.obj", 1.0, false)?,
+        ];
+        rotation_widgets[0].diffuse_colour = Vec4::new(1.0, 0.0, 0.0, 1.0);
+        rotation_widgets[1].diffuse_colour = Vec4::new(0.0, 1.0, 0.0, 1.0);
+        rotation_widgets[2].diffuse_colour = Vec4::new(0.0, 0.0, 1.0, 1.0);
+
+        let mut rotation_widget_transforms = [
+            STransform::default(),
+            STransform::default(),
+            STransform::default(),
+        ];
+        rotation_widget_transforms[0].r = glm::quat_angle_axis(utils::PI / 2.0, &Vec3::new(0.0, 0.0, 1.0));
+        rotation_widget_transforms[2].r = glm::quat_angle_axis(utils::PI / 2.0, &Vec3::new(1.0, 0.0, 0.0));
+
         Ok(Self {
             editing_entity: None,
             translation_widgets,
             translation_widget_transforms,
+            rotation_widgets,
+            rotation_widget_transforms,
         })
     }
 }
@@ -144,7 +174,7 @@ impl EEditMode {
     pub fn show_rotation_widget(&self, query_axis: usize) -> bool {
         match self {
             Self::Rotation => true,
-            Self::RotationDragging(axis) => *axis == query_axis,
+            Self::RotationDragging(data) => data.axis == query_axis,
             _ => false,
         }
     }
@@ -170,6 +200,40 @@ impl EEditMode {
 
 
         EEditMode::Translation
+    }
+
+    pub fn update_rotation(
+        em: &mut SEditModeContext,
+        editmode_input: &editmode::SEditModeInput,
+        render: &render::SRender,
+        entities: &SEntityBucket
+    ) -> EEditMode {
+        let mut result = EEditMode::Rotation;
+
+        let e = em.editing_entity.expect("shouldn't be able to rotate without entity picked.");
+        let cursor_ray = editmode::cursor_ray_world(&editmode_input);
+        let mut min_t = None;
+        for axis in 0..=2 {
+            if let Some(_) = render.ray_intersects(&em.rotation_widgets[axis], &cursor_ray.origin, &cursor_ray.dir, &em.rotation_widget_transforms[axis]) {
+
+                let e_loc = entities.get_entity_location(e);
+
+                let mut plane_normal : Vec3 = glm::zero();
+                plane_normal[axis] = 1.0;
+                let plane = utils::SPlane::new(&e_loc.t, &plane_normal);
+                let cursor_ray_world = editmode::cursor_ray_world(&editmode_input);
+
+                if let Some((cursor_pos_world, t)) = utils::ray_plane_intersection(&cursor_ray_world, &plane) {
+                    if min_t.is_none() || min_t.unwrap() > t {
+                        let rotation_start_entity_to_cursor = cursor_pos_world - e_loc.t;
+                        result = EEditMode::RotationDragging(SEditModeRotationDragging::new(e, axis, e_loc.r, rotation_start_entity_to_cursor));
+                        min_t = Some(t);
+                    }
+                }
+            }
+        }
+
+        result
     }
 }
 
@@ -236,6 +300,17 @@ impl SEditModeTranslationDragging {
     }
 }
 
+impl SEditModeRotationDragging {
+    pub fn new(entity: SEntityHandle, axis: usize, start_ori: glm::Quat, start_entity_to_cursor: Vec3) -> Self {
+        Self{
+            entity,
+            axis,
+            start_ori,
+            start_entity_to_cursor,
+        }
+    }
+}
+
 fn main_d3d12() -> Result<(), &'static str> {
     render::compile_shaders_if_changed();
 
@@ -255,25 +330,6 @@ fn main_d3d12() -> Result<(), &'static str> {
 
     let mut editmode_ctxt = SEditModeContext::new(&mut render).unwrap();
 
-    // -- set up rotation widget
-    let mut rotation_widgets = [
-        render.new_model("assets/ring_widget.obj", 1.0, false)?,
-        render.new_model("assets/ring_widget.obj", 1.0, false)?,
-        render.new_model("assets/ring_widget.obj", 1.0, false)?,
-    ];
-    rotation_widgets[0].diffuse_colour = Vec4::new(1.0, 0.0, 0.0, 1.0);
-    rotation_widgets[1].diffuse_colour = Vec4::new(0.0, 1.0, 0.0, 1.0);
-    rotation_widgets[2].diffuse_colour = Vec4::new(0.0, 0.0, 1.0, 1.0);
-
-    let mut rotation_start_ori : glm::Quat = glm::zero();
-    let mut rotation_start_entity_to_cursor : Vec3 = glm::zero();
-    let mut rotation_widget_transforms = [
-        STransform::default(),
-        STransform::default(),
-        STransform::default(),
-    ];
-    rotation_widget_transforms[0].r = glm::quat_angle_axis(utils::PI / 2.0, &Vec3::new(0.0, 0.0, 1.0));
-    rotation_widget_transforms[2].r = glm::quat_angle_axis(utils::PI / 2.0, &Vec3::new(1.0, 0.0, 0.0));
 
     let mut data_bucket = databucket::SDataBucket::new(256, &SYSTEM_ALLOCATOR);
 
@@ -378,29 +434,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                         edit_mode = EEditMode::update_translation(&mut editmode_ctxt, &editmode_input, &render, &entities);
                     }
                     else if edit_mode == EEditMode::Rotation {
-
-                        let mut min_t = None;
-                        for axis in 0..=2 {
-                            if let Some(_) = render.ray_intersects(&rotation_widgets[axis], &cursor_ray.origin, &cursor_ray.dir, &rotation_widget_transforms[axis]) {
-                                let e = editmode_ctxt.editing_entity.expect("shouldn't be able to rotate without entity picked.");
-
-                                let e_loc = entities.get_entity_location(e);
-
-                                let mut plane_normal : Vec3 = glm::zero();
-                                plane_normal[axis] = 1.0;
-                                let plane = utils::SPlane::new(&e_loc.t, &plane_normal);
-                                let cursor_ray_world = editmode::cursor_ray_world(&editmode_input);
-
-                                if let Some((cursor_pos_world, t)) = utils::ray_plane_intersection(&cursor_ray_world, &plane) {
-                                    if min_t.is_none() || min_t.unwrap() > t {
-                                        rotation_start_ori = e_loc.r;
-                                        rotation_start_entity_to_cursor = cursor_pos_world - e_loc.t;
-                                        edit_mode = EEditMode::RotationDragging(axis);
-                                        min_t = Some(t);
-                                    }
-                                }
-                            }
-                        }
+                        edit_mode = EEditMode::update_rotation(&mut editmode_ctxt, &editmode_input, &render, &entities);
                     }
                 });
             });
@@ -413,7 +447,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                     if let EEditMode::TranslationDragging(data) = edit_mode.clone() {
                         edit_mode = data.update(&input, &editmode_input, render, entities, &data_bucket);
                     }
-                    else if let EEditMode::RotationDragging(axis) = edit_mode {
+                    else if let EEditMode::RotationDragging(data) = edit_mode.clone() {
                         if !input.left_mouse_down {
                             edit_mode = EEditMode::Rotation;
                         }
@@ -423,17 +457,17 @@ fn main_d3d12() -> Result<(), &'static str> {
                             let e_loc = entities.get_entity_location(editmode_ctxt.editing_entity.expect(""));
 
                             let mut plane_normal : Vec3 = glm::zero();
-                            plane_normal[axis] = 1.0;
+                            plane_normal[data.axis] = 1.0;
                             let plane = utils::SPlane::new(&e_loc.t, &plane_normal);
 
                             let cursor_ray_world = editmode::cursor_ray_world(&editmode_input);
                             if let Some((cursor_pos_world, _)) = utils::ray_plane_intersection(&cursor_ray_world, &plane) {
                                 let entity_to_cursor = cursor_pos_world - e_loc.t;
 
-                                let rotation = glm::quat_rotation(&rotation_start_entity_to_cursor,
+                                let rotation = glm::quat_rotation(&data.start_entity_to_cursor,
                                                                   &entity_to_cursor);
 
-                                let new_entity_ori = rotation * rotation_start_ori;
+                                let new_entity_ori = rotation * data.start_ori;
 
                                 let mut new_e_loc = e_loc;
                                 new_e_loc.r = new_entity_ori;
@@ -445,11 +479,11 @@ fn main_d3d12() -> Result<(), &'static str> {
                                 );
 
                                 let mut render_color : Vec4 = glm::zero();
-                                render_color[axis] = 1.0;
+                                render_color[data.axis] = 1.0;
                                 render_color.w = 1.0;
                                 render.temp().draw_line(
                                     &e_loc.t,
-                                    &(e_loc.t + rotation_start_entity_to_cursor),
+                                    &(e_loc.t + data.start_entity_to_cursor),
                                     &render_color,
                                     true,
                                     None,
@@ -480,13 +514,13 @@ fn main_d3d12() -> Result<(), &'static str> {
                     editmode::scale_to_fixed_screen_size(&mut editmode_ctxt.translation_widget_transforms[1], 0.02, &editmode_input);
                     editmode::scale_to_fixed_screen_size(&mut editmode_ctxt.translation_widget_transforms[2], 0.02, &editmode_input);
 
-                    rotation_widget_transforms[0].t = entities.get_entity_location(e).t;
-                    rotation_widget_transforms[1].t = entities.get_entity_location(e).t;
-                    rotation_widget_transforms[2].t = entities.get_entity_location(e).t;
+                    editmode_ctxt.rotation_widget_transforms[0].t = entities.get_entity_location(e).t;
+                    editmode_ctxt.rotation_widget_transforms[1].t = entities.get_entity_location(e).t;
+                    editmode_ctxt.rotation_widget_transforms[2].t = entities.get_entity_location(e).t;
                     //println!("Set translation widget: {:?}", translation_widget_transform.t);
-                    editmode::scale_to_fixed_screen_size(&mut rotation_widget_transforms[0], 0.034, &editmode_input);
-                    editmode::scale_to_fixed_screen_size(&mut rotation_widget_transforms[1], 0.034, &editmode_input);
-                    editmode::scale_to_fixed_screen_size(&mut rotation_widget_transforms[2], 0.034, &editmode_input);
+                    editmode::scale_to_fixed_screen_size(&mut editmode_ctxt.rotation_widget_transforms[0], 0.034, &editmode_input);
+                    editmode::scale_to_fixed_screen_size(&mut editmode_ctxt.rotation_widget_transforms[1], 0.034, &editmode_input);
+                    editmode::scale_to_fixed_screen_size(&mut editmode_ctxt.rotation_widget_transforms[2], 0.034, &editmode_input);
                 });
             }
         }
@@ -501,7 +535,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                 }
                 for axis in 0..=2 {
                     if edit_mode.show_rotation_widget(axis) {
-                        render.temp().draw_model(&rotation_widgets[axis], &rotation_widget_transforms[axis], true);
+                        render.temp().draw_model(&editmode_ctxt.rotation_widgets[axis], &editmode_ctxt.rotation_widget_transforms[axis], true);
                     }
                 }
             });

@@ -1,5 +1,6 @@
 use camera;
 use glm::{Vec3, Vec4};
+use imgui;
 use niced3d12 as n12;
 use render;
 use rustywindows;
@@ -15,6 +16,8 @@ pub struct SEditModeInput {
     pub world_to_view_matrix: glm::Mat4,
     pub fovy: f32,
     pub znear: f32,
+
+    pub imgui_want_capture_mouse: bool,
 }
 
 impl SEditModeInput {
@@ -23,6 +26,7 @@ impl SEditModeInput {
         winapi: &rustywindows::SWinAPI,
         camera: &camera::SCamera,
         render: &render::SRender,
+        imgui: &imgui::Context,
     ) -> Self {
         Self {
             window_width: window.width(),
@@ -33,6 +37,7 @@ impl SEditModeInput {
             world_to_view_matrix: camera.world_to_view_matrix(),
             fovy: render.fovy(),
             znear: render.znear(),
+            imgui_want_capture_mouse: imgui.io().want_capture_mouse,
         }
     }
 }

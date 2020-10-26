@@ -182,9 +182,14 @@ impl EEditMode {
     pub fn update_translation(
         em: &mut SEditModeContext,
         editmode_input: &editmode::SEditModeInput,
+        input: &input::SInput,
         render: &render::SRender,
         entities: &SEntityBucket
     ) -> EEditMode {
+        if editmode_input.imgui_want_capture_mouse || !input.left_mouse_edge.down() {
+            return EEditMode::Translation;
+        }
+
         let e = em.editing_entity.expect("shouldn't be able to translate without entity picked.");
 
         let cursor_ray = editmode::cursor_ray_world(&editmode_input);
@@ -205,10 +210,15 @@ impl EEditMode {
     pub fn update_rotation(
         em: &mut SEditModeContext,
         editmode_input: &editmode::SEditModeInput,
+        input: &input::SInput,
         render: &render::SRender,
         entities: &SEntityBucket
     ) -> EEditMode {
         let mut result = EEditMode::Rotation;
+
+        if editmode_input.imgui_want_capture_mouse || !input.left_mouse_edge.down() {
+            return result;
+        }
 
         let e = em.editing_entity.expect("shouldn't be able to rotate without entity picked.");
         let cursor_ray = editmode::cursor_ray_world(&editmode_input);
@@ -365,7 +375,7 @@ fn main_d3d12() -> Result<(), &'static str> {
     let mut input = input::SInput::new();
 
     let mut mode = EMode::Edit;
-    let mut edit_mode = EEditMode::Translation;
+    let mut edit_mode = EEditMode::None;
 
     let mut draw_selected_bvh  = false;
 
@@ -413,7 +423,7 @@ fn main_d3d12() -> Result<(), &'static str> {
         camera.update_from_input(&input, dts, can_rotate_camera);
 
         let editmode_input = data_bucket.get_renderer().unwrap().with(|render: &render::SRender| {
-            editmode::SEditModeInput::new_for_frame(&window, &winapi, &camera, &render)
+            editmode::SEditModeInput::new_for_frame(&window, &winapi, &camera, &render, &imgui_ctxt)
         });
 
         input.mouse_dx = 0;
@@ -427,14 +437,14 @@ fn main_d3d12() -> Result<(), &'static str> {
         //println!("Frame time: {}us", _dtms);
 
         // -- check if the user clicked an edit widget
-        if input.left_mouse_edge.down() && !imgui_ctxt.io().want_capture_mouse && mode == EMode::Edit && editmode_ctxt.editing_entity.is_some() {
+        if mode == EMode::Edit {
             data_bucket.get_renderer().unwrap().with(|render: &render::SRender| {
                 data_bucket.get_entities().unwrap().with(|entities: &SEntityBucket| {
                     if edit_mode == EEditMode::Translation {
-                        edit_mode = EEditMode::update_translation(&mut editmode_ctxt, &editmode_input, &render, &entities);
+                        edit_mode = EEditMode::update_translation(&mut editmode_ctxt, &editmode_input, &input, &render, &entities);
                     }
                     else if edit_mode == EEditMode::Rotation {
-                        edit_mode = EEditMode::update_rotation(&mut editmode_ctxt, &editmode_input, &render, &entities);
+                        edit_mode = EEditMode::update_rotation(&mut editmode_ctxt, &editmode_input, &input, &render, &entities);
                     }
                 });
             });

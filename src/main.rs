@@ -319,6 +319,65 @@ impl SEditModeRotationDragging {
             start_entity_to_cursor,
         }
     }
+
+    pub fn update(
+        &self,
+        input: &input::SInput,
+        editmode_input: &editmode::SEditModeInput,
+        render: &mut render::SRender,
+        entities: &mut SEntityBucket,
+        data_bucket: &databucket::SDataBucket
+    ) -> EEditMode {
+        if !input.left_mouse_down {
+            return EEditMode::Rotation;
+        }
+        else {
+            let e_loc = entities.get_entity_location(self.entity);
+
+            let mut plane_normal : Vec3 = glm::zero();
+            plane_normal[self.axis] = 1.0;
+            let plane = utils::SPlane::new(&e_loc.t, &plane_normal);
+
+            let cursor_ray_world = editmode::cursor_ray_world(&editmode_input);
+            if let Some((cursor_pos_world, _)) = utils::ray_plane_intersection(&cursor_ray_world, &plane) {
+                let entity_to_cursor = cursor_pos_world - e_loc.t;
+
+                let rotation = glm::quat_rotation(&self.start_entity_to_cursor,
+                                                  &entity_to_cursor);
+
+                let new_entity_ori = rotation * self.start_ori;
+
+                let mut new_e_loc = e_loc;
+                new_e_loc.r = new_entity_ori;
+
+                entities.set_entity_location(
+                    self.entity,
+                    new_e_loc,
+                    &data_bucket,
+                );
+
+                let mut render_color : Vec4 = glm::zero();
+                render_color[self.axis] = 1.0;
+                render_color.w = 1.0;
+                render.temp().draw_line(
+                    &e_loc.t,
+                    &(e_loc.t + self.start_entity_to_cursor),
+                    &render_color,
+                    true,
+                    None,
+                );
+                render.temp().draw_line(
+                    &e_loc.t,
+                    &cursor_pos_world,
+                    &render_color,
+                    true,
+                    None,
+                );
+            }
+
+            return EEditMode::RotationDragging(self.clone());
+        }
+    }
 }
 
 fn main_d3d12() -> Result<(), &'static str> {
@@ -389,15 +448,6 @@ fn main_d3d12() -> Result<(), &'static str> {
             mode.toggle(&mut edit_mode);
         }
 
-        if mode == EMode::Edit {
-            if input.t_edge.down() {
-                edit_mode = EEditMode::Translation;
-            }
-            else if input.r_edge.down() {
-                edit_mode = EEditMode::Rotation;
-            }
-        }
-
         let curframetime = winapi.curtimemicroseconds();
         let dt = curframetime - lastframetime;
         let _dtms = dt as f64;
@@ -438,6 +488,13 @@ fn main_d3d12() -> Result<(), &'static str> {
 
         // -- check if the user clicked an edit widget
         if mode == EMode::Edit {
+            if input.t_edge.down() && editmode_ctxt.editing_entity.is_some() {
+                edit_mode = EEditMode::Translation;
+            }
+            else if input.r_edge.down() && editmode_ctxt.editing_entity.is_some() {
+                edit_mode = EEditMode::Rotation;
+            }
+
             data_bucket.get_renderer().unwrap().with(|render: &render::SRender| {
                 data_bucket.get_entities().unwrap().with(|entities: &SEntityBucket| {
                     if edit_mode == EEditMode::Translation {
@@ -458,55 +515,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                         edit_mode = data.update(&input, &editmode_input, render, entities, &data_bucket);
                     }
                     else if let EEditMode::RotationDragging(data) = edit_mode.clone() {
-                        if !input.left_mouse_down {
-                            edit_mode = EEditMode::Rotation;
-                        }
-                        else {
-                            assert!(editmode_ctxt.editing_entity.is_some(), "rotating but no entity!");
-
-                            let e_loc = entities.get_entity_location(editmode_ctxt.editing_entity.expect(""));
-
-                            let mut plane_normal : Vec3 = glm::zero();
-                            plane_normal[data.axis] = 1.0;
-                            let plane = utils::SPlane::new(&e_loc.t, &plane_normal);
-
-                            let cursor_ray_world = editmode::cursor_ray_world(&editmode_input);
-                            if let Some((cursor_pos_world, _)) = utils::ray_plane_intersection(&cursor_ray_world, &plane) {
-                                let entity_to_cursor = cursor_pos_world - e_loc.t;
-
-                                let rotation = glm::quat_rotation(&data.start_entity_to_cursor,
-                                                                  &entity_to_cursor);
-
-                                let new_entity_ori = rotation * data.start_ori;
-
-                                let mut new_e_loc = e_loc;
-                                new_e_loc.r = new_entity_ori;
-
-                                entities.set_entity_location(
-                                    editmode_ctxt.editing_entity.expect(""),
-                                    new_e_loc,
-                                    &data_bucket,
-                                );
-
-                                let mut render_color : Vec4 = glm::zero();
-                                render_color[data.axis] = 1.0;
-                                render_color.w = 1.0;
-                                render.temp().draw_line(
-                                    &e_loc.t,
-                                    &(e_loc.t + data.start_entity_to_cursor),
-                                    &render_color,
-                                    true,
-                                    None,
-                                );
-                                render.temp().draw_line(
-                                    &e_loc.t,
-                                    &cursor_pos_world,
-                                    &render_color,
-                                    true,
-                                    None,
-                                );
-                            }
-                        }
+                        edit_mode = data.update(&input, &editmode_input, render, entities, &data_bucket);
                     }
                 });
             });

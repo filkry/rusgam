@@ -399,7 +399,6 @@ fn main_d3d12() -> Result<(), &'static str> {
 
     let mut editmode_ctxt = SEditModeContext::new(&mut render).unwrap();
 
-
     let mut data_bucket = databucket::SDataBucket::new(256, &SYSTEM_ALLOCATOR);
 
     let entities = SEntityBucket::new(67485, 16);
@@ -486,8 +485,19 @@ fn main_d3d12() -> Result<(), &'static str> {
 
         //println!("Frame time: {}us", _dtms);
 
-        // -- check if the user clicked an edit widget
+        // update edit mode
         if mode == EMode::Edit {
+            // -- cast ray to select entity for edit mode
+            if input.left_mouse_edge.down() && !editmode_input.imgui_want_capture_mouse && !edit_mode.eats_mouse() {
+                data_bucket.get_bvh().unwrap().with(|bvh: &bvh::STree| {
+                    let entity_hit = bvh.cast_ray(&data_bucket, &cursor_ray);
+                    if entity_hit.is_some() {
+                        editmode_ctxt.editing_entity = entity_hit;
+                    }
+                });
+            }
+
+            // -- toggle edit modes
             if input.t_edge.down() && editmode_ctxt.editing_entity.is_some() {
                 edit_mode = EEditMode::Translation;
             }
@@ -495,23 +505,15 @@ fn main_d3d12() -> Result<(), &'static str> {
                 edit_mode = EEditMode::Rotation;
             }
 
-            data_bucket.get_renderer().unwrap().with(|render: &render::SRender| {
-                data_bucket.get_entities().unwrap().with(|entities: &SEntityBucket| {
+            data_bucket.get_renderer().unwrap().with_mut(|render: &mut render::SRender| {
+                data_bucket.get_entities().unwrap().with_mut(|entities: &mut SEntityBucket| {
                     if edit_mode == EEditMode::Translation {
                         edit_mode = EEditMode::update_translation(&mut editmode_ctxt, &editmode_input, &input, &render, &entities);
                     }
                     else if edit_mode == EEditMode::Rotation {
                         edit_mode = EEditMode::update_rotation(&mut editmode_ctxt, &editmode_input, &input, &render, &entities);
                     }
-                });
-            });
-        }
-
-        // -- handle translation/rotation edit mode mouse input
-        if mode == EMode::Edit {
-            data_bucket.get_renderer().unwrap().with_mut(|render: &mut render::SRender| {
-                data_bucket.get_entities().unwrap().with_mut(|entities: &mut SEntityBucket| {
-                    if let EEditMode::TranslationDragging(data) = edit_mode.clone() {
+                    else if let EEditMode::TranslationDragging(data) = edit_mode.clone() {
                         edit_mode = data.update(&input, &editmode_input, render, entities, &data_bucket);
                     }
                     else if let EEditMode::RotationDragging(data) = edit_mode.clone() {
@@ -519,10 +521,8 @@ fn main_d3d12() -> Result<(), &'static str> {
                     }
                 });
             });
-        }
 
-        // -- update edit widgets
-        if mode == EMode::Edit {
+            // -- move/scale edit widgets
             if let Some(e) = editmode_ctxt.editing_entity {
                 data_bucket.get_entities().unwrap().with(|entities: &SEntityBucket| {
                     editmode_ctxt.translation_widget_transforms[0].t = entities.get_entity_location(e).t;
@@ -541,29 +541,26 @@ fn main_d3d12() -> Result<(), &'static str> {
                     editmode::scale_to_fixed_screen_size(&mut editmode_ctxt.rotation_widget_transforms[1], 0.034, &editmode_input);
                     editmode::scale_to_fixed_screen_size(&mut editmode_ctxt.rotation_widget_transforms[2], 0.034, &editmode_input);
                 });
-            }
-        }
 
-        // -- draw edit widgets
-        if mode == EMode::Edit && editmode_ctxt.editing_entity.is_some() {
-            data_bucket.get_renderer().unwrap().with_mut(|render: &mut render::SRender| {
-                for axis in 0..=2 {
-                    if edit_mode.show_translation_widget(axis) {
-                            render.temp().draw_model(&editmode_ctxt.translation_widgets[axis], &editmode_ctxt.translation_widget_transforms[axis], true);
+                // -- draw edit widgets
+                data_bucket.get_renderer().unwrap().with_mut(|render: &mut render::SRender| {
+                    for axis in 0..=2 {
+                        if edit_mode.show_translation_widget(axis) {
+                                render.temp().draw_model(&editmode_ctxt.translation_widgets[axis], &editmode_ctxt.translation_widget_transforms[axis], true);
+                        }
                     }
-                }
-                for axis in 0..=2 {
-                    if edit_mode.show_rotation_widget(axis) {
-                        render.temp().draw_model(&editmode_ctxt.rotation_widgets[axis], &editmode_ctxt.rotation_widget_transforms[axis], true);
+                    for axis in 0..=2 {
+                        if edit_mode.show_rotation_widget(axis) {
+                            render.temp().draw_model(&editmode_ctxt.rotation_widgets[axis], &editmode_ctxt.rotation_widget_transforms[axis], true);
+                        }
                     }
-                }
-            });
+                });
+            }
         }
 
         // -- update IMGUI
         let io = imgui_ctxt.io_mut();
         io.display_size = [window.width() as f32, window.height() as f32];
-        let imgui_want_capture_mouse = io.want_capture_mouse;
 
         let imgui_ui = imgui_ctxt.frame();
         if let EMode::Edit = mode {
@@ -676,16 +673,6 @@ fn main_d3d12() -> Result<(), &'static str> {
 
             Ok(())
         })?;
-
-        // -- cast rays against world
-        if input.left_mouse_edge.down() && !imgui_want_capture_mouse && !edit_mode.eats_mouse() {
-            data_bucket.get_bvh().unwrap().with(|bvh: &bvh::STree| {
-                let entity_hit = bvh.cast_ray(&data_bucket, &cursor_ray);
-                if entity_hit.is_some() {
-                    editmode_ctxt.editing_entity = entity_hit;
-                }
-            });
-        }
 
         lastframetime = curframetime;
         _framecount += 1;

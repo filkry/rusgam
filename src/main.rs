@@ -8,6 +8,7 @@ extern crate bitflags;
 extern crate serde_json;
 extern crate serde;
 extern crate imgui;
+extern crate gltf;
 
 //mod math;
 #[macro_use]
@@ -133,6 +134,9 @@ fn main_d3d12() -> Result<(), &'static str> {
     let mut show_imgui_demo_window = false;
 
     let mut gjk_debug = gjk::SGJKDebug::new(&data_bucket);
+
+    let gltf = gltf::Gltf::open("assets/test_armature.glb").unwrap();
+    println!("gltf: {:?}", gltf);
 
     while !input.q_down {
         // -- handle edit mode toggles

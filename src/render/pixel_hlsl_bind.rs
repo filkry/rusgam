@@ -1,3 +1,11 @@
+use std::mem::{size_of};
+use std::cell::{RefMut};
+
+use niced3d12 as n12;
+use typeyd3d12 as t12;
+use glm::{Vec4};
+use model::{SModel};
+
 // -- used to fill out shader metadata, must match STextureMetadata in pixel.hlsl
 #[repr(C)]
 pub struct STextureMetadata {
@@ -27,39 +35,43 @@ impl STextureMetadata {
     }
 }
 
-struct SPixelHLSL {
+pub struct SPixelHLSL {
     _bytecode: t12::SShaderBytecode,
-};
+}
 
-struct SPixelHLSLBind {
-    texture_metadata_rp_idx: u32,
-    texture_rp_idx: u32,
-    shadowcube_rp_idx: u32,
+pub struct SPixelHLSLBind {
+    texture_metadata_rp_idx: usize,
+    texture_rp_idx: usize,
+    shadowcube_rp_idx: usize,
 }
 
 impl SPixelHLSL {
     // -- by convention, spaces 3-6 are for pixel shader use
-    const BASESPACE: u16 = 3;
-    const SHADOWSPACE: u16 = 4;
+    const BASESPACE: u32 = 3;
+    const SHADOWSPACE: u32 = 4;
 
-    pub fn new() -> Self {
+    pub fn new() -> Result<Self, &'static str> {
         let pixelblob = t12::read_file_to_blob("shaders_built/pixel.cso")?;
         let pixel_byte_code = t12::SShaderBytecode::create(pixelblob);
 
-        Self{
+        Ok(Self{
             _bytecode: pixel_byte_code,
-        }
+        })
     }
 
-    pub fn bind(root_signature_desc: &mut t12::SRootSignatureDesc) -> SPixelHLSLBind {
+    pub fn bytecode(&self) -> &t12::SShaderBytecode {
+        &self._bytecode
+    }
+
+    pub fn bind(&self, root_signature_desc: &mut t12::SRootSignatureDesc) -> SPixelHLSLBind {
 
         let texture_metadata_root_parameter = t12::SRootParameter {
             type_: t12::ERootParameterType::E32BitConstants,
             type_data: t12::ERootParameterTypeData::Constants {
                 constants: t12::SRootConstants {
                     shader_register: 1,
-                    register_space: BASESPACE,
-                    num_32_bit_values: (size_of::<model::STextureMetadata>() / 4) as u32,
+                    register_space: Self::BASESPACE,
+                    num_32_bit_values: (size_of::<STextureMetadata>() / 4) as u32,
                 },
             },
             shader_visibility: t12::EShaderVisibility::Pixel,
@@ -70,7 +82,7 @@ impl SPixelHLSL {
                 range_type: t12::EDescriptorRangeType::SRV,
                 num_descriptors: 1,
                 base_shader_register: 0,
-                register_space: BASESPACE,
+                register_space: Self::BASESPACE,
                 offset_in_descriptors_from_table_start: t12::EDescriptorRangeOffset::EAppend,
             };
 
@@ -93,7 +105,7 @@ impl SPixelHLSL {
                 range_type: t12::EDescriptorRangeType::SRV,
                 num_descriptors: 1,
                 base_shader_register: 0,
-                register_space: SHADOWSPACE,
+                register_space: Self::SHADOWSPACE,
                 offset_in_descriptors_from_table_start: t12::EDescriptorRangeOffset::EAppend,
             };
 
@@ -123,7 +135,7 @@ impl SPixelHLSL {
             min_lod: 0.0,
             max_lod: std::f32::MAX,
             shader_register: 0,
-            register_space: BASESPACE,
+            register_space: Self::BASESPACE,
             shader_visibility: t12::EShaderVisibility::Pixel,
         };
 
@@ -139,7 +151,7 @@ impl SPixelHLSL {
             min_lod: 0.0,
             max_lod: 0.0,
             shader_register: 0,
-            register_space: SHADOWSPACE,
+            register_space: Self::SHADOWSPACE,
             shader_visibility: t12::EShaderVisibility::Pixel,
         };
 
@@ -161,16 +173,18 @@ impl SPixelHLSL {
     }
 
     pub fn set_graphics_roots(
+        &self,
         bind: &SPixelHLSLBind,
-        texture_metadata: mut STextureMetadata,
-        texture_gpu_descripter: Option<t12::SGPUDescriptorHandle>,
+        list: &mut RefMut<n12::SCommandList>,
+        texture_metadata: STextureMetadata,
+        texture_gpu_descriptor: Option<t12::SGPUDescriptorHandle>,
         shadowcube_gpu_descriptor: t12::SGPUDescriptorHandle)
     {
         list.set_graphics_root_descriptor_table(bind.shadowcube_rp_idx, &shadowcube_gpu_descriptor);
-        cl.set_graphics_root_32_bit_constants(bind.texture_metadata_rp_idx, &texture_metadata, 0);
+        list.set_graphics_root_32_bit_constants(bind.texture_metadata_rp_idx, &texture_metadata, 0);
         if let Some(t) = texture_gpu_descriptor {
-            assert!(texture_metadata.has_diffuse_texture);
-            cl.set_graphics_root_descriptor_table(bind.texture_rp_idx, t);
+            assert!(texture_metadata.has_diffuse_texture == 1.0);
+            list.set_graphics_root_descriptor_table(bind.texture_rp_idx, &t);
         }
     }
 }

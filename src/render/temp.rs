@@ -827,7 +827,7 @@ impl<'a> super::SRender<'a> {
         };
         let view_perspective = perspective_matrix * view_matrix;
 
-        list.set_graphics_root_32_bit_constants(self.render_temp.point_vp_root_param_idx as u32,
+        list.set_graphics_root_32_bit_constants(self.render_temp.point_vp_root_param_idx,
                                                 &view_perspective, 0);
 
         // -- set up input assembler
@@ -983,7 +983,7 @@ impl<'a> super::SRender<'a> {
         };
         let view_perspective = perspective_matrix * view_matrix;
 
-        list.set_graphics_root_32_bit_constants(self.render_temp.line_vp_root_param_idx as u32,
+        list.set_graphics_root_32_bit_constants(self.render_temp.line_vp_root_param_idx,
                                                 &view_perspective, 0);
 
         // -- set up input assembler
@@ -1137,7 +1137,7 @@ impl<'a> super::SRender<'a> {
         };
         let view_perspective = perspective_matrix * view_matrix;
 
-        list.set_graphics_root_32_bit_constants(self.render_temp.instance_mesh_vp_root_param_idx as u32,
+        list.set_graphics_root_32_bit_constants(self.render_temp.instance_mesh_vp_root_param_idx,
                                                 &view_perspective, 0);
 
         // -- set up input assembler
@@ -1229,9 +1229,9 @@ impl<'a> super::SRender<'a> {
             let model_matrix = model.location.as_mat4();
             let mvp = view_projection * model_matrix;
 
-            list.set_graphics_root_32_bit_constants(self.render_temp.mesh_mvp_root_param_idx as u32,
+            list.set_graphics_root_32_bit_constants(self.render_temp.mesh_mvp_root_param_idx,
                                                     &mvp, 0);
-            list.set_graphics_root_32_bit_constants(self.render_temp.mesh_color_root_param_idx as u32,
+            list.set_graphics_root_32_bit_constants(self.render_temp.mesh_color_root_param_idx,
                                                     &model.model.diffuse_colour, 0);
 
             self.mesh_loader.bind_buffers_and_draw(model.model.mesh, &mut list)?;

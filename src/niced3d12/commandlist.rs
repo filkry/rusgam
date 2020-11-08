@@ -113,13 +113,13 @@ impl SCommandList {
 
     pub fn set_graphics_root_32_bit_constants<T: Sized>(
         &mut self,
-        root_parameter_index: u32,
+        root_parameter_index: usize,
         data: &T,
         dest_offset_in_32_bit_values: u32,
     ) {
         unsafe {
             self.raw.set_graphics_root_32_bit_constants(
-                root_parameter_index,
+                root_parameter_index as u32,
                 data,
                 dest_offset_in_32_bit_values,
             )

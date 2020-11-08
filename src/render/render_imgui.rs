@@ -393,7 +393,7 @@ impl<'a> super::SRender<'a> {
             glm::ortho_lh_zo(left, right, bottom, top, znear, zfar)
         };
 
-        list.set_graphics_root_32_bit_constants(ri.orthomat_root_param_idx as u32, &ortho_matrix, 0);
+        list.set_graphics_root_32_bit_constants(ri.orthomat_root_param_idx, &ortho_matrix, 0);
 
         for (i, draw_list) in draw_data.draw_lists().enumerate() {
 

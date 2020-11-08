@@ -68,7 +68,8 @@ pub struct SRender<'a> {
 
     // -- main world rendering data
     _vert_byte_code: t12::SShaderBytecode,
-    _pixel_byte_code: t12::SShaderBytecode,
+    pixel_hlsl: SPixelHLSL,
+    pixel_hlsl_bind: SPixelHLSLBind,
 
     root_signature: n12::SRootSignature,
     pipeline_state: t12::SPipelineState,
@@ -233,10 +234,8 @@ impl<'a> SRender<'a> {
 
         // -- load shaders
         let vertblob = t12::read_file_to_blob("shaders_built/vertex.cso")?;
-        let pixelblob = t12::read_file_to_blob("shaders_built/pixel.cso")?;
 
         let vert_byte_code = t12::SShaderBytecode::create(vertblob);
-        let pixel_byte_code = t12::SShaderBytecode::create(pixelblob);
 
         // -- root signature stuff
         let mut input_layout_desc = model::mesh_per_vertex_input_layout_desc();
@@ -246,101 +245,11 @@ impl<'a> SRender<'a> {
             type_data: t12::ERootParameterTypeData::Constants {
                 constants: t12::SRootConstants {
                     shader_register: 0,
-                    register_space: 0,
+                    register_space: BASESPACE,
                     num_32_bit_values: (size_of::<Mat4>() * 3 / 4) as u32,
                 },
             },
             shader_visibility: t12::EShaderVisibility::Vertex,
-        };
-
-        let texture_metadata_root_parameter = t12::SRootParameter {
-            type_: t12::ERootParameterType::E32BitConstants,
-            type_data: t12::ERootParameterTypeData::Constants {
-                constants: t12::SRootConstants {
-                    shader_register: 1,
-                    register_space: 0,
-                    num_32_bit_values: (size_of::<model::STextureMetadata>() / 4) as u32,
-                },
-            },
-            shader_visibility: t12::EShaderVisibility::Pixel,
-        };
-
-        let texture_root_parameter = {
-            let descriptor_range = t12::SDescriptorRange {
-                range_type: t12::EDescriptorRangeType::SRV,
-                num_descriptors: 1,
-                base_shader_register: 0,
-                register_space: 0,
-                offset_in_descriptors_from_table_start: t12::EDescriptorRangeOffset::EAppend,
-            };
-
-            let mut root_descriptor_table = t12::SRootDescriptorTable::new();
-            root_descriptor_table
-                .descriptor_ranges
-                .push(descriptor_range);
-
-            t12::SRootParameter {
-                type_: t12::ERootParameterType::DescriptorTable,
-                type_data: t12::ERootParameterTypeData::DescriptorTable {
-                    table: root_descriptor_table,
-                },
-                shader_visibility: t12::EShaderVisibility::Pixel,
-            }
-        };
-
-        let shadow_cube_root_parameter = {
-            let descriptor_range = t12::SDescriptorRange {
-                range_type: t12::EDescriptorRangeType::SRV,
-                num_descriptors: 1,
-                base_shader_register: 0,
-                register_space: 1,
-                offset_in_descriptors_from_table_start: t12::EDescriptorRangeOffset::EAppend,
-            };
-
-            let mut root_descriptor_table = t12::SRootDescriptorTable::new();
-            root_descriptor_table
-                .descriptor_ranges
-                .push(descriptor_range);
-
-            t12::SRootParameter {
-                type_: t12::ERootParameterType::DescriptorTable,
-                type_data: t12::ERootParameterTypeData::DescriptorTable {
-                    table: root_descriptor_table,
-                },
-                shader_visibility: t12::EShaderVisibility::Pixel,
-            }
-        };
-
-        let sampler = t12::SStaticSamplerDesc {
-            filter: t12::EFilter::MinMagMipPoint,
-            address_u: t12::ETextureAddressMode::Border,
-            address_v: t12::ETextureAddressMode::Border,
-            address_w: t12::ETextureAddressMode::Border,
-            mip_lod_bias: 0.0,
-            max_anisotropy: 0,
-            comparison_func: t12::EComparisonFunc::Never,
-            border_color: t12::EStaticBorderColor::OpaqueWhite,
-            min_lod: 0.0,
-            max_lod: std::f32::MAX,
-            shader_register: 0,
-            register_space: 0,
-            shader_visibility: t12::EShaderVisibility::Pixel,
-        };
-
-        let shadow_sampler = t12::SStaticSamplerDesc {
-            filter: t12::EFilter::MinMagMipPoint,
-            address_u: t12::ETextureAddressMode::Clamp,
-            address_v: t12::ETextureAddressMode::Clamp,
-            address_w: t12::ETextureAddressMode::Clamp,
-            mip_lod_bias: 0.0,
-            max_anisotropy: 0,
-            comparison_func: t12::EComparisonFunc::Never,
-            border_color: t12::EStaticBorderColor::OpaqueWhite,
-            min_lod: 0.0,
-            max_lod: 0.0,
-            shader_register: 0,
-            register_space: 1,
-            shader_visibility: t12::EShaderVisibility::Pixel,
         };
 
         let root_signature_flags = t12::SRootSignatureFlags::create(&[
@@ -352,11 +261,6 @@ impl<'a> SRender<'a> {
 
         let mut root_signature_desc = t12::SRootSignatureDesc::new(root_signature_flags);
         root_signature_desc.parameters.push(mvp_root_parameter);
-        root_signature_desc.parameters.push(texture_metadata_root_parameter);
-        root_signature_desc.parameters.push(texture_root_parameter);
-        root_signature_desc.parameters.push(shadow_cube_root_parameter);
-        root_signature_desc.static_samplers.push(sampler);
-        root_signature_desc.static_samplers.push(shadow_sampler);
 
         let root_signature =
             device.create_root_signature(root_signature_desc, t12::ERootSignatureVersion::V1)?;
@@ -677,8 +581,15 @@ impl<'a> SRender<'a> {
 
                 let view_perspective = perspective_matrix * view_matrix;
                 for modeli in 0..world_models.len() {
-                    list.set_graphics_root_descriptor_table(3, &self.render_shadow_map.srv().gpu_descriptor(0));
-                    world_models[modeli].set_texture_root_parameters(&self.texture_loader, list.deref_mut(), 1, 2);
+                    let model = &world_models[modeli];
+                    let texture_metadata = STextureMetadata::new_from_model(&model);
+                    SPixelHLSL::set_graphics_roots(
+                        self.pixel_hlsl_bind,
+                        texture_metadata,
+                        &self.texture_loader.texture_gpu_descriptor(model.texture).unwrap(),
+                        &self.render_shadow_map.srv().gpu_descriptor(0),
+                    );
+
                     self.mesh_loader.render(world_models[modeli].mesh, list.deref_mut(), &view_perspective, &world_model_xforms[modeli])?;
                 }
             }

@@ -14,13 +14,13 @@ struct STextureMetadata {
     float is_lit;
 };
 
-ConstantBuffer<STextureMetadata> texture_metadata_buffer : register(b1);
+ConstantBuffer<STextureMetadata> texture_metadata_buffer : register(b1, space3);
 
-Texture2D g_texture : register(t0);
-SamplerState g_sampler : register(s0);
+Texture2D g_texture : register(t0, space3);
+SamplerState g_sampler : register(s0, space3);
 
-TextureCube g_shadow_cube : register(t0, space1);
-SamplerState g_shadow_sampler : register(s0, space1);
+TextureCube g_shadow_cube : register(t0, space4);
+SamplerState g_shadow_sampler : register(s0, space4);
 
 static const float PI = 3.14159265f;
 

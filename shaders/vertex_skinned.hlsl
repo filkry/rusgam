@@ -1,4 +1,4 @@
-// -- must match SVertexPosColourUV/model_per_vertex_input_layout_desc in model.rs
+// -- must match SVertexPosColourUV/model_per_vertex_input_layout_desc in skinned.rs
 struct SVertexPosColorUV
 {
     float3 position : POSITION;

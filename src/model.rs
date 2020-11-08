@@ -116,17 +116,8 @@ pub struct SModel {
     // -- material info
     pub diffuse_colour: Vec4,
     pub diffuse_texture: Option<STextureHandle>,
-    diffuse_weight: f32,
-    is_lit: bool,
-}
-
-// -- used to fill out shader metadata, must match STextureMetadata in pixel.hlsl
-#[repr(C)]
-pub struct STextureMetadata {
-    diffuse_colour: Vec4,
-    has_diffuse_texture: f32,
-    diffuse_weight: f32,
-    is_lit: f32,
+    pub diffuse_weight: f32,
+    pub is_lit: bool,
 }
 
 impl<'a> SMeshLoader<'a> {
@@ -621,6 +612,7 @@ impl SModel {
         self.pickable = pickable;
     }
 
+    /*
     pub fn set_texture_root_parameters(
         &self,
         texture_loader: &STextureLoader,
@@ -645,4 +637,5 @@ impl SModel {
 
         cl.set_graphics_root_32_bit_constants(metadata_constant_root_parameter, &texture_metadata, 0);
     }
+    */
 }

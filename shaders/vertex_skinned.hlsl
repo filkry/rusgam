@@ -4,6 +4,9 @@ struct SVertexPosColorUV
     float3 position : POSITION;
     float3 normal   : NORMAL;
     float2 uv       : TEXCOORD;
+};
+
+struct SVertexSkinning {
     uint joints[4] : JOINTS;
     float4 joint_weights: JOINTWEIGHTS;
 };
@@ -26,14 +29,14 @@ struct SVertexShaderOutput
     float2 uv       : TEXCOORD;
 };
 
-SVertexShaderOutput main(SVertexPosColorUV input)
+SVertexShaderOutput main(SVertexPosColorUV input, SVertexSkinning skinning)
 {
     SVertexShaderOutput output;
 
-    matrix vertmat = mul(input.joint_weights[0], jointworldtransforms[input.joints[0]]) +
-                     mul(input.joint_weights[1], jointworldtransforms[input.joints[1]]) +
-                     mul(input.joint_weights[2], jointworldtransforms[input.joints[2]]) +
-                     mul(input.joint_weights[3], jointworldtransforms[input.joints[3]]);
+    matrix vertmat = mul(skinning.joint_weights[0], jointworldtransforms[skinning.joints[0]]) +
+                     mul(skinning.joint_weights[1], jointworldtransforms[skinning.joints[1]]) +
+                     mul(skinning.joint_weights[2], jointworldtransforms[skinning.joints[2]]) +
+                     mul(skinning.joint_weights[3], jointworldtransforms[skinning.joints[3]]);
     float4 world_pos = mul(vertmat, float4(input.position, 1.0));
     float4 world_normal = mul(vertmat, float4(input.normal, 1.0));
     output.position = mul(modelviewprojectionconstantbuffer.viewprojection, world_pos);

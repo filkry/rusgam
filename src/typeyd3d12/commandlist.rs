@@ -205,7 +205,6 @@ impl SCommandList {
         );
     }
 
-    /*
     pub unsafe fn set_graphics_root_shader_resource_view(
         &self,
         root_parameter_index: u32,
@@ -213,10 +212,9 @@ impl SCommandList {
     ) {
         self.commandlist.SetGraphicsRootShaderResourceView(
             root_parameter_index,
-            buffer_location.raw(),
+            buffer_location.raw().ptr,
         );
     }
-    */
 
     pub unsafe fn draw_indexed_instanced(
         &self,

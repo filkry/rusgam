@@ -126,20 +126,18 @@ impl SCommandList {
         };
     }
 
-    /*
     pub fn set_graphics_root_shader_resource_view(
         &mut self,
-        root_parameter_index: u32,
+        root_parameter_index: usize,
         buffer_location: t12::SGPUDescriptorHandle,
     ) {
         unsafe {
             self.raw.set_graphics_root_shader_resource_view(
-                root_parameter_index,
+                root_parameter_index as u32,
                 buffer_location,
             )
         };
     }
-    */
 
     pub fn draw_indexed_instanced(
         &mut self,

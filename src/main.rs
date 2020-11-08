@@ -135,8 +135,8 @@ fn main_d3d12() -> Result<(), &'static str> {
 
     let mut gjk_debug = gjk::SGJKDebug::new(&data_bucket);
 
-    let gltf = gltf::Gltf::open("assets/test_armature.glb").unwrap();
-    println!("gltf: {:?}", gltf);
+    let _gltf = gltf::Gltf::open("assets/test_armature.glb").unwrap();
+    //println!("gltf: {:?}", _gltf);
 
     while !input.q_down {
         // -- handle edit mode toggles

@@ -106,6 +106,7 @@ pub fn compile_shaders_if_changed() {
         ("temp_mesh_pixel", "ps_6_0"),
         ("instance_mesh_vertex", "vs_6_0"),
         ("instance_mesh_pixel", "ps_6_0"),
+        ("vertex_skinned", "vs_6_0"),
     ];
 
     for (shader_name, type_) in &shaders {

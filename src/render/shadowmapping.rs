@@ -45,8 +45,8 @@ pub fn setup_shadow_mapping_pipeline(
     shadow_cube_width: usize,
     shadow_cube_height: usize,
 ) -> Result<SShadowMappingPipeline, &'static str> {
-    let vertex_blob = t12::read_file_to_blob("shaders_built/shadow_vertex.cso")?;
-    let pixel_blob = t12::read_file_to_blob("shaders_built/shadow_pixel.cso")?;
+    let vertex_blob = t12::read_file_to_blob("shaders_built/clip_space_only_vertex.cso")?;
+    let pixel_blob = t12::read_file_to_blob("shaders_built/depth_only_pixel.cso")?;
 
     let vertex_byte_code = t12::SShaderBytecode::create(vertex_blob);
     let pixel_byte_code = t12::SShaderBytecode::create(pixel_blob);

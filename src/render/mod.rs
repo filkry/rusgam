@@ -93,8 +93,8 @@ pub fn compile_shaders_if_changed() {
     let shaders = [
         ("vertex", "vs_6_0"),
         ("pixel", "ps_6_0"),
-        ("shadow_vertex", "vs_6_0"),
-        ("shadow_pixel", "ps_6_0"),
+        ("clip_space_only_vertex", "vs_6_0"),
+        ("depth_only_pixel", "ps_6_0"),
         ("imgui_vertex", "vs_6_0"),
         ("imgui_pixel", "ps_6_0"),
         ("point_vertex", "vs_6_0"),

@@ -9,17 +9,9 @@ struct SModelViewProjection
 
 ConstantBuffer<SModelViewProjection> modelviewprojectionconstantbuffer : register(b0);
 
-struct SVertexShaderOutput
+SPixelShaderInput main(SBaseVertexData input)
 {
-    float4 position : SV_Position;
-    float3 world_position: POSITION2;
-    float4 normal   : NORMAL;
-    float2 uv       : TEXCOORD;
-};
-
-SVertexShaderOutput main(SBaseVertexData input)
-{
-    SVertexShaderOutput output;
+    SPixelShaderInput output;
 
     output.position = mul(modelviewprojectionconstantbuffer.mvp, float4(input.position, 1.0f));
     output.world_position = mul(modelviewprojectionconstantbuffer.model, float4(input.position, 1.0)).xyz;

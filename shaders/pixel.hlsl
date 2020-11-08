@@ -1,12 +1,6 @@
-struct SPixelShaderInput
-{
-    float4 position : SV_Position;
-    float3 world_position: POSITION2;
-    float4 normal   : NORMAL;
-    float2 uv       : TEXCOORD;
-};
+#include "types.hlsl"
 
-// -- must match STextureMetadata in model.rs
+// -- must match STextureMetadata in pixel_hlsl_bind.rs
 struct STextureMetadata {
     float4 diffuse_colour;
     float has_diffuse_texture;

@@ -12,3 +12,11 @@ struct SBaseVertexData
     float3 normal   : NORMAL;
     float2 uv       : TEXCOORD;
 };
+
+// -- must match SModelViewProjection in render/shaderbindings/types.rs
+struct SModelViewProjection
+{
+    matrix model;
+    matrix viewprojection;
+    matrix mvp;
+};

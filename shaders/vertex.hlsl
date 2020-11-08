@@ -1,12 +1,5 @@
 #include "types.hlsl"
 
-struct SModelViewProjection
-{
-    matrix model;
-    matrix viewprojection;
-    matrix mvp;
-};
-
 ConstantBuffer<SModelViewProjection> modelviewprojectionconstantbuffer : register(b0);
 
 SPixelShaderInput main(SBaseVertexData input)

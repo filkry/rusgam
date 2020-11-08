@@ -1,7 +1,6 @@
 // -- std includes
 use std::cell::RefCell;
 use std::io::Write;
-use std::mem::{size_of};
 use std::rc::Rc;
 use std::ops::{Deref, DerefMut};
 
@@ -25,7 +24,7 @@ use utils::{STransform, SRay};
 mod shadowmapping;
 mod render_imgui;
 pub mod temp;
-mod pixel_hlsl_bind;
+mod shaderbindings;
 
 use self::render_imgui::{SRenderImgui};
 use self::temp::{SRenderTemp};
@@ -77,9 +76,10 @@ pub struct SRender<'a> {
     // -- pipelines -------------------------------------------
 
     // -- main world rendering pipeline
-    _vert_byte_code: t12::SShaderBytecode,
-    pixel_hlsl: pixel_hlsl_bind::SPixelHLSL,
-    pixel_hlsl_bind: pixel_hlsl_bind::SPixelHLSLBind,
+    vertex_hlsl: shaderbindings::SVertexHLSL,
+    vertex_hlsl_bind: shaderbindings::SVertexHLSLBind,
+    pixel_hlsl: shaderbindings::SPixelHLSL,
+    pixel_hlsl_bind: shaderbindings::SPixelHLSLBind,
 
     root_signature: n12::SRootSignature,
     pipeline_state: t12::SPipelineState,
@@ -232,24 +232,11 @@ impl<'a> SRender<'a> {
         let mut texture_loader = STextureLoader::new(Rc::downgrade(&device), &winapi, Rc::downgrade(&copy_command_queue), Rc::downgrade(&direct_command_queue), Rc::downgrade(&srv_heap), 9323, 1024)?;
 
         // -- load shaders
-        let vertblob = t12::read_file_to_blob("shaders_built/vertex.cso")?;
-        let vert_byte_code = t12::SShaderBytecode::create(vertblob);
-        let pixel_hlsl = pixel_hlsl_bind::SPixelHLSL::new()?;
+        let vertex_hlsl = shaderbindings::SVertexHLSL::new()?;
+        let pixel_hlsl = shaderbindings::SPixelHLSL::new()?;
 
         // -- root signature stuff
         let mut input_layout_desc = model::mesh_per_vertex_input_layout_desc();
-
-        let mvp_root_parameter = t12::SRootParameter {
-            type_: t12::ERootParameterType::E32BitConstants,
-            type_data: t12::ERootParameterTypeData::Constants {
-                constants: t12::SRootConstants {
-                    shader_register: 0,
-                    register_space: 0,
-                    num_32_bit_values: (size_of::<Mat4>() * 3 / 4) as u32,
-                },
-            },
-            shader_visibility: t12::EShaderVisibility::Vertex,
-        };
 
         let root_signature_flags = t12::SRootSignatureFlags::create(&[
             t12::ERootSignatureFlags::AllowInputAssemblerInputLayout,
@@ -259,8 +246,8 @@ impl<'a> SRender<'a> {
         ]);
 
         let mut root_signature_desc = t12::SRootSignatureDesc::new(root_signature_flags);
-        root_signature_desc.parameters.push(mvp_root_parameter);
 
+        let vertex_hlsl_bind = vertex_hlsl.bind(&mut root_signature_desc);
         let pixel_hlsl_bind = pixel_hlsl.bind(&mut root_signature_desc);
 
         let root_signature =
@@ -278,7 +265,7 @@ impl<'a> SRender<'a> {
             primitive_topology: n12::SPipelineStateStreamPrimitiveTopology::create(
                 t12::EPrimitiveTopologyType::Triangle,
             ),
-            vertex_shader: n12::SPipelineStateStreamVertexShader::create(&vert_byte_code),
+            vertex_shader: n12::SPipelineStateStreamVertexShader::create(vertex_hlsl.bytecode()),
             pixel_shader: n12::SPipelineStateStreamPixelShader::create(pixel_hlsl.bytecode()),
             depth_stencil_format: n12::SPipelineStateStreamDepthStencilFormat::create(
                 t12::EDXGIFormat::D32Float,
@@ -322,7 +309,8 @@ impl<'a> SRender<'a> {
             fovy,
             znear,
 
-            _vert_byte_code: vert_byte_code,
+            vertex_hlsl,
+            vertex_hlsl_bind,
             pixel_hlsl,
             pixel_hlsl_bind,
 
@@ -590,12 +578,17 @@ impl<'a> SRender<'a> {
                 let view_perspective = perspective_matrix * view_matrix;
                 for modeli in 0..world_models.len() {
                     let model = &world_models[modeli];
-                    let texture_metadata = pixel_hlsl_bind::STextureMetadata::new_from_model(&model);
+                    let texture_metadata = shaderbindings::STextureMetadata::new_from_model(&model);
 
                     let texture_gpu_descriptor = model.diffuse_texture.map(|handle| {
                         self.texture_loader.texture_gpu_descriptor(handle).unwrap()
                     });
 
+                    self.vertex_hlsl.set_graphics_roots(
+                        &self.vertex_hlsl_bind,
+                        &mut list,
+                        &shaderbindings::SModelViewProjection::new(&view_perspective, &world_model_xforms[modeli]),
+                    );
                     self.pixel_hlsl.set_graphics_roots(
                         &self.pixel_hlsl_bind,
                         &mut list,
@@ -604,7 +597,7 @@ impl<'a> SRender<'a> {
                         self.render_shadow_map.srv().gpu_descriptor(0),
                     );
 
-                    self.mesh_loader.render(world_models[modeli].mesh, list.deref_mut(), &view_perspective, &world_model_xforms[modeli])?;
+                    self.mesh_loader.render(world_models[modeli].mesh, list.deref_mut())?;
                 }
             }
 

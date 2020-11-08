@@ -4,7 +4,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::rc::Weak;
 
-use glm::{Vec4, Vec3, Vec2, Mat4};
+use glm::{Vec4, Vec3, Vec2};
 use arrayvec::{ArrayString};
 
 use t12;
@@ -367,8 +367,6 @@ impl<'a> SMeshLoader<'a> {
         &self,
         mesh_handle: SMeshHandle,
         cl: &mut n12::SCommandList,
-        view_projection: &glm::Mat4,
-        model_xform: &STransform,
     ) -> Result<(), &'static str> {
         // -- assuming the same pipline state, root signature, viewport, scissor rect,
         // -- render target, for every model for now. These are set
@@ -376,24 +374,6 @@ impl<'a> SMeshLoader<'a> {
 
         // -- setup input assembler
         cl.ia_set_primitive_topology(t12::EPrimitiveTopology::TriangleList);
-
-        #[allow(dead_code)]
-        struct SModelViewProjection {
-            model: Mat4,
-            view_projection: Mat4,
-            mvp: Mat4,
-        }
-
-        let model_matrix = model_xform.as_mat4();
-
-        let mvp_matrix = view_projection * model_matrix;
-        let mvp = SModelViewProjection{
-            model: model_matrix.clone(),
-            view_projection: view_projection.clone(),
-            mvp: mvp_matrix,
-        };
-
-        cl.set_graphics_root_32_bit_constants(0, &mvp, 0);
 
         // -- draw
         self.bind_buffers_and_draw(mesh_handle, cl)?;

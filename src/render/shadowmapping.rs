@@ -4,6 +4,7 @@ use std::rc::{Weak};
 use model;
 use n12;
 use t12;
+use super::shaderbindings;
 use utils;
 use utils::{STransform};
 
@@ -229,7 +230,9 @@ impl SShadowMappingPipeline {
             let view_perspective = perspective_matrix * view_matrix;
 
             for modeli in 0..models.len() {
-                mesh_loader.render(models[modeli].mesh, cl, &view_perspective, &model_matrices[modeli])?;
+                let mvp = shaderbindings::SModelViewProjection::new(&view_perspective, &model_matrices[modeli]);
+                cl.set_graphics_root_32_bit_constants(0, &mvp, 0);
+                mesh_loader.render(models[modeli].mesh, cl)?;
             }
         }
 

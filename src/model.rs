@@ -14,62 +14,16 @@ use allocate::{SMemVec, SYSTEM_ALLOCATOR};
 use collections;
 use collections::{SStoragePool};
 use safewindows;
+use render::shaderbindings;
 use rustywindows;
 use utils;
 use utils::{STransform};
-
-// -- must match SVertexPosColorUV vertex.hlsl
-#[allow(dead_code)]
-#[repr(C)]
-pub struct SVertexPosColourUV {
-    pub position: Vec3,
-    pub normal: Vec3,
-    pub uv: Vec2,
-}
-
-// -- must match SVertexPosColorUV vertex.hlsl
-pub fn mesh_input_elements() -> [t12::SInputElementDesc; 3] {
-    [
-        t12::SInputElementDesc::create(
-            "POSITION",
-            0,
-            t12::EDXGIFormat::R32G32B32Float,
-            0,
-            winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
-            t12::EInputClassification::PerVertexData,
-            0,
-        ),
-        t12::SInputElementDesc::create(
-            "NORMAL",
-            0,
-            t12::EDXGIFormat::R32G32B32Float,
-            0,
-            winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
-            t12::EInputClassification::PerVertexData,
-            0,
-        ),
-        t12::SInputElementDesc::create(
-            "TEXCOORD",
-            0,
-            t12::EDXGIFormat::R32G32Float,
-            0,
-            winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
-            t12::EInputClassification::PerVertexData,
-            0,
-        ),
-    ]
-}
-
-pub fn mesh_per_vertex_input_layout_desc() -> t12::SInputLayoutDesc {
-    let input_element_desc = mesh_input_elements();
-    t12::SInputLayoutDesc::create(&input_element_desc)
-}
 
 #[allow(dead_code)]
 pub struct SMesh<'a> {
     uid: u64,
 
-    per_vertex_data: SMemVec<'a, SVertexPosColourUV>,
+    per_vertex_data: SMemVec<'a, shaderbindings::SBaseVertexData>,
     local_aabb: utils::SAABB,
     pub(super) triangle_indices: SMemVec<'a, u16>,
 
@@ -153,7 +107,7 @@ impl<'a> SMeshLoader<'a> {
             }
         }
 
-        let mut vert_vec = SMemVec::<SVertexPosColourUV>::new(&SYSTEM_ALLOCATOR, tobj_mesh.positions.len(), 0).unwrap();
+        let mut vert_vec = SMemVec::<shaderbindings::SBaseVertexData>::new(&SYSTEM_ALLOCATOR, tobj_mesh.positions.len(), 0).unwrap();
         let mut index_vec = SMemVec::<u16>::new(&SYSTEM_ALLOCATOR, tobj_mesh.indices.len(), 0).unwrap();
 
         assert!(tobj_mesh.positions.len() % 3 == 0);
@@ -161,7 +115,7 @@ impl<'a> SMeshLoader<'a> {
         assert!(tobj_mesh.normals.len() == tobj_mesh.positions.len());
 
         for vidx in 0..tobj_mesh.positions.len() / 3 {
-            vert_vec.push(SVertexPosColourUV {
+            vert_vec.push(shaderbindings::SBaseVertexData {
                 position: Vec3::new(
                     tobj_mesh.positions[vidx * 3],
                     tobj_mesh.positions[vidx * 3 + 1],
@@ -281,7 +235,7 @@ impl<'a> SMeshLoader<'a> {
         &mesh.local_aabb
     }
 
-    pub fn get_per_vertex_data(&self, mesh: SMeshHandle) -> &SMemVec<'a, SVertexPosColourUV> {
+    pub fn get_per_vertex_data(&self, mesh: SMeshHandle) -> &SMemVec<'a, shaderbindings::SBaseVertexData> {
         &self.mesh_pool.get(mesh).unwrap().per_vertex_data
     }
 

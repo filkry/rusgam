@@ -14,7 +14,6 @@ use typeyd3d12 as t12;
 use allocate::{SMemVec, STACK_ALLOCATOR};
 use databucket::{SDataBucket};
 use entity::{SEntityBucket, SEntityHandle};
-use model;
 use model::{SModel, SMeshLoader, STextureLoader};
 use safewindows;
 use rustywindows;
@@ -24,7 +23,7 @@ use utils::{STransform, SRay};
 mod shadowmapping;
 mod render_imgui;
 pub mod temp;
-mod shaderbindings;
+pub mod shaderbindings;
 
 use self::render_imgui::{SRenderImgui};
 use self::temp::{SRenderTemp};
@@ -236,7 +235,7 @@ impl<'a> SRender<'a> {
         let pixel_hlsl = shaderbindings::SPixelHLSL::new()?;
 
         // -- root signature stuff
-        let mut input_layout_desc = model::mesh_per_vertex_input_layout_desc();
+        let mut input_layout_desc = shaderbindings::SVertexHLSL::input_layout_desc();
 
         let root_signature_flags = t12::SRootSignatureFlags::create(&[
             t12::ERootSignatureFlags::AllowInputAssemblerInputLayout,

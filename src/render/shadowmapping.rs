@@ -51,7 +51,8 @@ pub fn setup_shadow_mapping_pipeline(
     let vertex_byte_code = t12::SShaderBytecode::create(vertex_blob);
     let pixel_byte_code = t12::SShaderBytecode::create(pixel_blob);
 
-    let mut input_layout_desc = model::mesh_per_vertex_input_layout_desc();
+    // -- $$$FRK(TODO): using the wrong shader here!
+    let mut input_layout_desc = shaderbindings::SVertexHLSL::input_layout_desc();
 
     let mvp_root_parameter = t12::SRootParameter {
         type_: t12::ERootParameterType::E32BitConstants,

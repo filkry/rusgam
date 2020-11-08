@@ -1,10 +1,4 @@
-// -- must match SVertexPosColourUV/model_per_vertex_input_layout_desc in model.rs
-struct SVertexPosColorUV
-{
-    float3 position : POSITION;
-    float3 normal   : NORMAL;
-    float2 uv       : TEXCOORD;
-};
+#include "types.hlsl"
 
 struct SModelViewProjection
 {
@@ -23,7 +17,7 @@ struct SVertexShaderOutput
     float2 uv       : TEXCOORD;
 };
 
-SVertexShaderOutput main(SVertexPosColorUV input)
+SVertexShaderOutput main(SBaseVertexData input)
 {
     SVertexShaderOutput output;
 

@@ -5,6 +5,7 @@ use niced3d12 as n12;
 use typeyd3d12 as t12;
 use glm::{Mat4};
 use utils::{STransform};
+use super::types;
 
 // -- used to fill out shader metadata, must match SModelViewProjection in vertex.hlsl
 #[repr(C)]
@@ -37,6 +38,8 @@ pub struct SVertexHLSLBind {
 }
 
 impl SVertexHLSL {
+    const BASEVERTEXDATASLOT: usize = 0;
+
     // -- by convention, spaces 0-2 are for vertex shader use
     const BASESPACE: u32 = 0;
 
@@ -51,6 +54,11 @@ impl SVertexHLSL {
 
     pub fn bytecode(&self) -> &t12::SShaderBytecode {
         &self._bytecode
+    }
+
+    pub fn input_layout_desc() -> t12::SInputLayoutDesc {
+        let input_elements = types::SBaseVertexData::new_input_elements(Self::BASEVERTEXDATASLOT);
+        t12::SInputLayoutDesc::create(&input_elements)
     }
 
     pub fn bind(&self, root_signature_desc: &mut t12::SRootSignatureDesc) -> SVertexHLSLBind {

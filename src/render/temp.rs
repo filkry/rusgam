@@ -9,8 +9,8 @@ use glm::{Vec3, Vec4, Mat4};
 use niced3d12 as n12;
 use typeyd3d12 as t12;
 use allocate::{SMemVec, STACK_ALLOCATOR, SYSTEM_ALLOCATOR};
-use model;
 use model::{SModel, SMeshLoader, STextureLoader, SMeshHandle};
+use super::shaderbindings;
 use utils::{STransform, SAABB};
 
 #[allow(unused_variables)]
@@ -379,10 +379,7 @@ impl<'a> SRenderTemp<'a> {
 
         let vertex_input_slot = 0;
         let instance_input_slot = 1;
-        let mesh_input_elements = model::mesh_input_elements();
-        for input_elem in &mesh_input_elements {
-            assert_eq!(input_elem.input_slot, vertex_input_slot);
-        }
+        let mesh_input_elements = shaderbindings::SBaseVertexData::new_input_elements(vertex_input_slot);
 
         let mut instance_mesh_input_layout_desc = t12::SInputLayoutDesc::create(&[
             mesh_input_elements[0],
@@ -494,7 +491,8 @@ impl<'a> SRenderTemp<'a> {
         let mesh_root_signature = device.create_root_signature(
             mesh_root_signature_desc, t12::ERootSignatureVersion::V1)?;
 
-        let mut mesh_input_layout_desc = model::mesh_per_vertex_input_layout_desc();
+        // -- $$$FRK(TODO): wrong shader here!
+        let mut mesh_input_layout_desc = shaderbindings::SVertexHLSL::input_layout_desc();
 
         let mesh_vertblob = t12::read_file_to_blob("shaders_built/temp_mesh_vertex.cso")?;
         let mesh_pixelblob = t12::read_file_to_blob("shaders_built/temp_mesh_pixel.cso")?;

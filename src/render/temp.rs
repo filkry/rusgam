@@ -815,7 +815,7 @@ impl<'a> super::SRender<'a> {
 
         // -- setup the output merger
         let render_target_view = window.currentrendertargetdescriptor()?;
-        let depth_texture_view = self._depth_texture_view.as_ref().expect("no depth texture").cpu_descriptor(0);
+        let depth_texture_view = self.depth_texture_view.as_ref().expect("no depth texture").cpu_descriptor(0);
         list.om_set_render_targets(&[&render_target_view], false, &depth_texture_view);
 
         let perspective_matrix: Mat4 = {
@@ -971,7 +971,7 @@ impl<'a> super::SRender<'a> {
 
         // -- setup the output merger
         let render_target_view = window.currentrendertargetdescriptor()?;
-        let depth_texture_view = self._depth_texture_view.as_ref().expect("no depth texture").cpu_descriptor(0);
+        let depth_texture_view = self.depth_texture_view.as_ref().expect("no depth texture").cpu_descriptor(0);
         list.om_set_render_targets(&[&render_target_view], false, &depth_texture_view);
 
         let perspective_matrix: Mat4 = {
@@ -1125,7 +1125,7 @@ impl<'a> super::SRender<'a> {
 
         // -- setup the output merger
         let render_target_view = window.currentrendertargetdescriptor()?;
-        let depth_texture_view = self._depth_texture_view.as_ref().expect("no depth texture").cpu_descriptor(0);
+        let depth_texture_view = self.depth_texture_view.as_ref().expect("no depth texture").cpu_descriptor(0);
         list.om_set_render_targets(&[&render_target_view], false, &depth_texture_view);
 
         let perspective_matrix: Mat4 = {
@@ -1199,7 +1199,7 @@ impl<'a> super::SRender<'a> {
 
         // -- setup the output merger
         let render_target_view = window.currentrendertargetdescriptor()?;
-        let depth_texture_view = self._depth_texture_view.as_ref().expect("no depth texture").cpu_descriptor(0);
+        let depth_texture_view = self.depth_texture_view.as_ref().expect("no depth texture").cpu_descriptor(0);
         list.om_set_render_targets(&[&render_target_view], false, &depth_texture_view);
 
         let perspective_matrix: Mat4 = {

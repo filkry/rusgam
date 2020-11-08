@@ -338,6 +338,7 @@ impl<'a> SRender<'a> {
     }
 
     pub fn shutdown(&mut self) {
+        self.render_shadow_map.shutdown();
         self.texture_loader.shutdown();
         self.depth_texture_view = None;
     }
@@ -478,7 +479,7 @@ impl<'a> SRender<'a> {
                 window.currentrendertargetdescriptor()?,
                 &clearcolour,
             )?;
-            list.clear_depth_stencil_view(self._depth_texture_view.as_ref().expect("no depth texture").cpu_descriptor(0), 1.0)?;
+            list.clear_depth_stencil_view(self.depth_texture_view.as_ref().expect("no depth texture").cpu_descriptor(0), 1.0)?;
 
             drop(list);
             self.direct_command_pool.execute_and_free_list(&mut handle)?;
@@ -498,7 +499,7 @@ impl<'a> SRender<'a> {
         {
             let mut handle = self.direct_command_pool.alloc_list()?;
             let mut list = self.direct_command_pool.get_list(&handle)?;
-            list.clear_depth_stencil_view(self._depth_texture_view.as_ref().expect("no depth texture").cpu_descriptor(0), 1.0)?;
+            list.clear_depth_stencil_view(self.depth_texture_view.as_ref().expect("no depth texture").cpu_descriptor(0), 1.0)?;
             drop(list);
             self.direct_command_pool.execute_and_free_list(&mut handle)?;
         }
@@ -568,7 +569,7 @@ impl<'a> SRender<'a> {
                 let mut list = self.direct_command_pool.get_list(&handle)?;
 
                 let render_target_view = window.currentrendertargetdescriptor()?;
-                let depth_texture_view = self._depth_texture_view.as_ref().expect("no depth texture").cpu_descriptor(0);
+                let depth_texture_view = self.depth_texture_view.as_ref().expect("no depth texture").cpu_descriptor(0);
 
                 // -- set up pipeline
                 list.set_pipeline_state(&self.pipeline_state);

@@ -32,8 +32,8 @@ pub struct SShadowMappingPipeline {
     shadow_cube_height: usize,
 
     shadow_depth_resource: n12::SResource,
-    shadow_depth_view: n12::SDescriptorAllocatorAllocation,
-    shadow_srv: n12::SDescriptorAllocatorAllocation,
+    shadow_depth_view: Option<n12::SDescriptorAllocatorAllocation>,
+    shadow_srv: Option<n12::SDescriptorAllocatorAllocation>,
 }
 
 pub fn setup_shadow_mapping_pipeline(
@@ -135,12 +135,17 @@ pub fn setup_shadow_mapping_pipeline(
         shadow_cube_height,
 
         shadow_depth_resource: resource,
-        shadow_depth_view: view,
-        shadow_srv: srv,
+        shadow_depth_view: Some(view),
+        shadow_srv: Some(srv),
     })
 }
 
 impl SShadowMappingPipeline {
+    pub fn shutdown(&mut self) {
+        self.shadow_depth_view = None;
+        self.shadow_srv = None;
+    }
+
     pub fn render(
         &self,
         mesh_loader: &model::SMeshLoader,
@@ -202,8 +207,10 @@ impl SShadowMappingPipeline {
 
 
         for (i, dir) in dirs.iter().enumerate() {
-            cl.clear_depth_stencil_view(self.shadow_depth_view.cpu_descriptor(i), 1.0)?;
-            cl.om_set_render_targets(&[], false, &self.shadow_depth_view.cpu_descriptor(i));
+            let depth_view = self.shadow_depth_view.as_ref().unwrap().cpu_descriptor(i);
+
+            cl.clear_depth_stencil_view(depth_view, 1.0)?;
+            cl.om_set_render_targets(&[], false, &depth_view);
 
             let up = {
                 if dir.y == 1.0 {
@@ -236,6 +243,6 @@ impl SShadowMappingPipeline {
     }
 
     pub fn srv(&self) -> &n12::SDescriptorAllocatorAllocation {
-        &self.shadow_srv
+        &self.shadow_srv.as_ref().unwrap()
     }
 }

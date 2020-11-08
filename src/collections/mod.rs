@@ -316,10 +316,10 @@ impl<T, I: TIndexGen, G: TIndexGen> SStoragePool<T, I, G> {
     }
 
     pub fn clear(&mut self) {
-        let i = I::ZERO;
+        let mut i = I::ZERO;
         while i < self.max() {
-            let inner : &mut Option<T> = self.pool.getmutbyindex(i).unwrap();
-            *inner = None;
+            let handle = self.pool.handle_for_index(i).expect("should only fail if i >= max");
+            self.free(handle);
             i += I::ONE;
         }
     }

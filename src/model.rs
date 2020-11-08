@@ -4,7 +4,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::rc::Weak;
 
-use glm::{Vec4, Vec3, Vec2};
+use glm::{Vec4, Vec3, Vec2, Mat4};
 use arrayvec::{ArrayString};
 
 use t12;
@@ -19,6 +19,16 @@ use rustywindows;
 use utils;
 use utils::{STransform};
 
+struct SMeshSkinning<'a> {
+    vertex_skin_data: SMemVec<'a, shaderbindings::SVertexSkinningData>,
+    vertex_skinning_buffer_resource: n12::SResource,
+    vertex_skinning_buffer_view: t12::SVertexBufferView,
+
+    model_to_joint_xforms: SMemVec<'a, Mat4>,
+    model_to_joint_xforms_resource: n12::SResource,
+    model_to_joint_xforms_view: t12::SDescriptorAllocatorAllocation,
+}
+
 #[allow(dead_code)]
 pub struct SMesh<'a> {
     uid: u64,
@@ -31,6 +41,8 @@ pub struct SMesh<'a> {
     pub(super) vertex_buffer_view: t12::SVertexBufferView,
     pub(super) index_buffer_resource: n12::SResource,
     pub(super) index_buffer_view: t12::SIndexBufferView,
+
+    skinning: Option<SMeshSkinning<'a>>,
 }
 
 pub struct STexture {

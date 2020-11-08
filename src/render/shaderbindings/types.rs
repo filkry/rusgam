@@ -4,7 +4,7 @@ use glm::{Vec3, Vec2, Mat4};
 use typeyd3d12 as t12;
 use utils::{STransform};
 
-// -- must match SBaseVertexData in vertex.hlsl
+// -- must match SBaseVertexData in types.hlsl
 #[repr(C)]
 pub struct SBaseVertexData {
     pub position: Vec3,
@@ -44,6 +44,13 @@ impl SBaseVertexData {
             ),
         ]
     }
+}
+
+// -- must match SVertexSkinningData in vertex_skinned.hlsl
+#[repr(C)]
+pub struct SVertexSkinningData {
+    joints: [u32; 4];
+    joint_weights: [f32; 4];
 }
 
 // -- used to fill out shader metadata, must match SModelViewProjection in types.hlsl

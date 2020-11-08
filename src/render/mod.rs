@@ -51,23 +51,32 @@ struct SBuiltShaderMetadata {
 pub struct SRender<'a> {
     factory: n12::SFactory,
     _adapter: n12::SAdapter, // -- maybe don't need to keep
-
-    // -- these depend on the heaps existing, so should be dropped first
-    mesh_loader: SMeshLoader<'a>,
-    texture_loader: STextureLoader,
+    device: Rc<n12::SDevice>,
 
     direct_command_pool: n12::SCommandListPool,
     copy_command_pool: n12::SCommandListPool,
+    _copy_command_queue: Rc<RefCell<n12::SCommandQueue>>,
+    direct_command_queue: Rc<RefCell<n12::SCommandQueue>>,
 
-    // -- global RTV properties
+    dsv_heap: Rc<n12::SDescriptorAllocator>,
+    srv_heap: Rc<n12::SDescriptorAllocator>,
+
+    mesh_loader: SMeshLoader<'a>,
+    texture_loader: STextureLoader,
+
+    // -- global RTV properties -----------------------------------
     _depth_texture_resource: Option<n12::SResource>,
-    _depth_texture_view: Option<n12::SDescriptorAllocatorAllocation>,
+    depth_texture_view: Option<n12::SDescriptorAllocatorAllocation>,
 
     scissorrect: t12::SRect,
     fovy: f32,
     znear: f32,
 
-    // -- main world rendering data
+    frame_fence_values: [u64; 2],
+
+    // -- pipelines -------------------------------------------
+
+    // -- main world rendering pipeline
     _vert_byte_code: t12::SShaderBytecode,
     pixel_hlsl: pixel_hlsl_bind::SPixelHLSL,
     pixel_hlsl_bind: pixel_hlsl_bind::SPixelHLSLBind,
@@ -75,21 +84,10 @@ pub struct SRender<'a> {
     root_signature: n12::SRootSignature,
     pipeline_state: t12::SPipelineState,
 
-    // -- data for rendering sub-tasks
+    // -- other rendering pipelines
     render_shadow_map: shadowmapping::SShadowMappingPipeline,
     render_imgui: SRenderImgui<'a>,
     render_temp: SRenderTemp<'a>,
-
-    frame_fence_values: [u64; 2],
-
-    // -- these things need to drop last, due to Weak references to them in the above structs
-    dsv_heap: Rc<n12::SDescriptorAllocator>,
-    srv_heap: Rc<n12::SDescriptorAllocator>,
-
-    _copy_command_queue: Rc<RefCell<n12::SCommandQueue>>, // -- used in mesh/texture loader via Weak
-    direct_command_queue: Rc<RefCell<n12::SCommandQueue>>,
-
-    device: Rc<n12::SDevice>,
 }
 
 pub fn compile_shaders_if_changed() {
@@ -315,7 +313,7 @@ impl<'a> SRender<'a> {
             srv_heap,
 
             _depth_texture_resource: None,
-            _depth_texture_view: None,
+            depth_texture_view: None,
 
             mesh_loader,
             texture_loader,
@@ -337,6 +335,11 @@ impl<'a> SRender<'a> {
 
             frame_fence_values: [0; 2],
         })
+    }
+
+    pub fn shutdown(&mut self) {
+        self.texture_loader.shutdown();
+        self.depth_texture_view = None;
     }
 
     pub fn device(&self) -> &n12::SDevice {
@@ -428,7 +431,7 @@ impl<'a> SRender<'a> {
         )?;
 
         self._depth_texture_resource = Some(_depth_texture_resource);
-        self._depth_texture_view = Some(_depth_texture_view);
+        self.depth_texture_view = Some(_depth_texture_view);
 
 
         // -- $$$FRK(TODO): why do we do this?
@@ -645,6 +648,8 @@ impl<'a> SRender<'a> {
 impl<'a> Drop for SRender<'a> {
     fn drop(&mut self) {
         self.flush().unwrap();
+
+        self.shutdown();
     }
 }
 

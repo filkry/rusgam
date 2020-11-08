@@ -422,6 +422,10 @@ impl STextureLoader {
         })
     }
 
+    pub fn shutdown(&mut self) {
+        self.texture_pool.clear();
+    }
+
     pub fn create_texture_rgba32_from_resource(&mut self, uid: Option<u64>, texture_resource: Option<n12::SResource>) -> Result<STextureHandle, &'static str> {
         // -- transition texture to PixelShaderResource
         {

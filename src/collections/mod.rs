@@ -249,9 +249,9 @@ impl<T: Clone, I: TIndexGen, G: TIndexGen> SPool<T, I, G> {
 }
 
 impl<T: Default, I: TIndexGen, G: TIndexGen> SPool<T, I, G> {
-pub fn create_default(id: u64, max: I) -> Self {
-    Self::create(id, max, Default::default)
-}
+    pub fn create_default(id: u64, max: I) -> Self {
+        Self::create(id, max, Default::default)
+    }
 }
 
 // -- pool of storage for Ts. not every entry may be valid, and musn't always be initialized
@@ -313,6 +313,15 @@ impl<T, I: TIndexGen, G: TIndexGen> SStoragePool<T, I, G> {
         let option = self.pool.get_mut(handle).unwrap();
         *option = None;
         self.pool.free(handle);
+    }
+
+    pub fn clear(&mut self) {
+        let i = I::ZERO;
+        while i < self.max() {
+            let inner : &mut Option<T> = self.pool.getmutbyindex(i).unwrap();
+            *inner = None;
+            i += I::ONE;
+        }
     }
 }
 

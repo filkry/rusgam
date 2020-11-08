@@ -23,7 +23,8 @@ struct SShadowPipelineStateStream<'a> {
 }
 
 pub struct SShadowMappingPipeline {
-    _vertex_byte_code: t12::SShaderBytecode,
+    vertex_shader: shaderbindings::SClipSpaceOnlyVertexHLSL,
+    vertex_shader_bind: shaderbindings::SClipSpaceOnlyVertexHLSLBind,
     _pixel_byte_code: t12::SShaderBytecode,
 
     root_signature: n12::SRootSignature,
@@ -45,26 +46,12 @@ pub fn setup_shadow_mapping_pipeline(
     shadow_cube_width: usize,
     shadow_cube_height: usize,
 ) -> Result<SShadowMappingPipeline, &'static str> {
-    let vertex_blob = t12::read_file_to_blob("shaders_built/clip_space_only_vertex.cso")?;
     let pixel_blob = t12::read_file_to_blob("shaders_built/depth_only_pixel.cso")?;
 
-    let vertex_byte_code = t12::SShaderBytecode::create(vertex_blob);
+    let vertex_shader = shaderbindings::SClipSpaceOnlyVertexHLSL::new()?;
     let pixel_byte_code = t12::SShaderBytecode::create(pixel_blob);
 
-    // -- $$$FRK(TODO): using the wrong shader here!
-    let mut input_layout_desc = shaderbindings::SVertexHLSL::input_layout_desc();
-
-    let mvp_root_parameter = t12::SRootParameter {
-        type_: t12::ERootParameterType::E32BitConstants,
-        type_data: t12::ERootParameterTypeData::Constants {
-            constants: t12::SRootConstants {
-                shader_register: 0,
-                register_space: 0,
-                num_32_bit_values: (std::mem::size_of::<Mat4>() * 3 / 4) as u32,
-            },
-        },
-        shader_visibility: t12::EShaderVisibility::Vertex,
-    };
+    let mut input_layout_desc = shaderbindings::SClipSpaceOnlyVertexHLSL::input_layout_desc();
 
     let root_signature_flags = t12::SRootSignatureFlags::create(&[
         t12::ERootSignatureFlags::AllowInputAssemblerInputLayout,
@@ -75,7 +62,7 @@ pub fn setup_shadow_mapping_pipeline(
     ]);
 
     let mut root_signature_desc = t12::SRootSignatureDesc::new(root_signature_flags);
-    root_signature_desc.parameters.push(mvp_root_parameter);
+    let vertex_shader_bind = vertex_shader.bind(&mut root_signature_desc);
 
     let root_signature =
         device.create_root_signature(root_signature_desc, t12::ERootSignatureVersion::V1)?;
@@ -86,7 +73,7 @@ pub fn setup_shadow_mapping_pipeline(
         primitive_topology: n12::SPipelineStateStreamPrimitiveTopology::create(
             t12::EPrimitiveTopologyType::Triangle,
         ),
-        vertex_shader: n12::SPipelineStateStreamVertexShader::create(&vertex_byte_code),
+        vertex_shader: n12::SPipelineStateStreamVertexShader::create(vertex_shader.bytecode()),
         pixel_shader: n12::SPipelineStateStreamPixelShader::create(&pixel_byte_code),
         depth_stencil_format: n12::SPipelineStateStreamDepthStencilFormat::create(
             t12::EDXGIFormat::D32Float,
@@ -127,7 +114,8 @@ pub fn setup_shadow_mapping_pipeline(
     };
 
     Ok(SShadowMappingPipeline {
-        _vertex_byte_code: vertex_byte_code,
+        vertex_shader,
+        vertex_shader_bind,
         _pixel_byte_code: pixel_byte_code,
 
         root_signature,
@@ -232,7 +220,7 @@ impl SShadowMappingPipeline {
 
             for modeli in 0..models.len() {
                 let mvp = shaderbindings::SModelViewProjection::new(&view_perspective, &model_matrices[modeli]);
-                cl.set_graphics_root_32_bit_constants(0, &mvp, 0);
+                self.vertex_shader.set_graphics_roots(&self.vertex_shader_bind, cl, &mvp);
                 mesh_loader.render(models[modeli].mesh, cl)?;
             }
         }

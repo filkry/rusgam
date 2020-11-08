@@ -1,5 +1,4 @@
 use std::mem::{size_of};
-use std::cell::{RefMut};
 
 use niced3d12 as n12;
 use typeyd3d12 as t12;
@@ -175,7 +174,7 @@ impl SPixelHLSL {
     pub fn set_graphics_roots(
         &self,
         bind: &SPixelHLSLBind,
-        list: &mut RefMut<n12::SCommandList>,
+        list: &mut n12::SCommandList,
         texture_metadata: STextureMetadata,
         texture_gpu_descriptor: Option<t12::SGPUDescriptorHandle>,
         shadowcube_gpu_descriptor: t12::SGPUDescriptorHandle)

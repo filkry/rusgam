@@ -6,6 +6,7 @@ use std::rc::Weak;
 
 use glm::{Vec4, Vec3, Vec2, Mat4};
 use arrayvec::{ArrayString};
+use gltf;
 
 use t12;
 use n12;
@@ -26,7 +27,7 @@ struct SMeshSkinning<'a> {
 
     model_to_joint_xforms: SMemVec<'a, Mat4>,
     model_to_joint_xforms_resource: n12::SResource,
-    model_to_joint_xforms_view: t12::SDescriptorAllocatorAllocation,
+    model_to_joint_xforms_view: n12::SDescriptorAllocatorAllocation,
 }
 
 #[allow(dead_code)]
@@ -103,7 +104,186 @@ impl<'a> SMeshLoader<'a> {
         })
     }
 
-    pub fn get_or_create_mesh(&mut self, asset_name: &'static str, tobj_mesh: &tobj::Mesh) -> Result<SMeshHandle, &'static str> {
+    pub fn get_or_create_mesh_gltf(&mut self, asset_file_path: &'static str, gltf_data: &gltf::Gltf) -> Result<SMeshHandle, &'static str> {
+        let uid = {
+            let mut s = DefaultHasher::new();
+            asset_file_path.hash(&mut s);
+            s.finish()
+        };
+
+        // -- $$$FRK(TODO): replace with some accelerated lookup structure
+        for i in 0..self.mesh_pool.used() {
+            if let Some(mesh) = &self.mesh_pool.get_by_index(i as u16).unwrap() {
+                if mesh.uid == uid {
+                    return Ok(self.mesh_pool.handle_for_index(i as u16)?);
+                }
+            }
+        }
+
+        assert!(gltf_data.buffers().len() == 1, "can't handle multi-buffer gltf currently");
+        let buffer = gltf_data.buffers()[0];
+        let buffer_bytes : Vec<u8> = {
+            if let gltf::buffer::Source::Uri(binname) = buffer.source() {
+                std::fs::read(asset_file_path).unwrap()
+            }
+            else {
+                panic!("Expected external buffer!");
+            }
+        };
+
+        assert!(gltf_data.meshes().len() == 1, "Can't handle multi-mesh model currently");
+        let mesh = gltf_data.meshes()[0];
+
+        assert!(mesh.primitives().len() == 1, "can't handle multi-primitive mesh currently");
+        let primitive = mesh.primitives()[0];
+
+        let positions_accessor = primitive.get(gltf::mesh::Semantic::Positions).unwrap();
+        assert!(positions_accessor.data_type() == gltf::accessor::DataType::F32);
+        assert!(positions_accessor.dimensions() == gltf::accessor::Dimensions::Vec4);
+
+        let vert_size = positions_accessor.size();
+        assert!(vert_size = std::mem::size_of::<Vec4>());
+        let num_verts = positions_accessor.count();
+        let mut vert_vec = SMemVec::<shaderbindings::SBaseVertexData>::new(&SYSTEM_ALLOCATOR, num_verts, 0).unwrap();
+
+        let positions_view = positions_accessor.view().unwrap();
+        assert!(positions_view.stride().is_none());
+
+        let verts_bytes = buffer_bytes[positions_view.offset()..(positions_view.offset() + vert_size * num_verts)];
+        let (_a, verts, _b) = unsafe { verts_bytes.align_to::<Vec4>() };
+        assert!(_a.len () == 0 && _b.len() == 0);
+        assert!(verts.len() == num_verts);
+        for &v in verts {
+            vert_vec.push(v);
+        }
+
+        /*
+        let mut index_vec = SMemVec::<u16>::new(&SYSTEM_ALLOCATOR, tobj_mesh.indices.len(), 0).unwrap();
+
+        assert!(tobj_mesh.positions.len() % 3 == 0);
+        assert!(tobj_mesh.texcoords.len() / 2 == tobj_mesh.positions.len() / 3);
+        assert!(tobj_mesh.normals.len() == tobj_mesh.positions.len());
+
+        for vidx in 0..tobj_mesh.positions.len() / 3 {
+            vert_vec.push(shaderbindings::SBaseVertexData {
+                position: Vec3::new(
+                    tobj_mesh.positions[vidx * 3],
+                    tobj_mesh.positions[vidx * 3 + 1],
+                    tobj_mesh.positions[vidx * 3 + 2],
+                ),
+                normal: Vec3::new(
+                    tobj_mesh.normals[vidx * 3],
+                    tobj_mesh.normals[vidx * 3 + 1],
+                    tobj_mesh.normals[vidx * 3 + 2],
+                ),
+                uv: Vec2::new(
+                    tobj_mesh.texcoords[vidx * 2],
+                    tobj_mesh.texcoords[vidx * 2 + 1],
+                ),
+            });
+        }
+
+        for idx in &tobj_mesh.indices {
+            index_vec.push(*idx as u16);
+        }
+
+        // -- generate vertex/index resources and views
+        let (vertbufferresource, vertexbufferview, indexbufferresource, indexbufferview) = {
+            let mut handle = self.copy_command_list_pool.alloc_list()?;
+            let mut copycommandlist = self.copy_command_list_pool.get_list(&handle)?;
+
+            let mut vertbufferresource = {
+                let vertbufferflags = t12::SResourceFlags::from(t12::EResourceFlags::ENone);
+                copycommandlist.update_buffer_resource(
+                    self.device.upgrade().expect("device dropped").deref(),
+                    vert_vec.as_slice(),
+                    vertbufferflags
+                )?
+            };
+            let vertexbufferview = vertbufferresource
+                .destinationresource
+                .create_vertex_buffer_view()?;
+
+            let mut indexbufferresource = {
+                let indexbufferflags = t12::SResourceFlags::from(t12::EResourceFlags::ENone);
+                copycommandlist.update_buffer_resource(
+                    self.device.upgrade().expect("device dropped").deref(),
+                    index_vec.as_slice(),
+                    indexbufferflags
+                )?
+            };
+            let indexbufferview = indexbufferresource
+                .destinationresource
+                .create_index_buffer_view(t12::EDXGIFormat::R16UINT)?;
+
+            drop(copycommandlist);
+
+            let fence_val = self.copy_command_list_pool.execute_and_free_list(&mut handle)?;
+            drop(handle);
+
+            // -- $$$FRK(TODO): we have to wait here because we're going to drop the intermediate resource
+            self.copy_command_list_pool.wait_for_internal_fence_value(fence_val);
+
+            // -- have the direct queue wait on the copy upload to complete
+            self.direct_command_list_pool.gpu_wait(
+                self.copy_command_list_pool.get_internal_fence(),
+                fence_val,
+            )?;
+
+            // -- transition resources
+            let mut handle  = self.direct_command_list_pool.alloc_list()?;
+            let mut direct_command_list = self.direct_command_list_pool.get_list(&handle)?;
+
+            direct_command_list.transition_resource(
+                &vertbufferresource.destinationresource,
+                t12::EResourceStates::CopyDest,
+                t12::EResourceStates::VertexAndConstantBuffer,
+            )?;
+            direct_command_list.transition_resource(
+                &indexbufferresource.destinationresource,
+                t12::EResourceStates::CopyDest,
+                t12::EResourceStates::IndexBuffer,
+            )?;
+
+            drop(direct_command_list);
+            self.direct_command_list_pool.execute_and_free_list(&mut handle)?;
+
+            // -- debug
+            unsafe {
+                vertbufferresource.destinationresource.set_debug_name("vert dest");
+                vertbufferresource.intermediateresource.set_debug_name("vert inter");
+                indexbufferresource.destinationresource.set_debug_name("index dest");
+                indexbufferresource.intermediateresource.set_debug_name("index inter");
+            }
+
+            (vertbufferresource, vertexbufferview, indexbufferresource, indexbufferview)
+        };
+
+        let mut local_aabb = utils::SAABB::new(&vert_vec[0].position);
+        for vi in 1..vert_vec.len() {
+            local_aabb.expand(&vert_vec[vi].position);
+        }
+        //println!("Asset name: {}\nAABB: {:?}", asset_name, local_aabb);
+
+        let mesh = SMesh{
+            uid: uid,
+            per_vertex_data: vert_vec,
+            triangle_indices: index_vec,
+            local_aabb: local_aabb,
+
+            vertex_buffer_resource: vertbufferresource.destinationresource,
+            vertex_buffer_view: vertexbufferview,
+            index_buffer_resource: indexbufferresource.destinationresource,
+            index_buffer_view: indexbufferview,
+        };
+
+        return self.mesh_pool.insert_val(mesh)
+        */
+
+        panic!("Not implemented.");
+    }
+
+    pub fn get_or_create_mesh_obj(&mut self, asset_name: &'static str, tobj_mesh: &tobj::Mesh) -> Result<SMeshHandle, &'static str> {
         let uid = {
             let mut s = DefaultHasher::new();
             asset_name.hash(&mut s);

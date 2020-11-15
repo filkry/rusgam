@@ -85,10 +85,14 @@ fn main_d3d12() -> Result<(), &'static str> {
 
     let mut render = render::SRender::new(&winapi, &mut imgui_ctxt)?;
 
-    let _test_gltf_model = render.new_model_from_gltf("assets/test_armature.gltf", 1.0, true);
-
     // -- setup window
-    let windowclass = winapi.rawwinapi().registerclassex("rusgam").unwrap();
+    let windowclass_result = winapi.rawwinapi().registerclassex("rusgam");
+    if let Err(e) = windowclass_result {
+        println!("Failed to make windowclass, error code {:?}", e);
+        return Err("failed to make windowclass");
+    }
+    let windowclass = windowclass_result.unwrap();
+
     let mut window = render.create_window(&windowclass, "rusgam", 1600, 900)?;
 
     window.init_render_target_views(render.device())?;
@@ -385,5 +389,8 @@ fn main() {
 
     debug_test();
 
-    main_d3d12().unwrap();
+    let result = main_d3d12();
+    if let Err(e) = result {
+        println!("Aborted with error: {:?}", e);
+    }
 }

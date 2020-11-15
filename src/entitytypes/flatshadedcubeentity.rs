@@ -16,7 +16,7 @@ pub fn create(
         let ent = entities.create_entity()?;
 
         let mut model = data_bucket.get_renderer().unwrap().with_mut(|render: &mut render::SRender| {
-            render.new_model("assets/test_untextured_flat_colour_cube.obj", 1.0, true)
+            render.new_model_from_obj("assets/test_untextured_flat_colour_cube.obj", 1.0, true)
         })?;
         if let Some(c) = diffuse_colour {
             model.diffuse_colour = c;

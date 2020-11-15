@@ -85,6 +85,8 @@ fn main_d3d12() -> Result<(), &'static str> {
 
     let mut render = render::SRender::new(&winapi, &mut imgui_ctxt)?;
 
+    let _test_gltf_model = render.new_model_from_gltf("assets/test_armature.glb", 1.0, true);
+
     // -- setup window
     let windowclass = winapi.rawwinapi().registerclassex("rusgam").unwrap();
     let mut window = render.create_window(&windowclass, "rusgam", 1600, 900)?;
@@ -134,9 +136,6 @@ fn main_d3d12() -> Result<(), &'static str> {
     let mut show_imgui_demo_window = false;
 
     let mut gjk_debug = gjk::SGJKDebug::new(&data_bucket);
-
-    let _gltf = gltf::Gltf::open("assets/test_armature.glb").unwrap();
-    //println!("gltf: {:?}", _gltf);
 
     while !input.q_down {
         // -- handle edit mode toggles

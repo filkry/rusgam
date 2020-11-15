@@ -84,9 +84,9 @@ impl SEditModeContext {
     pub fn new(render: &mut render::SRender) -> Result<Self, &'static str> {
         // -- set up translation widget
         let mut translation_widgets = [
-            render.new_model("assets/arrow_widget.obj", 1.0, false)?,
-            render.new_model("assets/arrow_widget.obj", 1.0, false)?,
-            render.new_model("assets/arrow_widget.obj", 1.0, false)?,
+            render.new_model_from_obj("assets/arrow_widget.obj", 1.0, false)?,
+            render.new_model_from_obj("assets/arrow_widget.obj", 1.0, false)?,
+            render.new_model_from_obj("assets/arrow_widget.obj", 1.0, false)?,
         ];
         translation_widgets[0].diffuse_colour = Vec4::new(1.0, 0.0, 0.0, 1.0);
         translation_widgets[1].diffuse_colour = Vec4::new(0.0, 1.0, 0.0, 1.0);
@@ -102,9 +102,9 @@ impl SEditModeContext {
 
         // -- set up rotation widget
         let mut rotation_widgets = [
-            render.new_model("assets/ring_widget.obj", 1.0, false)?,
-            render.new_model("assets/ring_widget.obj", 1.0, false)?,
-            render.new_model("assets/ring_widget.obj", 1.0, false)?,
+            render.new_model_from_obj("assets/ring_widget.obj", 1.0, false)?,
+            render.new_model_from_obj("assets/ring_widget.obj", 1.0, false)?,
+            render.new_model_from_obj("assets/ring_widget.obj", 1.0, false)?,
         ];
         rotation_widgets[0].diffuse_colour = Vec4::new(1.0, 0.0, 0.0, 1.0);
         rotation_widgets[1].diffuse_colour = Vec4::new(0.0, 1.0, 0.0, 1.0);

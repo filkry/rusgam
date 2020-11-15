@@ -15,7 +15,7 @@ pub fn create(
         let ent = entities.create_entity()?;
 
         let model = data_bucket.get_renderer().unwrap().with_mut(|render: &mut render::SRender| {
-            render.new_model("assets/test_open_room.obj", 1.0, true)
+            render.new_model_from_obj("assets/test_open_room.obj", 1.0, true)
         })?;
 
         if let Some(n) = debug_name {

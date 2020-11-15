@@ -43,7 +43,7 @@ pub struct SMesh<'a> {
     pub(super) index_buffer_resource: n12::SResource,
     pub(super) index_buffer_view: t12::SIndexBufferView,
 
-    skinning: Option<SMeshSkinning<'a>>,
+    //skinning: Option<SMeshSkinning<'a>>,
 }
 
 pub struct STexture {
@@ -121,7 +121,7 @@ impl<'a> SMeshLoader<'a> {
         }
 
         assert!(gltf_data.buffers().len() == 1, "can't handle multi-buffer gltf currently");
-        let buffer = gltf_data.buffers()[0];
+        let buffer = gltf_data.buffers().nth(0).unwrap();
         let buffer_bytes : Vec<u8> = {
             if let gltf::buffer::Source::Uri(binname) = buffer.source() {
                 std::fs::read(asset_file_path).unwrap()
@@ -132,29 +132,80 @@ impl<'a> SMeshLoader<'a> {
         };
 
         assert!(gltf_data.meshes().len() == 1, "Can't handle multi-mesh model currently");
-        let mesh = gltf_data.meshes()[0];
+        let mesh = gltf_data.meshes().nth(0).unwrap();
 
         assert!(mesh.primitives().len() == 1, "can't handle multi-primitive mesh currently");
-        let primitive = mesh.primitives()[0];
+        let primitive = mesh.primitives().nth(0).unwrap();
 
-        let positions_accessor = primitive.get(gltf::mesh::Semantic::Positions).unwrap();
-        assert!(positions_accessor.data_type() == gltf::accessor::DataType::F32);
-        assert!(positions_accessor.dimensions() == gltf::accessor::Dimensions::Vec4);
+        fn primitive_semantic_slice<'a, T>(
+            primitive: &gltf::Primitive,
+            semantic: &gltf::mesh::Semantic,
+            expected_datatype: gltf::accessor::DataType,
+            expected_dimensions: gltf::accessor::Dimensions,
+            bytes: &'a Vec<u8>,
+        ) -> &'a [T] {
+            let accessor = primitive.get(semantic).unwrap();
+            assert!(accessor.data_type() == expected_datatype);
+            assert!(accessor.dimensions() == expected_dimensions);
 
-        let vert_size = positions_accessor.size();
-        assert!(vert_size = std::mem::size_of::<Vec4>());
-        let num_verts = positions_accessor.count();
-        let mut vert_vec = SMemVec::<shaderbindings::SBaseVertexData>::new(&SYSTEM_ALLOCATOR, num_verts, 0).unwrap();
+            let size = accessor.size();
+            assert!(size == std::mem::size_of::<T>());
+            let count = accessor.count();
 
-        let positions_view = positions_accessor.view().unwrap();
-        assert!(positions_view.stride().is_none());
+            let view = accessor.view().unwrap();
+            assert!(view.stride().is_none());
 
-        let verts_bytes = buffer_bytes[positions_view.offset()..(positions_view.offset() + vert_size * num_verts)];
-        let (_a, verts, _b) = unsafe { verts_bytes.align_to::<Vec4>() };
-        assert!(_a.len () == 0 && _b.len() == 0);
-        assert!(verts.len() == num_verts);
-        for &v in verts {
-            vert_vec.push(v);
+            let slice_bytes = &bytes[view.offset()..(view.offset() + size * count)];
+            let (_a, result, _b) = unsafe { slice_bytes.align_to::<T>() };
+            assert!(_a.len () == 0 && _b.len() == 0);
+
+            result
+        }
+
+        let positions : &[Vec4] = primitive_semantic_slice(
+            &primitive,
+            &gltf::mesh::Semantic::Positions,
+            gltf::accessor::DataType::F32,
+            gltf::accessor::Dimensions::Vec4,
+            &buffer_bytes,
+        );
+        let normals : &[Vec4] = primitive_semantic_slice(
+            &primitive,
+            &gltf::mesh::Semantic::Normals,
+            gltf::accessor::DataType::F32,
+            gltf::accessor::Dimensions::Vec4,
+            &buffer_bytes,
+        );
+
+        /*
+        let positions = {
+            let positions_accessor = primitive.get(&gltf::mesh::Semantic::Positions).unwrap();
+            assert!(positions_accessor.data_type() == gltf::accessor::DataType::F32);
+            assert!(positions_accessor.dimensions() == gltf::accessor::Dimensions::Vec4);
+
+            let vert_size = positions_accessor.size();
+            assert!(vert_size == std::mem::size_of::<Vec4>());
+            let num_verts = positions_accessor.count();
+
+            let positions_view = positions_accessor.view().unwrap();
+            assert!(positions_view.stride().is_none());
+
+            let positions_bytes = &buffer_bytes[positions_view.offset()..(positions_view.offset() + vert_size * num_verts)];
+            let (_a, positions, _b) = unsafe { positions_bytes.align_to::<Vec4>() };
+            assert!(_a.len () == 0 && _b.len() == 0);
+
+            positions
+        };
+        */
+        assert!(positions.len() == normals.len());
+
+        let mut vert_vec = SMemVec::<shaderbindings::SBaseVertexData>::new(&SYSTEM_ALLOCATOR, positions.len(), 0).unwrap();
+        for i in 0..positions.len() {
+            vert_vec.push(shaderbindings::SBaseVertexData{
+                position: Vec3::new(positions[i].x, positions[i].y, positions[i].z),
+                normal: Vec3::new(normals[i].x, normals[i].y, normals[i].z),
+                uv: Vec2::new(0.0, 0.0),
+            });
         }
 
         /*
@@ -707,7 +758,7 @@ impl SModel {
         let (models, materials) = tobj::load_obj(&std::path::Path::new(obj_file)).unwrap();
         assert_eq!(models.len(), 1);
 
-        let mesh = mesh_loader.get_or_create_mesh(obj_file, &models[0].mesh);
+        let mesh = mesh_loader.get_or_create_mesh_obj(obj_file, &models[0].mesh);
         let mut diffuse_colour : Vec4 = glm::zero();
         let mut diffuse_texture : Option<STextureHandle> = None;
 
@@ -735,6 +786,21 @@ impl SModel {
             diffuse_weight,
             is_lit,
         })
+    }
+
+    pub fn new_from_gltf(
+        gltf_path: &'static str,
+        mesh_loader: &mut SMeshLoader,
+        texture_loader: &mut STextureLoader,
+        diffuse_weight: f32,
+        is_lit: bool,
+    ) -> Result<Self, &'static str> {
+
+        let gltf = gltf::Gltf::open(gltf_path).unwrap();
+
+        let mesh = mesh_loader.get_or_create_mesh_gltf(gltf_path, &gltf);
+
+        panic!("not implemented");
     }
 
     #[allow(dead_code)]

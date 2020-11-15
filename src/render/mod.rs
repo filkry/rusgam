@@ -381,8 +381,12 @@ impl<'a> SRender<'a> {
         Ok(())
     }
 
-    pub fn new_model(&mut self, obj_file_path: &'static str, diffuse_weight: f32, is_lit: bool) -> Result<SModel, &'static str> {
+    pub fn new_model_from_obj(&mut self, obj_file_path: &'static str, diffuse_weight: f32, is_lit: bool) -> Result<SModel, &'static str> {
         SModel::new_from_obj(obj_file_path, &mut self.mesh_loader, &mut self.texture_loader, diffuse_weight, is_lit)
+    }
+
+    pub fn new_model_from_gltf(&mut self, gltf_file_path: &'static str, diffuse_weight: f32, is_lit: bool) -> Result<SModel, &'static str> {
+        SModel::new_from_gltf(gltf_file_path, &mut self.mesh_loader, &mut self.texture_loader, diffuse_weight, is_lit)
     }
 
     pub fn mesh_loader(&self) -> &SMeshLoader {

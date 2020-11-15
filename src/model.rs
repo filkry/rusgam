@@ -141,14 +141,12 @@ impl<'a> SMeshLoader<'a> {
         assert!(mesh.primitives().len() == 1, "can't handle multi-primitive mesh currently");
         let primitive = mesh.primitives().nth(0).unwrap();
 
-        fn primitive_semantic_slice<'a, T>(
-            primitive: &gltf::Primitive,
-            semantic: &gltf::mesh::Semantic,
+        fn accessor_slice<'a, T>(
+            accessor: &gltf::Accessor,
             expected_datatype: gltf::accessor::DataType,
             expected_dimensions: gltf::accessor::Dimensions,
             bytes: &'a Vec<u8>,
         ) -> &'a [T] {
-            let accessor = primitive.get(semantic).unwrap();
             assert!(accessor.data_type() == expected_datatype);
             assert!(accessor.dimensions() == expected_dimensions);
 
@@ -166,80 +164,51 @@ impl<'a> SMeshLoader<'a> {
             result
         }
 
-        let positions : &[Vec3] = primitive_semantic_slice(
-            &primitive,
-            &gltf::mesh::Semantic::Positions,
+        ;
+        let positions : &[Vec3] = accessor_slice(
+            &primitive.get(&gltf::mesh::Semantic::Positions).unwrap(),
             gltf::accessor::DataType::F32,
             gltf::accessor::Dimensions::Vec3,
             &buffer_bytes,
         );
-        let normals : &[Vec3] = primitive_semantic_slice(
-            &primitive,
-            &gltf::mesh::Semantic::Normals,
+        //println!("Dumped GLTF positions: {:?}", positions);
+        let normals : &[Vec3] = accessor_slice(
+            &primitive.get(&gltf::mesh::Semantic::Normals).unwrap(),
             gltf::accessor::DataType::F32,
             gltf::accessor::Dimensions::Vec3,
             &buffer_bytes,
         );
+        //println!("Dumped GLTF normals: {:?}", normals);
+        let uvs : &[Vec2] = accessor_slice(
+            &primitive.get(&gltf::mesh::Semantic::TexCoords(0)).unwrap(),
+            gltf::accessor::DataType::F32,
+            gltf::accessor::Dimensions::Vec2,
+            &buffer_bytes,
+        );
 
-        /*
-        let positions = {
-            let positions_accessor = primitive.get(&gltf::mesh::Semantic::Positions).unwrap();
-            assert!(positions_accessor.data_type() == gltf::accessor::DataType::F32);
-            assert!(positions_accessor.dimensions() == gltf::accessor::Dimensions::Vec4);
-
-            let vert_size = positions_accessor.size();
-            assert!(vert_size == std::mem::size_of::<Vec4>());
-            let num_verts = positions_accessor.count();
-
-            let positions_view = positions_accessor.view().unwrap();
-            assert!(positions_view.stride().is_none());
-
-            let positions_bytes = &buffer_bytes[positions_view.offset()..(positions_view.offset() + vert_size * num_verts)];
-            let (_a, positions, _b) = unsafe { positions_bytes.align_to::<Vec4>() };
-            assert!(_a.len () == 0 && _b.len() == 0);
-
-            positions
-        };
-        */
         assert!(positions.len() == normals.len());
+        assert!(positions.len() == uvs.len());
 
         let mut vert_vec = SMemVec::<shaderbindings::SBaseVertexData>::new(&SYSTEM_ALLOCATOR, positions.len(), 0).unwrap();
         for i in 0..positions.len() {
             vert_vec.push(shaderbindings::SBaseVertexData{
-                position: Vec3::new(positions[i].x, positions[i].y, positions[i].z),
-                normal: Vec3::new(normals[i].x, normals[i].y, normals[i].z),
-                uv: Vec2::new(0.0, 0.0),
+                position: positions[i],
+                normal: normals[i],
+                uv: uvs[i],
             });
         }
 
-        /*
-        let mut index_vec = SMemVec::<u16>::new(&SYSTEM_ALLOCATOR, tobj_mesh.indices.len(), 0).unwrap();
+        let indices : &[u16] = accessor_slice(
+            &primitive.indices().unwrap(),
+            gltf::accessor::DataType::U16,
+            gltf::accessor::Dimensions::Scalar,
+            &buffer_bytes,
+        );
 
-        assert!(tobj_mesh.positions.len() % 3 == 0);
-        assert!(tobj_mesh.texcoords.len() / 2 == tobj_mesh.positions.len() / 3);
-        assert!(tobj_mesh.normals.len() == tobj_mesh.positions.len());
+        let mut index_vec = SMemVec::<u16>::new(&SYSTEM_ALLOCATOR, indices.len(), 0).unwrap();
 
-        for vidx in 0..tobj_mesh.positions.len() / 3 {
-            vert_vec.push(shaderbindings::SBaseVertexData {
-                position: Vec3::new(
-                    tobj_mesh.positions[vidx * 3],
-                    tobj_mesh.positions[vidx * 3 + 1],
-                    tobj_mesh.positions[vidx * 3 + 2],
-                ),
-                normal: Vec3::new(
-                    tobj_mesh.normals[vidx * 3],
-                    tobj_mesh.normals[vidx * 3 + 1],
-                    tobj_mesh.normals[vidx * 3 + 2],
-                ),
-                uv: Vec2::new(
-                    tobj_mesh.texcoords[vidx * 2],
-                    tobj_mesh.texcoords[vidx * 2 + 1],
-                ),
-            });
-        }
-
-        for idx in &tobj_mesh.indices {
-            index_vec.push(*idx as u16);
+        for idx in indices {
+            index_vec.push(*idx);
         }
 
         // -- generate vertex/index resources and views
@@ -333,9 +302,6 @@ impl<'a> SMeshLoader<'a> {
         };
 
         return self.mesh_pool.insert_val(mesh)
-        */
-
-        panic!("Not implemented.");
     }
 
     pub fn get_or_create_mesh_obj(&mut self, asset_name: &'static str, tobj_mesh: &tobj::Mesh) -> Result<SMeshHandle, &'static str> {
@@ -795,7 +761,7 @@ impl SModel {
     pub fn new_from_gltf(
         gltf_path: &'static str,
         mesh_loader: &mut SMeshLoader,
-        texture_loader: &mut STextureLoader,
+        _texture_loader: &mut STextureLoader,
         diffuse_weight: f32,
         is_lit: bool,
     ) -> Result<Self, &'static str> {
@@ -804,7 +770,20 @@ impl SModel {
 
         let mesh = mesh_loader.get_or_create_mesh_gltf(gltf_path, &gltf);
 
-        panic!("not implemented");
+        let diffuse_colour = Vec4::new(0.7, 0.0, 0.3, 1.0);
+        let diffuse_texture : Option<STextureHandle> = None;
+
+        Ok(Self {
+            mesh: mesh?,
+
+            pickable: true,
+
+            // -- material info
+            diffuse_colour,
+            diffuse_texture,
+            diffuse_weight,
+            is_lit,
+        })
     }
 
     #[allow(dead_code)]

@@ -85,7 +85,7 @@ fn main_d3d12() -> Result<(), &'static str> {
 
     let mut render = render::SRender::new(&winapi, &mut imgui_ctxt)?;
 
-    let _test_gltf_model = render.new_model_from_gltf("assets/test_armature.glb", 1.0, true);
+    let _test_gltf_model = render.new_model_from_gltf("assets/test_armature.gltf", 1.0, true);
 
     // -- setup window
     let windowclass = winapi.rawwinapi().registerclassex("rusgam").unwrap();

@@ -124,7 +124,11 @@ impl<'a> SMeshLoader<'a> {
         let buffer = gltf_data.buffers().nth(0).unwrap();
         let buffer_bytes : Vec<u8> = {
             if let gltf::buffer::Source::Uri(binname) = buffer.source() {
-                std::fs::read(asset_file_path).unwrap()
+                let path = std::path::Path::new("./assets/");
+                let binname = std::path::Path::new(binname);
+                let fullpath = path.join(binname);
+                println!("Reading GLTF from path: {:?}", fullpath);
+                std::fs::read(fullpath).unwrap()
             }
             else {
                 panic!("Expected external buffer!");
@@ -162,18 +166,18 @@ impl<'a> SMeshLoader<'a> {
             result
         }
 
-        let positions : &[Vec4] = primitive_semantic_slice(
+        let positions : &[Vec3] = primitive_semantic_slice(
             &primitive,
             &gltf::mesh::Semantic::Positions,
             gltf::accessor::DataType::F32,
-            gltf::accessor::Dimensions::Vec4,
+            gltf::accessor::Dimensions::Vec3,
             &buffer_bytes,
         );
-        let normals : &[Vec4] = primitive_semantic_slice(
+        let normals : &[Vec3] = primitive_semantic_slice(
             &primitive,
             &gltf::mesh::Semantic::Normals,
             gltf::accessor::DataType::F32,
-            gltf::accessor::Dimensions::Vec4,
+            gltf::accessor::Dimensions::Vec3,
             &buffer_bytes,
         );
 

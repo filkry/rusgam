@@ -315,6 +315,28 @@ impl<'a, T> SMemVec<'a, T> {
         })
     }
 
+    pub fn new_copy_slice(
+        allocator: &'a dyn TMemAllocator,
+        slice: &[T],
+    ) -> Result<Self, &'static str> {
+        let initial_capacity = slice.len();
+        let grow_capacity = 0;
+
+        let num_bytes = initial_capacity * size_of::<T>();
+
+        let mut result = Self {
+            mem: allocator.alloc(num_bytes, 8)?,
+            len: 0,
+            capacity: initial_capacity,
+            grow_capacity: grow_capacity,
+            phantom: std::marker::PhantomData,
+        };
+
+        unsafe { std::ptr::copy_nonoverlapping(slice.as_ptr(), result.data(), initial_capacity) };
+
+        Ok(result)
+    }
+
     /*
     pub fn new_genned<A: TMemAllocator>(
         allocator: &'a SGenAllocator<A>,
@@ -329,7 +351,7 @@ impl<'a, T> SMemVec<'a, T> {
     }
     */
 
-    fn data(&self) -> *mut T {
+    unsafe fn data(&mut self) -> *mut T {
         self.mem.data as *mut T
     }
 

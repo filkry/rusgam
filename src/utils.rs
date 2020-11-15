@@ -46,6 +46,14 @@ impl SAABB {
         }
     }
 
+    pub fn new_from_points(ps: &[Vec3]) -> Self {
+        let mut result = Self::new(&ps[0]);
+        for pi in 1..ps.len() {
+            result.expand(&ps[pi]);
+        }
+        result
+    }
+
     pub fn zero() -> Self {
         Self {
             min: glm::zero(),

@@ -34,14 +34,24 @@ struct SMeshSkinning<'a> {
 pub struct SMesh<'a> {
     uid: u64,
 
-    per_vertex_data: SMemVec<'a, shaderbindings::SBaseVertexData>,
-    local_aabb: utils::SAABB,
-    pub(super) triangle_indices: SMemVec<'a, u16>,
+    local_verts: SMemVec<'a, Vec3>,
+    local_normals: SMemVec<'a, Vec3>,
+    uvs: SMemVec<'a, Vec2>,
+    pub(super) indices: SMemVec<'a, u16>,
 
-    pub(super) vertex_buffer_resource: n12::SResource,
-    pub(super) vertex_buffer_view: t12::SVertexBufferView,
-    pub(super) index_buffer_resource: n12::SResource,
-    pub(super) index_buffer_view: t12::SIndexBufferView,
+    local_aabb: utils::SAABB,
+
+    // -- resources
+    pub(super) local_verts_resource: n12::SResource,
+    pub(super) local_normals_resource: n12::SResource,
+    pub(super) uvs_resource: n12::SResource,
+    pub(super) indices_resource: n12::SResource,
+
+    // -- views
+    pub(super) local_verts_vbv: t12::SVertexBufferView,
+    pub(super) local_normals_vbv: t12::SVertexBufferView,
+    pub(super) uvs_vbv: t12::SVertexBufferView,
+    pub(super) indices_ibv: t12::SIndexBufferView,
 
     //skinning: Option<SMeshSkinning<'a>>,
 }
@@ -102,6 +112,53 @@ impl<'a> SMeshLoader<'a> {
             direct_command_list_pool: n12::SCommandListPool::create(device.upgrade().expect("bad device").deref(), direct_command_queue, &winapi.rawwinapi(), 1, 2)?,
             mesh_pool: SStoragePool::create(pool_id, max_mesh_count),
         })
+    }
+
+    fn sync_create_and_upload_buffer_resource<T>(
+        &mut self,
+        data: &[T],
+        resource_flags: t12::SResourceFlags,
+        target_state: t12::EResourceStates,
+    ) -> Result<n12::SResource, &'static str> {
+        let mut handle = self.copy_command_list_pool.alloc_list()?;
+        let mut copycommandlist = self.copy_command_list_pool.get_list(&handle)?;
+
+        let mut resource = {
+            copycommandlist.update_buffer_resource(
+                self.device.upgrade().expect("device dropped").deref(), data, resource_flags,
+            )?
+        };
+        drop(copycommandlist);
+
+        let fence_val = self.copy_command_list_pool.execute_and_free_list(&mut handle)?;
+        drop(handle);
+
+        // --  This is the sync part - waiting so we can drop intermediate resource safely
+        self.copy_command_list_pool.wait_for_internal_fence_value(fence_val);
+
+        // -- have the direct queue wait on the copy upload to complete
+        // -- shouldn't be necessary in sync version
+        /*
+        self.direct_command_list_pool.gpu_wait(
+            self.copy_command_list_pool.get_internal_fence(),
+            fence_val,
+        )?;
+        */
+
+        // -- transition resources
+        let mut handle  = self.direct_command_list_pool.alloc_list()?;
+        let mut direct_command_list = self.direct_command_list_pool.get_list(&handle)?;
+
+        direct_command_list.transition_resource(
+            &resource.destinationresource,
+            t12::EResourceStates::CopyDest,
+            target_state,
+        )?;
+
+        drop(direct_command_list);
+        self.direct_command_list_pool.execute_and_free_list(&mut handle)?;
+
+        Ok(resource.destinationresource)
     }
 
     pub fn get_or_create_mesh_gltf(&mut self, asset_file_path: &'static str, gltf_data: &gltf::Gltf) -> Result<SMeshHandle, &'static str> {
@@ -179,7 +236,7 @@ impl<'a> SMeshLoader<'a> {
             &buffer_bytes,
         );
         //println!("Dumped GLTF normals: {:?}", normals);
-        let uvs : &[Vec2] = accessor_slice(
+        let bin_uvs : &[Vec2] = accessor_slice(
             &primitive.get(&gltf::mesh::Semantic::TexCoords(0)).unwrap(),
             gltf::accessor::DataType::F32,
             gltf::accessor::Dimensions::Vec2,
@@ -187,118 +244,71 @@ impl<'a> SMeshLoader<'a> {
         );
 
         assert!(positions.len() == normals.len());
-        assert!(positions.len() == uvs.len());
+        assert!(positions.len() == bin_uvs.len());
 
-        let mut vert_vec = SMemVec::<shaderbindings::SBaseVertexData>::new(&SYSTEM_ALLOCATOR, positions.len(), 0).unwrap();
-        for i in 0..positions.len() {
-            vert_vec.push(shaderbindings::SBaseVertexData{
-                position: positions[i],
-                normal: normals[i],
-                uv: uvs[i],
-            });
-        }
+        let local_verts = SMemVec::<Vec3>::new_copy_slice(&SYSTEM_ALLOCATOR, positions).unwrap();
+        let local_normals = SMemVec::<Vec3>::new_copy_slice(&SYSTEM_ALLOCATOR, normals).unwrap();
+        let uvs = SMemVec::<Vec2>::new_copy_slice(&SYSTEM_ALLOCATOR, bin_uvs).unwrap();
 
-        let indices : &[u16] = accessor_slice(
+        let indices_bin : &[u16] = accessor_slice(
             &primitive.indices().unwrap(),
             gltf::accessor::DataType::U16,
             gltf::accessor::Dimensions::Scalar,
             &buffer_bytes,
         );
 
-        let mut index_vec = SMemVec::<u16>::new(&SYSTEM_ALLOCATOR, indices.len(), 0).unwrap();
+        let indices = SMemVec::<u16>::new_copy_slice(&SYSTEM_ALLOCATOR, indices_bin).unwrap();
 
-        for idx in indices {
-            index_vec.push(*idx);
-        }
+        let local_verts_resource = self.sync_create_and_upload_buffer_resource(
+            local_verts.as_slice(),
+            t12::SResourceFlags::from(t12::EResourceFlags::ENone),
+            t12::EResourceStates::VertexAndConstantBuffer,
+        )?;
+        let local_verts_vbv = local_verts_resource.create_vertex_buffer_view()?;
 
-        // -- generate vertex/index resources and views
-        let (vertbufferresource, vertexbufferview, indexbufferresource, indexbufferview) = {
-            let mut handle = self.copy_command_list_pool.alloc_list()?;
-            let mut copycommandlist = self.copy_command_list_pool.get_list(&handle)?;
+        let local_normals_resource = self.sync_create_and_upload_buffer_resource(
+            local_normals.as_slice(),
+            t12::SResourceFlags::from(t12::EResourceFlags::ENone),
+            t12::EResourceStates::VertexAndConstantBuffer,
+        )?;
+        let local_normals_vbv = local_normals_resource.create_vertex_buffer_view()?;
 
-            let mut vertbufferresource = {
-                let vertbufferflags = t12::SResourceFlags::from(t12::EResourceFlags::ENone);
-                copycommandlist.update_buffer_resource(
-                    self.device.upgrade().expect("device dropped").deref(),
-                    vert_vec.as_slice(),
-                    vertbufferflags
-                )?
-            };
-            let vertexbufferview = vertbufferresource
-                .destinationresource
-                .create_vertex_buffer_view()?;
+        let uvs_resource = self.sync_create_and_upload_buffer_resource(
+            uvs.as_slice(),
+            t12::SResourceFlags::from(t12::EResourceFlags::ENone),
+            t12::EResourceStates::VertexAndConstantBuffer,
+        )?;
+        let uvs_vbv = uvs_resource.create_vertex_buffer_view()?;
 
-            let mut indexbufferresource = {
-                let indexbufferflags = t12::SResourceFlags::from(t12::EResourceFlags::ENone);
-                copycommandlist.update_buffer_resource(
-                    self.device.upgrade().expect("device dropped").deref(),
-                    index_vec.as_slice(),
-                    indexbufferflags
-                )?
-            };
-            let indexbufferview = indexbufferresource
-                .destinationresource
-                .create_index_buffer_view(t12::EDXGIFormat::R16UINT)?;
+        let indices_resource = self.sync_create_and_upload_buffer_resource(
+            indices.as_slice(),
+            t12::SResourceFlags::from(t12::EResourceFlags::ENone),
+            t12::EResourceStates::IndexBuffer,
+        )?;
+        let indices_ibv = indices_resource.create_index_buffer_view(t12::EDXGIFormat::R16UINT)?;
 
-            drop(copycommandlist);
-
-            let fence_val = self.copy_command_list_pool.execute_and_free_list(&mut handle)?;
-            drop(handle);
-
-            // -- $$$FRK(TODO): we have to wait here because we're going to drop the intermediate resource
-            self.copy_command_list_pool.wait_for_internal_fence_value(fence_val);
-
-            // -- have the direct queue wait on the copy upload to complete
-            self.direct_command_list_pool.gpu_wait(
-                self.copy_command_list_pool.get_internal_fence(),
-                fence_val,
-            )?;
-
-            // -- transition resources
-            let mut handle  = self.direct_command_list_pool.alloc_list()?;
-            let mut direct_command_list = self.direct_command_list_pool.get_list(&handle)?;
-
-            direct_command_list.transition_resource(
-                &vertbufferresource.destinationresource,
-                t12::EResourceStates::CopyDest,
-                t12::EResourceStates::VertexAndConstantBuffer,
-            )?;
-            direct_command_list.transition_resource(
-                &indexbufferresource.destinationresource,
-                t12::EResourceStates::CopyDest,
-                t12::EResourceStates::IndexBuffer,
-            )?;
-
-            drop(direct_command_list);
-            self.direct_command_list_pool.execute_and_free_list(&mut handle)?;
-
-            // -- debug
-            unsafe {
-                vertbufferresource.destinationresource.set_debug_name("vert dest");
-                vertbufferresource.intermediateresource.set_debug_name("vert inter");
-                indexbufferresource.destinationresource.set_debug_name("index dest");
-                indexbufferresource.intermediateresource.set_debug_name("index inter");
-            }
-
-            (vertbufferresource, vertexbufferview, indexbufferresource, indexbufferview)
-        };
-
-        let mut local_aabb = utils::SAABB::new(&vert_vec[0].position);
-        for vi in 1..vert_vec.len() {
-            local_aabb.expand(&vert_vec[vi].position);
-        }
+        let mut local_aabb = utils::SAABB::new_from_points(local_verts.as_slice());
         //println!("Asset name: {}\nAABB: {:?}", asset_name, local_aabb);
 
         let mesh = SMesh{
             uid: uid,
-            per_vertex_data: vert_vec,
-            triangle_indices: index_vec,
-            local_aabb: local_aabb,
 
-            vertex_buffer_resource: vertbufferresource.destinationresource,
-            vertex_buffer_view: vertexbufferview,
-            index_buffer_resource: indexbufferresource.destinationresource,
-            index_buffer_view: indexbufferview,
+            local_verts,
+            local_normals,
+            uvs,
+            indices,
+
+            local_aabb,
+
+            local_verts_resource,
+            local_normals_resource,
+            uvs_resource,
+            indices_resource,
+
+            local_verts_vbv,
+            local_normals_vbv,
+            uvs_vbv,
+            indices_ibv,
         };
 
         return self.mesh_pool.insert_val(mesh)
@@ -327,117 +337,63 @@ impl<'a> SMeshLoader<'a> {
         assert!(tobj_mesh.texcoords.len() / 2 == tobj_mesh.positions.len() / 3);
         assert!(tobj_mesh.normals.len() == tobj_mesh.positions.len());
 
-        for vidx in 0..tobj_mesh.positions.len() / 3 {
-            vert_vec.push(shaderbindings::SBaseVertexData {
-                position: Vec3::new(
-                    tobj_mesh.positions[vidx * 3],
-                    tobj_mesh.positions[vidx * 3 + 1],
-                    tobj_mesh.positions[vidx * 3 + 2],
-                ),
-                normal: Vec3::new(
-                    tobj_mesh.normals[vidx * 3],
-                    tobj_mesh.normals[vidx * 3 + 1],
-                    tobj_mesh.normals[vidx * 3 + 2],
-                ),
-                uv: Vec2::new(
-                    tobj_mesh.texcoords[vidx * 2],
-                    tobj_mesh.texcoords[vidx * 2 + 1],
-                ),
-            });
-        }
+        let (_a, local_verts_bin, _b) = unsafe { tobj_mesh.positions.align_to::<Vec3>() };
+        assert!(_a.len() == 0 && _b.len() == 0);
 
-        for idx in &tobj_mesh.indices {
-            index_vec.push(*idx as u16);
-        }
+        let local_verts = SMemVec::<Vec3>::new_copy_slice(&SYSTEM_ALLOCATOR, local_verts_bin).unwrap();
+        let local_normals = SMemVec::<Vec3>::new_copy_slice(&SYSTEM_ALLOCATOR, tobj_mesh.normals).unwrap();
+        let uvs = SMemVec::<Vec2>::new_copy_slice(&SYSTEM_ALLOCATOR, tobj_mesh.texcoords).unwrap();
+        let indices = SMemVec::<u16>::new_copy_slice(&SYSTEM_ALLOCATOR, tobj_mesh.indices).unwrap();
 
-        // -- generate vertex/index resources and views
-        let (vertbufferresource, vertexbufferview, indexbufferresource, indexbufferview) = {
-            let mut handle = self.copy_command_list_pool.alloc_list()?;
-            let mut copycommandlist = self.copy_command_list_pool.get_list(&handle)?;
+        let local_verts_resource = self.sync_create_and_upload_buffer_resource(
+            local_verts.as_slice(),
+            t12::SResourceFlags::from(t12::EResourceFlags::ENone),
+            t12::EResourceStates::VertexAndConstantBuffer,
+        )?;
+        let local_verts_vbv = local_verts_resource.create_vertex_buffer_view()?;
 
-            let mut vertbufferresource = {
-                let vertbufferflags = t12::SResourceFlags::from(t12::EResourceFlags::ENone);
-                copycommandlist.update_buffer_resource(
-                    self.device.upgrade().expect("device dropped").deref(),
-                    vert_vec.as_slice(),
-                    vertbufferflags
-                )?
-            };
-            let vertexbufferview = vertbufferresource
-                .destinationresource
-                .create_vertex_buffer_view()?;
+        let local_normals_resource = self.sync_create_and_upload_buffer_resource(
+            local_normals.as_slice(),
+            t12::SResourceFlags::from(t12::EResourceFlags::ENone),
+            t12::EResourceStates::VertexAndConstantBuffer,
+        )?;
+        let local_normals_vbv = local_normals_resource.create_vertex_buffer_view()?;
 
-            let mut indexbufferresource = {
-                let indexbufferflags = t12::SResourceFlags::from(t12::EResourceFlags::ENone);
-                copycommandlist.update_buffer_resource(
-                    self.device.upgrade().expect("device dropped").deref(),
-                    index_vec.as_slice(),
-                    indexbufferflags
-                )?
-            };
-            let indexbufferview = indexbufferresource
-                .destinationresource
-                .create_index_buffer_view(t12::EDXGIFormat::R16UINT)?;
+        let uvs_resource = self.sync_create_and_upload_buffer_resource(
+            uvs.as_slice(),
+            t12::SResourceFlags::from(t12::EResourceFlags::ENone),
+            t12::EResourceStates::VertexAndConstantBuffer,
+        )?;
+        let uvs_vbv = uvs_resource.create_vertex_buffer_view()?;
 
-            drop(copycommandlist);
+        let indices_resource = self.sync_create_and_upload_buffer_resource(
+            indices.as_slice(),
+            t12::SResourceFlags::from(t12::EResourceFlags::ENone),
+            t12::EResourceStates::IndexBuffer,
+        )?;
+        let indices_ibv = indices_resource.create_index_buffer_view(t12::EDXGIFormat::R16UINT)?;
 
-            let fence_val = self.copy_command_list_pool.execute_and_free_list(&mut handle)?;
-            drop(handle);
-
-            // -- $$$FRK(TODO): we have to wait here because we're going to drop the intermediate resource
-            self.copy_command_list_pool.wait_for_internal_fence_value(fence_val);
-
-            // -- have the direct queue wait on the copy upload to complete
-            self.direct_command_list_pool.gpu_wait(
-                self.copy_command_list_pool.get_internal_fence(),
-                fence_val,
-            )?;
-
-            // -- transition resources
-            let mut handle  = self.direct_command_list_pool.alloc_list()?;
-            let mut direct_command_list = self.direct_command_list_pool.get_list(&handle)?;
-
-            direct_command_list.transition_resource(
-                &vertbufferresource.destinationresource,
-                t12::EResourceStates::CopyDest,
-                t12::EResourceStates::VertexAndConstantBuffer,
-            )?;
-            direct_command_list.transition_resource(
-                &indexbufferresource.destinationresource,
-                t12::EResourceStates::CopyDest,
-                t12::EResourceStates::IndexBuffer,
-            )?;
-
-            drop(direct_command_list);
-            self.direct_command_list_pool.execute_and_free_list(&mut handle)?;
-
-            // -- debug
-            unsafe {
-                vertbufferresource.destinationresource.set_debug_name("vert dest");
-                vertbufferresource.intermediateresource.set_debug_name("vert inter");
-                indexbufferresource.destinationresource.set_debug_name("index dest");
-                indexbufferresource.intermediateresource.set_debug_name("index inter");
-            }
-
-            (vertbufferresource, vertexbufferview, indexbufferresource, indexbufferview)
-        };
-
-        let mut local_aabb = utils::SAABB::new(&vert_vec[0].position);
-        for vi in 1..vert_vec.len() {
-            local_aabb.expand(&vert_vec[vi].position);
-        }
-        //println!("Asset name: {}\nAABB: {:?}", asset_name, local_aabb);
+        let mut local_aabb = utils::SAABB::new_from_points(local_verts.as_slice());
 
         let mesh = SMesh{
             uid: uid,
-            per_vertex_data: vert_vec,
-            triangle_indices: index_vec,
-            local_aabb: local_aabb,
 
-            vertex_buffer_resource: vertbufferresource.destinationresource,
-            vertex_buffer_view: vertexbufferview,
-            index_buffer_resource: indexbufferresource.destinationresource,
-            index_buffer_view: indexbufferview,
+            local_verts,
+            local_normals,
+            uvs,
+            indices,
+
+            local_aabb,
+
+            local_verts_resource,
+            local_normals_resource,
+            uvs_resource,
+            indices_resource,
+
+            local_verts_vbv,
+            local_normals_vbv,
+            uvs_vbv,
+            indices_ibv,
         };
 
         return self.mesh_pool.insert_val(mesh)

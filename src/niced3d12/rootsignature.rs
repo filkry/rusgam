@@ -8,6 +8,10 @@ pub struct SRootSignature {
     serialized_blob: t12::SBlob,
 }
 
+pub struct SRootParameter {
+    raw: t12::SRootParameter,
+}
+
 impl SDevice {
     pub fn create_root_signature(
         &self,
@@ -35,5 +39,47 @@ impl SRootSignature {
 
     pub fn desc(&self) -> &t12::SRootSignatureDesc {
         &self.desc
+    }
+}
+
+impl SRootParameter {
+    pub fn raw(&self) -> &t12::SRootParameter {
+        &self.raw
+    }
+
+    pub fn into_raw(self) -> t12::SRootParameter {
+        self.raw
+    }
+
+    pub fn new_srv_descriptor(register: u32, space: u32, visibility: t12::EShaderVisibility) -> Self {
+        let raw = t12::SRootParameter {
+            type_: t12::ERootParameterType::SRV,
+            type_data: t12::ERootParameterTypeData::Descriptor {
+                descriptor: t12::SRootDescriptor {
+                    shader_register: register,
+                    register_space: space,
+                },
+            },
+            shader_visibility: visibility,
+        };
+        Self {
+            raw,
+        }
+    }
+
+    pub fn new_uav_descriptor(register: u32, space: u32, visibility: t12::EShaderVisibility) -> Self {
+        let raw = t12::SRootParameter {
+            type_: t12::ERootParameterType::UAV,
+            type_data: t12::ERootParameterTypeData::Descriptor {
+                descriptor: t12::SRootDescriptor {
+                    shader_register: register,
+                    register_space: space,
+                },
+            },
+            shader_visibility: visibility,
+        };
+        Self {
+            raw,
+        }
     }
 }

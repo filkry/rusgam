@@ -139,6 +139,43 @@ impl SCommandList {
         };
     }
 
+    pub fn set_graphics_root_descriptor_table(
+        &mut self,
+        root_parameter_index: usize,
+        base_descriptor: &t12::SGPUDescriptorHandle,
+    ) {
+        unsafe {
+            self.raw
+                .set_graphics_root_descriptor_table(root_parameter_index, base_descriptor)
+        };
+    }
+
+    pub fn set_compute_root_shader_resource_view(
+        &mut self,
+        root_parameter_index: usize,
+        buffer_location: t12::SGPUDescriptorHandle,
+    ) {
+        unsafe {
+            self.raw.set_compute_root_shader_resource_view(
+                root_parameter_index as u32,
+                buffer_location,
+            )
+        };
+    }
+
+    pub fn set_compute_root_unordered_access_view(
+        &mut self,
+        root_parameter_index: usize,
+        buffer_location: t12::SGPUDescriptorHandle,
+    ) {
+        unsafe {
+            self.raw.set_compute_root_unordered_access_view(
+                root_parameter_index as u32,
+                buffer_location,
+            )
+        };
+    }
+
     pub fn draw_indexed_instanced(
         &mut self,
         index_count_per_instance: u32,
@@ -181,17 +218,6 @@ impl SCommandList {
 
     pub fn close(&mut self) -> Result<(), &'static str> {
         unsafe { self.raw.close() }
-    }
-
-    pub fn set_graphics_root_descriptor_table(
-        &mut self,
-        root_parameter_index: usize,
-        base_descriptor: &t12::SGPUDescriptorHandle,
-    ) {
-        unsafe {
-            self.raw
-                .set_graphics_root_descriptor_table(root_parameter_index, base_descriptor)
-        };
     }
 
     pub fn update_buffer_resource<T>(

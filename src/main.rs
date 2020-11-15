@@ -120,6 +120,9 @@ fn main_d3d12() -> Result<(), &'static str> {
     entitytypes::testopenroomentity::create(
         &data_bucket, Some("tst_room"),
         STransform::new_translation(&glm::Vec3::new(0.0, -2.0, 0.0)))?;
+    entitytypes::tstskinnedentity::create(
+        &data_bucket, Some("tst_skinned_entity"), Some(glm::Vec4::new(1.0, 1.0, 1.0, 1.0)),
+        STransform::new_translation(&glm::Vec3::new(-3.0, 2.0, 0.0)))?;
 
     // -- update loop
     let mut _framecount: u64 = 0;

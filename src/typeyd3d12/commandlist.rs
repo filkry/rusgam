@@ -216,6 +216,39 @@ impl SCommandList {
         );
     }
 
+    pub unsafe fn set_graphics_root_descriptor_table(
+        &self,
+        root_parameter_index: usize,
+        base_descriptor: &SGPUDescriptorHandle,
+    ) {
+        self.commandlist.SetGraphicsRootDescriptorTable(
+            root_parameter_index as UINT,
+            base_descriptor.d3dtype(),
+        );
+    }
+
+    pub unsafe fn set_compute_root_shader_resource_view(
+        &self,
+        root_parameter_index: u32,
+        buffer_location: SGPUDescriptorHandle,
+    ) {
+        self.commandlist.SetComputeRootShaderResourceView(
+            root_parameter_index,
+            buffer_location.raw().ptr,
+        );
+    }
+
+    pub unsafe fn set_compute_root_unordered_access_view(
+        &self,
+        root_parameter_index: u32,
+        buffer_location: SGPUDescriptorHandle,
+    ) {
+        self.commandlist.SetComputeRootUnorderedAccessView(
+            root_parameter_index,
+            buffer_location.raw().ptr,
+        );
+    }
+
     pub unsafe fn draw_indexed_instanced(
         &self,
         index_count_per_instance: u32,
@@ -252,17 +285,6 @@ impl SCommandList {
         let hn = self.commandlist.Close();
         returnerrifwinerror!(hn, "Could not close command list.");
         Ok(())
-    }
-
-    pub unsafe fn set_graphics_root_descriptor_table(
-        &self,
-        root_parameter_index: usize,
-        base_descriptor: &SGPUDescriptorHandle,
-    ) {
-        self.commandlist.SetGraphicsRootDescriptorTable(
-            root_parameter_index as UINT,
-            base_descriptor.d3dtype(),
-        );
     }
 
     pub unsafe fn raw(&self) -> &ComPtr<ID3D12GraphicsCommandList> {

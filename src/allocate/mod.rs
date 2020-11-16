@@ -326,7 +326,7 @@ impl<'a, T> SMemVec<'a, T> {
 
         let mut result = Self {
             mem: allocator.alloc(num_bytes, 8)?,
-            len: 0,
+            len: initial_capacity,
             capacity: initial_capacity,
             grow_capacity: grow_capacity,
             phantom: std::marker::PhantomData,

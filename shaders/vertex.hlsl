@@ -1,4 +1,4 @@
-//#include "types.hlsl"
+#include "types.hlsl"
 
 ConstantBuffer<SModelViewProjection> modelviewprojectionconstantbuffer : register(b0);
 

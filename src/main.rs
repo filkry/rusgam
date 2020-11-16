@@ -254,12 +254,12 @@ fn main_d3d12() -> Result<(), &'static str> {
 
                         let world_verts = {
                             let model = entities.get_entity_model(e).unwrap();
-                            let per_vert_data = render.mesh_loader().get_per_vertex_data(model.mesh);
+                            let mesh_local_vs = render.mesh_loader().get_mesh_local_vertices(model.mesh);
 
-                            let mut world_verts = SMemVec::new(sa, per_vert_data.len(), 0).unwrap();
+                            let mut world_verts = SMemVec::new(sa, mesh_local_vs.len(), 0).unwrap();
 
-                            for vd in per_vert_data.as_slice() {
-                                world_verts.push(loc.mul_point(&vd.position));
+                            for v in mesh_local_vs.as_slice() {
+                                world_verts.push(loc.mul_point(&v));
                             }
 
                             world_verts
@@ -268,12 +268,12 @@ fn main_d3d12() -> Result<(), &'static str> {
                         let rot_box_world_verts = {
                             let model = entities.get_entity_model(rotating_entity).unwrap();
                             let loc = entities.get_entity_location(rotating_entity);
-                            let per_vert_data = render.mesh_loader().get_per_vertex_data(model.mesh);
+                            let mesh_local_vs = render.mesh_loader().get_mesh_local_vertices(model.mesh);
 
-                            let mut world_verts = SMemVec::new(sa, per_vert_data.len(), 0).unwrap();
+                            let mut world_verts = SMemVec::new(sa, mesh_local_vs.len(), 0).unwrap();
 
-                            for vd in per_vert_data.as_slice() {
-                                world_verts.push(loc.mul_point(&vd.position));
+                            for v in mesh_local_vs.as_slice() {
+                                world_verts.push(loc.mul_point(&v));
                             }
 
                             world_verts

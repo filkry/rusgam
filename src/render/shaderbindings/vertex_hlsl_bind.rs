@@ -30,7 +30,11 @@ impl SVertexHLSL {
     }
 
     pub fn input_layout_desc() -> t12::SInputLayoutDesc {
-        let input_elements = types::SBaseVertexData::new_input_elements(Self::BASEVERTEXDATASLOT);
+        let input_elements = [
+            types::def_local_verts_input_element(0),
+            types::def_local_normals_input_element(1),
+            types::def_uvs_input_element(2),
+        ];
         t12::SInputLayoutDesc::create(&input_elements)
     }
 
@@ -43,6 +47,17 @@ impl SVertexHLSL {
         SVertexHLSLBind {
             mvp_rp_idx,
         }
+    }
+
+    pub fn set_vertex_buffers(
+        &self,
+        list: &mut n12::SCommandList,
+        local_verts_vbv: &t12::SVertexBufferView,
+        local_normals_vbv: &t12::SVertexBufferView,
+        uvs_vbv: &t12::SVertexBufferView,
+    )
+    {
+        list.ia_set_vertex_buffers(0, &[local_verts_vbv, local_normals_vbv, uvs_vbv]);
     }
 
     pub fn set_graphics_roots(

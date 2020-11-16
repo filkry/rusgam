@@ -332,7 +332,7 @@ impl<'a, T> SMemVec<'a, T> {
             phantom: std::marker::PhantomData,
         };
 
-        unsafe { std::ptr::copy_nonoverlapping(slice.as_ptr(), result.data(), initial_capacity) };
+        unsafe { std::ptr::copy_nonoverlapping(slice.as_ptr(), result.data_mut(), initial_capacity) };
 
         Ok(result)
     }
@@ -351,7 +351,11 @@ impl<'a, T> SMemVec<'a, T> {
     }
     */
 
-    unsafe fn data(&mut self) -> *mut T {
+    unsafe fn data(&self) -> *const T {
+        self.mem.data as *const T
+    }
+
+    unsafe fn data_mut(&mut self) -> *mut T {
         self.mem.data as *mut T
     }
 
@@ -372,7 +376,7 @@ impl<'a, T> SMemVec<'a, T> {
     }
 
     pub fn as_mut_slice(&mut self) -> &mut [T] {
-        unsafe { std::slice::from_raw_parts_mut(self.data(), self.len) }
+        unsafe { std::slice::from_raw_parts_mut(self.data_mut(), self.len) }
     }
 
     pub fn push(&mut self, mut value: T) {

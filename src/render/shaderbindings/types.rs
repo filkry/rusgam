@@ -4,48 +4,6 @@ use glm::{Vec3, Vec2, Mat4};
 use typeyd3d12 as t12;
 use utils::{STransform};
 
-// -- must match SBaseVertexData in types.hlsl
-#[repr(C)]
-pub struct SBaseVertexData {
-    pub position: Vec3,
-    pub normal: Vec3,
-    pub uv: Vec2,
-}
-
-impl SBaseVertexData {
-    pub fn new_input_elements(slot: usize) -> [t12::SInputElementDesc; 3] {
-        [
-            t12::SInputElementDesc::create(
-                "POSITION",
-                0,
-                t12::EDXGIFormat::R32G32B32Float,
-                slot as u32,
-                winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
-                t12::EInputClassification::PerVertexData,
-                0,
-            ),
-            t12::SInputElementDesc::create(
-                "NORMAL",
-                0,
-                t12::EDXGIFormat::R32G32B32Float,
-                slot as u32,
-                winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
-                t12::EInputClassification::PerVertexData,
-                0,
-            ),
-            t12::SInputElementDesc::create(
-                "TEXCOORD",
-                0,
-                t12::EDXGIFormat::R32G32Float,
-                slot as u32,
-                winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
-                t12::EInputClassification::PerVertexData,
-                0,
-            ),
-        ]
-    }
-}
-
 // -- must match SVertexSkinningData in vertex_skinned.hlsl
 #[repr(C)]
 pub struct SVertexSkinningData {
@@ -60,6 +18,42 @@ pub struct SModelViewProjection {
     model: Mat4,
     view_projection: Mat4,
     mvp: Mat4,
+}
+
+pub fn def_local_verts_input_element(slot: u32) -> t12::SInputElementDesc {
+    t12::SInputElementDesc::create(
+        "POSITION",
+        0,
+        t12::EDXGIFormat::R32G32B32Float,
+        slot as u32,
+        winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
+        t12::EInputClassification::PerVertexData,
+        0,
+    )
+}
+
+pub fn def_local_normals_input_element(slot: u32) -> t12::SInputElementDesc {
+    t12::SInputElementDesc::create(
+        "NORMAL",
+        0,
+        t12::EDXGIFormat::R32G32B32Float,
+        slot as u32,
+        winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
+        t12::EInputClassification::PerVertexData,
+        0,
+    )
+}
+
+pub fn def_uvs_input_element(slot: u32) -> t12::SInputElementDesc {
+    t12::SInputElementDesc::create(
+        "TEXCOORD",
+        0,
+        t12::EDXGIFormat::R32G32Float,
+        slot as u32,
+        winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
+        t12::EInputClassification::PerVertexData,
+        0,
+    )
 }
 
 impl SModelViewProjection {

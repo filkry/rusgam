@@ -415,12 +415,12 @@ impl SGJKDebug {
                 let world_verts_a = {
                     let model = entities.get_entity_model(entity_1).unwrap();
                     let loc = entities.get_entity_location(entity_1);
-                    let per_vert_data = render.mesh_loader().get_per_vertex_data(model.mesh);
+                    let mesh_local_vs = render.mesh_loader().get_mesh_local_vertices(model.mesh);
 
                     let mut world_verts = Vec::new();
 
-                    for vd in per_vert_data.as_slice() {
-                        world_verts.push(loc.mul_point(&vd.position));
+                    for v in mesh_local_vs.as_slice() {
+                        world_verts.push(loc.mul_point(&v));
                     }
 
                     world_verts
@@ -429,12 +429,12 @@ impl SGJKDebug {
                 let world_verts_b = {
                     let model = entities.get_entity_model(entity_2).unwrap();
                     let loc = entities.get_entity_location(entity_2);
-                    let per_vert_data = render.mesh_loader().get_per_vertex_data(model.mesh);
+                    let mesh_local_vs = render.mesh_loader().get_mesh_local_vertices(model.mesh);
 
                     let mut world_verts = Vec::new();
 
-                    for vd in per_vert_data.as_slice() {
-                        world_verts.push(loc.mul_point(&vd.position));
+                    for v in mesh_local_vs.as_slice() {
+                        world_verts.push(loc.mul_point(&v));
                     }
 
                     world_verts

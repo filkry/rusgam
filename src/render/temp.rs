@@ -377,9 +377,16 @@ impl<'a> SRenderTemp<'a> {
             device.create_root_signature(instance_mesh_root_signature_desc,
                                          t12::ERootSignatureVersion::V1)?;
 
-        let vertex_input_slot = 0;
-        let instance_input_slot = 1;
-        let mesh_input_elements = shaderbindings::SBaseVertexData::new_input_elements(vertex_input_slot);
+        let local_vert_slot = 0;
+        let local_normal_slot = 1;
+        let uvs_slot = 2;
+        let instance_input_slot = 3;
+
+        let mesh_input_elements = [
+            shaderbindings::types::def_local_verts_input_element(local_vert_slot),
+            shaderbindings::types::def_local_normals_input_element(local_normal_slot),
+            shaderbindings::types::def_uvs_input_element(uvs_slot),
+        ];
 
         let mut instance_mesh_input_layout_desc = t12::SInputLayoutDesc::create(&[
             mesh_input_elements[0],
@@ -1140,13 +1147,15 @@ impl<'a> super::SRender<'a> {
 
         // -- set up input assembler
         list.ia_set_primitive_topology(t12::EPrimitiveTopology::TriangleList);
-        let vert_buffer_view = self.mesh_loader.vertex_buffer_view(self.render_temp.sphere_mesh);
-        let index_buffer_view = self.mesh_loader.index_buffer_view(self.render_temp.sphere_mesh);
+        let local_verts_vbv = self.mesh_loader.local_verts_vbv(self.render_temp.sphere_mesh);
+        let local_normals_vbv = self.mesh_loader.local_normals_vbv(self.render_temp.sphere_mesh);
+        let uvs_vbv = self.mesh_loader.uvs_vbv(self.render_temp.sphere_mesh);
+        let indices_ibv = self.mesh_loader.indices_ibv(self.render_temp.sphere_mesh);
         let instance_buffer_view = self.render_temp.sphere_instance_buffer_view[back_buffer_idx].
             as_ref().expect("should have generated resource earlier in this function");
 
-        list.ia_set_vertex_buffers(0, &[&vert_buffer_view, &instance_buffer_view]);
-        list.ia_set_index_buffer(&index_buffer_view);
+        list.ia_set_vertex_buffers(0, &[local_verts_vbv, local_normals_vbv, uvs_vbv, &instance_buffer_view]);
+        list.ia_set_index_buffer(&indices_ibv);
 
         // -- set up rasterizer
         let scissorrect = t12::SRect {
@@ -1232,7 +1241,7 @@ impl<'a> super::SRender<'a> {
             list.set_graphics_root_32_bit_constants(self.render_temp.mesh_color_root_param_idx,
                                                     &model.model.diffuse_colour, 0);
 
-            self.mesh_loader.bind_buffers_and_draw(model.model.mesh, &mut list)?;
+            //self.mesh_loader.bind_buffers_and_draw(model.model.mesh, &mut list)?;
         }
 
         // -- execute on the queue

@@ -330,20 +330,22 @@ impl<'a> SMeshLoader<'a> {
             }
         }
 
-        let mut vert_vec = SMemVec::<shaderbindings::SBaseVertexData>::new(&SYSTEM_ALLOCATOR, tobj_mesh.positions.len(), 0).unwrap();
-        let mut index_vec = SMemVec::<u16>::new(&SYSTEM_ALLOCATOR, tobj_mesh.indices.len(), 0).unwrap();
-
         assert!(tobj_mesh.positions.len() % 3 == 0);
         assert!(tobj_mesh.texcoords.len() / 2 == tobj_mesh.positions.len() / 3);
         assert!(tobj_mesh.normals.len() == tobj_mesh.positions.len());
 
-        let (_a, local_verts_bin, _b) = unsafe { tobj_mesh.positions.align_to::<Vec3>() };
-        assert!(_a.len() == 0 && _b.len() == 0);
+        fn to_memvec<I, T>(input: &[I]) -> SMemVec<'static, T> {
+            let (_a, input_aligned, _b) = unsafe { input.align_to::<T>() };
+            assert!(_a.len() == 0 && _b.len() == 0);
+            SMemVec::<T>::new_copy_slice(&SYSTEM_ALLOCATOR, input_aligned).unwrap()
+        }
 
-        let local_verts = SMemVec::<Vec3>::new_copy_slice(&SYSTEM_ALLOCATOR, local_verts_bin).unwrap();
-        let local_normals = SMemVec::<Vec3>::new_copy_slice(&SYSTEM_ALLOCATOR, tobj_mesh.normals).unwrap();
-        let uvs = SMemVec::<Vec2>::new_copy_slice(&SYSTEM_ALLOCATOR, tobj_mesh.texcoords).unwrap();
-        let indices = SMemVec::<u16>::new_copy_slice(&SYSTEM_ALLOCATOR, tobj_mesh.indices).unwrap();
+        let local_verts : SMemVec::<Vec3> = to_memvec(&tobj_mesh.positions);
+        let local_normals : SMemVec::<Vec3> = to_memvec(&tobj_mesh.normals);
+        let uvs : SMemVec::<Vec2> = to_memvec(&tobj_mesh.texcoords);
+        let indices : SMemVec::<u16> = to_memvec(&tobj_mesh.indices);
+
+        drop(tobj_mesh);
 
         let local_verts_resource = self.sync_create_and_upload_buffer_resource(
             local_verts.as_slice(),
@@ -404,8 +406,9 @@ impl<'a> SMeshLoader<'a> {
         &mesh.local_aabb
     }
 
-    pub fn get_per_vertex_data(&self, mesh: SMeshHandle) -> &SMemVec<'a, shaderbindings::SBaseVertexData> {
-        &self.mesh_pool.get(mesh).unwrap().per_vertex_data
+    pub fn get_mesh_local_vertices(&self, mesh: SMeshHandle) -> &SMemVec<Vec3> {
+        let mesh = self.mesh_pool.get(mesh).unwrap();
+        &mesh.local_verts
     }
 
     #[allow(dead_code)]
@@ -418,19 +421,19 @@ impl<'a> SMeshLoader<'a> {
     ) -> Option<f32> {
         let mesh = self.mesh_pool.get(mesh).unwrap();
 
-        break_assert!(mesh.triangle_indices.len() % 3 == 0);
-        let num_tris = mesh.triangle_indices.len() / 3;
+        break_assert!(mesh.indices.len() % 3 == 0);
+        let num_tris = mesh.indices.len() / 3;
 
         let mut min_t = None;
 
         for ti in 0..num_tris {
-            let ti_vi_0 = mesh.triangle_indices[ti * 3 + 0];
-            let ti_vi_1 = mesh.triangle_indices[ti * 3 + 1];
-            let ti_vi_2 = mesh.triangle_indices[ti * 3 + 2];
+            let ti_vi_0 = mesh.indices[ti * 3 + 0];
+            let ti_vi_1 = mesh.indices[ti * 3 + 1];
+            let ti_vi_2 = mesh.indices[ti * 3 + 2];
 
-            let v0_pos = &mesh.per_vertex_data[ti_vi_0 as usize].position;
-            let v1_pos = &mesh.per_vertex_data[ti_vi_1 as usize].position;
-            let v2_pos = &mesh.per_vertex_data[ti_vi_2 as usize].position;
+            let v0_pos = &mesh.local_verts[ti_vi_0 as usize];
+            let v1_pos = &mesh.local_verts[ti_vi_1 as usize];
+            let v2_pos = &mesh.local_verts[ti_vi_2 as usize];
 
             let v0_ray_space_pos = model_to_ray_space.mul_point(&v0_pos);
             let v1_ray_space_pos = model_to_ray_space.mul_point(&v1_pos);
@@ -459,33 +462,46 @@ impl<'a> SMeshLoader<'a> {
 
     pub fn index_count(&self, mesh_handle: SMeshHandle) -> usize {
         let mesh = self.mesh_pool.get(mesh_handle).expect("querying invalid mesh");
-        mesh.triangle_indices.len()
+        mesh.indices.len()
     }
 
-    pub fn vertex_buffer_view(&self, mesh_handle: SMeshHandle) -> &t12::SVertexBufferView {
+    pub fn local_verts_vbv(&self, mesh_handle: SMeshHandle) -> &t12::SVertexBufferView {
         let mesh = self.mesh_pool.get(mesh_handle).expect("querying invalid mesh");
-        &mesh.vertex_buffer_view
+        &mesh.local_verts_vbv
     }
 
-    pub fn index_buffer_view(&self, mesh_handle: SMeshHandle) -> &t12::SIndexBufferView {
+    pub fn local_normals_vbv(&self, mesh_handle: SMeshHandle) -> &t12::SVertexBufferView {
         let mesh = self.mesh_pool.get(mesh_handle).expect("querying invalid mesh");
-        &mesh.index_buffer_view
+        &mesh.local_normals_vbv
     }
 
-    pub fn bind_buffers_and_draw(
+    pub fn uvs_vbv(&self, mesh_handle: SMeshHandle) -> &t12::SVertexBufferView {
+        let mesh = self.mesh_pool.get(mesh_handle).expect("querying invalid mesh");
+        &mesh.uvs_vbv
+    }
+
+    pub fn indices_ibv(&self, mesh_handle: SMeshHandle) -> &t12::SIndexBufferView {
+        let mesh = self.mesh_pool.get(mesh_handle).expect("querying invalid mesh");
+        &mesh.indices_ibv
+    }
+
+    pub fn set_index_buffer_and_draw(
         &self,
         mesh_handle: SMeshHandle,
         cl: &mut n12::SCommandList,
     ) -> Result<(), &'static str> {
         let mesh = self.mesh_pool.get(mesh_handle)?;
 
-        cl.ia_set_vertex_buffers(0, &[&mesh.vertex_buffer_view]);
-        cl.ia_set_index_buffer(&mesh.index_buffer_view);
-        cl.draw_indexed_instanced(mesh.triangle_indices.len() as u32, 1, 0, 0, 0);
+        /*
+        */
+        cl.ia_set_primitive_topology(t12::EPrimitiveTopology::TriangleList);
+        cl.ia_set_index_buffer(&mesh.indices_ibv);
+        cl.draw_indexed_instanced(mesh.indices.len() as u32, 1, 0, 0, 0);
 
         Ok(())
     }
 
+    /*
     pub fn render(
         &self,
         mesh_handle: SMeshHandle,
@@ -496,13 +512,13 @@ impl<'a> SMeshLoader<'a> {
         // -- outside of here
 
         // -- setup input assembler
-        cl.ia_set_primitive_topology(t12::EPrimitiveTopology::TriangleList);
 
         // -- draw
         self.bind_buffers_and_draw(mesh_handle, cl)?;
 
         Ok(())
     }
+    */
 }
 
 impl STextureLoader {

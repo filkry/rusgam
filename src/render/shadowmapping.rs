@@ -221,7 +221,8 @@ impl SShadowMappingPipeline {
             for modeli in 0..models.len() {
                 let mvp = shaderbindings::SModelViewProjection::new(&view_perspective, &model_matrices[modeli]);
                 self.vertex_shader.set_graphics_roots(&self.vertex_shader_bind, cl, &mvp);
-                mesh_loader.render(models[modeli].mesh, cl)?;
+                panic!("not implemented");
+                //mesh_loader.render(models[modeli].mesh, cl)?;
             }
         }
 

@@ -11,7 +11,7 @@ pub struct SClipSpaceOnlyVertexHLSLBind {
 }
 
 impl SClipSpaceOnlyVertexHLSL {
-    const BASEVERTEXDATASLOT: usize = 0;
+    const LOCALVERTICESSLOT: u32 = 0;
 
     // -- by convention, spaces 0-2 are for vertex shader use
     const BASESPACE: u32 = 0;
@@ -30,7 +30,7 @@ impl SClipSpaceOnlyVertexHLSL {
     }
 
     pub fn input_layout_desc() -> t12::SInputLayoutDesc {
-        let input_elements = types::SBaseVertexData::new_input_elements(Self::BASEVERTEXDATASLOT);
+        let input_elements = [types::def_local_verts_input_element(Self::LOCALVERTICESSLOT)];
         t12::SInputLayoutDesc::create(&input_elements)
     }
 

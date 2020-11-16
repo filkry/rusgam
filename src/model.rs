@@ -343,7 +343,11 @@ impl<'a> SMeshLoader<'a> {
         let local_verts : SMemVec::<Vec3> = to_memvec(&tobj_mesh.positions);
         let local_normals : SMemVec::<Vec3> = to_memvec(&tobj_mesh.normals);
         let uvs : SMemVec::<Vec2> = to_memvec(&tobj_mesh.texcoords);
-        let indices : SMemVec::<u16> = to_memvec(&tobj_mesh.indices);
+
+        let mut indices : SMemVec::<u16> = SMemVec::new(&SYSTEM_ALLOCATOR, tobj_mesh.indices.len(), 0)?;
+        for index in &tobj_mesh.indices {
+            indices.push(*index as u16);
+        }
 
         drop(tobj_mesh);
 

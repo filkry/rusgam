@@ -45,6 +45,15 @@ impl SClipSpaceOnlyVertexHLSL {
         }
     }
 
+    pub fn set_vertex_buffers(
+        &self,
+        list: &mut n12::SCommandList,
+        local_verts_vbv: &t12::SVertexBufferView,
+    )
+    {
+        list.ia_set_vertex_buffers(0, &[local_verts_vbv]);
+    }
+
     pub fn set_graphics_roots(
         &self,
         bind: &SClipSpaceOnlyVertexHLSLBind,

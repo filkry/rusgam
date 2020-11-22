@@ -63,7 +63,7 @@ pub struct SDescriptorAllocator {
     descriptor_type: t12::EDescriptorHeapType,
     heap_base_handle: t12::SCPUDescriptorHandle,
 
-    internal: RefCell<SDescriptorAllocatorInternal>,
+    internal: RefCell<SDescriptorAllocatorInternal>, // this exists to ease internal mutability
 }
 
 impl SDescriptorAllocator {

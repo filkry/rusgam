@@ -4,7 +4,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::rc::Weak;
 
-use glm::{Vec4, Vec3, Vec2};
+use glm::{Vec4, Vec3, Vec2, Mat4};
 use arrayvec::{ArrayString};
 use gltf;
 
@@ -25,11 +25,9 @@ struct SMeshSkinning<'a> {
     vertex_skinning_buffer_resource: n12::SResource,
     vertex_skinning_buffer_view: n12::SDescriptorAllocatorAllocation,
 
-    /*
     model_to_joint_xforms: SMemVec<'a, Mat4>,
     model_to_joint_xforms_resource: n12::SResource,
     model_to_joint_xforms_view: n12::SDescriptorAllocatorAllocation,
-    */
 }
 
 #[allow(dead_code)]
@@ -353,16 +351,51 @@ impl<'a> SMeshLoader<'a> {
                 descriptors
             };
 
+            assert!(gltf_data.skins().len() == 1, "Can't handle multi-skin model currently");
+            let skin = gltf_data.skins().nth(0).unwrap();
+
+            let inverse_bind_matrices_bin : &[Mat4] = accessor_slice(
+                &skin.inverse_bind_matrices().unwrap(),
+                gltf::accessor::DataType::F32,
+                gltf::accessor::Dimensions::Mat4,
+                &buffer_bytes,
+            );
+            let model_to_joint_xforms = SMemVec::<Mat4>::new_copy_slice(&SYSTEM_ALLOCATOR, inverse_bind_matrices_bin).unwrap();
+            let model_to_joint_xforms_resource = self.sync_create_and_upload_buffer_resource(
+                model_to_joint_xforms.as_slice(),
+                t12::SResourceFlags::from(t12::EResourceFlags::ENone),
+                t12::EResourceStates::NonPixelShaderResource,
+            )?;
+            let model_to_joint_xforms_view = {
+                let descriptors = descriptor_alloc(&self.srv_heap.upgrade().expect("allocator dropped"), 1)?;
+                let srv_desc = t12::SShaderResourceViewDesc {
+                    format: t12::EDXGIFormat::Unknown,
+                    view: t12::ESRV::Buffer(
+                        t12::SBufferSRV {
+                            first_element: 0,
+                            num_elements: inverse_bind_matrices_bin.len(),
+                            structure_byte_stride: std::mem::size_of::<Mat4>(),
+                            flags: t12::ED3D12BufferSRVFlags::None,
+                        },
+                    ),
+                };
+                self.device.upgrade().expect("device dropped").create_shader_resource_view(
+                    &model_to_joint_xforms_resource,
+                    &srv_desc,
+                    descriptors.cpu_descriptor(0),
+                )?;
+
+                descriptors
+            };
+
             skeleton_data = Some(SMeshSkinning{
                 vertex_skinning_data,
                 vertex_skinning_buffer_resource,
                 vertex_skinning_buffer_view,
 
-                /*
-                model_to_joint_xforms: SMemVec<'a, Mat4>,
-                model_to_joint_xforms_resource: n12::SResource,
-                model_to_joint_xforms_view: n12::SDescriptorAllocatorAllocation,
-                */
+                model_to_joint_xforms,
+                model_to_joint_xforms_resource,
+                model_to_joint_xforms_view,
             })
         }
 

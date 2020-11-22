@@ -20,10 +20,17 @@ use rustywindows;
 use utils;
 use utils::{STransform};
 
+struct SJoint {
+    local: STransform,
+    parent: Option<usize>,
+}
+
 struct SMeshSkinning<'a> {
     vertex_skinning_data: SMemVec<'a, shaderbindings::SVertexSkinningData>,
     vertex_skinning_buffer_resource: n12::SResource,
     vertex_skinning_buffer_view: n12::SDescriptorAllocatorAllocation,
+
+    bind_joints: SMemVec<'a, SJoint>,
 
     model_to_joint_xforms: SMemVec<'a, Mat4>,
     model_to_joint_xforms_resource: n12::SResource,

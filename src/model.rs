@@ -4,14 +4,14 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::rc::Weak;
 
-use glm::{Vec4, Vec3, Vec2, Mat4};
+use glm::{Vec4, Vec3, Vec2, Mat4, Quat};
 use arrayvec::{ArrayString};
 use gltf;
 
 use t12;
 use n12;
 use n12::descriptorallocator::{descriptor_alloc};
-use allocate::{SMemVec, SYSTEM_ALLOCATOR};
+use allocate::{SMemVec, SYSTEM_ALLOCATOR, STACK_ALLOCATOR};
 use collections;
 use collections::{SStoragePool};
 use safewindows;
@@ -21,8 +21,8 @@ use utils;
 use utils::{STransform};
 
 struct SJoint {
-    local: STransform,
-    parent: Option<usize>,
+    local_to_parent: STransform,
+    parent_idx: Option<usize>,
 }
 
 struct SMeshSkinning<'a> {
@@ -395,10 +395,56 @@ impl<'a> SMeshLoader<'a> {
                 descriptors
             };
 
+            let bind_joints = STACK_ALLOCATOR.with(|sa| {
+                let mut result = SMemVec::<SJoint>::new(&SYSTEM_ALLOCATOR, skin.joints().count(), 0).unwrap();
+
+                let mut index_map = SMemVec::<Option<usize>>::new(sa, gltf_data.nodes().count(), 0).unwrap();
+                for _ in 0..index_map.capacity() {
+                    index_map.push(None);
+                }
+
+                // -- first pass just create all the transforms
+                for joint_node in skin.joints() {
+                    let (trans, rot, scale) = joint_node.transform().decomposed();
+                    assert!(scale[0] == scale[1]  && scale[0] == scale[2]);
+                    let transform = STransform::new(
+                        &Vec3::new(trans[0], trans[1], trans[2]),
+                        &Quat::new(rot[0], rot[1], rot[2], rot[3]),
+                        scale[0],
+                    );
+
+                    result.push(SJoint{
+                        local_to_parent: transform,
+                        parent_idx: None,
+                    });
+                    index_map[joint_node.index()] = Some(result.len() - 1);
+                }
+
+                // -- second pass set up parent relationships
+                for joint_node in skin.joints() {
+                    let result_idx = index_map[joint_node.index()].unwrap();
+
+                    for child_node in joint_node.children() {
+                        if let Some(child_result_idx) = index_map[child_node.index()] {
+                            result[child_result_idx].parent_idx = Some(result_idx);
+                        }
+                    }
+                }
+
+                assert!(result[0].parent_idx == None);
+                for result_idx in 1..result.len() {
+                    assert!(result[result_idx].parent_idx.is_some());
+                }
+
+                result
+            });
+
             skeleton_data = Some(SMeshSkinning{
                 vertex_skinning_data,
                 vertex_skinning_buffer_resource,
                 vertex_skinning_buffer_view,
+
+                bind_joints,
 
                 model_to_joint_xforms,
                 model_to_joint_xforms_resource,

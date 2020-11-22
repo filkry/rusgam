@@ -123,7 +123,7 @@ impl<'a> SMeshLoader<'a> {
         let mut handle = self.copy_command_list_pool.alloc_list()?;
         let mut copycommandlist = self.copy_command_list_pool.get_list(&handle)?;
 
-        let mut resource = {
+        let resource = {
             copycommandlist.update_buffer_resource(
                 self.device.upgrade().expect("device dropped").deref(), data, resource_flags,
             )?
@@ -287,7 +287,7 @@ impl<'a> SMeshLoader<'a> {
         )?;
         let indices_ibv = indices_resource.create_index_buffer_view(t12::EDXGIFormat::R16UINT)?;
 
-        let mut local_aabb = utils::SAABB::new_from_points(local_verts.as_slice());
+        let local_aabb = utils::SAABB::new_from_points(local_verts.as_slice());
         //println!("Asset name: {}\nAABB: {:?}", asset_name, local_aabb);
 
         let mesh = SMesh{
@@ -379,7 +379,7 @@ impl<'a> SMeshLoader<'a> {
         )?;
         let indices_ibv = indices_resource.create_index_buffer_view(t12::EDXGIFormat::R16UINT)?;
 
-        let mut local_aabb = utils::SAABB::new_from_points(local_verts.as_slice());
+        let local_aabb = utils::SAABB::new_from_points(local_verts.as_slice());
 
         let mesh = SMesh{
             uid: uid,

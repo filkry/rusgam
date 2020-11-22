@@ -1,6 +1,6 @@
 use std::mem::{size_of};
 
-use glm::{Vec3, Vec2, Mat4};
+use glm::{Mat4};
 use typeyd3d12 as t12;
 use utils::{STransform};
 

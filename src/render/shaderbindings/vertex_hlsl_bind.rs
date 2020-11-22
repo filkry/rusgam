@@ -11,7 +11,7 @@ pub struct SVertexHLSLBind {
 }
 
 impl SVertexHLSL {
-    const BASEVERTEXDATASLOT: usize = 0;
+    const BASEVERTEXDATASLOT: u32 = 0;
 
     // -- by convention, spaces 0-2 are for vertex shader use
     const BASESPACE: u32 = 0;
@@ -31,9 +31,9 @@ impl SVertexHLSL {
 
     pub fn input_layout_desc() -> t12::SInputLayoutDesc {
         let input_elements = [
-            types::def_local_verts_input_element(0),
-            types::def_local_normals_input_element(1),
-            types::def_uvs_input_element(2),
+            types::def_local_verts_input_element(Self::BASEVERTEXDATASLOT + 0),
+            types::def_local_normals_input_element(Self::BASEVERTEXDATASLOT + 1),
+            types::def_uvs_input_element(Self::BASEVERTEXDATASLOT + 2),
         ];
         t12::SInputLayoutDesc::create(&input_elements)
     }

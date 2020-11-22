@@ -47,6 +47,9 @@ pub struct SEditModeContext {
     translation_widget_transforms: [STransform; 3],
     rotation_widgets: [model::SModel; 3],
     rotation_widget_transforms: [STransform; 3],
+
+    clicked_entity: Option<SEntityHandle>,
+    can_select_clicked_entity: bool,
 }
 
 #[derive(PartialEq, Clone)]
@@ -124,6 +127,9 @@ impl SEditModeContext {
             translation_widget_transforms,
             rotation_widgets,
             rotation_widget_transforms,
+
+            clicked_entity: None,
+            can_select_clicked_entity: false,
         })
     }
 
@@ -177,6 +183,8 @@ impl EEditMode {
                 let e_pos_screen = world_pos_to_screen_pos(&e_pos, &editmode_input);
                 let mouse_offset = [(e_pos_screen.x as i32) - editmode_input.mouse_window_pos[0], (e_pos_screen.y as i32) - editmode_input.mouse_window_pos[1]];
 
+                em.can_select_clicked_entity = false;
+
                 return EEditMode::TranslationDragging(SEditModeTranslationDragging::new(e, axis, e_pos, mouse_offset));
             }
         }
@@ -211,6 +219,8 @@ impl EEditMode {
                 let plane = utils::SPlane::new(&e_loc.t, &plane_normal);
                 let cursor_ray_world = cursor_ray_world(&editmode_input);
 
+                em.can_select_clicked_entity = false;
+
                 if let Some((cursor_pos_world, t)) = utils::ray_plane_intersection(&cursor_ray_world, &plane) {
                     if min_t.is_none() || min_t.unwrap() > t {
                         let rotation_start_entity_to_cursor = cursor_pos_world - e_loc.t;
@@ -238,11 +248,13 @@ impl EEditMode {
         let cursor_ray = cursor_ray_world(&em_input);
 
         // -- cast ray to select entity for edit mode
+        ctxt.clicked_entity = None;
         if input.left_mouse_edge.down() && !em_input.imgui_want_capture_mouse && !mode.eats_mouse() {
             data_bucket.get_bvh().unwrap().with(|bvh: &bvh::STree| {
                 let entity_hit = bvh.cast_ray(&data_bucket, &cursor_ray);
                 if entity_hit.is_some() {
-                    ctxt.editing_entity = entity_hit;
+                    ctxt.clicked_entity = entity_hit;
+                    ctxt.can_select_clicked_entity = true;
                 }
             });
         }
@@ -271,6 +283,10 @@ impl EEditMode {
                 }
             });
         });
+
+        if ctxt.can_select_clicked_entity && ctxt.clicked_entity.is_some() {
+            ctxt.editing_entity = ctxt.clicked_entity;
+        }
 
         // -- move/scale edit widgets
         if let Some(e) = ctxt.editing_entity {

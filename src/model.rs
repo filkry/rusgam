@@ -20,9 +20,9 @@ use rustywindows;
 use utils;
 use utils::{STransform};
 
-struct SJoint {
-    local_to_parent: STransform,
-    parent_idx: Option<usize>,
+pub struct SJoint {
+    pub local_to_parent: STransform,
+    pub parent_idx: Option<usize>,
 }
 
 struct SMeshSkinning<'a> {
@@ -60,7 +60,7 @@ pub struct SMesh<'a> {
     pub(super) uvs_vbv: t12::SVertexBufferView,
     pub(super) indices_ibv: t12::SIndexBufferView,
 
-    //skinning: Option<SMeshSkinning<'a>>,
+    skinning: Option<SMeshSkinning<'a>>, // $$$FRK(TODO): most meshes won't have skinning, this should be factored out
 }
 
 pub struct STexture {
@@ -122,6 +122,10 @@ impl<'a> SMeshLoader<'a> {
             srv_heap,
             mesh_pool: SStoragePool::create(pool_id, max_mesh_count),
         })
+    }
+
+    pub fn shutdown(&mut self) {
+        self.mesh_pool.clear();
     }
 
     fn sync_create_and_upload_buffer_resource<T>(
@@ -306,7 +310,7 @@ impl<'a> SMeshLoader<'a> {
 
         // -- load skeleton data
 
-        let mut skeleton_data = None;
+        let mut skinning = None;
         let joints_accessor_opt = &primitive.get(&gltf::mesh::Semantic::Joints(0));
         if let Some(joints_accessor) = joints_accessor_opt {
             let joints : &[[u16; 4]] = accessor_slice(
@@ -439,7 +443,7 @@ impl<'a> SMeshLoader<'a> {
                 result
             });
 
-            skeleton_data = Some(SMeshSkinning{
+            skinning = Some(SMeshSkinning{
                 vertex_skinning_data,
                 vertex_skinning_buffer_resource,
                 vertex_skinning_buffer_view,
@@ -471,6 +475,8 @@ impl<'a> SMeshLoader<'a> {
             local_normals_vbv,
             uvs_vbv,
             indices_ibv,
+
+            skinning,
         };
 
         return self.mesh_pool.insert_val(mesh)
@@ -562,6 +568,8 @@ impl<'a> SMeshLoader<'a> {
             local_normals_vbv,
             uvs_vbv,
             indices_ibv,
+
+            skinning: None,
         };
 
         return self.mesh_pool.insert_val(mesh)
@@ -575,6 +583,16 @@ impl<'a> SMeshLoader<'a> {
     pub fn get_mesh_local_vertices(&self, mesh: SMeshHandle) -> &SMemVec<Vec3> {
         let mesh = self.mesh_pool.get(mesh).unwrap();
         &mesh.local_verts
+    }
+
+    pub fn get_mesh_bind_joints(&self, mesh: SMeshHandle) -> Option<&SMemVec<SJoint>> {
+        let mesh = self.mesh_pool.get(mesh).unwrap();
+        if let Some(skinning) = &mesh.skinning {
+            Some(&skinning.bind_joints)
+        }
+        else {
+            None
+        }
     }
 
     #[allow(dead_code)]

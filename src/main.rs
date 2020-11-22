@@ -287,6 +287,38 @@ fn main_d3d12() -> Result<(), &'static str> {
             });
         }
 
+        // -- draw skeleton of selected entity
+        STACK_ALLOCATOR.with(|sa| {
+            data_bucket.get_renderer().unwrap().with_mut(|render: &mut render::SRender| {
+                data_bucket.get_entities().unwrap().with(|entities: &SEntityBucket| {
+                    if let Some(e) = editmode_ctxt.editing_entity() {
+                        let loc = entities.get_entity_location(e);
+                        let model = entities.get_entity_model(e).unwrap();
+
+                        let mut joint_locs = SMemVec::new(sa, 128, 0).unwrap();
+
+                        if let Some(bind_joints) = render.mesh_loader().get_mesh_bind_joints(model.mesh) {
+                            for joint in bind_joints.as_ref() {
+                                let mut local_to_root = joint.local_to_parent;
+                                let mut next_idx_opt = joint.parent_idx;
+                                while let Some(next_idx) = next_idx_opt {
+                                    local_to_root = STransform::mul_transform(&bind_joints[next_idx].local_to_parent, &local_to_root);
+                                    next_idx_opt = bind_joints[next_idx].parent_idx;
+                                }
+
+                                let local_to_world = STransform::mul_transform(&local_to_root, &loc);
+                                joint_locs.push(local_to_world.t);
+                            }
+                        }
+
+                        for joint_loc in joint_locs.as_ref() {
+                            render.temp().draw_sphere(&joint_loc, 0.5, &Vec4::new(0.0, 0.5, 0.0, 0.1), true, None);
+                        }
+                    }
+                });
+            });
+        });
+
         STACK_ALLOCATOR.with(|sa| -> Result<(), &'static str> {
             let imgui_draw_data = imgui_ui.render();
             data_bucket.get_entities().unwrap().with(|entities: &SEntityBucket| {

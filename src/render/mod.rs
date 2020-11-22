@@ -326,6 +326,7 @@ impl<'a> SRender<'a> {
 
     pub fn shutdown(&mut self) {
         self.render_shadow_map.shutdown();
+        self.mesh_loader.shutdown();
         self.texture_loader.shutdown();
         self.depth_texture_view = None;
     }

@@ -306,7 +306,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                                     next_idx_opt = bind_joints[next_idx].parent_idx;
                                 }
 
-                                let local_to_world = STransform::mul_transform(&local_to_root, &loc);
+                                let local_to_world = STransform::mul_transform(&loc, &local_to_root);
                                 joint_locs.push(local_to_world.t);
                             }
                         }

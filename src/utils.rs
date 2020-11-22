@@ -7,7 +7,7 @@ use glm::{Vec3, Vec4, Quat, Mat4};
 
 pub static PI : f32 = 3.14159265358979;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct STransform {
     pub t: Vec3,
     pub r: Quat,
@@ -349,6 +349,9 @@ impl STransform {
 
     pub fn mul_transform(second: &STransform, first: &STransform) -> Self {
         break_assert!(first.s == 1.0 && second.s == 1.0); // didn't figure this out for non-1.0 scales yet
+
+        //println!("Mul transform second {:?}", second);
+        //println!("Mul transform first {:?}", first);
 
         // resulting transform is as though applying first, then second
         Self {

@@ -20,6 +20,7 @@ use rustywindows;
 use utils;
 use utils::{STransform};
 
+#[derive(Debug)]
 pub struct SJoint {
     pub local_to_parent: STransform,
     pub parent_idx: Option<usize>,
@@ -412,8 +413,8 @@ impl<'a> SMeshLoader<'a> {
                     let (trans, rot, scale) = joint_node.transform().decomposed();
                     assert!(scale[0] == scale[1]  && scale[0] == scale[2]);
                     let transform = STransform::new(
-                        &Vec3::new(trans[0], trans[1], trans[2]),
-                        &Quat::new(rot[0], rot[1], rot[2], rot[3]),
+                        &glm::vec3(trans[0], trans[1], trans[2]),
+                        &glm::quat(rot[0], rot[1], rot[2], rot[3]),
                         scale[0],
                     );
 
@@ -442,6 +443,12 @@ impl<'a> SMeshLoader<'a> {
 
                 result
             });
+
+            /*
+            for i in 0..bind_joints.len() {
+                println!("bind_joints[{:?}]: {:?}", i, bind_joints[i]);
+            }
+            */
 
             skinning = Some(SMeshSkinning{
                 vertex_skinning_data,

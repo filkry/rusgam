@@ -484,7 +484,7 @@ impl<'a> SRender<'a> {
         // -- $$$FRK(TODO): should initialize the shadow map depth buffer to empty, so we still get light if we don't render maps
         self.render_shadow_maps(world_models, world_model_xforms)?;
         self.render_world(window, view_matrix, world_models, world_model_xforms)?;
-        //self.render_temp_in_world(window, view_matrix)?;
+        self.render_temp_in_world(window, view_matrix)?;
 
         // -- clear depth buffer again
         {

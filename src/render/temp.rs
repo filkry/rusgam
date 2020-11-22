@@ -865,11 +865,14 @@ impl<'a> super::SRender<'a> {
     pub fn render_temp_lines(&mut self, window: &mut n12::SD3D12Window, view_matrix: &Mat4, in_world: bool) -> Result<(), &'static str> {
         let back_buffer_idx = window.currentbackbufferindex();
 
-        /* A very basic test
-        tr.lines.push(SDebugLine{
+        // A very basic test
+        /*
+        self.render_temp.lines.push(SLine{
             start: Vec3::new(-5.0, 2.0, 0.0),
             end: Vec3::new(5.0, 2.0, 0.0),
-            colour: Vec3::new(1.0, 0.0, 0.0),
+            colour: Vec4::new(1.0, 0.0, 0.0, 1.0),
+            over_world: true,
+            token: SToken::default(),
         });
         */
 
@@ -1023,10 +1026,10 @@ impl<'a> super::SRender<'a> {
 
         // A very basic test
         /*
-        self.temp().draw_sphere(&Vec3::new(-1.0, 4.0, 0.0), 0.2, &Vec4::new(1.0, 0.0, 0.0, 0.5), false);
-        self.temp().draw_sphere(&Vec3::new(0.0, 4.0, 0.0), 1.0, &Vec4::new(1.0, 0.0, 0.0, 0.5), false);
-        self.temp().draw_sphere(&Vec3::new(1.0, 4.0, 0.0), 1.0, &Vec4::new(1.0, 0.0, 0.0, 0.5), false);
-        self.temp().draw_sphere(&Vec3::new(2.0, 4.0, 0.0), 1.0, &Vec4::new(1.0, 0.0, 0.0, 0.5), false);
+        self.temp().draw_sphere(&Vec3::new(-1.0, 4.0, 0.0), 0.2, &Vec4::new(1.0, 0.0, 0.0, 0.5), false, None);
+        self.temp().draw_sphere(&Vec3::new(0.0, 4.0, 0.0), 1.0, &Vec4::new(1.0, 0.0, 0.0, 0.5), false, None);
+        self.temp().draw_sphere(&Vec3::new(1.0, 4.0, 0.0), 1.0, &Vec4::new(1.0, 0.0, 0.0, 0.5), false, None);
+        self.temp().draw_sphere(&Vec3::new(2.0, 4.0, 0.0), 1.0, &Vec4::new(1.0, 0.0, 0.0, 0.5), false, None);
         */
 
         if self.render_temp.spheres.len() == 0 {
@@ -1241,7 +1244,13 @@ impl<'a> super::SRender<'a> {
             list.set_graphics_root_32_bit_constants(self.render_temp.mesh_color_root_param_idx,
                                                     &model.model.diffuse_colour, 0);
 
-            //self.mesh_loader.bind_buffers_and_draw(model.model.mesh, &mut list)?;
+            let local_verts_vbv = self.mesh_loader.local_verts_vbv(model.model.mesh);
+            let local_normals_vbv = self.mesh_loader.local_normals_vbv(model.model.mesh);
+            let uvs_vbv = self.mesh_loader.uvs_vbv(model.model.mesh);
+
+            list.ia_set_vertex_buffers(0, &[local_verts_vbv, local_normals_vbv, uvs_vbv]);
+
+            self.mesh_loader.set_index_buffer_and_draw(model.model.mesh, &mut list)?;
         }
 
         // -- execute on the queue

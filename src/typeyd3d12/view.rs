@@ -195,6 +195,38 @@ impl STex2DArrayDSV {
     }
 }
 
+pub enum ED3D12BufferSRVFlags {
+    None,
+    Raw,
+}
+
+impl ED3D12BufferSRVFlags {
+    pub fn d3dtype(&self) -> D3D12_BUFFER_SRV_FLAGS {
+        match &self {
+            Self::None => D3D12_BUFFER_SRV_FLAG_NONE,
+            Self::Raw => D3D12_BUFFER_SRV_FLAG_RAW,
+        }
+    }
+}
+
+pub struct SBufferSRV {
+    pub first_element: u64,
+    pub num_elements: usize,
+    pub structure_byte_stride: usize,
+    pub flags: ED3D12BufferSRVFlags,
+}
+
+impl SBufferSRV {
+    pub fn d3dtype(&self) -> D3D12_BUFFER_SRV {
+        D3D12_BUFFER_SRV {
+            FirstElement: self.first_element,
+            NumElements: self.num_elements as u32,
+            StructureByteStride: self.structure_byte_stride as u32,
+            Flags: self.flags.d3dtype(),
+        }
+    }
+}
+
 pub struct STex2DSRV {
     pub most_detailed_mip: u32,
     pub mip_levels: u32,
@@ -251,6 +283,8 @@ pub struct STexCubeSRV {
 }
 
 pub enum ESRV {
+    Unknown,
+    Buffer(SBufferSRV),
     Texture2D { data: STex2DSRV },
     TextureCube(STexCubeSRV),
 }
@@ -258,6 +292,8 @@ pub enum ESRV {
 impl ESRV {
     pub fn d3d_view_dimension(&self) -> D3D12_SRV_DIMENSION {
         match self {
+            Self::Unknown => D3D12_SRV_DIMENSION_UNKNOWN,
+            Self::Buffer(..) => D3D12_SRV_DIMENSION_BUFFER,
             Self::Texture2D { .. } => D3D12_SRV_DIMENSION_TEXTURE2D,
             Self::TextureCube { .. } => D3D12_SRV_DIMENSION_TEXTURECUBE,
         }
@@ -277,6 +313,12 @@ impl SShaderResourceViewDesc {
             (*result.as_mut_ptr()).Format = self.format.d3dtype();
             (*result.as_mut_ptr()).ViewDimension = self.view.d3d_view_dimension();
             match &self.view {
+                ESRV::Unknown => {
+                    // -- do nothing
+                }
+                ESRV::Buffer(data) => {
+                    *(*result.as_mut_ptr()).u.Buffer_mut() = data.d3dtype();
+                }
                 ESRV::Texture2D { data } => {
                     *(*result.as_mut_ptr()).u.Texture2D_mut() = data.d3dtype();
                 }

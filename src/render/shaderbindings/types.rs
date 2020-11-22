@@ -7,8 +7,8 @@ use utils::{STransform};
 // -- must match SVertexSkinningData in vertex_skinned.hlsl
 #[repr(C)]
 pub struct SVertexSkinningData {
-    joints: [u32; 4],
-    joint_weights: [f32; 4],
+    pub joints: [u32; 4],
+    pub joint_weights: [f32; 4],
 }
 
 // -- used to fill out shader metadata, must match SModelViewProjection in types.hlsl

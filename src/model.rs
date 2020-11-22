@@ -4,7 +4,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::rc::Weak;
 
-use glm::{Vec4, Vec3, Vec2, Mat4};
+use glm::{Vec4, Vec3, Vec2};
 use arrayvec::{ArrayString};
 use gltf;
 
@@ -21,13 +21,15 @@ use utils;
 use utils::{STransform};
 
 struct SMeshSkinning<'a> {
-    vertex_skin_data: SMemVec<'a, shaderbindings::SVertexSkinningData>,
+    vertex_skinning_data: SMemVec<'a, shaderbindings::SVertexSkinningData>,
     vertex_skinning_buffer_resource: n12::SResource,
-    vertex_skinning_buffer_view: t12::SVertexBufferView,
+    vertex_skinning_buffer_view: n12::SDescriptorAllocatorAllocation,
 
+    /*
     model_to_joint_xforms: SMemVec<'a, Mat4>,
     model_to_joint_xforms_resource: n12::SResource,
     model_to_joint_xforms_view: n12::SDescriptorAllocatorAllocation,
+    */
 }
 
 #[allow(dead_code)]
@@ -69,6 +71,7 @@ pub struct SMeshLoader<'a> {
     device: Weak<n12::SDevice>,
     copy_command_list_pool: n12::SCommandListPool,
     direct_command_list_pool: n12::SCommandListPool,
+    srv_heap: Weak<n12::descriptorallocator::SDescriptorAllocator>,
 
     mesh_pool: SStoragePool<SMesh<'a>, u16, u16>,
 }
@@ -103,6 +106,7 @@ impl<'a> SMeshLoader<'a> {
         winapi: &rustywindows::SWinAPI,
         copy_command_queue: Weak<RefCell<n12::SCommandQueue>>,
         direct_command_queue: Weak<RefCell<n12::SCommandQueue>>,
+        srv_heap: Weak<n12::SDescriptorAllocator>,
         pool_id: u64,
         max_mesh_count: u16,
     ) -> Result<Self, &'static str> {
@@ -110,6 +114,7 @@ impl<'a> SMeshLoader<'a> {
             device: device.clone(),
             copy_command_list_pool: n12::SCommandListPool::create(device.upgrade().expect("bad device").deref(), copy_command_queue, &winapi.rawwinapi(), 1, 2)?,
             direct_command_list_pool: n12::SCommandListPool::create(device.upgrade().expect("bad device").deref(), direct_command_queue, &winapi.rawwinapi(), 1, 2)?,
+            srv_heap,
             mesh_pool: SStoragePool::create(pool_id, max_mesh_count),
         })
     }
@@ -204,7 +209,10 @@ impl<'a> SMeshLoader<'a> {
             expected_dimensions: gltf::accessor::Dimensions,
             bytes: &'a Vec<u8>,
         ) -> &'a [T] {
-            assert!(accessor.data_type() == expected_datatype);
+            if accessor.data_type() != expected_datatype {
+                println!("Expected datatype {:?}, got {:?}", expected_datatype, accessor.data_type());
+                assert!(false);
+            }
             assert!(accessor.dimensions() == expected_dimensions);
 
             let size = accessor.size();
@@ -289,6 +297,74 @@ impl<'a> SMeshLoader<'a> {
 
         let local_aabb = utils::SAABB::new_from_points(local_verts.as_slice());
         //println!("Asset name: {}\nAABB: {:?}", asset_name, local_aabb);
+
+
+        // -- load skeleton data
+
+        let mut skeleton_data = None;
+        let joints_accessor_opt = &primitive.get(&gltf::mesh::Semantic::Joints(0));
+        if let Some(joints_accessor) = joints_accessor_opt {
+            let joints : &[[u16; 4]] = accessor_slice(
+                joints_accessor,
+                gltf::accessor::DataType::U16,
+                gltf::accessor::Dimensions::Vec4,
+                &buffer_bytes,
+            );
+            let weights : &[[f32; 4]] = accessor_slice(
+                &primitive.get(&gltf::mesh::Semantic::Weights(0)).unwrap(),
+                gltf::accessor::DataType::F32,
+                gltf::accessor::Dimensions::Vec4,
+                &buffer_bytes,
+            );
+            assert!(joints.len() == weights.len());
+
+            let mut vertex_skinning_data = SMemVec::<shaderbindings::SVertexSkinningData>::new(&SYSTEM_ALLOCATOR, joints.len(), 0).unwrap();
+            for i in 0..joints.len() {
+                vertex_skinning_data.push(shaderbindings::SVertexSkinningData{
+                    joints: [joints[i][0] as u32, joints[i][1] as u32, joints[i][2] as u32, joints[i][3] as u32],
+                    joint_weights: weights[i],
+                });
+            }
+
+            let vertex_skinning_buffer_resource = self.sync_create_and_upload_buffer_resource(
+                vertex_skinning_data.as_slice(),
+                t12::SResourceFlags::from(t12::EResourceFlags::ENone),
+                t12::EResourceStates::NonPixelShaderResource,
+            )?;
+            let vertex_skinning_buffer_view = {
+                let descriptors = descriptor_alloc(&self.srv_heap.upgrade().expect("allocator dropped"), 1)?;
+                let srv_desc = t12::SShaderResourceViewDesc {
+                    format: t12::EDXGIFormat::Unknown,
+                    view: t12::ESRV::Buffer(
+                        t12::SBufferSRV {
+                            first_element: 0,
+                            num_elements: vertex_skinning_data.len(),
+                            structure_byte_stride: std::mem::size_of::<shaderbindings::SVertexSkinningData>(),
+                            flags: t12::ED3D12BufferSRVFlags::None,
+                        },
+                    ),
+                };
+                self.device.upgrade().expect("device dropped").create_shader_resource_view(
+                    &vertex_skinning_buffer_resource,
+                    &srv_desc,
+                    descriptors.cpu_descriptor(0),
+                )?;
+
+                descriptors
+            };
+
+            skeleton_data = Some(SMeshSkinning{
+                vertex_skinning_data,
+                vertex_skinning_buffer_resource,
+                vertex_skinning_buffer_view,
+
+                /*
+                model_to_joint_xforms: SMemVec<'a, Mat4>,
+                model_to_joint_xforms_resource: n12::SResource,
+                model_to_joint_xforms_view: n12::SDescriptorAllocatorAllocation,
+                */
+            })
+        }
 
         let mesh = SMesh{
             uid: uid,

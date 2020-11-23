@@ -162,15 +162,21 @@ impl SDevice {
         flags: t12::SResourceFlags,
         initial_resource_state: t12::EResourceStates,
         bufferdata: &[T],
-    ) -> Result<SResource, &'static str> {
-        self.create_committed_buffer_resource(
+    ) -> Result<SBufferResource<T>, &'static str> {
+        let raw = self.create_committed_buffer_resource(
             heaptype,
             t12::EHeapFlags::ENone,
             flags,
             initial_resource_state,
             bufferdata.len(),
             std::mem::size_of::<T>(),
-        )
+        )?;
+
+        Ok(SBufferResource{
+            raw,
+            count: bufferdata.len(),
+            map_mem: None,
+        })
     }
 
     pub fn copy_descriptor_slice_to_single_range(

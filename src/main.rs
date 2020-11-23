@@ -312,7 +312,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                         }
 
                         for joint_loc in joint_locs.as_ref() {
-                            render.temp().draw_sphere(&joint_loc, 0.5, &Vec4::new(0.0, 0.5, 0.0, 0.1), true, None);
+                            render.temp().draw_sphere(&joint_loc, 0.5, &Vec4::new(0.0, 0.5, 0.0, 0.7), true, None);
                         }
                     }
                 });

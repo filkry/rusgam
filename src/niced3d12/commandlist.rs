@@ -244,8 +244,8 @@ impl SCommandList {
         let mut srcdata = t12::SSubResourceData::create_buffer(bufferdata);
         update_subresources_stack(
             self,
-            &mut destinationresource,
-            &mut intermediateresource,
+            &mut destinationresource.raw,
+            &mut intermediateresource.raw,
             0,
             0,
             1,
@@ -253,8 +253,8 @@ impl SCommandList {
         );
 
         Ok(SCommandQueueUpdateBufferResult {
-            destinationresource: destinationresource,
-            intermediateresource: intermediateresource,
+            destinationresource: destinationresource.raw,
+            intermediateresource: intermediateresource.raw,
         })
     }
 }

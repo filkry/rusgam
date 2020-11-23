@@ -17,6 +17,12 @@ pub struct SResource {
     pub(super) debug_name: ArrayVec<[u16; 32]>,
 }
 
+pub struct SBufferResource<T> {
+    pub raw: SResource,
+    pub(super) count: usize,
+    pub(super) map_mem: Option<*mut T>,
+}
+
 impl SResource {
     pub fn raw(&self) -> &t12::SResource {
         &self.raw
@@ -68,6 +74,26 @@ impl SResource {
         self.debug_name.push('\0' as u16);
 
         self.raw().raw().SetName(&self.debug_name[0]);
+    }
+}
+
+impl<T> SBufferResource<T> {
+    pub fn map(&mut self) {
+        if self.map_mem.is_none() {
+            unsafe {
+                let cpu_mem = self.raw.raw.map(0, None).unwrap() as *mut T;
+                self.map_mem = Some(cpu_mem);
+            }
+        }
+    }
+
+    pub fn copy_to_map(&mut self, data: &[T]) {
+        assert!(self.count == data.len());
+        assert!(self.map_mem.is_some());
+
+        unsafe {
+            std::ptr::copy_nonoverlapping(data.as_ptr(), self.map_mem.unwrap(), self.count);
+        }
     }
 }
 

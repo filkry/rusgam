@@ -4,7 +4,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::rc::Weak;
 
-use glm::{Vec4, Vec3, Vec2, Mat4, Quat};
+use glm::{Vec4, Vec3, Vec2, Mat4};
 use arrayvec::{ArrayString};
 use gltf;
 
@@ -32,10 +32,11 @@ struct SMeshSkinning<'a> {
     vertex_skinning_buffer_view: n12::SDescriptorAllocatorAllocation,
 
     bind_joints: SMemVec<'a, SJoint>,
+    bind_model_to_joint_xforms: SMemVec<'a, Mat4>,
 
-    model_to_joint_xforms: SMemVec<'a, Mat4>,
-    model_to_joint_xforms_resource: n12::SResource,
-    model_to_joint_xforms_view: n12::SDescriptorAllocatorAllocation,
+    //frame_model_to_joint_to_world_xforms: SMemVec<'a, Mat4>,
+    frame_model_to_joint_to_world_xforms_resource: n12::SBufferResource<Mat4>,
+    frame_model_to_joint_to_world_xforms_view: n12::SDescriptorAllocatorAllocation,
 }
 
 #[allow(dead_code)]
@@ -372,33 +373,7 @@ impl<'a> SMeshLoader<'a> {
                 gltf::accessor::Dimensions::Mat4,
                 &buffer_bytes,
             );
-            let model_to_joint_xforms = SMemVec::<Mat4>::new_copy_slice(&SYSTEM_ALLOCATOR, inverse_bind_matrices_bin).unwrap();
-            let model_to_joint_xforms_resource = self.sync_create_and_upload_buffer_resource(
-                model_to_joint_xforms.as_slice(),
-                t12::SResourceFlags::from(t12::EResourceFlags::ENone),
-                t12::EResourceStates::NonPixelShaderResource,
-            )?;
-            let model_to_joint_xforms_view = {
-                let descriptors = descriptor_alloc(&self.srv_heap.upgrade().expect("allocator dropped"), 1)?;
-                let srv_desc = t12::SShaderResourceViewDesc {
-                    format: t12::EDXGIFormat::Unknown,
-                    view: t12::ESRV::Buffer(
-                        t12::SBufferSRV {
-                            first_element: 0,
-                            num_elements: inverse_bind_matrices_bin.len(),
-                            structure_byte_stride: std::mem::size_of::<Mat4>(),
-                            flags: t12::ED3D12BufferSRVFlags::None,
-                        },
-                    ),
-                };
-                self.device.upgrade().expect("device dropped").create_shader_resource_view(
-                    &model_to_joint_xforms_resource,
-                    &srv_desc,
-                    descriptors.cpu_descriptor(0),
-                )?;
-
-                descriptors
-            };
+            let bind_model_to_joint_xforms = SMemVec::<Mat4>::new_copy_slice(&SYSTEM_ALLOCATOR, inverse_bind_matrices_bin).unwrap();
 
             let bind_joints = STACK_ALLOCATOR.with(|sa| {
                 let mut result = SMemVec::<SJoint>::new(&SYSTEM_ALLOCATOR, skin.joints().count(), 0).unwrap();
@@ -449,6 +424,36 @@ impl<'a> SMeshLoader<'a> {
                 println!("bind_joints[{:?}]: {:?}", i, bind_joints[i]);
             }
             */
+            let mut frame_model_to_joint_to_world_xforms_resource = self.device.upgrade().expect("device dropped").create_committed_buffer_resource_for_data(
+                t12::EHeapType::Upload,
+                t12::SResourceFlags::from(t12::EResourceFlags::ENone),
+                t12::EResourceStates::GenericRead,
+                bind_model_to_joint_xforms.as_ref(),
+            )?;
+            let frame_model_to_joint_to_world_xforms_view = {
+                let descriptors = descriptor_alloc(&self.srv_heap.upgrade().expect("allocator dropped"), 1)?;
+                let srv_desc = t12::SShaderResourceViewDesc {
+                    format: t12::EDXGIFormat::Unknown,
+                    view: t12::ESRV::Buffer(
+                        t12::SBufferSRV {
+                            first_element: 0,
+                            num_elements: inverse_bind_matrices_bin.len(),
+                            structure_byte_stride: std::mem::size_of::<Mat4>(),
+                            flags: t12::ED3D12BufferSRVFlags::None,
+                        },
+                    ),
+                };
+                self.device.upgrade().expect("device dropped").create_shader_resource_view(
+                    &frame_model_to_joint_to_world_xforms_resource.raw,
+                    &srv_desc,
+                    descriptors.cpu_descriptor(0),
+                )?;
+
+                descriptors
+            };
+
+            frame_model_to_joint_to_world_xforms_resource.map();
+            //frame_model_to_joint_to_world_xforms_resource.copy_to_map(bind_joints.as_ref());
 
             skinning = Some(SMeshSkinning{
                 vertex_skinning_data,
@@ -456,10 +461,11 @@ impl<'a> SMeshLoader<'a> {
                 vertex_skinning_buffer_view,
 
                 bind_joints,
+                bind_model_to_joint_xforms,
 
-                model_to_joint_xforms,
-                model_to_joint_xforms_resource,
-                model_to_joint_xforms_view,
+                //frame_model_to_joint_to_world_xforms,
+                frame_model_to_joint_to_world_xforms_resource,
+                frame_model_to_joint_to_world_xforms_view,
             })
         }
 
@@ -691,25 +697,6 @@ impl<'a> SMeshLoader<'a> {
 
         Ok(())
     }
-
-    /*
-    pub fn render(
-        &self,
-        mesh_handle: SMeshHandle,
-        cl: &mut n12::SCommandList,
-    ) -> Result<(), &'static str> {
-        // -- assuming the same pipline state, root signature, viewport, scissor rect,
-        // -- render target, for every model for now. These are set
-        // -- outside of here
-
-        // -- setup input assembler
-
-        // -- draw
-        self.bind_buffers_and_draw(mesh_handle, cl)?;
-
-        Ok(())
-    }
-    */
 }
 
 impl STextureLoader {
@@ -953,31 +940,4 @@ impl SModel {
     pub fn set_pickable(&mut self, pickable: bool) {
         self.pickable = pickable;
     }
-
-    /*
-    pub fn set_texture_root_parameters(
-        &self,
-        texture_loader: &STextureLoader,
-        cl: &mut n12::SCommandList,
-        metadata_constant_root_parameter: u32,
-        texture_descriptor_table_root_parameter: usize,
-    ) {
-        let mut texture_metadata = STextureMetadata{
-            diffuse_colour: self.diffuse_colour,
-            has_diffuse_texture: 0.0,
-            diffuse_weight: self.diffuse_weight,
-            is_lit: if self.is_lit { 1.0 } else { 0.0 },
-        };
-
-        if let Some(texture) = self.diffuse_texture {
-            texture_metadata.has_diffuse_texture = 1.0;
-            cl.set_graphics_root_descriptor_table(
-                texture_descriptor_table_root_parameter,
-                &texture_loader.texture_gpu_descriptor(texture).unwrap(),
-            );
-        }
-
-        cl.set_graphics_root_32_bit_constants(metadata_constant_root_parameter, &texture_metadata, 0);
-    }
-    */
 }

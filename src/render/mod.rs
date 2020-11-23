@@ -394,6 +394,10 @@ impl<'a> SRender<'a> {
         &self.mesh_loader
     }
 
+    pub fn bind_model_skinning(&mut self, model: &SModel) -> Result<SModelSkinning, &'static str> {
+        self.mesh_loader.bind_skinning(model.mesh)
+    }
+
     #[allow(dead_code)]
     pub fn ray_intersects(
         &self,
@@ -482,7 +486,6 @@ impl<'a> SRender<'a> {
             self.setup_imgui_draw_data_resources(window, idd)?;
         }
 
-        self.update_skinning_joint_buffers(world_models, world_model_xforms);
         // -- $$$FRK(TODO): should initialize the shadow map depth buffer to empty, so we still get light if we don't render maps
         self.render_shadow_maps(world_models, world_model_xforms)?;
         self.render_world(window, view_matrix, world_models, world_model_xforms)?;
@@ -508,13 +511,10 @@ impl<'a> SRender<'a> {
         Ok(())
     }
 
-    fn update_skinning_joint_buffers(
-        &self,
-        model_skinnings: &[SModelSkinning],
-        world_model_xforms: &[STransform],
-    ) {
-        for i in 0..world_models.len() {
-            model_skinnings[i].update_skinning_joint_buffer(self.mesh_loader, world_model_xforms[i]);
+    // -- $$$FRK(TODO): when I have somewhere to store SModelSkinning, should get rid of the &mut reference in the slice
+    pub fn update_skinning_joint_buffers(&self, model_skinnings: &mut [&mut SModelSkinning]) {
+        for i in 0..model_skinnings.len() {
+            model_skinnings[i].update_skinning_joint_buffer(&self.mesh_loader);
         }
     }
 

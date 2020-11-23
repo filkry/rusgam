@@ -120,9 +120,17 @@ fn main_d3d12() -> Result<(), &'static str> {
     entitytypes::testopenroomentity::create(
         &data_bucket, Some("tst_room"),
         STransform::new_translation(&glm::Vec3::new(0.0, -2.0, 0.0)))?;
-    entitytypes::tstskinnedentity::create(
+    let skinned_entity = entitytypes::tstskinnedentity::create(
         &data_bucket, Some("tst_skinned_entity"), Some(glm::Vec4::new(1.0, 1.0, 1.0, 1.0)),
         STransform::new_translation(&glm::Vec3::new(-3.0, 2.0, 0.0)))?;
+
+    let mut skinned_entity_skinning = data_bucket.get_renderer().unwrap().with_mut(|render: &mut render::SRender| {
+        let model = data_bucket.get_entities().unwrap().with(|entities: &SEntityBucket| {
+            entities.get_entity_model(skinned_entity).unwrap()
+        });
+
+        render.bind_model_skinning(&model)
+    })?;
 
     // -- update loop
     let mut _framecount: u64 = 0;
@@ -324,6 +332,9 @@ fn main_d3d12() -> Result<(), &'static str> {
             data_bucket.get_entities().unwrap().with(|entities: &SEntityBucket| {
                 data_bucket.get_renderer().unwrap().with_mut(|render: &mut render::SRender| {
                     let (_entities, model_xforms, models) = entities.build_render_data(sa);
+
+                    // -- update skinning
+                    render.update_skinning_joint_buffers(&mut [&mut skinned_entity_skinning]);
 
                     // -- render world
                     let render_result = render.render_frame(&mut window, &view_matrix, models.as_slice(), model_xforms.as_slice(), Some(&imgui_draw_data));

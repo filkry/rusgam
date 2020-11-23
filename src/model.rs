@@ -103,13 +103,13 @@ pub struct SModel {
     pub is_lit: bool,
 }
 
-pub struct SModelSkinning<'a> {
+pub struct SModelSkinning {
     mesh: SMeshHandle,
 
-    cur_joints_to_parents: SMemVec<'a, STransform>,
+    cur_joints_to_parents: SMemVec<'static, STransform>,
 
-    frame_model_to_joint_to_world_xforms_resource: n12::SBufferResource<Mat4>,
-    frame_model_to_joint_to_world_xforms_view: n12::SDescriptorAllocatorAllocation,
+    joints_bind_to_cur_resource: n12::SBufferResource<Mat4>,
+    joints_bind_to_cur_view: n12::SDescriptorAllocatorAllocation,
 }
 
 impl<'a> SMeshLoader<'a> {
@@ -565,13 +565,13 @@ impl<'a> SMeshLoader<'a> {
     ) -> Result<SModelSkinning, &'static str> {
         let bind_joints = self.get_mesh_bind_joints(mesh).unwrap();
 
-        let mut frame_model_to_joint_to_world_xforms_resource = self.device.upgrade().expect("device dropped").create_committed_buffer_resource_for_type::<Mat4>(
+        let mut joints_bind_to_cur_resource = self.device.upgrade().expect("device dropped").create_committed_buffer_resource_for_type::<Mat4>(
             t12::EHeapType::Upload,
             t12::SResourceFlags::from(t12::EResourceFlags::ENone),
             t12::EResourceStates::GenericRead,
             bind_joints.len(),
         )?;
-        let frame_model_to_joint_to_world_xforms_view = {
+        let joints_bind_to_cur_view = {
             let descriptors = descriptor_alloc(&self.srv_heap.upgrade().expect("allocator dropped"), 1)?;
             let srv_desc = t12::SShaderResourceViewDesc {
                 format: t12::EDXGIFormat::Unknown,
@@ -585,7 +585,7 @@ impl<'a> SMeshLoader<'a> {
                 ),
             };
             self.device.upgrade().expect("device dropped").create_shader_resource_view(
-                &frame_model_to_joint_to_world_xforms_resource.raw,
+                &joints_bind_to_cur_resource.raw,
                 &srv_desc,
                 descriptors.cpu_descriptor(0),
             )?;
@@ -593,10 +593,10 @@ impl<'a> SMeshLoader<'a> {
             descriptors
         };
 
-        frame_model_to_joint_to_world_xforms_resource.map();
+        joints_bind_to_cur_resource.map();
         //frame_model_to_joint_to_world_xforms_resource.copy_to_map(bind_joints.as_ref());
 
-        let cur_joints_to_parents = SMemVec::<STransform>::new(&SYSTEM_ALLOCATOR, bind_joints.len(), 0)?;
+        let mut cur_joints_to_parents = SMemVec::<STransform>::new(&SYSTEM_ALLOCATOR, bind_joints.len(), 0)?;
         for joint in bind_joints.as_ref() {
             cur_joints_to_parents.push(joint.local_to_parent);
         }
@@ -604,8 +604,8 @@ impl<'a> SMeshLoader<'a> {
         Ok(SModelSkinning{
             mesh,
             cur_joints_to_parents,
-            frame_model_to_joint_to_world_xforms_resource,
-            frame_model_to_joint_to_world_xforms_view,
+            joints_bind_to_cur_resource,
+            joints_bind_to_cur_view,
         })
     }
 
@@ -619,7 +619,7 @@ impl<'a> SMeshLoader<'a> {
         &mesh.local_verts
     }
 
-    pub fn get_mesh_skinning(&self, mesh: SMeshHandle) -> Option<&SMeshSkinning> {
+    fn get_mesh_skinning(&self, mesh: SMeshHandle) -> Option<&SMeshSkinning> {
         let mesh = self.mesh_pool.get(mesh).unwrap();
         mesh.skinning.as_ref()
     }
@@ -969,13 +969,13 @@ impl SModel {
 
 }
 
-impl<'a> SModelSkinning<'a> {
-    pub fn update_skinning_joint_buffer(&mut self, mesh_loader: &SMeshLoader, model_to_world: &STransform) {
+impl SModelSkinning {
+    pub fn update_skinning_joint_buffer(&mut self, mesh_loader: &SMeshLoader) {
         STACK_ALLOCATOR.with(|sa| {
             if let Some(skinning) = mesh_loader.get_mesh_skinning(self.mesh) {
                 let bind_joints = mesh_loader.get_mesh_bind_joints(self.mesh).unwrap();
 
-                let frame_joint_to_model = SMemVec::<STransform>::new(sa, skinning.bind_joints.len(), 0).unwrap();
+                let mut frame_joint_to_model = SMemVec::<STransform>::new(sa, skinning.bind_joints.len(), 0).unwrap();
                 // -- we can just iterate the table once because all parents are earlier in the table,
                 // -- this is essentially flattening the table from joint -> parent to joint -> model
                 for i in 0..bind_joints.len() {
@@ -992,18 +992,15 @@ impl<'a> SModelSkinning<'a> {
                     frame_joint_to_model.push(local_to_model);
                 }
 
-                let frame_model_to_joint_to_world_xforms = SMemVec::<Mat4>::new(sa, skinning.bind_joints.len(), 0).unwrap();
+                let mut frame_joints_bind_to_cur = SMemVec::<Mat4>::new(sa, skinning.bind_joints.len(), 0).unwrap();
                 // -- essentially the pipeline for this is:
                 // -- (bind vertex to bind joint) x (frame joint to model) x (model to world)
 
                 for i in 0..bind_joints.len() {
-                    let frame_joint_to_world = STransform::mul_transform(model_to_world, &frame_joint_to_model[i]);
-                    let frame_joint_to_world_mat = frame_joint_to_world.as_mat4();
-
-                    frame_model_to_joint_to_world_xforms.push(frame_joint_to_world_mat * skinning.bind_model_to_joint_xforms[i]);
+                    frame_joints_bind_to_cur.push(frame_joint_to_model[i].as_mat4() * skinning.bind_model_to_joint_xforms[i]);
                 }
 
-                self.frame_model_to_joint_to_world_xforms_resource.copy_to_map(frame_model_to_joint_to_world_xforms.as_ref());
+                self.joints_bind_to_cur_resource.copy_to_map(frame_joints_bind_to_cur.as_ref());
             }
         });
     }

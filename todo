@@ -15,6 +15,7 @@ Things necessary to start messing around with a game:
         + static/ambient lighting?
 
 Misc:
++ search for unwrap() calls and clean up
 + why do I have to drop things in a certain order in SRender? Seems super suspect
 + try out clippy and formatting code Rustically
 + handle WM_PAINT event

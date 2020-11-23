@@ -15,9 +15,12 @@ pub fn create(
     data_bucket.get_entities().unwrap().with_mut(|entities: &mut SEntityBucket| {
         let ent = entities.create_entity()?;
 
-        let mut model = data_bucket.get_renderer().unwrap().with_mut(|render: &mut render::SRender| {
-            render.new_model_from_gltf("assets/test_armature.gltf", 1.0, true)
-        })?;
+        let (mut model, model_skinning) = data_bucket.get_renderer().unwrap().with_mut(|render: &mut render::SRender| {
+            let model = render.new_model_from_gltf("assets/test_armature.gltf", 1.0, true).unwrap();
+            let model_skinning = render.bind_model_skinning(&model).unwrap();
+
+            (model, model_skinning)
+        });
         if let Some(c) = diffuse_colour {
             model.diffuse_colour = c;
         }
@@ -27,6 +30,7 @@ pub fn create(
         }
 
         entities.set_entity_model(ent, model, data_bucket);
+        entities.set_entity_model_skinning(ent, model_skinning);
         entities.set_entity_location(ent, starting_location, data_bucket);
 
         Ok(ent)

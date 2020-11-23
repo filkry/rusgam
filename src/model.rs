@@ -104,12 +104,17 @@ pub struct SModel {
 }
 
 pub struct SModelSkinning {
-    mesh: SMeshHandle,
+    pub mesh: SMeshHandle,
 
     cur_joints_to_parents: SMemVec<'static, STransform>,
 
     joints_bind_to_cur_resource: n12::SBufferResource<Mat4>,
     joints_bind_to_cur_view: n12::SDescriptorAllocatorAllocation,
+
+    skinned_verts_resource: n12::SResource,
+    skinned_verts_vbv: t12::SVertexBufferView,
+    skinned_normals_resource: n12::SResource,
+    skinned_normals_vbv: t12::SVertexBufferView,
 }
 
 impl<'a> SMeshLoader<'a> {
@@ -601,11 +606,34 @@ impl<'a> SMeshLoader<'a> {
             cur_joints_to_parents.push(joint.local_to_parent);
         }
 
+        // -- $$$FRK(TODO, HACK): lazily working around the borrow checker here
+        let initial_verts = SMemVec::<Vec3>::new_copy_slice(&SYSTEM_ALLOCATOR, self.get_mesh_local_vertices(mesh))?;
+        let intial_normals = SMemVec::<Vec3>::new_copy_slice(&SYSTEM_ALLOCATOR, self.get_mesh_local_normals(mesh))?;
+
+        let skinned_verts_resource = self.sync_create_and_upload_buffer_resource(
+            initial_verts.as_ref(),
+            t12::SResourceFlags::from(t12::EResourceFlags::ENone),
+            t12::EResourceStates::VertexAndConstantBuffer,
+        )?;
+        let skinned_verts_vbv = skinned_verts_resource.create_vertex_buffer_view()?;
+
+        let skinned_normals_resource = self.sync_create_and_upload_buffer_resource(
+            intial_normals.as_ref(),
+            t12::SResourceFlags::from(t12::EResourceFlags::ENone),
+            t12::EResourceStates::VertexAndConstantBuffer,
+        )?;
+        let skinned_normals_vbv = skinned_normals_resource.create_vertex_buffer_view()?;
+
         Ok(SModelSkinning{
             mesh,
             cur_joints_to_parents,
             joints_bind_to_cur_resource,
             joints_bind_to_cur_view,
+
+            skinned_verts_resource,
+            skinned_verts_vbv,
+            skinned_normals_resource,
+            skinned_normals_vbv,
         })
     }
 
@@ -617,6 +645,11 @@ impl<'a> SMeshLoader<'a> {
     pub fn get_mesh_local_vertices(&self, mesh: SMeshHandle) -> &SMemVec<Vec3> {
         let mesh = self.mesh_pool.get(mesh).unwrap();
         &mesh.local_verts
+    }
+
+    pub fn get_mesh_local_normals(&self, mesh: SMeshHandle) -> &SMemVec<Vec3> {
+        let mesh = self.mesh_pool.get(mesh).unwrap();
+        &mesh.local_normals
     }
 
     fn get_mesh_skinning(&self, mesh: SMeshHandle) -> Option<&SMeshSkinning> {

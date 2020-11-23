@@ -1,5 +1,5 @@
 use allocate::{TMemAllocator, SMemVec};
-use model::SModel;
+use model::{SModel, SModelSkinning};
 use utils::{STransform, SAABB};
 use collections::{SStoragePool, SPoolHandle};
 use databucket::{SDataBucket};
@@ -11,6 +11,7 @@ struct SEntity {
     debug_name: Option<&'static str>,
     location: STransform,
     model: Option<SModel>,
+    model_skinning: Option<SModelSkinning>,
     identity_aabb: Option<SAABB>, // $$$FRK(TODO): ONLY putting this in here right now to avoid moving the renderer!
     bvh_entry: bvh::SNodeHandle,
 }
@@ -28,6 +29,7 @@ impl SEntity {
             debug_name: None,
             location: STransform::default(),
             model: None,
+            model_skinning: None,
             identity_aabb: None,
             bvh_entry: SPoolHandle::default(),
         }
@@ -84,6 +86,13 @@ impl SEntityBucket {
         data_bucket.get_renderer().unwrap().with(|render: &render::SRender| {
             data.identity_aabb = Some(render.mesh_loader().get_mesh_local_aabb(model.mesh).clone());
         });
+    }
+
+    pub fn set_entity_model_skinning(&mut self, entity: SEntityHandle, model_skinning: SModelSkinning) {
+        let data = self.entities.get_mut(entity).expect("invalid entity");
+        assert!(data.model.is_some());
+        assert!(data.model.unwrap().mesh == model_skinning.mesh);
+        data.model_skinning = Some(model_skinning);
     }
 
     pub fn get_entity_bvh_entry(&self, entity: SEntityHandle) -> bvh::SNodeHandle {

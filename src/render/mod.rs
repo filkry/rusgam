@@ -482,6 +482,7 @@ impl<'a> SRender<'a> {
             self.setup_imgui_draw_data_resources(window, idd)?;
         }
 
+        self.update_skinning_joint_buffers(world_models, world_model_xforms);
         // -- $$$FRK(TODO): should initialize the shadow map depth buffer to empty, so we still get light if we don't render maps
         self.render_shadow_maps(world_models, world_model_xforms)?;
         self.render_world(window, view_matrix, world_models, world_model_xforms)?;
@@ -505,6 +506,16 @@ impl<'a> SRender<'a> {
         self.render_temp.clear_tables_without_tokens();
 
         Ok(())
+    }
+
+    fn update_skinning_joint_buffers(
+        &self,
+        world_models: &[SModel],
+        world_model_xforms: &[STransform],
+    ) {
+        for i in 0..world_models.len() {
+            world_models[i].update_skinning_joint_buffer(self.mesh_loader, world_model_xforms[i]);
+        }
     }
 
     pub fn render_shadow_maps(

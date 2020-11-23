@@ -33,10 +33,6 @@ struct SMeshSkinning<'a> {
 
     bind_joints: SMemVec<'a, SJoint>,
     bind_model_to_joint_xforms: SMemVec<'a, Mat4>,
-
-    //frame_model_to_joint_to_world_xforms: SMemVec<'a, Mat4>,
-    frame_model_to_joint_to_world_xforms_resource: n12::SBufferResource<Mat4>,
-    frame_model_to_joint_to_world_xforms_view: n12::SDescriptorAllocatorAllocation,
 }
 
 #[allow(dead_code)]
@@ -105,6 +101,15 @@ pub struct SModel {
     pub diffuse_texture: Option<STextureHandle>,
     pub diffuse_weight: f32,
     pub is_lit: bool,
+}
+
+pub struct SModelSkinning<'a> {
+    mesh: SMeshHandle,
+
+    cur_joints_to_parents: SMemVec<'a, STransform>,
+
+    frame_model_to_joint_to_world_xforms_resource: n12::SBufferResource<Mat4>,
+    frame_model_to_joint_to_world_xforms_view: n12::SDescriptorAllocatorAllocation,
 }
 
 impl<'a> SMeshLoader<'a> {
@@ -424,36 +429,6 @@ impl<'a> SMeshLoader<'a> {
                 println!("bind_joints[{:?}]: {:?}", i, bind_joints[i]);
             }
             */
-            let mut frame_model_to_joint_to_world_xforms_resource = self.device.upgrade().expect("device dropped").create_committed_buffer_resource_for_data(
-                t12::EHeapType::Upload,
-                t12::SResourceFlags::from(t12::EResourceFlags::ENone),
-                t12::EResourceStates::GenericRead,
-                bind_model_to_joint_xforms.as_ref(),
-            )?;
-            let frame_model_to_joint_to_world_xforms_view = {
-                let descriptors = descriptor_alloc(&self.srv_heap.upgrade().expect("allocator dropped"), 1)?;
-                let srv_desc = t12::SShaderResourceViewDesc {
-                    format: t12::EDXGIFormat::Unknown,
-                    view: t12::ESRV::Buffer(
-                        t12::SBufferSRV {
-                            first_element: 0,
-                            num_elements: inverse_bind_matrices_bin.len(),
-                            structure_byte_stride: std::mem::size_of::<Mat4>(),
-                            flags: t12::ED3D12BufferSRVFlags::None,
-                        },
-                    ),
-                };
-                self.device.upgrade().expect("device dropped").create_shader_resource_view(
-                    &frame_model_to_joint_to_world_xforms_resource.raw,
-                    &srv_desc,
-                    descriptors.cpu_descriptor(0),
-                )?;
-
-                descriptors
-            };
-
-            frame_model_to_joint_to_world_xforms_resource.map();
-            //frame_model_to_joint_to_world_xforms_resource.copy_to_map(bind_joints.as_ref());
 
             skinning = Some(SMeshSkinning{
                 vertex_skinning_data,
@@ -462,10 +437,6 @@ impl<'a> SMeshLoader<'a> {
 
                 bind_joints,
                 bind_model_to_joint_xforms,
-
-                //frame_model_to_joint_to_world_xforms,
-                frame_model_to_joint_to_world_xforms_resource,
-                frame_model_to_joint_to_world_xforms_view,
             })
         }
 
@@ -588,6 +559,50 @@ impl<'a> SMeshLoader<'a> {
         return self.mesh_pool.insert_val(mesh)
     }
 
+    pub fn bind_skinning(
+        &mut self,
+        mesh: SMeshHandle,
+    ) -> Result<SModelSkinning, &'static str> {
+        let bind_joints = self.get_mesh_bind_joints(mesh).unwrap();
+
+        let mut frame_model_to_joint_to_world_xforms_resource = self.device.upgrade().expect("device dropped").create_committed_buffer_resource_for_type::<Mat4>(
+            t12::EHeapType::Upload,
+            t12::SResourceFlags::from(t12::EResourceFlags::ENone),
+            t12::EResourceStates::GenericRead,
+            bind_joints.len(),
+        )?;
+        let frame_model_to_joint_to_world_xforms_view = {
+            let descriptors = descriptor_alloc(&self.srv_heap.upgrade().expect("allocator dropped"), 1)?;
+            let srv_desc = t12::SShaderResourceViewDesc {
+                format: t12::EDXGIFormat::Unknown,
+                view: t12::ESRV::Buffer(
+                    t12::SBufferSRV {
+                        first_element: 0,
+                        num_elements: bind_joints.len(),
+                        structure_byte_stride: std::mem::size_of::<Mat4>(),
+                        flags: t12::ED3D12BufferSRVFlags::None,
+                    },
+                ),
+            };
+            self.device.upgrade().expect("device dropped").create_shader_resource_view(
+                &frame_model_to_joint_to_world_xforms_resource.raw,
+                &srv_desc,
+                descriptors.cpu_descriptor(0),
+            )?;
+
+            descriptors
+        };
+
+        frame_model_to_joint_to_world_xforms_resource.map();
+        //frame_model_to_joint_to_world_xforms_resource.copy_to_map(bind_joints.as_ref());
+
+        Ok(SModelSkinning{
+            mesh,
+            frame_model_to_joint_to_world_xforms_resource,
+            frame_model_to_joint_to_world_xforms_view,
+        })
+    }
+
     pub fn get_mesh_local_aabb(&self, mesh: SMeshHandle) -> &utils::SAABB {
         let mesh = self.mesh_pool.get(mesh).unwrap();
         &mesh.local_aabb
@@ -596,6 +611,11 @@ impl<'a> SMeshLoader<'a> {
     pub fn get_mesh_local_vertices(&self, mesh: SMeshHandle) -> &SMemVec<Vec3> {
         let mesh = self.mesh_pool.get(mesh).unwrap();
         &mesh.local_verts
+    }
+
+    pub fn get_mesh_skinning(&self, mesh: SMeshHandle) -> Option<&SMeshSkinning> {
+        let mesh = self.mesh_pool.get(mesh).unwrap();
+        mesh.skinning.as_ref()
     }
 
     pub fn get_mesh_bind_joints(&self, mesh: SMeshHandle) -> Option<&SMemVec<SJoint>> {
@@ -939,5 +959,46 @@ impl SModel {
     #[allow(dead_code)]
     pub fn set_pickable(&mut self, pickable: bool) {
         self.pickable = pickable;
+    }
+
+}
+
+impl SModelSkinning {
+    pub fn update_skinning_joint_buffer(&mut self, mesh_loader: &SMeshLoader, model_to_world: &STransform) {
+        STACK_ALLOCATOR.with(|sa| {
+            if let Some(skinning) = mesh_loader.get_mesh_skinning(self.mesh) {
+                let bind_joints = mesh_loader.get_mesh_bind_joints(self.mesh)?;
+
+                let frame_joint_to_model = SMemVec::<STransform>::new(sa, skinning.bind_joints.len(), 0).unwrap();
+                // -- we can just iterate the table once because all parents are earlier in the table,
+                // -- this is essentially flattening the table from joint -> parent to joint -> model
+                for i in 0..bind_joints.len() {
+                    let local_to_model = {
+                        if let Some(parent_idx) = bind_joints[i].parent_idx {
+                            assert!(parent_idx < i);
+                            STransform::mul_transform(&frame_joint_to_model[parent_idx], &self.cur_joints_to_parents[i])
+                        }
+                        else {
+                            self.cur_joints_to_parents[i]
+                        }
+                    };
+
+                    frame_joint_to_model.push(local_to_model);
+                }
+
+                let frame_model_to_joint_to_world_xforms = SMemVec::<Mat4>::new(sa, skinning.bind_joints.len(), 0).unwrap();
+                // -- essentially the pipeline for this is:
+                // -- (bind vertex to bind joint) x (frame joint to model) x (model to world)
+
+                for i in 0..bind_joints.len() {
+                    let frame_joint_to_world = STransform::mul_transform(model_to_world, frame_joint_to_model[i]);
+                    let frame_joint_to_world_mat = frame_joint_to_world.as_mat4();
+
+                    frame_model_to_joint_to_world_xforms.push(frame_joint_to_world_mat * skinning.bind_model_to_joint_xforms[i]);
+                }
+
+                skinning.frame_model_to_joint_to_world_xforms_resource.copy_to_map(frame_model_to_joint_to_world_xforms.as_ref());
+            }
+        });
     }
 }

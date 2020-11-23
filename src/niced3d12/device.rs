@@ -156,6 +156,29 @@ impl SDevice {
         })
     }
 
+    pub fn create_committed_buffer_resource_for_type<T>(
+        &self, // verified thread safe via docs
+        heaptype: t12::EHeapType,
+        flags: t12::SResourceFlags,
+        initial_resource_state: t12::EResourceStates,
+        num_items: usize,
+    ) -> Result<SBufferResource<T>, &'static str> {
+        let raw = self.create_committed_buffer_resource(
+            heaptype,
+            t12::EHeapFlags::ENone,
+            flags,
+            initial_resource_state,
+            num_items,
+            std::mem::size_of::<T>(),
+        )?;
+
+        Ok(SBufferResource{
+            raw,
+            count: num_items,
+            map_mem: None,
+        })
+    }
+
     pub fn create_committed_buffer_resource_for_data<T>(
         &self, // verified thread safe via docs
         heaptype: t12::EHeapType,
@@ -163,20 +186,12 @@ impl SDevice {
         initial_resource_state: t12::EResourceStates,
         bufferdata: &[T],
     ) -> Result<SBufferResource<T>, &'static str> {
-        let raw = self.create_committed_buffer_resource(
+        self.create_committed_buffer_resource_for_type::<T>(
             heaptype,
-            t12::EHeapFlags::ENone,
             flags,
             initial_resource_state,
             bufferdata.len(),
-            std::mem::size_of::<T>(),
-        )?;
-
-        Ok(SBufferResource{
-            raw,
-            count: bufferdata.len(),
-            map_mem: None,
-        })
+        )
     }
 
     pub fn copy_descriptor_slice_to_single_range(

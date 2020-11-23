@@ -14,7 +14,7 @@ use typeyd3d12 as t12;
 use allocate::{SMemVec, STACK_ALLOCATOR};
 use databucket::{SDataBucket};
 use entity::{SEntityBucket, SEntityHandle};
-use model::{SModel, SMeshLoader, STextureLoader};
+use model::{SModel, SModelSkinning, SMeshLoader, STextureLoader};
 use safewindows;
 use rustywindows;
 use utils;
@@ -510,11 +510,11 @@ impl<'a> SRender<'a> {
 
     fn update_skinning_joint_buffers(
         &self,
-        world_models: &[SModel],
+        model_skinnings: &[SModelSkinning],
         world_model_xforms: &[STransform],
     ) {
         for i in 0..world_models.len() {
-            world_models[i].update_skinning_joint_buffer(self.mesh_loader, world_model_xforms[i]);
+            model_skinnings[i].update_skinning_joint_buffer(self.mesh_loader, world_model_xforms[i]);
         }
     }
 

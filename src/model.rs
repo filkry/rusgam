@@ -596,8 +596,14 @@ impl<'a> SMeshLoader<'a> {
         frame_model_to_joint_to_world_xforms_resource.map();
         //frame_model_to_joint_to_world_xforms_resource.copy_to_map(bind_joints.as_ref());
 
+        let cur_joints_to_parents = SMemVec::<STransform>::new(&SYSTEM_ALLOCATOR, bind_joints.len(), 0)?;
+        for joint in bind_joints.as_ref() {
+            cur_joints_to_parents.push(joint.local_to_parent);
+        }
+
         Ok(SModelSkinning{
             mesh,
+            cur_joints_to_parents,
             frame_model_to_joint_to_world_xforms_resource,
             frame_model_to_joint_to_world_xforms_view,
         })
@@ -963,11 +969,11 @@ impl SModel {
 
 }
 
-impl SModelSkinning {
+impl<'a> SModelSkinning<'a> {
     pub fn update_skinning_joint_buffer(&mut self, mesh_loader: &SMeshLoader, model_to_world: &STransform) {
         STACK_ALLOCATOR.with(|sa| {
             if let Some(skinning) = mesh_loader.get_mesh_skinning(self.mesh) {
-                let bind_joints = mesh_loader.get_mesh_bind_joints(self.mesh)?;
+                let bind_joints = mesh_loader.get_mesh_bind_joints(self.mesh).unwrap();
 
                 let frame_joint_to_model = SMemVec::<STransform>::new(sa, skinning.bind_joints.len(), 0).unwrap();
                 // -- we can just iterate the table once because all parents are earlier in the table,
@@ -991,13 +997,13 @@ impl SModelSkinning {
                 // -- (bind vertex to bind joint) x (frame joint to model) x (model to world)
 
                 for i in 0..bind_joints.len() {
-                    let frame_joint_to_world = STransform::mul_transform(model_to_world, frame_joint_to_model[i]);
+                    let frame_joint_to_world = STransform::mul_transform(model_to_world, &frame_joint_to_model[i]);
                     let frame_joint_to_world_mat = frame_joint_to_world.as_mat4();
 
                     frame_model_to_joint_to_world_xforms.push(frame_joint_to_world_mat * skinning.bind_model_to_joint_xforms[i]);
                 }
 
-                skinning.frame_model_to_joint_to_world_xforms_resource.copy_to_map(frame_model_to_joint_to_world_xforms.as_ref());
+                self.frame_model_to_joint_to_world_xforms_resource.copy_to_map(frame_model_to_joint_to_world_xforms.as_ref());
             }
         });
     }

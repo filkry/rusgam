@@ -625,19 +625,21 @@ impl<'a> SMeshLoader<'a> {
 
         // -- $$$FRK(TODO, HACK): lazily working around the borrow checker here
         let initial_verts = SMemVec::<Vec3>::new_copy_slice(&SYSTEM_ALLOCATOR, self.get_mesh_local_vertices(mesh))?;
-        let intial_normals = SMemVec::<Vec3>::new_copy_slice(&SYSTEM_ALLOCATOR, self.get_mesh_local_normals(mesh))?;
+        let initial_normals = SMemVec::<Vec3>::new_copy_slice(&SYSTEM_ALLOCATOR, self.get_mesh_local_normals(mesh))?;
 
-        let skinned_verts_resource = self.sync_create_and_upload_buffer_resource(
+        let skinned_verts_resource = self.device.upgrade().expect("device dropped").create_committed_buffer_resource_for_data(
+            t12::EHeapType::Default,
+            t12::SResourceFlags::from(t12::EResourceFlags::AllowUnorderedAccess),
+            t12::EResourceStates::UnorderedAccess,
             initial_verts.as_ref(),
-            t12::SResourceFlags::from(t12::EResourceFlags::ENone),
-            t12::EResourceStates::VertexAndConstantBuffer,
         )?;
         let skinned_verts_vbv = skinned_verts_resource.raw.create_vertex_buffer_view()?;
 
-        let skinned_normals_resource = self.sync_create_and_upload_buffer_resource(
-            intial_normals.as_ref(),
-            t12::SResourceFlags::from(t12::EResourceFlags::ENone),
-            t12::EResourceStates::VertexAndConstantBuffer,
+        let skinned_normals_resource = self.device.upgrade().expect("device dropped").create_committed_buffer_resource_for_data(
+            t12::EHeapType::Default,
+            t12::SResourceFlags::from(t12::EResourceFlags::AllowUnorderedAccess),
+            t12::EResourceStates::UnorderedAccess,
+            initial_normals.as_ref(),
         )?;
         let skinned_normals_vbv = skinned_normals_resource.raw.create_vertex_buffer_view()?;
 

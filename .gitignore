@@ -7,8 +7,7 @@
 *.dll
 *.lib
 *.sublime-workspace
-externals/dxc_2019-07-15/dxc.exe
-externals/dxc_2019-07-15/dxcapi.h
+externals/dxc_2020_10-22/*
 *.cso
 *.blend1
 *.shader_build_metadata

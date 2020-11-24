@@ -56,6 +56,25 @@ impl<'a> SPipelineStateStreamPixelShader<'a> {
     }
 }
 
+#[repr(C)]
+pub struct SPipelineStateStreamComputeShader<'a> {
+    type_: winapi::um::d3d12::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE,
+    value: winapi::um::d3d12::D3D12_SHADER_BYTECODE,
+    phantom: PhantomData<&'a t12::SShaderBytecode>,
+}
+
+impl<'a> SPipelineStateStreamComputeShader<'a> {
+    pub fn create(shader_bytecode: &'a t12::SShaderBytecode) -> Self {
+        assert!(size_of::<Self>() % 8 == 0);
+        // -- result keeps pointer to input!
+        Self {
+            type_: t12::EPipelineStateSubobjectType::CS.d3dtype(),
+            value: unsafe { shader_bytecode.d3dtype() },
+            phantom: PhantomData,
+        }
+    }
+}
+
 #[repr(C, align(8))]
 pub struct SPipelineStateStreamBlendDesc {
     type_: winapi::um::d3d12::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE,

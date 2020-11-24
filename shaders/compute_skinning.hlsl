@@ -29,8 +29,8 @@ void main(uint3 global_thread_id : SV_DispatchThreadID)
                      mul(joint_weights[2], joint_bind_to_cur[joints[2]]) +
                      mul(joint_weights[3], joint_bind_to_cur[joints[3]]);
 
-    float3 world_vert_pos = mul(vertmat, float4(local_verts[vidx], 1.0));
-    float3 world_normal = mul(vertmat, float4(local_normals[vidx], 0.0));
+    float3 world_vert_pos = mul(vertmat, float4(local_verts[vidx], 1.0)).xyz;
+    float3 world_normal = mul(vertmat, float4(local_normals[vidx], 0.0)).xyz;
 
     skinned_verts[vidx] = world_vert_pos;
     skinned_normals[vidx] = world_normal;

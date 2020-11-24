@@ -153,15 +153,16 @@ pub fn compile_shaders_if_changed() {
             if needs_build {
                 println!("Compiling shader {}...", shader_name);
 
-                let mut command = std::process::Command::new("externals/dxc_2019-07-15/dxc.exe");
+                let mut command = std::process::Command::new("externals/dxc_2020_10-22/bin/x64/dxc.exe");
 
-                command.arg("-E").arg("main")
-                       .arg("-T").arg(type_)
+                command.arg("-E").arg("main") // -- entry point
+                       .arg("-T").arg(type_) // -- type
                        .arg(shader_src_path)
-                       .arg("-Od")
-                       .arg("-Zi")
-                       .arg("-Qembed_debug")
-                       .arg("-Fo").arg(built_shader_path);
+                       .arg("-Od") // -- optimization level debug
+                       .arg("-Zi") // -- enable debug information
+                       .arg("-WX") // -- treat warnings as errors
+                       .arg("-Qembed_debug") // -- embed PDB in shader container (must be used with Zi)
+                       .arg("-Fo").arg(built_shader_path); // -- output object file
 
                 println!("   commmand: \"{:?}\"", command);
 
@@ -283,7 +284,7 @@ impl<'a> SRender<'a> {
         let fovy: f32 = utils::PI / 4.0; // 45 degrees
         let znear = 0.1;
 
-        let compute_skinning_pipeline = compute_skinning_pipeline::setup_pipeline(&device);
+        let compute_skinning_pipeline = compute_skinning_pipeline::setup_pipeline(&device)?;
 
         let render_shadow_map = shadowmapping::setup_shadow_mapping_pipeline(
             &device, &mut direct_command_pool, Rc::downgrade(&dsv_heap), Rc::downgrade(&srv_heap), 128, 128)?;
@@ -530,11 +531,11 @@ impl<'a> SRender<'a> {
         }
     }
 
-    fn compute_skinning(&self, entities: &SEntityBucket) -> Result<(), &'static str> {
+    fn compute_skinning(&mut self, entities: &SEntityBucket) -> Result<(), &'static str> {
         let mut handle = self.direct_command_pool.alloc_list()?;
         let mut list = self.direct_command_pool.get_list(&handle)?;
 
-        compute_skinning_pipeline.compute(list.deref_mut(), &self.mesh_loader, entities);
+        self.compute_skinning_pipeline.compute(list.deref_mut(), &self.mesh_loader, entities);
 
         drop(list);
 

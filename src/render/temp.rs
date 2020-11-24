@@ -773,7 +773,7 @@ impl<'a> super::SRender<'a> {
                 )?
             };
             let vertex_buffer_view = vert_buffer_resource
-                .destinationresource
+                .destinationresource.raw
                 .create_vertex_buffer_view()?;
 
             drop(copy_command_list);
@@ -787,9 +787,9 @@ impl<'a> super::SRender<'a> {
             )?;
 
             tr.point_vertex_buffer_intermediate_resource[back_buffer_idx] =
-                Some(vert_buffer_resource.intermediateresource);
+                Some(vert_buffer_resource.intermediateresource.raw);
             tr.point_vertex_buffer_resource[back_buffer_idx] =
-                Some(vert_buffer_resource.destinationresource);
+                Some(vert_buffer_resource.destinationresource.raw);
             tr.point_vertex_buffer_view[back_buffer_idx] = Some(vertex_buffer_view);
 
             Ok(true)
@@ -932,7 +932,7 @@ impl<'a> super::SRender<'a> {
                 )?
             };
             let vertex_buffer_view = vert_buffer_resource
-                .destinationresource
+                .destinationresource.raw
                 .create_vertex_buffer_view()?;
 
             drop(copy_command_list);
@@ -946,9 +946,9 @@ impl<'a> super::SRender<'a> {
             )?;
 
             tr.line_vertex_buffer_intermediate_resource[back_buffer_idx] =
-                Some(vert_buffer_resource.intermediateresource);
+                Some(vert_buffer_resource.intermediateresource.raw);
             tr.line_vertex_buffer_resource[back_buffer_idx] =
-                Some(vert_buffer_resource.destinationresource);
+                Some(vert_buffer_resource.destinationresource.raw);
             tr.line_vertex_buffer_view[back_buffer_idx] = Some(vertex_buffer_view);
 
             Ok(true)
@@ -1086,7 +1086,7 @@ impl<'a> super::SRender<'a> {
                 )?
             };
             let instance_buffer_view = instance_buffer_resource
-                .destinationresource
+                .destinationresource.raw
                 .create_vertex_buffer_view()?;
 
             drop(copy_command_list);
@@ -1100,9 +1100,9 @@ impl<'a> super::SRender<'a> {
             )?;
 
             tr.sphere_instance_buffer_intermediate_resource[back_buffer_idx] =
-                Some(instance_buffer_resource.intermediateresource);
+                Some(instance_buffer_resource.intermediateresource.raw);
             tr.sphere_instance_buffer_resource[back_buffer_idx] =
-                Some(instance_buffer_resource.destinationresource);
+                Some(instance_buffer_resource.destinationresource.raw);
             tr.sphere_instance_buffer_view[back_buffer_idx] = Some(instance_buffer_view);
 
             Ok(instance_buffer_data.len())

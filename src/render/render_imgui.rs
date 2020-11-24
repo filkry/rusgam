@@ -279,7 +279,7 @@ impl<'a> super::SRender<'a> {
                     )?
                 };
                 let vertexbufferview = vertbufferresource
-                    .destinationresource
+                    .destinationresource.raw
                     .create_vertex_buffer_view()?;
 
                 let mut indexbufferresource = {
@@ -291,25 +291,25 @@ impl<'a> super::SRender<'a> {
                     )?
                 };
                 let indexbufferview = indexbufferresource
-                    .destinationresource
+                    .destinationresource.raw
                     .create_index_buffer_view(t12::EDXGIFormat::R16UINT)?;
 
                 unsafe {
-                    vertbufferresource.destinationresource.set_debug_name("imgui vert dest");
-                    vertbufferresource.intermediateresource.set_debug_name("imgui vert inter");
-                    indexbufferresource.destinationresource.set_debug_name("imgui index dest");
-                    indexbufferresource.intermediateresource.set_debug_name("imgui index inter");
+                    vertbufferresource.destinationresource.raw.set_debug_name("imgui vert dest");
+                    vertbufferresource.intermediateresource.raw.set_debug_name("imgui vert inter");
+                    indexbufferresource.destinationresource.raw.set_debug_name("imgui index dest");
+                    indexbufferresource.intermediateresource.raw.set_debug_name("imgui index inter");
                 }
 
                 (vertbufferresource, vertexbufferview, indexbufferresource, indexbufferview)
             };
 
             // -- save the data until the next frame
-            ri.vert_buffer_resources[backbufferidx].push(vertbufferresource.destinationresource);
-            ri.int_vert_buffer_resources[backbufferidx].push(vertbufferresource.intermediateresource);
+            ri.vert_buffer_resources[backbufferidx].push(vertbufferresource.destinationresource.raw);
+            ri.int_vert_buffer_resources[backbufferidx].push(vertbufferresource.intermediateresource.raw);
             ri.vert_buffer_views[backbufferidx].push(vertexbufferview);
-            ri.index_buffer_resources[backbufferidx].push(indexbufferresource.destinationresource);
-            ri.int_index_buffer_resources[backbufferidx].push(indexbufferresource.intermediateresource);
+            ri.index_buffer_resources[backbufferidx].push(indexbufferresource.destinationresource.raw);
+            ri.int_index_buffer_resources[backbufferidx].push(indexbufferresource.intermediateresource.raw);
             ri.index_buffer_views[backbufferidx].push(indexbufferview);
         }
         drop(copy_command_list);

@@ -26,9 +26,9 @@ pub struct SJoint {
     pub parent_idx: Option<usize>,
 }
 
-struct SMeshSkinning<'a> {
+pub struct SMeshSkinning<'a> {
     vertex_skinning_data: SMemVec<'a, shaderbindings::SVertexSkinningData>,
-    vertex_skinning_buffer_resource: n12::SResource,
+    vertex_skinning_buffer_resource: n12::SBufferResource<shaderbindings::SVertexSkinningData>,
     vertex_skinning_buffer_view: n12::SDescriptorAllocatorAllocation,
 
     bind_joints: SMemVec<'a, SJoint>,
@@ -47,16 +47,19 @@ pub struct SMesh<'a> {
     local_aabb: utils::SAABB,
 
     // -- resources
-    pub(super) local_verts_resource: n12::SResource,
-    pub(super) local_normals_resource: n12::SResource,
-    pub(super) uvs_resource: n12::SResource,
-    pub(super) indices_resource: n12::SResource,
+    pub(super) local_verts_resource: n12::SBufferResource<Vec3>,
+    pub(super) local_normals_resource: n12::SBufferResource<Vec3>,
+    pub(super) uvs_resource: n12::SBufferResource<Vec2>,
+    pub(super) indices_resource: n12::SBufferResource<u16>,
 
     // -- views
     pub(super) local_verts_vbv: t12::SVertexBufferView,
     pub(super) local_normals_vbv: t12::SVertexBufferView,
     pub(super) uvs_vbv: t12::SVertexBufferView,
     pub(super) indices_ibv: t12::SIndexBufferView,
+
+    // -- SRV descriptors
+    srv_descriptors: n12::SDescriptorAllocatorAllocation,
 
     skinning: Option<SMeshSkinning<'a>>, // $$$FRK(TODO): most meshes won't have skinning, this should be factored out
 }
@@ -109,11 +112,11 @@ pub struct SModelSkinning {
     cur_joints_to_parents: SMemVec<'static, STransform>,
 
     joints_bind_to_cur_resource: n12::SBufferResource<Mat4>,
-    joints_bind_to_cur_view: n12::SDescriptorAllocatorAllocation,
+    pub joints_bind_to_cur_view: n12::SDescriptorAllocatorAllocation,
 
-    skinned_verts_resource: n12::SResource,
+    skinned_verts_resource: n12::SBufferResource<Vec3>,
     pub skinned_verts_vbv: t12::SVertexBufferView,
-    skinned_normals_resource: n12::SResource,
+    skinned_normals_resource: n12::SBufferResource<Vec3>,
     pub skinned_normals_vbv: t12::SVertexBufferView,
 }
 
@@ -145,7 +148,7 @@ impl<'a> SMeshLoader<'a> {
         data: &[T],
         resource_flags: t12::SResourceFlags,
         target_state: t12::EResourceStates,
-    ) -> Result<n12::SResource, &'static str> {
+    ) -> Result<n12::SBufferResource<T>, &'static str> {
         let mut handle = self.copy_command_list_pool.alloc_list()?;
         let mut copycommandlist = self.copy_command_list_pool.get_list(&handle)?;
 
@@ -176,7 +179,7 @@ impl<'a> SMeshLoader<'a> {
         let mut direct_command_list = self.direct_command_list_pool.get_list(&handle)?;
 
         direct_command_list.transition_resource(
-            &resource.destinationresource,
+            &resource.destinationresource.raw,
             t12::EResourceStates::CopyDest,
             target_state,
         )?;
@@ -185,6 +188,49 @@ impl<'a> SMeshLoader<'a> {
         self.direct_command_list_pool.execute_and_free_list(&mut handle)?;
 
         Ok(resource.destinationresource)
+    }
+
+    fn create_mesh_descriptors(
+        &mut self,
+        verts_resource: &n12::SBufferResource<Vec3>,
+        norms_resource: &n12::SBufferResource<Vec3>,
+    ) -> Result<n12::SDescriptorAllocatorAllocation, &'static str> {
+        // -- create srv_views
+        let descriptors = descriptor_alloc(&self.srv_heap.upgrade().expect("allocator dropped"), 2)?;
+        let vert_srv_desc = t12::SShaderResourceViewDesc {
+            format: t12::EDXGIFormat::Unknown,
+            view: t12::ESRV::Buffer(
+                t12::SBufferSRV {
+                    first_element: 0,
+                    num_elements: verts_resource.len(),
+                    structure_byte_stride: std::mem::size_of::<Vec3>(),
+                    flags: t12::ED3D12BufferSRVFlags::None,
+                },
+            ),
+        };
+        let norm_srv_desc = t12::SShaderResourceViewDesc {
+            format: t12::EDXGIFormat::Unknown,
+            view: t12::ESRV::Buffer(
+                t12::SBufferSRV {
+                    first_element: 0,
+                    num_elements: norms_resource.len(),
+                    structure_byte_stride: std::mem::size_of::<Vec3>(),
+                    flags: t12::ED3D12BufferSRVFlags::None,
+                },
+            ),
+        };
+        self.device.upgrade().expect("device dropped").create_shader_resource_view(
+            &verts_resource.raw,
+            &vert_srv_desc,
+            descriptors.cpu_descriptor(SMesh::SRVS_VERT_IDX),
+        )?;
+        self.device.upgrade().expect("device dropped").create_shader_resource_view(
+            &norms_resource.raw,
+            &norm_srv_desc,
+            descriptors.cpu_descriptor(SMesh::SRVS_NORM_IDX),
+        )?;
+
+        Ok(descriptors)
     }
 
     pub fn get_or_create_mesh_gltf(&mut self, asset_file_path: &'static str, gltf_data: &gltf::Gltf) -> Result<SMeshHandle, &'static str> {
@@ -293,32 +339,33 @@ impl<'a> SMeshLoader<'a> {
             t12::SResourceFlags::from(t12::EResourceFlags::ENone),
             t12::EResourceStates::VertexAndConstantBuffer,
         )?;
-        let local_verts_vbv = local_verts_resource.create_vertex_buffer_view()?;
+        let local_verts_vbv = local_verts_resource.raw.create_vertex_buffer_view()?;
 
         let local_normals_resource = self.sync_create_and_upload_buffer_resource(
             local_normals.as_slice(),
             t12::SResourceFlags::from(t12::EResourceFlags::ENone),
             t12::EResourceStates::VertexAndConstantBuffer,
         )?;
-        let local_normals_vbv = local_normals_resource.create_vertex_buffer_view()?;
+        let local_normals_vbv = local_normals_resource.raw.create_vertex_buffer_view()?;
 
         let uvs_resource = self.sync_create_and_upload_buffer_resource(
             uvs.as_slice(),
             t12::SResourceFlags::from(t12::EResourceFlags::ENone),
             t12::EResourceStates::VertexAndConstantBuffer,
         )?;
-        let uvs_vbv = uvs_resource.create_vertex_buffer_view()?;
+        let uvs_vbv = uvs_resource.raw.create_vertex_buffer_view()?;
 
         let indices_resource = self.sync_create_and_upload_buffer_resource(
             indices.as_slice(),
             t12::SResourceFlags::from(t12::EResourceFlags::ENone),
             t12::EResourceStates::IndexBuffer,
         )?;
-        let indices_ibv = indices_resource.create_index_buffer_view(t12::EDXGIFormat::R16UINT)?;
+        let indices_ibv = indices_resource.raw.create_index_buffer_view(t12::EDXGIFormat::R16UINT)?;
 
         let local_aabb = utils::SAABB::new_from_points(local_verts.as_slice());
         //println!("Asset name: {}\nAABB: {:?}", asset_name, local_aabb);
 
+        let srv_descriptors = self.create_mesh_descriptors(&local_verts_resource, &local_normals_resource)?;
 
         // -- load skeleton data
 
@@ -366,7 +413,7 @@ impl<'a> SMeshLoader<'a> {
                     ),
                 };
                 self.device.upgrade().expect("device dropped").create_shader_resource_view(
-                    &vertex_skinning_buffer_resource,
+                    &vertex_skinning_buffer_resource.raw,
                     &srv_desc,
                     descriptors.cpu_descriptor(0),
                 )?;
@@ -465,6 +512,8 @@ impl<'a> SMeshLoader<'a> {
             uvs_vbv,
             indices_ibv,
 
+            srv_descriptors,
+
             skinning,
         };
 
@@ -513,28 +562,30 @@ impl<'a> SMeshLoader<'a> {
             t12::SResourceFlags::from(t12::EResourceFlags::ENone),
             t12::EResourceStates::VertexAndConstantBuffer,
         )?;
-        let local_verts_vbv = local_verts_resource.create_vertex_buffer_view()?;
+        let local_verts_vbv = local_verts_resource.raw.create_vertex_buffer_view()?;
 
         let local_normals_resource = self.sync_create_and_upload_buffer_resource(
             local_normals.as_slice(),
             t12::SResourceFlags::from(t12::EResourceFlags::ENone),
             t12::EResourceStates::VertexAndConstantBuffer,
         )?;
-        let local_normals_vbv = local_normals_resource.create_vertex_buffer_view()?;
+        let local_normals_vbv = local_normals_resource.raw.create_vertex_buffer_view()?;
 
         let uvs_resource = self.sync_create_and_upload_buffer_resource(
             uvs.as_slice(),
             t12::SResourceFlags::from(t12::EResourceFlags::ENone),
             t12::EResourceStates::VertexAndConstantBuffer,
         )?;
-        let uvs_vbv = uvs_resource.create_vertex_buffer_view()?;
+        let uvs_vbv = uvs_resource.raw.create_vertex_buffer_view()?;
 
         let indices_resource = self.sync_create_and_upload_buffer_resource(
             indices.as_slice(),
             t12::SResourceFlags::from(t12::EResourceFlags::ENone),
             t12::EResourceStates::IndexBuffer,
         )?;
-        let indices_ibv = indices_resource.create_index_buffer_view(t12::EDXGIFormat::R16UINT)?;
+        let indices_ibv = indices_resource.raw.create_index_buffer_view(t12::EDXGIFormat::R16UINT)?;
+
+        let srv_descriptors = self.create_mesh_descriptors(&local_verts_resource, &local_normals_resource)?;
 
         let local_aabb = utils::SAABB::new_from_points(local_verts.as_slice());
 
@@ -557,6 +608,8 @@ impl<'a> SMeshLoader<'a> {
             local_normals_vbv,
             uvs_vbv,
             indices_ibv,
+
+            srv_descriptors,
 
             skinning: None,
         };
@@ -615,14 +668,14 @@ impl<'a> SMeshLoader<'a> {
             t12::SResourceFlags::from(t12::EResourceFlags::ENone),
             t12::EResourceStates::VertexAndConstantBuffer,
         )?;
-        let skinned_verts_vbv = skinned_verts_resource.create_vertex_buffer_view()?;
+        let skinned_verts_vbv = skinned_verts_resource.raw.create_vertex_buffer_view()?;
 
         let skinned_normals_resource = self.sync_create_and_upload_buffer_resource(
             intial_normals.as_ref(),
             t12::SResourceFlags::from(t12::EResourceFlags::ENone),
             t12::EResourceStates::VertexAndConstantBuffer,
         )?;
-        let skinned_normals_vbv = skinned_normals_resource.create_vertex_buffer_view()?;
+        let skinned_normals_vbv = skinned_normals_resource.raw.create_vertex_buffer_view()?;
 
         Ok(SModelSkinning{
             mesh,
@@ -927,6 +980,11 @@ impl STextureLoader {
 
         return Err("Tried to get descriptor for invalid SRV.")
     }
+}
+
+impl<'a> SMesh<'a> {
+    const SRVS_VERT_IDX: usize = 0;
+    const SRVS_NORM_IDX: usize = 1;
 }
 
 impl SModel {

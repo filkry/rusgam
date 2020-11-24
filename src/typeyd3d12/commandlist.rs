@@ -99,6 +99,11 @@ impl SCommandList {
             .SetGraphicsRootSignature(root_signature.raw.as_raw())
     }
 
+    pub unsafe fn set_compute_root_signature(&self, root_signature: &SRootSignature) {
+        self.commandlist
+            .SetComputeRootSignature(root_signature.raw.as_raw())
+    }
+
     pub unsafe fn ia_set_primitive_topology(&self, primitive_topology: EPrimitiveTopology) {
         self.commandlist
             .IASetPrimitiveTopology(primitive_topology.d3dtype())

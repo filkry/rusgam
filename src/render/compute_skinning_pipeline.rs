@@ -1,13 +1,8 @@
-//use std::ops::{Deref};
-use std::rc::{Weak};
-
-use model;
+use entity::{SEntityBucket};
+use model::{SMeshLoader};
 use n12;
 use t12;
 use super::shaderbindings;
-use utils;
-
-use glm::{Vec3, Mat4};
 
 #[repr(C)]
 struct SComputeSkinningPipelineStateStream<'a> {
@@ -25,7 +20,7 @@ pub struct SComputeSkinningPipeline {
 
 pub fn setup_pipeline(
     device: &n12::SDevice,
-) -> Result<SShadowMappingPipeline, &'static str> {
+) -> Result<SComputeSkinningPipeline, &'static str> {
     let compute_shader = shaderbindings::SComputeSkinningHLSL::new()?;
 
     let root_signature_flags = t12::SRootSignatureFlags::create(&[
@@ -72,7 +67,8 @@ impl SComputeSkinningPipeline {
         command_list.set_pipeline_state(&self.pipeline_state);
         command_list.set_compute_root_signature(&self.root_signature.raw());
 
-        for entity in entities {
+        /*
+        for entity in entities.entities() {
             if let Some(skinning) = entity.model_skinning {
                 let model = entity.model.expect("skinning without model");
 
@@ -82,7 +78,7 @@ impl SComputeSkinningPipeline {
                 let mesh_skinning = mesh_loader.get_mesh_skinning(model.mesh).expect("model skinning without mesh skinning");
 
                 self.compute_shader.set_compute_roots(
-                    self.compute_shader_bind,
+                    &self.compute_shader_bind,
                     command_list,
                     skinning.joints_bind_to_cur_view.gpu_descriptor(0),
                     local_verts_vbv,
@@ -93,9 +89,10 @@ impl SComputeSkinningPipeline {
                 );
 
                 let num_verts = mesh_loader.vertex_count(model.mesh);
-                let num_groups = (num_verts / 64) + (if (num_verts % 64 != 0) { 1 } else { 0 });
+                let num_groups = (num_verts / 64) + (if num_verts % 64 != 0 { 1 } else { 0 });
                 command_list.dispatch(num_groups, 0, 0);
             }
         }
+        */
     }
 }

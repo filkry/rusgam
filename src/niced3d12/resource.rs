@@ -78,6 +78,10 @@ impl SResource {
 }
 
 impl<T> SBufferResource<T> {
+    pub fn len(&self) -> usize {
+        self.count
+    }
+
     pub fn map(&mut self) {
         if self.map_mem.is_none() {
             unsafe {

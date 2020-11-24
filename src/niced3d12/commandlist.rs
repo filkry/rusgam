@@ -60,6 +60,10 @@ impl SCommandList {
         unsafe { self.raw.set_graphics_root_signature(root_signature) }
     }
 
+    pub fn set_compute_root_signature(&mut self, root_signature: &t12::SRootSignature) {
+        unsafe { self.raw.set_compute_root_signature(root_signature) }
+    }
+
     pub fn ia_set_primitive_topology(&mut self, primitive_topology: t12::EPrimitiveTopology) {
         unsafe { self.raw.ia_set_primitive_topology(primitive_topology) }
     }
@@ -225,7 +229,7 @@ impl SCommandList {
         device: &SDevice,
         bufferdata: &[T],
         flags: t12::SResourceFlags,
-    ) -> Result<SCommandQueueUpdateBufferResult, &'static str> {
+    ) -> Result<SCommandQueueUpdateBufferResult<T>, &'static str> {
         let mut destinationresource = device.create_committed_buffer_resource_for_data(
             t12::EHeapType::Default,
             flags,
@@ -253,13 +257,13 @@ impl SCommandList {
         );
 
         Ok(SCommandQueueUpdateBufferResult {
-            destinationresource: destinationresource.raw,
-            intermediateresource: intermediateresource.raw,
+            destinationresource: destinationresource,
+            intermediateresource: intermediateresource,
         })
     }
 }
 
-pub struct SCommandQueueUpdateBufferResult {
-    pub destinationresource: SResource,
-    pub intermediateresource: SResource,
+pub struct SCommandQueueUpdateBufferResult<T> {
+    pub destinationresource: SBufferResource<T>,
+    pub intermediateresource: SBufferResource<T>,
 }

@@ -112,9 +112,9 @@ pub struct SModelSkinning {
     joints_bind_to_cur_view: n12::SDescriptorAllocatorAllocation,
 
     skinned_verts_resource: n12::SResource,
-    skinned_verts_vbv: t12::SVertexBufferView,
+    pub skinned_verts_vbv: t12::SVertexBufferView,
     skinned_normals_resource: n12::SResource,
-    skinned_normals_vbv: t12::SVertexBufferView,
+    pub skinned_normals_vbv: t12::SVertexBufferView,
 }
 
 impl<'a> SMeshLoader<'a> {

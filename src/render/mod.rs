@@ -604,6 +604,11 @@ impl<'a> SRender<'a> {
                         self.texture_loader.texture_gpu_descriptor(handle).unwrap()
                     });
 
+                    let (verts_vbv, normals_vbv) = match &entity.model_skinning {
+                        Some(skinning) => (&skinning.skinned_verts_vbv, &skinning.skinned_normals_vbv),
+                        None => (self.mesh_loader.local_verts_vbv(model.mesh), self.mesh_loader.local_normals_vbv(model.mesh)),
+                    };
+
                     self.vertex_hlsl.set_graphics_roots(
                         &self.vertex_hlsl_bind,
                         &mut list,
@@ -611,8 +616,8 @@ impl<'a> SRender<'a> {
                     );
                     self.vertex_hlsl.set_vertex_buffers(
                         &mut list,
-                        self.mesh_loader.local_verts_vbv(model.mesh),
-                        self.mesh_loader.local_normals_vbv(model.mesh),
+                        verts_vbv,
+                        normals_vbv,
                         self.mesh_loader.uvs_vbv(model.mesh),
                     );
                     self.pixel_hlsl.set_graphics_roots(

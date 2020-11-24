@@ -157,7 +157,7 @@ impl SCommandList {
     pub fn set_compute_root_shader_resource_view(
         &mut self,
         root_parameter_index: usize,
-        buffer_location: t12::SGPUDescriptorHandle,
+        buffer_location: t12::SGPUVirtualAddress,
     ) {
         unsafe {
             self.raw.set_compute_root_shader_resource_view(
@@ -170,7 +170,7 @@ impl SCommandList {
     pub fn set_compute_root_unordered_access_view(
         &mut self,
         root_parameter_index: usize,
-        buffer_location: t12::SGPUDescriptorHandle,
+        buffer_location: t12::SGPUVirtualAddress,
     ) {
         unsafe {
             self.raw.set_compute_root_unordered_access_view(

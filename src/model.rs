@@ -111,12 +111,12 @@ pub struct SModelSkinning {
 
     cur_joints_to_parents: SMemVec<'static, STransform>,
 
-    joints_bind_to_cur_resource: n12::SBufferResource<Mat4>,
+    pub joints_bind_to_cur_resource: n12::SBufferResource<Mat4>,
     pub joints_bind_to_cur_view: n12::SDescriptorAllocatorAllocation,
 
-    skinned_verts_resource: n12::SBufferResource<Vec3>,
+    pub skinned_verts_resource: n12::SBufferResource<Vec3>,
     pub skinned_verts_vbv: t12::SVertexBufferView,
-    skinned_normals_resource: n12::SBufferResource<Vec3>,
+    pub skinned_normals_resource: n12::SBufferResource<Vec3>,
     pub skinned_normals_vbv: t12::SVertexBufferView,
 
     // -- UAV descriptors

@@ -115,6 +115,14 @@ pub struct SGPUDescriptorHandle {
     handle: D3D12_GPU_DESCRIPTOR_HANDLE,
 }
 
+impl std::fmt::Debug for SGPUDescriptorHandle {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SGPUDescriptorHandle")
+         .field("ptr", &self.handle.ptr)
+         .finish()
+    }
+}
+
 impl SGPUDescriptorHandle {
     pub unsafe fn raw(&self) -> &D3D12_GPU_DESCRIPTOR_HANDLE {
         &self.handle

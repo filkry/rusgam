@@ -235,22 +235,22 @@ impl SCommandList {
     pub unsafe fn set_compute_root_shader_resource_view(
         &self,
         root_parameter_index: u32,
-        buffer_location: SGPUDescriptorHandle,
+        buffer_location: SGPUVirtualAddress,
     ) {
         self.commandlist.SetComputeRootShaderResourceView(
             root_parameter_index,
-            buffer_location.raw().ptr,
+            buffer_location.raw(),
         );
     }
 
     pub unsafe fn set_compute_root_unordered_access_view(
         &self,
         root_parameter_index: u32,
-        buffer_location: SGPUDescriptorHandle,
+        buffer_location: SGPUVirtualAddress,
     ) {
         self.commandlist.SetComputeRootUnorderedAccessView(
             root_parameter_index,
-            buffer_location.raw().ptr,
+            buffer_location.raw(),
         );
     }
 

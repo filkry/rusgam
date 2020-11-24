@@ -35,7 +35,7 @@ impl SResource {
     pub fn create_vertex_buffer_view(&self) -> Result<t12::SVertexBufferView, &'static str> {
         if let EResourceMetadata::BufferResource { count, sizeofentry } = self.metadata {
             Ok(t12::SVertexBufferView::create(
-                self.raw.getgpuvirtualaddress(),
+                self.raw.get_gpu_virtual_address(),
                 (count * sizeofentry) as u32,
                 sizeofentry as u32,
             ))
@@ -50,7 +50,7 @@ impl SResource {
     ) -> Result<t12::SIndexBufferView, &'static str> {
         if let EResourceMetadata::BufferResource { count, sizeofentry } = self.metadata {
             Ok(t12::SIndexBufferView::create(
-                self.raw.getgpuvirtualaddress(),
+                self.raw.get_gpu_virtual_address(),
                 format,
                 (count * sizeofentry) as u32,
             ))

@@ -219,6 +219,10 @@ impl<'a> SRender<'a> {
             t12::SDescriptorHeapFlags::from(t12::EDescriptorHeapFlags::ShaderVisible),
         )?);
 
+        cbv_srv_uav_heap.with_raw_heap(|rh| {
+            println!("cbv_srv_uav_heap gpu start: {:?}", rh.gpu_handle_heap_start());
+        });
+
         let scissorrect = t12::SRect {
             left: 0,
             right: std::i32::MAX,
@@ -630,10 +634,14 @@ impl<'a> SRender<'a> {
                         self.texture_loader.texture_gpu_descriptor(handle).unwrap()
                     });
 
+                    /*
                     let (verts_vbv, normals_vbv) = match &entity.model_skinning {
                         Some(skinning) => (&skinning.skinned_verts_vbv, &skinning.skinned_normals_vbv),
                         None => (self.mesh_loader.local_verts_vbv(model.mesh), self.mesh_loader.local_normals_vbv(model.mesh)),
                     };
+                    */
+                    let (verts_vbv, normals_vbv) =
+                        (self.mesh_loader.local_verts_vbv(model.mesh), self.mesh_loader.local_normals_vbv(model.mesh));
 
                     self.vertex_hlsl.set_graphics_roots(
                         &self.vertex_hlsl_bind,

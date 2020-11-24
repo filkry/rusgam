@@ -32,7 +32,7 @@ impl SLinearUploadBufferPage {
         Ok(Self {
             page_size: page_size,
             base_cpu_mem: unsafe { resource.raw().map(0, None)? },
-            base_gpu_mem: resource.raw().getgpuvirtualaddress(),
+            base_gpu_mem: resource.raw().get_gpu_virtual_address(),
             first_free_byte_offset: 0,
             resource: resource,
         })

@@ -165,7 +165,7 @@ impl SResource {
         &mut self.resource
     }
 
-    pub fn getgpuvirtualaddress(&self) -> SGPUVirtualAddress {
+    pub fn get_gpu_virtual_address(&self) -> SGPUVirtualAddress {
         unsafe {
             SGPUVirtualAddress {
                 raw: self.resource.GetGPUVirtualAddress(),

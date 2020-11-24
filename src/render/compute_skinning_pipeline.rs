@@ -79,7 +79,7 @@ impl SComputeSkinningPipeline {
                 self.compute_shader.set_compute_roots(
                     &self.compute_shader_bind,
                     command_list,
-                    skinning.joints_bind_to_cur_view.gpu_descriptor(0),
+                    skinning.joints_bind_to_cur_resource.raw.raw().get_gpu_virtual_address(),
                     local_verts_srv,
                     local_normals_srv,
                     mesh_skinning.vertex_skinning_buffer_view.gpu_descriptor(0),

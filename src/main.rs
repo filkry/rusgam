@@ -326,7 +326,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                     let (_entities, model_xforms, models) = entities.build_render_data(sa);
 
                     // -- render world
-                    let render_result = render.render_frame(&mut window, &view_matrix, models.as_slice(), model_xforms.as_slice(), Some(&imgui_draw_data));
+                    let render_result = render.render_frame(&mut window, &view_matrix, entities, models.as_slice(), model_xforms.as_slice(), Some(&imgui_draw_data));
                     match render_result {
                         Ok(_) => {},
                         Err(e) => {

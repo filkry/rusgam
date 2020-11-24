@@ -444,6 +444,7 @@ impl<'a> SRender<'a> {
         &mut self,
         window: &mut n12::SD3D12Window,
         view_matrix: &Mat4,
+        entities: &SEntityBucket,
         world_models: &[SModel],
         world_model_xforms: &[STransform],
         imgui_draw_data: Option<&imgui::DrawData>,
@@ -488,7 +489,7 @@ impl<'a> SRender<'a> {
 
         // -- $$$FRK(TODO): should initialize the shadow map depth buffer to empty, so we still get light if we don't render maps
         self.render_shadow_maps(world_models, world_model_xforms)?;
-        self.render_world(window, view_matrix, world_models, world_model_xforms)?;
+        self.render_world(window, view_matrix, entities)?;
         self.render_temp_in_world(window, view_matrix)?;
 
         // -- clear depth buffer again
@@ -542,7 +543,7 @@ impl<'a> SRender<'a> {
         Ok(())
     }
 
-    pub fn render_world(&mut self, window: &mut n12::SD3D12Window, view_matrix: &Mat4, world_models: &[SModel], world_model_xforms: &[STransform]) -> Result<(), &'static str> {
+    pub fn render_world(&mut self, window: &mut n12::SD3D12Window, view_matrix: &Mat4, entities: &SEntityBucket) -> Result<(), &'static str> {
         let viewport = t12::SViewport::new(
             0.0,
             0.0,
@@ -591,8 +592,12 @@ impl<'a> SRender<'a> {
                 });
 
                 let view_perspective = perspective_matrix * view_matrix;
-                for modeli in 0..world_models.len() {
-                    let model = &world_models[modeli];
+                for entity in entities.entities() {
+                    if entity.model.is_none() {
+                        continue;
+                    }
+
+                    let model = &entity.model.expect("we checked none above");
                     let texture_metadata = shaderbindings::STextureMetadata::new_from_model(&model);
 
                     let texture_gpu_descriptor = model.diffuse_texture.map(|handle| {
@@ -602,13 +607,13 @@ impl<'a> SRender<'a> {
                     self.vertex_hlsl.set_graphics_roots(
                         &self.vertex_hlsl_bind,
                         &mut list,
-                        &shaderbindings::SModelViewProjection::new(&view_perspective, &world_model_xforms[modeli]),
+                        &shaderbindings::SModelViewProjection::new(&view_perspective, &entity.location),
                     );
                     self.vertex_hlsl.set_vertex_buffers(
                         &mut list,
-                        self.mesh_loader.local_verts_vbv(world_models[modeli].mesh),
-                        self.mesh_loader.local_normals_vbv(world_models[modeli].mesh),
-                        self.mesh_loader.uvs_vbv(world_models[modeli].mesh),
+                        self.mesh_loader.local_verts_vbv(model.mesh),
+                        self.mesh_loader.local_normals_vbv(model.mesh),
+                        self.mesh_loader.uvs_vbv(model.mesh),
                     );
                     self.pixel_hlsl.set_graphics_roots(
                         &self.pixel_hlsl_bind,
@@ -618,7 +623,7 @@ impl<'a> SRender<'a> {
                         self.render_shadow_map.srv().gpu_descriptor(0),
                     );
 
-                    self.mesh_loader.set_index_buffer_and_draw(world_models[modeli].mesh, &mut list)?;
+                    self.mesh_loader.set_index_buffer_and_draw(model.mesh, &mut list)?;
                 }
             }
 

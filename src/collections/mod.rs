@@ -259,6 +259,11 @@ pub struct SStoragePool<T, I: TIndexGen, G: TIndexGen> {
     pool: SPool<Option<T>, I, G>, // -- $$$FRK(TODO): this could be unitialized mem that we use unsafety to construct/destruct in
 }
 
+pub struct SStoragePoolIterator<'a, T, I: TIndexGen, G: TIndexGen> {
+    pool: &'a SStoragePool<T, I, G>,
+    next_idx: I,
+}
+
 impl<T, I: TIndexGen, G: TIndexGen> SStoragePool<T, I, G> {
     pub fn create(id: u64, max: I) -> Self {
         Self {
@@ -331,6 +336,35 @@ impl<T: Clone, I: TIndexGen, G: TIndexGen> SStoragePool<T, I, G> {
         let data: &mut Option<T> = self.pool.get_mut(handle).unwrap();
         *data = Some(val.clone());
         Ok(handle)
+    }
+}
+
+impl<'a, T, I: TIndexGen, G: TIndexGen> Iterator for SStoragePoolIterator<'a, T, I, G> {
+    type Item = &'a T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let pool_max = self.pool.max();
+        while self.next_idx < pool_max {
+            let cur = self.pool.get_by_index(self.next_idx).unwrap();
+            self.next_idx += I::ONE;
+            if cur.is_some() {
+                return cur;
+            }
+        }
+
+        return None;
+    }
+}
+
+impl<'a, T, I: TIndexGen, G: TIndexGen> IntoIterator for &'a SStoragePool<T, I, G> {
+    type Item = &'a T;
+    type IntoIter = SStoragePoolIterator<'a, T, I, G>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        Self::IntoIter{
+            pool: self,
+            next_idx: I::ZERO,
+        }
     }
 }
 

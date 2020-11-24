@@ -7,11 +7,11 @@ use bvh;
 use render;
 
 #[allow(dead_code)]
-struct SEntity {
+pub struct SEntity {
     debug_name: Option<&'static str>,
-    location: STransform,
-    model: Option<SModel>,
-    model_skinning: Option<SModelSkinning>,
+    pub location: STransform,
+    pub model: Option<SModel>,
+    pub model_skinning: Option<SModelSkinning>,
     identity_aabb: Option<SAABB>, // $$$FRK(TODO): ONLY putting this in here right now to avoid moving the renderer!
     bvh_entry: bvh::SNodeHandle,
 }
@@ -73,6 +73,10 @@ impl SEntityBucket {
                 }
             });
         }
+    }
+
+    pub fn entities(&self) -> &SStoragePool<SEntity, u16, u16> {
+        &self.entities
     }
 
     pub fn get_entity_model(&self, entity: SEntityHandle) -> Option<SModel> {

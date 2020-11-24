@@ -20,6 +20,7 @@ use rustywindows;
 use utils;
 use utils::{STransform, SRay};
 
+mod compute_skinning_pipeline;
 mod shadowmapping;
 mod render_imgui;
 pub mod temp;
@@ -82,6 +83,9 @@ pub struct SRender<'a> {
 
     root_signature: n12::SRootSignature,
     pipeline_state: t12::SPipelineState,
+
+    // -- compute pipelines
+    compute_skinning_pipeline: compute_skinning_pipeline::SComputeSkinningPipeline,
 
     // -- other rendering pipelines
     render_shadow_map: shadowmapping::SShadowMappingPipeline,
@@ -279,6 +283,8 @@ impl<'a> SRender<'a> {
         let fovy: f32 = utils::PI / 4.0; // 45 degrees
         let znear = 0.1;
 
+        let compute_skinning_pipeline = compute_skinning_pipeline::setup_pipeline(&device);
+
         let render_shadow_map = shadowmapping::setup_shadow_mapping_pipeline(
             &device, &mut direct_command_pool, Rc::downgrade(&dsv_heap), Rc::downgrade(&srv_heap), 128, 128)?;
         let render_imgui = SRenderImgui::new(imgui_ctxt, &mut texture_loader, &device)?;
@@ -315,6 +321,8 @@ impl<'a> SRender<'a> {
 
             root_signature,
             pipeline_state,
+
+            compute_skinning_pipeline,
 
             render_shadow_map,
             render_imgui,
@@ -487,6 +495,9 @@ impl<'a> SRender<'a> {
             self.setup_imgui_draw_data_resources(window, idd)?;
         }
 
+        // -- update skinned buffers
+        self.compute_skinning(entities);
+
         // -- $$$FRK(TODO): should initialize the shadow map depth buffer to empty, so we still get light if we don't render maps
         self.render_shadow_maps(world_models, world_model_xforms)?;
         self.render_world(window, view_matrix, entities)?;
@@ -519,6 +530,20 @@ impl<'a> SRender<'a> {
         }
     }
 
+    fn compute_skinning(&self, entities: &SEntityBucket) -> Result<(), &'static str> {
+        let mut handle = self.direct_command_pool.alloc_list()?;
+        let mut list = self.direct_command_pool.get_list(&handle)?;
+
+        compute_skinning_pipeline.compute(list.deref_mut(), &self.mesh_loader, entities);
+
+        drop(list);
+
+        let fence_val = self.direct_command_pool.execute_and_free_list(&mut handle)?;
+        self.direct_command_pool.wait_for_internal_fence_value(fence_val); // $$$FRK(TODO) reconsider this fence
+
+        Ok(())
+    }
+
     pub fn render_shadow_maps(
         &mut self,
         world_models: &[SModel],
@@ -538,7 +563,7 @@ impl<'a> SRender<'a> {
         drop(list);
 
         let fence_val = self.direct_command_pool.execute_and_free_list(&mut handle)?;
-        self.direct_command_pool.wait_for_internal_fence_value(fence_val);
+        self.direct_command_pool.wait_for_internal_fence_value(fence_val); // $$$FRK(TODO) reconsider this fence
 
         Ok(())
     }

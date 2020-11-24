@@ -8,7 +8,7 @@ pub struct SComputeSkinningHLSL {
 }
 
 pub struct SComputeSkinningHLSLBind {
-    joint_world_transforms_rp_idx: usize,
+    joint_bind_to_cur_rp_idx: usize,
     local_verts_rp_idx: usize,
     local_normals_rp_idx: usize,
     vertex_skinning_rp_idx: usize,
@@ -49,7 +49,7 @@ impl SComputeSkinningHLSL {
             root_signature_desc.parameters.len() - 1
         };
 
-        let joint_world_transforms_rp_idx = add_param(n12::SRootParameter::new_srv_descriptor(
+        let joint_bind_to_cur_rp_idx = add_param(n12::SRootParameter::new_srv_descriptor(
             Self::JOINTWORLDTRANSFORMSREGISTER,
             Self::BASESPACE,
             t12::EShaderVisibility::All,
@@ -82,7 +82,7 @@ impl SComputeSkinningHLSL {
         ));
 
         SComputeSkinningHLSLBind {
-            joint_world_transforms_rp_idx,
+            joint_bind_to_cur_rp_idx,
             local_verts_rp_idx,
             local_normals_rp_idx,
             vertex_skinning_rp_idx,
@@ -96,7 +96,7 @@ impl SComputeSkinningHLSL {
         &self,
         bind: &SComputeSkinningHLSLBind,
         list: &mut n12::SCommandList,
-        joint_world_transforms_descriptor: t12::SGPUDescriptorHandle,
+        joint_bind_to_cur_descriptor: t12::SGPUDescriptorHandle,
         local_verts_descriptor: t12::SGPUDescriptorHandle,
         local_normals_descriptor: t12::SGPUDescriptorHandle,
         vertex_skinning_descriptor: t12::SGPUDescriptorHandle,
@@ -104,7 +104,7 @@ impl SComputeSkinningHLSL {
         skinned_normals_descriptor: t12::SGPUDescriptorHandle,
     )
     {
-        list.set_compute_root_shader_resource_view(bind.joint_world_transforms_rp_idx, joint_world_transforms_descriptor);
+        list.set_compute_root_shader_resource_view(bind.joint_bind_to_cur_rp_idx, joint_bind_to_cur_descriptor);
         list.set_compute_root_shader_resource_view(bind.local_verts_rp_idx, local_verts_descriptor);
         list.set_compute_root_shader_resource_view(bind.local_normals_rp_idx, local_normals_descriptor);
         list.set_compute_root_shader_resource_view(bind.vertex_skinning_rp_idx, vertex_skinning_descriptor);

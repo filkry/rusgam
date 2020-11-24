@@ -652,7 +652,7 @@ impl<'a> SMeshLoader<'a> {
         &mesh.local_normals
     }
 
-    fn get_mesh_skinning(&self, mesh: SMeshHandle) -> Option<&SMeshSkinning> {
+    pub fn get_mesh_skinning(&self, mesh: SMeshHandle) -> Option<&SMeshSkinning> {
         let mesh = self.mesh_pool.get(mesh).unwrap();
         mesh.skinning.as_ref()
     }
@@ -714,6 +714,11 @@ impl<'a> SMeshLoader<'a> {
         }
 
         return min_t;
+    }
+
+    pub fn vertex_count(&self, mesh_handle: SMeshHandle) -> usize {
+        let mesh = self.mesh_pool.get(mesh_handle).expect("querying invalid mesh");
+        mesh.local_verts.len()
     }
 
     pub fn index_count(&self, mesh_handle: SMeshHandle) -> usize {

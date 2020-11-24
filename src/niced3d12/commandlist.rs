@@ -216,6 +216,21 @@ impl SCommandList {
         };
     }
 
+    pub fn dispatch(
+        &mut self,
+        thread_group_count_x : u32,
+        thread_group_count_y : u32,
+        thread_group_count_z : u32,
+    ) {
+        unsafe {
+            self.raw.dispatch(
+                thread_group_count_x,
+                thread_group_count_y,
+                thread_group_count_z,
+            )
+        };
+    }
+
     pub fn get_type(&self) -> t12::ECommandListType {
         self.raw.gettype()
     }

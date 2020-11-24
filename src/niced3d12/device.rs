@@ -100,6 +100,18 @@ impl SDevice {
         Ok(())
     }
 
+    pub fn create_unordered_access_view(
+        &self,
+        resource: &SResource,
+        desc: &t12::SUnorderedAccessViewDesc,
+        dest_descriptor: t12::SCPUDescriptorHandle,
+    ) -> Result<(), &'static str> {
+        // -- $$$FRK(TODO): assert on resource metadata
+        self.raw
+            .create_unordered_access_view(&resource.raw, desc, dest_descriptor);
+        Ok(())
+    }
+
     pub fn create_committed_texture2d_resource(
         &self, // verified thread safe via docs
         heap_type: t12::EHeapType,

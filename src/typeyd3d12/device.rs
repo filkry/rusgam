@@ -138,6 +138,24 @@ impl SDevice {
         }
     }
 
+    pub fn create_unordered_access_view(
+        &self,
+        resource: &SResource,
+        desc: &SUnorderedAccessViewDesc,
+        dest_descriptor: SCPUDescriptorHandle,
+    ) {
+        unsafe {
+            let d3ddesc = desc.d3dtype();
+
+            self.device.CreateUnorderedAccessView(
+                resource.raw().as_raw(),
+                ptr::null_mut(),
+                &d3ddesc,
+                *dest_descriptor.raw(),
+            );
+        }
+    }
+
     pub fn create_committed_resource(
         &self,
         heapproperties: SHeapProperties,

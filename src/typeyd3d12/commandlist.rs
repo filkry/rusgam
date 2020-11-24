@@ -286,6 +286,19 @@ impl SCommandList {
         );
     }
 
+    pub unsafe fn dispatch(
+        &self,
+        thread_group_count_x : u32,
+        thread_group_count_y : u32,
+        thread_group_count_z : u32,
+    ) {
+        self.commandlist.Dispatch(
+            thread_group_count_x,
+            thread_group_count_y,
+            thread_group_count_z,
+        );
+    }
+
     pub unsafe fn close(&self) -> Result<(), &'static str> {
         let hn = self.commandlist.Close();
         returnerrifwinerror!(hn, "Could not close command list.");

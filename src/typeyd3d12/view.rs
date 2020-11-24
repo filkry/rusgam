@@ -341,3 +341,71 @@ impl SShaderResourceViewDesc {
         }
     }
 }
+
+pub enum ED3D12BufferUAVFlags {
+    None,
+    Raw,
+}
+
+impl ED3D12BufferUAVFlags {
+    pub fn d3dtype(&self) -> D3D12_BUFFER_UAV_FLAGS {
+        match &self {
+            Self::None => D3D12_BUFFER_UAV_FLAG_NONE,
+            Self::Raw => D3D12_BUFFER_UAV_FLAG_RAW,
+        }
+    }
+}
+
+pub struct SBufferUAV {
+    pub first_element: u64,
+    pub num_elements: usize,
+    pub structure_byte_stride: usize,
+    pub counter_offset_in_bytes: usize,
+    pub flags: ED3D12BufferUAVFlags,
+}
+
+impl SBufferUAV {
+    pub fn d3dtype(&self) -> D3D12_BUFFER_UAV {
+        D3D12_BUFFER_UAV {
+            FirstElement: self.first_element,
+            NumElements: self.num_elements as u32,
+            StructureByteStride: self.structure_byte_stride as u32,
+            CounterOffsetInBytes: self.counter_offset_in_bytes as u64,
+            Flags: self.flags.d3dtype(),
+        }
+    }
+}
+
+pub enum EUAV {
+    Buffer(SBufferUAV),
+}
+
+impl EUAV {
+    pub fn d3d_view_dimension(&self) -> D3D12_UAV_DIMENSION {
+        match self {
+            Self::Buffer(..) => D3D12_UAV_DIMENSION_BUFFER,
+        }
+    }
+}
+
+pub struct SUnorderedAccessViewDesc {
+    pub format: EDXGIFormat,
+    pub view: EUAV, // combines view_dimension with the underlying data
+}
+
+impl SUnorderedAccessViewDesc {
+    pub fn d3dtype(&self) -> D3D12_UNORDERED_ACCESS_VIEW_DESC {
+        unsafe {
+            let mut result = mem::MaybeUninit::<D3D12_UNORDERED_ACCESS_VIEW_DESC>::zeroed();
+            (*result.as_mut_ptr()).Format = self.format.d3dtype();
+            (*result.as_mut_ptr()).ViewDimension = self.view.d3d_view_dimension();
+            match &self.view {
+                EUAV::Buffer(data) => {
+                    *(*result.as_mut_ptr()).u.Buffer_mut() = data.d3dtype();
+                }
+            }
+
+            result.assume_init()
+        }
+    }
+}

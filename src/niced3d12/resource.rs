@@ -99,6 +99,35 @@ impl<T> SBufferResource<T> {
             std::ptr::copy_nonoverlapping(data.as_ptr(), self.map_mem.unwrap(), self.count);
         }
     }
+
+    pub fn create_srv_desc(&self) -> t12::SShaderResourceViewDesc {
+        t12::SShaderResourceViewDesc {
+            format: t12::EDXGIFormat::Unknown,
+            view: t12::ESRV::Buffer(
+                t12::SBufferSRV {
+                    first_element: 0,
+                    num_elements: self.count,
+                    structure_byte_stride: std::mem::size_of::<T>(),
+                    flags: t12::ED3D12BufferSRVFlags::None,
+                },
+            ),
+        }
+    }
+
+    pub fn create_uav_desc(&self) -> t12::SUnorderedAccessViewDesc {
+        t12::SUnorderedAccessViewDesc {
+            format: t12::EDXGIFormat::Unknown,
+            view: t12::EUAV::Buffer(
+                t12::SBufferUAV {
+                    first_element: 0,
+                    num_elements: self.count,
+                    structure_byte_stride: std::mem::size_of::<T>(),
+                    counter_offset_in_bytes: 0,
+                    flags: t12::ED3D12BufferUAVFlags::None,
+                },
+            ),
+        }
+    }
 }
 
 pub(super) fn update_subresources_stack(

@@ -29,7 +29,7 @@ pub struct SJoint {
 pub struct SMeshSkinning<'a> {
     vertex_skinning_data: SMemVec<'a, shaderbindings::SVertexSkinningData>,
     vertex_skinning_buffer_resource: n12::SBufferResource<shaderbindings::SVertexSkinningData>,
-    vertex_skinning_buffer_view: n12::SDescriptorAllocatorAllocation,
+    pub vertex_skinning_buffer_view: n12::SDescriptorAllocatorAllocation,
 
     bind_joints: SMemVec<'a, SJoint>,
     bind_model_to_joint_xforms: SMemVec<'a, Mat4>,
@@ -77,7 +77,7 @@ pub struct SMeshLoader<'a> {
     device: Weak<n12::SDevice>,
     copy_command_list_pool: n12::SCommandListPool,
     direct_command_list_pool: n12::SCommandListPool,
-    srv_heap: Weak<n12::descriptorallocator::SDescriptorAllocator>,
+    cbv_srv_uav_heap: Weak<n12::descriptorallocator::SDescriptorAllocator>,
 
     mesh_pool: SStoragePool<SMesh<'a>, u16, u16>,
 }
@@ -87,7 +87,7 @@ pub struct STextureLoader {
     device: Weak<n12::SDevice>,
     copy_command_list_pool: n12::SCommandListPool,
     direct_command_list_pool: n12::SCommandListPool,
-    srv_heap: Weak<n12::descriptorallocator::SDescriptorAllocator>,
+    cbv_srv_uav_heap: Weak<n12::descriptorallocator::SDescriptorAllocator>,
 
     texture_pool: SStoragePool<STexture, u16, u16>,
 }
@@ -118,6 +118,9 @@ pub struct SModelSkinning {
     pub skinned_verts_vbv: t12::SVertexBufferView,
     skinned_normals_resource: n12::SBufferResource<Vec3>,
     pub skinned_normals_vbv: t12::SVertexBufferView,
+
+    // -- UAV descriptors
+    uav_descriptors: n12::SDescriptorAllocatorAllocation,
 }
 
 impl<'a> SMeshLoader<'a> {
@@ -126,7 +129,7 @@ impl<'a> SMeshLoader<'a> {
         winapi: &rustywindows::SWinAPI,
         copy_command_queue: Weak<RefCell<n12::SCommandQueue>>,
         direct_command_queue: Weak<RefCell<n12::SCommandQueue>>,
-        srv_heap: Weak<n12::SDescriptorAllocator>,
+        cbv_srv_uav_heap: Weak<n12::SDescriptorAllocator>,
         pool_id: u64,
         max_mesh_count: u16,
     ) -> Result<Self, &'static str> {
@@ -134,7 +137,7 @@ impl<'a> SMeshLoader<'a> {
             device: device.clone(),
             copy_command_list_pool: n12::SCommandListPool::create(device.upgrade().expect("bad device").deref(), copy_command_queue, &winapi.rawwinapi(), 1, 2)?,
             direct_command_list_pool: n12::SCommandListPool::create(device.upgrade().expect("bad device").deref(), direct_command_queue, &winapi.rawwinapi(), 1, 2)?,
-            srv_heap,
+            cbv_srv_uav_heap,
             mesh_pool: SStoragePool::create(pool_id, max_mesh_count),
         })
     }
@@ -196,29 +199,10 @@ impl<'a> SMeshLoader<'a> {
         norms_resource: &n12::SBufferResource<Vec3>,
     ) -> Result<n12::SDescriptorAllocatorAllocation, &'static str> {
         // -- create srv_views
-        let descriptors = descriptor_alloc(&self.srv_heap.upgrade().expect("allocator dropped"), 2)?;
-        let vert_srv_desc = t12::SShaderResourceViewDesc {
-            format: t12::EDXGIFormat::Unknown,
-            view: t12::ESRV::Buffer(
-                t12::SBufferSRV {
-                    first_element: 0,
-                    num_elements: verts_resource.len(),
-                    structure_byte_stride: std::mem::size_of::<Vec3>(),
-                    flags: t12::ED3D12BufferSRVFlags::None,
-                },
-            ),
-        };
-        let norm_srv_desc = t12::SShaderResourceViewDesc {
-            format: t12::EDXGIFormat::Unknown,
-            view: t12::ESRV::Buffer(
-                t12::SBufferSRV {
-                    first_element: 0,
-                    num_elements: norms_resource.len(),
-                    structure_byte_stride: std::mem::size_of::<Vec3>(),
-                    flags: t12::ED3D12BufferSRVFlags::None,
-                },
-            ),
-        };
+        let descriptors = descriptor_alloc(&self.cbv_srv_uav_heap.upgrade().expect("allocator dropped"), 2)?;
+        let vert_srv_desc = verts_resource.create_srv_desc();
+        let norm_srv_desc = norms_resource.create_srv_desc();
+
         self.device.upgrade().expect("device dropped").create_shader_resource_view(
             &verts_resource.raw,
             &vert_srv_desc,
@@ -400,18 +384,8 @@ impl<'a> SMeshLoader<'a> {
                 t12::EResourceStates::NonPixelShaderResource,
             )?;
             let vertex_skinning_buffer_view = {
-                let descriptors = descriptor_alloc(&self.srv_heap.upgrade().expect("allocator dropped"), 1)?;
-                let srv_desc = t12::SShaderResourceViewDesc {
-                    format: t12::EDXGIFormat::Unknown,
-                    view: t12::ESRV::Buffer(
-                        t12::SBufferSRV {
-                            first_element: 0,
-                            num_elements: vertex_skinning_data.len(),
-                            structure_byte_stride: std::mem::size_of::<shaderbindings::SVertexSkinningData>(),
-                            flags: t12::ED3D12BufferSRVFlags::None,
-                        },
-                    ),
-                };
+                let descriptors = descriptor_alloc(&self.cbv_srv_uav_heap.upgrade().expect("allocator dropped"), 1)?;
+                let srv_desc = vertex_skinning_buffer_resource.create_srv_desc();
                 self.device.upgrade().expect("device dropped").create_shader_resource_view(
                     &vertex_skinning_buffer_resource.raw,
                     &srv_desc,
@@ -630,18 +604,8 @@ impl<'a> SMeshLoader<'a> {
             bind_joints.len(),
         )?;
         let joints_bind_to_cur_view = {
-            let descriptors = descriptor_alloc(&self.srv_heap.upgrade().expect("allocator dropped"), 1)?;
-            let srv_desc = t12::SShaderResourceViewDesc {
-                format: t12::EDXGIFormat::Unknown,
-                view: t12::ESRV::Buffer(
-                    t12::SBufferSRV {
-                        first_element: 0,
-                        num_elements: bind_joints.len(),
-                        structure_byte_stride: std::mem::size_of::<Mat4>(),
-                        flags: t12::ED3D12BufferSRVFlags::None,
-                    },
-                ),
-            };
+            let descriptors = descriptor_alloc(&self.cbv_srv_uav_heap.upgrade().expect("allocator dropped"), 1)?;
+            let srv_desc = joints_bind_to_cur_resource.create_srv_desc();
             self.device.upgrade().expect("device dropped").create_shader_resource_view(
                 &joints_bind_to_cur_resource.raw,
                 &srv_desc,
@@ -677,6 +641,22 @@ impl<'a> SMeshLoader<'a> {
         )?;
         let skinned_normals_vbv = skinned_normals_resource.raw.create_vertex_buffer_view()?;
 
+        // -- create uav
+        let descriptors = descriptor_alloc(&self.cbv_srv_uav_heap.upgrade().expect("allocator dropped"), 2)?;
+        let vert_uav_desc = skinned_verts_resource.create_uav_desc();
+        let norm_uav_desc = skinned_normals_resource.create_uav_desc();
+
+        self.device.upgrade().expect("device dropped").create_unordered_access_view(
+            &skinned_verts_resource.raw,
+            &vert_uav_desc,
+            descriptors.cpu_descriptor(SModelSkinning::UAVS_VERT_IDX),
+        )?;
+        self.device.upgrade().expect("device dropped").create_unordered_access_view(
+            &skinned_normals_resource.raw,
+            &norm_uav_desc,
+            descriptors.cpu_descriptor(SModelSkinning::UAVS_NORM_IDX),
+        )?;
+
         Ok(SModelSkinning{
             mesh,
             cur_joints_to_parents,
@@ -687,6 +667,8 @@ impl<'a> SMeshLoader<'a> {
             skinned_verts_vbv,
             skinned_normals_resource,
             skinned_normals_vbv,
+
+            uav_descriptors: descriptors,
         })
     }
 
@@ -789,6 +771,16 @@ impl<'a> SMeshLoader<'a> {
         &mesh.local_normals_vbv
     }
 
+    pub fn local_verts_srv(&self, mesh_handle: SMeshHandle) -> t12::SGPUDescriptorHandle {
+        let mesh = self.mesh_pool.get(mesh_handle).expect("querying invalid mesh");
+        mesh.srv_descriptors.gpu_descriptor(SMesh::SRVS_VERT_IDX)
+    }
+
+    pub fn local_normals_srv(&self, mesh_handle: SMeshHandle) -> t12::SGPUDescriptorHandle {
+        let mesh = self.mesh_pool.get(mesh_handle).expect("querying invalid mesh");
+        mesh.srv_descriptors.gpu_descriptor(SMesh::SRVS_NORM_IDX)
+    }
+
     pub fn uvs_vbv(&self, mesh_handle: SMeshHandle) -> &t12::SVertexBufferView {
         let mesh = self.mesh_pool.get(mesh_handle).expect("querying invalid mesh");
         &mesh.uvs_vbv
@@ -822,7 +814,7 @@ impl STextureLoader {
         winapi: &rustywindows::SWinAPI,
         copy_command_queue: Weak<RefCell<n12::SCommandQueue>>,
         direct_command_queue: Weak<RefCell<n12::SCommandQueue>>,
-        srv_heap: Weak<n12::SDescriptorAllocator>,
+        cbv_srv_uav_heap: Weak<n12::SDescriptorAllocator>,
         pool_id: u64,
         max_texture_count: u16,
     ) -> Result<Self, &'static str> {
@@ -830,7 +822,7 @@ impl STextureLoader {
             device: device.clone(),
             copy_command_list_pool: n12::SCommandListPool::create(device.upgrade().expect("dropped device").deref(), copy_command_queue, &winapi.rawwinapi(), 1, 2)?,
             direct_command_list_pool: n12::SCommandListPool::create(device.upgrade().expect("dropped device").deref(), direct_command_queue, &winapi.rawwinapi(), 1, 10)?,
-            srv_heap,
+            cbv_srv_uav_heap,
 
             texture_pool: SStoragePool::create(pool_id, max_texture_count),
         })
@@ -871,7 +863,7 @@ impl STextureLoader {
                 },
             };
 
-            let descriptors = descriptor_alloc(&self.srv_heap.upgrade().expect("allocator dropped"), 1)?;
+            let descriptors = descriptor_alloc(&self.cbv_srv_uav_heap.upgrade().expect("allocator dropped"), 1)?;
             self.device.upgrade().expect("device dropped").create_shader_resource_view(
                 texture_resource.as_ref().unwrap(),
                 &srv_desc,
@@ -1066,6 +1058,17 @@ impl SModel {
 }
 
 impl SModelSkinning {
+    const UAVS_VERT_IDX: usize = 0;
+    const UAVS_NORM_IDX: usize = 1;
+
+    pub fn skinned_verts_uav(&self) -> t12::SGPUDescriptorHandle {
+        self.uav_descriptors.gpu_descriptor(Self::UAVS_VERT_IDX)
+    }
+
+    pub fn skinned_normals_uav(&self) -> t12::SGPUDescriptorHandle {
+        self.uav_descriptors.gpu_descriptor(Self::UAVS_VERT_IDX)
+    }
+
     pub fn update_skinning_joint_buffer(&mut self, mesh_loader: &SMeshLoader) {
         STACK_ALLOCATOR.with(|sa| {
             if let Some(skinning) = mesh_loader.get_mesh_skinning(self.mesh) {

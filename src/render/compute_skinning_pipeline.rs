@@ -67,13 +67,12 @@ impl SComputeSkinningPipeline {
         command_list.set_pipeline_state(&self.pipeline_state);
         command_list.set_compute_root_signature(&self.root_signature.raw());
 
-        /*
         for entity in entities.entities() {
-            if let Some(skinning) = entity.model_skinning {
+            if let Some(skinning) = &entity.model_skinning {
                 let model = entity.model.expect("skinning without model");
 
-                let local_verts_vbv = mesh_loader.local_verts_vbv(model.mesh);
-                let local_normals_vbv = mesh_loader.local_normals_vbv(model.mesh);
+                let local_verts_srv = mesh_loader.local_verts_srv(model.mesh);
+                let local_normals_srv = mesh_loader.local_normals_srv(model.mesh);
 
                 let mesh_skinning = mesh_loader.get_mesh_skinning(model.mesh).expect("model skinning without mesh skinning");
 
@@ -81,18 +80,17 @@ impl SComputeSkinningPipeline {
                     &self.compute_shader_bind,
                     command_list,
                     skinning.joints_bind_to_cur_view.gpu_descriptor(0),
-                    local_verts_vbv,
-                    local_normals_vbv,
+                    local_verts_srv,
+                    local_normals_srv,
                     mesh_skinning.vertex_skinning_buffer_view.gpu_descriptor(0),
-                    skinning.skinned_verts_vbv,
-                    skinning.skinned_normals_vbv,
+                    skinning.skinned_verts_uav(),
+                    skinning.skinned_normals_uav(),
                 );
 
                 let num_verts = mesh_loader.vertex_count(model.mesh);
                 let num_groups = (num_verts / 64) + (if num_verts % 64 != 0 { 1 } else { 0 });
-                command_list.dispatch(num_groups, 0, 0);
+                command_list.dispatch(num_groups as u32, 0, 0);
             }
         }
-        */
     }
 }

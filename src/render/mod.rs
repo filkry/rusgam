@@ -58,7 +58,7 @@ pub struct SRender<'a> {
     direct_command_queue: Rc<RefCell<n12::SCommandQueue>>,
 
     dsv_heap: Rc<n12::SDescriptorAllocator>,
-    srv_heap: Rc<n12::SDescriptorAllocator>,
+    cbv_srv_uav_heap: Rc<n12::SDescriptorAllocator>,
 
     mesh_loader: SMeshLoader<'a>,
     texture_loader: STextureLoader,
@@ -212,7 +212,7 @@ impl<'a> SRender<'a> {
             t12::SDescriptorHeapFlags::none(),
         )?);
 
-        let srv_heap = Rc::new(n12::descriptorallocator::SDescriptorAllocator::new(
+        let cbv_srv_uav_heap = Rc::new(n12::descriptorallocator::SDescriptorAllocator::new(
             &device,
             32,
             t12::EDescriptorHeapType::ConstantBufferShaderResourceUnorderedAccess,
@@ -232,8 +232,8 @@ impl<'a> SRender<'a> {
         unsafe { direct_command_queue.borrow_mut().set_debug_name("render copy queue"); }
         let copy_command_pool =
             n12::SCommandListPool::create(&device, Rc::downgrade(&copy_command_queue), &winapi.rawwinapi(), 1, 10)?;
-        let mut mesh_loader = SMeshLoader::new(Rc::downgrade(&device), &winapi, Rc::downgrade(&copy_command_queue), Rc::downgrade(&direct_command_queue), Rc::downgrade(&srv_heap), 23948934, 1024)?;
-        let mut texture_loader = STextureLoader::new(Rc::downgrade(&device), &winapi, Rc::downgrade(&copy_command_queue), Rc::downgrade(&direct_command_queue), Rc::downgrade(&srv_heap), 9323, 1024)?;
+        let mut mesh_loader = SMeshLoader::new(Rc::downgrade(&device), &winapi, Rc::downgrade(&copy_command_queue), Rc::downgrade(&direct_command_queue), Rc::downgrade(&cbv_srv_uav_heap), 23948934, 1024)?;
+        let mut texture_loader = STextureLoader::new(Rc::downgrade(&device), &winapi, Rc::downgrade(&copy_command_queue), Rc::downgrade(&direct_command_queue), Rc::downgrade(&cbv_srv_uav_heap), 9323, 1024)?;
 
         // -- load shaders
         let vertex_hlsl = shaderbindings::SVertexHLSL::new()?;
@@ -287,7 +287,7 @@ impl<'a> SRender<'a> {
         let compute_skinning_pipeline = compute_skinning_pipeline::setup_pipeline(&device)?;
 
         let render_shadow_map = shadowmapping::setup_shadow_mapping_pipeline(
-            &device, &mut direct_command_pool, Rc::downgrade(&dsv_heap), Rc::downgrade(&srv_heap), 128, 128)?;
+            &device, &mut direct_command_pool, Rc::downgrade(&dsv_heap), Rc::downgrade(&cbv_srv_uav_heap), 128, 128)?;
         let render_imgui = SRenderImgui::new(imgui_ctxt, &mut texture_loader, &device)?;
         let render_temp = SRenderTemp::new(&device, &mut mesh_loader, &mut texture_loader)?;
 
@@ -303,7 +303,7 @@ impl<'a> SRender<'a> {
             _copy_command_queue: copy_command_queue,
             copy_command_pool,
             dsv_heap,
-            srv_heap,
+            cbv_srv_uav_heap,
 
             _depth_texture_resource: None,
             depth_texture_view: None,
@@ -613,7 +613,7 @@ impl<'a> SRender<'a> {
                 // -- setup the output merger
                 list.om_set_render_targets(&[&render_target_view], false, &depth_texture_view);
 
-                self.srv_heap.with_raw_heap(|rh| {
+                self.cbv_srv_uav_heap.with_raw_heap(|rh| {
                     list.set_descriptor_heaps(&[rh]);
                 });
 

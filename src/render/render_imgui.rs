@@ -377,7 +377,7 @@ impl<'a> super::SRender<'a> {
         let depth_texture_view = self.depth_texture_view.as_ref().expect("no depth texture").cpu_descriptor(0);
         list.om_set_render_targets(&[&render_target_view], false, &depth_texture_view);
 
-        self.srv_heap.with_raw_heap(|rh| {
+        self.cbv_srv_uav_heap.with_raw_heap(|rh| {
             list.set_descriptor_heaps(&[rh]);
         });
 

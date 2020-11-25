@@ -48,25 +48,6 @@ impl SEntityBucket {
 
     pub fn set_location(&mut self, entity: SEntityHandle, location: STransform) {
         self.entities.get_mut(entity).expect("invalid entity").location = location;
-
-        /*
-        if let Some(bvh) = data_bucket.get_bvh() {
-            bvh.with_mut(|bvh: &mut bvh::STree| {
-                let bvh_entry = self.get_entity_bvh_entry(entity);
-                let identity_aabb_opt = self.entities.get(entity).unwrap().identity_aabb;
-                if let Some(identity_aabb) = identity_aabb_opt {
-                    let transformed_aabb = SAABB::transform(&identity_aabb, &location);
-
-                    if bvh_entry.valid() {
-                        bvh.remove(bvh_entry);
-                    }
-                    let entry = bvh.insert(entity, &transformed_aabb);
-                    self.set_entity_bvh_entry(entity, entry);
-                }
-            });
-        }
-        */
-        panic!("Must implement BVH update step.");
     }
 
     pub fn entities(&self) -> &SStoragePool<SEntity, u16, u16> {

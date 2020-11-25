@@ -103,11 +103,10 @@ fn main_d3d12() -> Result<(), &'static str> {
 
     let mut data_bucket = databucket::SDataBucket::new(256, &SYSTEM_ALLOCATOR);
 
-    let entities = SEntityBucket::new(67485, 16);
-    data_bucket.add(entities);
+    data_bucket.add(SEntityBucket::new(67485, 16));
     data_bucket.add(render);
-    let bvh = bvh::STree::new();
-    data_bucket.add(bvh);
+    data_bucket.add(entity_model::SBucket::new(&SYSTEM_ALLOCATOR, 1024)?);
+    data_bucket.add(bvh::STree::new());
 
     let rotating_entity = entitytypes::testtexturedcubeentity::create(
         &data_bucket, Some("tst_rotating"),
@@ -324,6 +323,25 @@ fn main_d3d12() -> Result<(), &'static str> {
                 });
             });
         });
+        */
+
+        panic!("Implement bvh updates!");
+        /*
+        if let Some(bvh) = data_bucket.get_bvh() {
+            bvh.with_mut(|bvh: &mut bvh::STree| {
+                let bvh_entry = self.get_entity_bvh_entry(entity);
+                let identity_aabb_opt = self.entities.get(entity).unwrap().identity_aabb;
+                if let Some(identity_aabb) = identity_aabb_opt {
+                    let transformed_aabb = SAABB::transform(&identity_aabb, &location);
+
+                    if bvh_entry.valid() {
+                        bvh.remove(bvh_entry);
+                    }
+                    let entry = bvh.insert(entity, &transformed_aabb);
+                    self.set_entity_bvh_entry(entity, entry);
+                }
+            });
+        }
         */
 
         panic!("Implement render updates!");

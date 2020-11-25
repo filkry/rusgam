@@ -121,20 +121,27 @@ impl<'a> SDataBucket<'a> {
 
 // -- ugly helpers
 
-pub struct SMultiRef2<T, R> {
-    d0: SDataRef<T>,
-    d1: SDataRef<R>,
+pub struct SMultiRef2<T0, T1> {
+    d0: SDataRef<T0>,
+    d1: SDataRef<T1>,
 }
 
-pub struct SMultiRef3<T, R, S> {
-    d0: SDataRef<T>,
-    d1: SDataRef<R>,
-    d2: SDataRef<S>,
+pub struct SMultiRef3<T0, T1, T2> {
+    d0: SDataRef<T0>,
+    d1: SDataRef<T1>,
+    d2: SDataRef<T2>,
 }
 
-impl<T, R> SMultiRef2<T, R> {
-    pub fn and<S: TDataBucketMember>(self, data_bucket: &SDataBucket) -> Option<SMultiRef3<T, R, S>> {
-        let third = data_bucket.get::<S>();
+pub struct SMultiRef4<T0, T1, T2, T3> {
+    d0: SDataRef<T0>,
+    d1: SDataRef<T1>,
+    d2: SDataRef<T2>,
+    d3: SDataRef<T3>,
+}
+
+impl<T0, T1> SMultiRef2<T0, T1> {
+    pub fn and<T2: TDataBucketMember>(self, data_bucket: &SDataBucket) -> Option<SMultiRef3<T0, T1, T2>> {
+        let third = data_bucket.get::<T2>();
         if let Some(d2) = third {
             Some(SMultiRef3{
                 d0: self.d0,
@@ -148,7 +155,7 @@ impl<T, R> SMultiRef2<T, R> {
     }
 
     pub fn with_cc<Fun, Ret>(&self, mut function: Fun) -> Ret where
-    Fun: FnMut(&T, &R) -> Ret
+    Fun: FnMut(&T0, &T1) -> Ret
     {
         let rc0 = self.d0.data.upgrade().expect("dropped data bucket before ref!");
         let rc1 = self.d1.data.upgrade().expect("dropped data bucket before ref!");
@@ -159,7 +166,7 @@ impl<T, R> SMultiRef2<T, R> {
     }
 
     pub fn with_mc<Fun, Ret>(&self, mut function: Fun) -> Ret where
-    Fun: FnMut(&mut T, &R) -> Ret
+    Fun: FnMut(&mut T0, &T1) -> Ret
     {
         let rc0 = self.d0.data.upgrade().expect("dropped data bucket before ref!");
         let rc1 = self.d1.data.upgrade().expect("dropped data bucket before ref!");
@@ -170,7 +177,7 @@ impl<T, R> SMultiRef2<T, R> {
     }
 
     pub fn with_mm<Fun, Ret>(&self, mut function: Fun) -> Ret where
-    Fun: FnMut(&mut T, &mut R) -> Ret
+    Fun: FnMut(&mut T0, &mut T1) -> Ret
     {
         let rc0 = self.d0.data.upgrade().expect("dropped data bucket before ref!");
         let rc1 = self.d1.data.upgrade().expect("dropped data bucket before ref!");
@@ -181,9 +188,24 @@ impl<T, R> SMultiRef2<T, R> {
     }
 }
 
-impl<T, R, S> SMultiRef3<T, R, S> {
+impl<T0, T1, T2> SMultiRef3<T0, T1, T2> {
+    pub fn and<T3: TDataBucketMember>(self, data_bucket: &SDataBucket) -> Option<SMultiRef4<T0, T1, T2, T3>> {
+        let fourth = data_bucket.get::<T3>();
+        if let Some(d3) = fourth {
+            Some(SMultiRef4{
+                d0: self.d0,
+                d1: self.d1,
+                d2: self.d2,
+                d3,
+            })
+        }
+        else {
+            None
+        }
+    }
+
     pub fn with_ccc<Fun, Ret>(&self, mut function: Fun) -> Ret where
-    Fun: FnMut(&T, &R, &S) -> Ret
+    Fun: FnMut(&T0, &T1, &T2) -> Ret
     {
         let rc0 = self.d0.data.upgrade().expect("dropped data bucket before ref!");
         let rc1 = self.d1.data.upgrade().expect("dropped data bucket before ref!");
@@ -196,7 +218,7 @@ impl<T, R, S> SMultiRef3<T, R, S> {
     }
 
     pub fn with_mcc<Fun, Ret>(&self, mut function: Fun) -> Ret where
-    Fun: FnMut(&mut T, &R, &S) -> Ret
+    Fun: FnMut(&mut T0, &T1, &T2) -> Ret
     {
         let rc0 = self.d0.data.upgrade().expect("dropped data bucket before ref!");
         let rc1 = self.d1.data.upgrade().expect("dropped data bucket before ref!");
@@ -209,7 +231,7 @@ impl<T, R, S> SMultiRef3<T, R, S> {
     }
 
     pub fn with_mmc<Fun, Ret>(&self, mut function: Fun) -> Ret where
-    Fun: FnMut(&mut T, &mut R, &S) -> Ret
+    Fun: FnMut(&mut T0, &mut T1, &T2) -> Ret
     {
         let rc0 = self.d0.data.upgrade().expect("dropped data bucket before ref!");
         let rc1 = self.d1.data.upgrade().expect("dropped data bucket before ref!");
@@ -222,7 +244,7 @@ impl<T, R, S> SMultiRef3<T, R, S> {
     }
 
     pub fn with_mmm<Fun, Ret>(&self, mut function: Fun) -> Ret where
-    Fun: FnMut(&mut T, &mut R, &mut S) -> Ret
+    Fun: FnMut(&mut T0, &mut T1, &mut T2) -> Ret
     {
         let rc0 = self.d0.data.upgrade().expect("dropped data bucket before ref!");
         let rc1 = self.d1.data.upgrade().expect("dropped data bucket before ref!");
@@ -232,5 +254,82 @@ impl<T, R, S> SMultiRef3<T, R, S> {
         let mut data1 = rc1.borrow_mut();
         let mut data2 = rc2.borrow_mut();
         function(data0.deref_mut(), data1.deref_mut(), data2.deref_mut())
+    }
+}
+
+impl<T0, T1, T2, T3> SMultiRef4<T0, T1, T2, T3> {
+    pub fn with_cccc<Fun, Ret>(&self, mut function: Fun) -> Ret where
+    Fun: FnMut(&T0, &T1, &T2, &T3) -> Ret
+    {
+        let rc0 = self.d0.data.upgrade().expect("dropped data bucket before ref!");
+        let rc1 = self.d1.data.upgrade().expect("dropped data bucket before ref!");
+        let rc2 = self.d2.data.upgrade().expect("dropped data bucket before ref!");
+        let rc3 = self.d3.data.upgrade().expect("dropped data bucket before ref!");
+
+        let data0 = rc0.borrow();
+        let data1 = rc1.borrow();
+        let data2 = rc2.borrow();
+        let data3 = rc3.borrow();
+        function(data0.deref(), data1.deref(), data2.deref(), data3.deref())
+    }
+
+    pub fn with_mccc<Fun, Ret>(&self, mut function: Fun) -> Ret where
+    Fun: FnMut(&mut T0, &T1, &T2, &T3) -> Ret
+    {
+        let rc0 = self.d0.data.upgrade().expect("dropped data bucket before ref!");
+        let rc1 = self.d1.data.upgrade().expect("dropped data bucket before ref!");
+        let rc2 = self.d2.data.upgrade().expect("dropped data bucket before ref!");
+        let rc3 = self.d3.data.upgrade().expect("dropped data bucket before ref!");
+
+        let mut data0 = rc0.borrow_mut();
+        let data1 = rc1.borrow();
+        let data2 = rc2.borrow();
+        let data3 = rc3.borrow();
+        function(data0.deref_mut(), data1.deref(), data2.deref(), data3.deref())
+    }
+
+    pub fn with_mmcc<Fun, Ret>(&self, mut function: Fun) -> Ret where
+    Fun: FnMut(&mut T0, &mut T1, &T2, &T3) -> Ret
+    {
+        let rc0 = self.d0.data.upgrade().expect("dropped data bucket before ref!");
+        let rc1 = self.d1.data.upgrade().expect("dropped data bucket before ref!");
+        let rc2 = self.d2.data.upgrade().expect("dropped data bucket before ref!");
+        let rc3 = self.d3.data.upgrade().expect("dropped data bucket before ref!");
+
+        let mut data0 = rc0.borrow_mut();
+        let mut data1 = rc1.borrow_mut();
+        let data2 = rc2.borrow();
+        let data3 = rc3.borrow();
+        function(data0.deref_mut(), data1.deref_mut(), data2.deref(), data3.deref())
+    }
+
+    pub fn with_mmmc<Fun, Ret>(&self, mut function: Fun) -> Ret where
+    Fun: FnMut(&mut T0, &mut T1, &mut T2, &T3) -> Ret
+    {
+        let rc0 = self.d0.data.upgrade().expect("dropped data bucket before ref!");
+        let rc1 = self.d1.data.upgrade().expect("dropped data bucket before ref!");
+        let rc2 = self.d2.data.upgrade().expect("dropped data bucket before ref!");
+        let rc3 = self.d3.data.upgrade().expect("dropped data bucket before ref!");
+
+        let mut data0 = rc0.borrow_mut();
+        let mut data1 = rc1.borrow_mut();
+        let mut data2 = rc2.borrow_mut();
+        let data3 = rc3.borrow();
+        function(data0.deref_mut(), data1.deref_mut(), data2.deref_mut(), data3.deref())
+    }
+
+    pub fn with_mmmm<Fun, Ret>(&self, mut function: Fun) -> Ret where
+    Fun: FnMut(&mut T0, &mut T1, &mut T2, &mut T3) -> Ret
+    {
+        let rc0 = self.d0.data.upgrade().expect("dropped data bucket before ref!");
+        let rc1 = self.d1.data.upgrade().expect("dropped data bucket before ref!");
+        let rc2 = self.d2.data.upgrade().expect("dropped data bucket before ref!");
+        let rc3 = self.d3.data.upgrade().expect("dropped data bucket before ref!");
+
+        let mut data0 = rc0.borrow_mut();
+        let mut data1 = rc1.borrow_mut();
+        let mut data2 = rc2.borrow_mut();
+        let mut data3 = rc3.borrow_mut();
+        function(data0.deref_mut(), data1.deref_mut(), data2.deref_mut(), data3.deref_mut())
     }
 }

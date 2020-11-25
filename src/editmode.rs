@@ -1,3 +1,4 @@
+use allocate::{STACK_ALLOCATOR, SMemVec};
 use bvh;
 use camera;
 use databucket;
@@ -250,12 +251,30 @@ impl EEditMode {
         // -- cast ray to select entity for edit mode
         ctxt.clicked_entity = None;
         if input.left_mouse_edge.down() && !em_input.imgui_want_capture_mouse && !mode.eats_mouse() {
-            data_bucket.get::<bvh::STree>().unwrap().with(|bvh: &bvh::STree| {
-                let entity_hit = bvh.cast_ray(&data_bucket, &cursor_ray);
-                if entity_hit.is_some() {
-                    ctxt.clicked_entity = entity_hit;
-                    ctxt.can_select_clicked_entity = true;
-                }
+            data_bucket.get::<bvh::STree<SEntityHandle>>().unwrap().with(|bvh: &bvh::STree<SEntityHandle>| {
+
+                STACK_ALLOCATOR.with(|sa| {
+                    let mut bvh_results = SMemVec::<(f32, SEntityHandle)>::new(sa, 256, 0).unwrap();
+                    bvh.cast_ray(&cursor_ray, &mut bvh_results);
+
+                    let mut min_t : Option::<f32> = None;
+                    let mut min_entity : Option<SEntityHandle> = None;
+
+                    for (t, entity) in bvh_results.as_ref() {
+                        if *t < min_t.unwrap_or(std::f32::MAX) {
+                            if let Some(t_mesh) = render::cast_ray_against_entity_model(data_bucket, &cursor_ray, *entity) {
+                                min_t = Some(t_mesh);
+                                min_entity = Some(*entity);
+                            }
+                        }
+                    }
+
+                    if let Some(_) = min_entity {
+                        ctxt.clicked_entity = min_entity;
+                        ctxt.can_select_clicked_entity = true;
+                    }
+                });
+
             });
         }
 
@@ -276,10 +295,10 @@ impl EEditMode {
                     mode = EEditMode::update_rotation(ctxt, &em_input, &input, &render, &entities);
                 }
                 else if let EEditMode::TranslationDragging(data) = mode.clone() {
-                    mode = data.update(&input, &em_input, render, entities, &data_bucket);
+                    mode = data.update(&input, &em_input, render, entities);
                 }
                 else if let EEditMode::RotationDragging(data) = mode.clone() {
-                    mode = data.update(&input, &em_input, render, entities, &data_bucket);
+                    mode = data.update(&input, &em_input, render, entities);
                 }
             });
         });
@@ -343,7 +362,6 @@ impl SEditModeTranslationDragging {
         editmode_input: &SEditModeInput,
         render: &mut render::SRender,
         entities: &mut SEntityBucket,
-        data_bucket: &databucket::SDataBucket
     ) -> EEditMode {
         if !input.left_mouse_down {
             return EEditMode::Translation;
@@ -402,7 +420,6 @@ impl SEditModeRotationDragging {
         editmode_input: &SEditModeInput,
         render: &mut render::SRender,
         entities: &mut SEntityBucket,
-        data_bucket: &databucket::SDataBucket
     ) -> EEditMode {
         if !input.left_mouse_down {
             return EEditMode::Rotation;

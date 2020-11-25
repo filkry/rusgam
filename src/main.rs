@@ -211,7 +211,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                     }
                 });
 
-                data_bucket.get_bvh().unwrap().with(|bvh: &bvh::STree| {
+                data_bucket.get_bvh().unwrap().with(|bvh: &bvh::STree<entity::SEntityHandle>| {
                     bvh.imgui_menu(&imgui_ui, &mut draw_selected_bvh);
                 });
 
@@ -232,8 +232,8 @@ fn main_d3d12() -> Result<(), &'static str> {
                 STACK_ALLOCATOR.with(|sa| {
                     data_bucket.get::<render::SRender>().expect("")
                         .and::<entity_model::SBucket>(&data_bucket).expect("")
-                        .and::<bvh::STree>(&data_bucket).expect("")
-                        .with_mcc(|render: &mut render::SRender, em: &entity_model::SBucket, bvh: &bvh::STree| {
+                        .and::<bvh::STree<entity::SEntityHandle>>(&data_bucket).expect("")
+                        .with_mcc(|render: &mut render::SRender, em: &entity_model::SBucket, bvh: &bvh::STree<entity::SEntityHandle>| {
                             let model_handle = em.handle_for_entity(e).unwrap();
 
                             let mut aabbs = SMemVec::new(sa, 32, 0).unwrap();
@@ -325,24 +325,33 @@ fn main_d3d12() -> Result<(), &'static str> {
         });
         */
 
-        panic!("Implement bvh updates!");
-        /*
-        if let Some(bvh) = data_bucket.get_bvh() {
-            bvh.with_mut(|bvh: &mut bvh::STree| {
-                let bvh_entry = self.get_entity_bvh_entry(entity);
-                let identity_aabb_opt = self.entities.get(entity).unwrap().identity_aabb;
-                if let Some(identity_aabb) = identity_aabb_opt {
-                    let transformed_aabb = SAABB::transform(&identity_aabb, &location);
+        data_bucket.get::<bvh::STree<entity::SEntityHandle>>().unwrap()
+            .and::<SEntityBucket>(&data_bucket).unwrap()
+            .and::<render::SRender>(&data_bucket).unwrap()
+            .and::<entity_model::SBucket>(&data_bucket).unwrap()
+            .with_mccc(|
+                bvh: &mut bvh::STree<entity::SEntityHandle>,
+                entities: &SEntityBucket,
+                render: &render::SRender,
+                entity_model: &entity_model::SBucket,
+            | {
+                // -- $$$FRK(TODO): only update dirty
+                for i in 0..entity_model.models.len() {
+                    let model_handle : entity_model::SHandle = i;
 
-                    if bvh_entry.valid() {
-                        bvh.remove(bvh_entry);
+                    if let Some(bvh_entry) = entity_model.get_bvh_entry(model_handle) {
+                        let entity_handle = entity_model.get_entity(model_handle);
+                        let mesh = entity_model.get_model(model_handle).mesh;
+                        let identity_aabb = render.mesh_loader().get_mesh_local_aabb(mesh);
+
+                        let location = entities.get_entity_location(entity_handle);
+
+                        let transformed_aabb = utils::SAABB::transform(&identity_aabb, &location);
+
+                        bvh.update_entry(bvh_entry, &transformed_aabb);
                     }
-                    let entry = bvh.insert(entity, &transformed_aabb);
-                    self.set_entity_bvh_entry(entity, entry);
                 }
             });
-        }
-        */
 
         panic!("Implement render updates!");
 

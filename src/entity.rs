@@ -50,10 +50,12 @@ impl SEntityBucket {
         self.entities.get_mut(entity).expect("invalid entity").location = location;
     }
 
+    #[allow(dead_code)]
     pub fn entities(&self) -> &SStoragePool<SEntity, u16, u16> {
         &self.entities
     }
 
+    #[allow(dead_code)]
     pub fn entities_mut(&mut self) -> &mut SStoragePool<SEntity, u16, u16> {
         &mut self.entities
     }

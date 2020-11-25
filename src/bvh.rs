@@ -1,17 +1,15 @@
 use allocate::{STACK_ALLOCATOR, SMemQueue, SMemVec};
 use collections::{SPoolHandle, SPool};
-use databucket::{SDataBucket};
-use render;
 use safewindows;
 use utils::{SAABB, SRay, ray_intersects_aabb};
 
 pub type SNodeHandle = SPoolHandle<u16, u16>;
 
 #[derive(Clone)]
-struct SLeafNode {
+struct SLeafNode<TOwner: Clone> {
     bounds: SAABB,
     parent: SNodeHandle,
-    owner: SNodeHandle,
+    owner: TOwner,
 }
 
 #[derive(Clone)]
@@ -23,18 +21,18 @@ struct SInternalNode {
 }
 
 #[derive(Clone)]
-enum ENode {
+enum ENode<TOwner: Clone> {
     Free,
-    Leaf(SLeafNode),
+    Leaf(SLeafNode<TOwner>),
     Internal(SInternalNode),
 }
 
-pub struct STree {
-    nodes: SPool<ENode, u16, u16>,
+pub struct STree<TOwner: Clone> {
+    nodes: SPool<ENode<TOwner>, u16, u16>,
     root: SNodeHandle,
 }
 
-impl ENode {
+impl<TOwner: Clone> ENode<TOwner> {
     pub fn parent(&self) -> SNodeHandle {
         match self {
             Self::Free => {
@@ -86,15 +84,23 @@ impl ENode {
             Self::Internal(internal) => { internal.bounds = new_bounds.clone() },
         }
     }
+
+    pub fn owner(&self) -> Result<TOwner, &'static str> {
+        if let Self::Leaf(leaf) = self {
+            return Ok(leaf.owner.clone());
+        }
+
+        Err("asked for owner of non-leaf node!")
+    }
 }
 
-impl Default for ENode {
+impl<TOwner: Clone> Default for ENode<TOwner> {
     fn default() -> Self {
         Self::Free
     }
 }
 
-impl STree {
+impl<TOwner: Clone> STree<TOwner> {
     fn union(&self, a: SNodeHandle, b: SNodeHandle) -> SAABB {
         let a_aabb = self.nodes.get(a).unwrap().bounds();
         let b_aabb = self.nodes.get(b).unwrap().bounds();
@@ -169,6 +175,10 @@ impl STree {
             nodes: SPool::create_default(0, 1024),
             root: SNodeHandle::default(),
         }
+    }
+
+    pub fn owner(&self, node_handle: SNodeHandle) -> TOwner {
+        self.nodes.get(node_handle).expect("invalid entry").owner().expect("asked for owner of non-leaf!")
     }
 
     fn update_bounds_from_children(&mut self, node_handle: SNodeHandle) {
@@ -269,9 +279,12 @@ impl STree {
         }
     }
 
-    pub fn insert(&mut self, owner: SNodeHandle, bounds: &SAABB) -> SNodeHandle {
+    pub fn insert(&mut self, owner: TOwner, bounds: &SAABB, fixed_handle: Option<SNodeHandle>) -> SNodeHandle {
         let first : bool = self.nodes.used() == 0;
-        let leaf_handle = self.nodes.alloc().unwrap();
+        let leaf_handle = match fixed_handle {
+            Some(h) => h,
+            None => self.nodes.alloc().unwrap(),
+        };
 
         // -- initialize node
         {
@@ -471,9 +484,14 @@ impl STree {
         })
     }
 
-    pub fn remove(&mut self, entry: SNodeHandle) {
-        let mut handle_to_delete = entry;
-        drop(entry);
+    pub fn update_entry(&mut self, entry: SNodeHandle, bounds: &SAABB) {
+        let owner = self.owner(entry);
+        self.remove(entry.clone(), false);
+        self.insert(owner, bounds, Some(entry));
+    }
+
+    pub fn remove(&mut self, target_entry: SNodeHandle, free_entry: bool) {
+        let mut handle_to_delete = target_entry;
 
         while handle_to_delete.valid() {
             let parent_handle = self.nodes.get(handle_to_delete).unwrap().parent();
@@ -498,7 +516,10 @@ impl STree {
                 }
             }
             *self.nodes.get_mut(handle_to_delete).unwrap() = ENode::Free;
-            self.nodes.free(handle_to_delete);
+
+            if handle_to_delete != target_entry || free_entry {
+                self.nodes.free(handle_to_delete);
+            }
 
             if other_child_handle.valid() {
                 if parent_parent_handle.valid() {
@@ -638,45 +659,31 @@ impl STree {
         }
     }
 
-    // -- returns "owner" field of hit item
-    pub fn cast_ray(&self, ctxt: &SDataBucket, ray: &SRay) -> Option<SNodeHandle> {
+    // -- returns all leaf nodes, and the t to their start
+    pub fn cast_ray<'a>(&self, ray: &SRay, out: &mut SMemVec<'a, (f32, TOwner)>) {
         if self.nodes.used() == 0 {
-            return None;
+            return;
         }
 
-        let result = STACK_ALLOCATOR.with(|sa| {
+        STACK_ALLOCATOR.with(|sa| {
             let mut to_search = SMemVec::<SNodeHandle>::new(sa, self.nodes.used() as usize, 0).unwrap();
             to_search.push(self.root);
-
-            let mut min_t : Option<f32> = None;
-            let mut min_owner : Option<SNodeHandle> = None;
 
             while let Some(cur_handle) = to_search.pop() {
                 let node = self.nodes.get(cur_handle).unwrap();
                 let aabb = &node.bounds().unwrap();
 
                 if let Some(t) = ray_intersects_aabb(&ray, aabb) {
-                    if min_t.is_none() || t < min_t.unwrap() {
-                        if let ENode::Internal(internal) = node {
-                            to_search.push(internal.child1);
-                            to_search.push(internal.child2);
-                        }
-                        else if let ENode::Leaf(leaf) = node {
-                            if let Some(t_mesh) = render::cast_ray_against_entity_model(ctxt, &ray, leaf.owner) {
-                                if min_t.is_none() || t_mesh < min_t.unwrap() {
-                                    min_t = Some(t_mesh);
-                                    min_owner = Some(leaf.owner);
-                                }
-                            }
-                        }
+                    if let ENode::Internal(internal) = node {
+                        to_search.push(internal.child1);
+                        to_search.push(internal.child2);
+                    }
+                    else if let ENode::Leaf(leaf) = node {
+                        out.push((t, leaf.owner.clone()));
                     }
                 }
             }
-
-            min_owner
         });
-
-        result
     }
 
     pub fn imgui_menu(&self, imgui_ui: &imgui::Ui, draw_selected_bvh: &mut bool) {
@@ -699,9 +706,10 @@ impl STree {
                     if imgui_ui.collapsing_header(&im_str!("Node {}.{}", cur_handle.index(), cur_handle.generation())).build() {
                         imgui_ui.indent();
                         let node = self.nodes.get(cur_handle).unwrap();
-                        if let ENode::Leaf(leaf) = node {
-                            imgui_ui.text(&im_str!("Owner: {}.{}", leaf.owner.index(), leaf.owner.generation()));
-                            imgui_ui.unindent();
+                        if let ENode::Leaf(_leaf) = node {
+                            panic!("re-implement");
+                            //imgui_ui.text(&im_str!("Owner: {}.{}", leaf.owner.index(), leaf.owner.generation()));
+                            //imgui_ui.unindent();
                         }
                         else if let ENode::Internal(internal) = node {
                             to_show.push(internal.child1);

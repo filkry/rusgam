@@ -4,9 +4,9 @@ use bvh;
 use model::SModel;
 
 pub struct SBucket<'a> {
-    owners: SMemVec<'a, SEntityHandle>,
-    models: SMemVec<'a, SModel>,
-    bvh_entries: SMemVec<'a, Option<bvh::SNodeHandle>>,
+    pub owners: SMemVec<'a, SEntityHandle>,
+    pub models: SMemVec<'a, SModel>,
+    pub bvh_entries: SMemVec<'a, Option<bvh::SNodeHandle>>,
 }
 
 pub type SHandle = usize;
@@ -38,6 +38,10 @@ impl<'a> SBucket<'a> {
         }
 
         None
+    }
+
+    pub fn get_entity(&self, handle: SHandle) -> SEntityHandle {
+        self.owners[handle]
     }
 
     pub fn get_model(&self, handle: SHandle) -> &SModel {

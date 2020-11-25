@@ -13,7 +13,7 @@ use render;
 pub trait TDataBucketMember : std::any::Any {
 }
 
-impl TDataBucketMember for bvh::STree {}
+impl TDataBucketMember for bvh::STree<entity::SEntityHandle> {}
 impl TDataBucketMember for entity::SEntityBucket {}
 impl TDataBucketMember for entity_model::SBucket<'static> {}
 impl TDataBucketMember for render::SRender<'static> {}
@@ -106,8 +106,8 @@ impl<'a> SDataBucket<'a> {
         None
     }
 
-    pub fn get_bvh(&self) -> Option<SDataRef<bvh::STree>> {
-        self.get::<bvh::STree>()
+    pub fn get_bvh(&self) -> Option<SDataRef<bvh::STree<entity::SEntityHandle>>> {
+        self.get::<bvh::STree<entity::SEntityHandle>>()
     }
 
     pub fn get_entities(&self) -> Option<SDataRef<entity::SEntityBucket>> {
@@ -121,17 +121,20 @@ impl<'a> SDataBucket<'a> {
 
 // -- ugly helpers
 
+#[allow(dead_code)]
 pub struct SMultiRef2<T0, T1> {
     d0: SDataRef<T0>,
     d1: SDataRef<T1>,
 }
 
+#[allow(dead_code)]
 pub struct SMultiRef3<T0, T1, T2> {
     d0: SDataRef<T0>,
     d1: SDataRef<T1>,
     d2: SDataRef<T2>,
 }
 
+#[allow(dead_code)]
 pub struct SMultiRef4<T0, T1, T2, T3> {
     d0: SDataRef<T0>,
     d1: SDataRef<T1>,
@@ -139,6 +142,7 @@ pub struct SMultiRef4<T0, T1, T2, T3> {
     d3: SDataRef<T3>,
 }
 
+#[allow(dead_code)]
 impl<T0, T1> SMultiRef2<T0, T1> {
     pub fn and<T2: TDataBucketMember>(self, data_bucket: &SDataBucket) -> Option<SMultiRef3<T0, T1, T2>> {
         let third = data_bucket.get::<T2>();
@@ -188,6 +192,7 @@ impl<T0, T1> SMultiRef2<T0, T1> {
     }
 }
 
+#[allow(dead_code)]
 impl<T0, T1, T2> SMultiRef3<T0, T1, T2> {
     pub fn and<T3: TDataBucketMember>(self, data_bucket: &SDataBucket) -> Option<SMultiRef4<T0, T1, T2, T3>> {
         let fourth = data_bucket.get::<T3>();
@@ -257,6 +262,7 @@ impl<T0, T1, T2> SMultiRef3<T0, T1, T2> {
     }
 }
 
+#[allow(dead_code)]
 impl<T0, T1, T2, T3> SMultiRef4<T0, T1, T2, T3> {
     pub fn with_cccc<Fun, Ret>(&self, mut function: Fun) -> Ret where
     Fun: FnMut(&T0, &T1, &T2, &T3) -> Ret

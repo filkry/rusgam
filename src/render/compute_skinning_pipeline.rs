@@ -71,8 +71,8 @@ impl SComputeSkinningPipeline {
             if let Some(skinning) = &entity.model_skinning {
                 let model = entity.model.expect("skinning without model");
 
-                let local_verts_srv = mesh_loader.local_verts_srv(model.mesh);
-                let local_normals_srv = mesh_loader.local_normals_srv(model.mesh);
+                let local_verts_address = mesh_loader.local_verts_resource(model.mesh).raw.raw().get_gpu_virtual_address();
+                let local_normals_address = mesh_loader.local_normals_resource(model.mesh).raw.raw().get_gpu_virtual_address();
 
                 let mesh_skinning = mesh_loader.get_mesh_skinning(model.mesh).expect("model skinning without mesh skinning");
 
@@ -80,16 +80,27 @@ impl SComputeSkinningPipeline {
                     &self.compute_shader_bind,
                     command_list,
                     skinning.joints_bind_to_cur_resource.raw.raw().get_gpu_virtual_address(),
-                    local_verts_srv,
-                    local_normals_srv,
-                    mesh_skinning.vertex_skinning_buffer_view.gpu_descriptor(0),
-                    skinning.skinned_verts_uav(),
-                    skinning.skinned_normals_uav(),
+                    local_verts_address,
+                    local_normals_address,
+                    mesh_skinning.vertex_skinning_buffer_resource.raw.raw().get_gpu_virtual_address(),
+                    skinning.skinned_verts_resource.raw.raw().get_gpu_virtual_address(),
+                    skinning.skinned_normals_resource.raw.raw().get_gpu_virtual_address(),
                 );
 
                 let num_verts = mesh_loader.vertex_count(model.mesh);
                 let num_groups = (num_verts / 64) + (if num_verts % 64 != 0 { 1 } else { 0 });
-                command_list.dispatch(num_groups as u32, 0, 0);
+                command_list.dispatch(num_groups as u32, 1, 1);
+
+                command_list.transition_resource(
+                    &skinning.skinned_verts_resource.raw,
+                    t12::EResourceStates::UnorderedAccess,
+                    t12::EResourceStates::VertexAndConstantBuffer,
+                ).unwrap();
+                command_list.transition_resource(
+                    &skinning.skinned_normals_resource.raw,
+                    t12::EResourceStates::UnorderedAccess,
+                    t12::EResourceStates::VertexAndConstantBuffer,
+                ).unwrap();
             }
         }
     }

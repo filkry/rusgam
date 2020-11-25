@@ -28,7 +28,7 @@ pub struct SJoint {
 
 pub struct SMeshSkinning<'a> {
     vertex_skinning_data: SMemVec<'a, shaderbindings::SVertexSkinningData>,
-    vertex_skinning_buffer_resource: n12::SBufferResource<shaderbindings::SVertexSkinningData>,
+    pub vertex_skinning_buffer_resource: n12::SBufferResource<shaderbindings::SVertexSkinningData>,
     pub vertex_skinning_buffer_view: n12::SDescriptorAllocatorAllocation,
 
     bind_joints: SMemVec<'a, SJoint>,
@@ -761,6 +761,16 @@ impl<'a> SMeshLoader<'a> {
     pub fn index_count(&self, mesh_handle: SMeshHandle) -> usize {
         let mesh = self.mesh_pool.get(mesh_handle).expect("querying invalid mesh");
         mesh.indices.len()
+    }
+
+    pub fn local_verts_resource(&self, mesh_handle: SMeshHandle) -> &n12::SBufferResource<Vec3> {
+        let mesh = self.mesh_pool.get(mesh_handle).expect("querying invalid mesh");
+        &mesh.local_verts_resource
+    }
+
+    pub fn local_normals_resource(&self, mesh_handle: SMeshHandle) -> &n12::SBufferResource<Vec3> {
+        let mesh = self.mesh_pool.get(mesh_handle).expect("querying invalid mesh");
+        &mesh.local_normals_resource
     }
 
     pub fn local_verts_vbv(&self, mesh_handle: SMeshHandle) -> &t12::SVertexBufferView {

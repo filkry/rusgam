@@ -97,19 +97,19 @@ impl SComputeSkinningHLSL {
         bind: &SComputeSkinningHLSLBind,
         list: &mut n12::SCommandList,
         joint_bind_to_cur_descriptor: t12::SGPUVirtualAddress,
-        local_verts_descriptor: t12::SGPUDescriptorHandle,
-        local_normals_descriptor: t12::SGPUDescriptorHandle,
-        vertex_skinning_descriptor: t12::SGPUDescriptorHandle,
-        skinned_verts_descriptor: t12::SGPUDescriptorHandle,
-        skinned_normals_descriptor: t12::SGPUDescriptorHandle,
+        local_verts_descriptor: t12::SGPUVirtualAddress,
+        local_normals_descriptor: t12::SGPUVirtualAddress,
+        vertex_skinning_descriptor: t12::SGPUVirtualAddress,
+        skinned_verts_descriptor: t12::SGPUVirtualAddress,
+        skinned_normals_descriptor: t12::SGPUVirtualAddress,
     )
     {
         list.set_compute_root_shader_resource_view(bind.joint_bind_to_cur_rp_idx, joint_bind_to_cur_descriptor);
-        //list.set_compute_root_shader_resource_view(bind.local_verts_rp_idx, local_verts_descriptor);
-        //list.set_compute_root_shader_resource_view(bind.local_normals_rp_idx, local_normals_descriptor);
-        //list.set_compute_root_shader_resource_view(bind.vertex_skinning_rp_idx, vertex_skinning_descriptor);
+        list.set_compute_root_shader_resource_view(bind.local_verts_rp_idx, local_verts_descriptor);
+        list.set_compute_root_shader_resource_view(bind.local_normals_rp_idx, local_normals_descriptor);
+        list.set_compute_root_shader_resource_view(bind.vertex_skinning_rp_idx, vertex_skinning_descriptor);
 
-        //list.set_compute_root_unordered_access_view(bind.skinned_verts_rp_idx, skinned_verts_descriptor);
-        //list.set_compute_root_unordered_access_view(bind.skinned_normals_rp_idx, skinned_normals_descriptor);
+        list.set_compute_root_unordered_access_view(bind.skinned_verts_rp_idx, skinned_verts_descriptor);
+        list.set_compute_root_unordered_access_view(bind.skinned_normals_rp_idx, skinned_normals_descriptor);
     }
 }

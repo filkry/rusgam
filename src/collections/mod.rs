@@ -186,7 +186,7 @@ impl<T, I: TIndexGen, G: TIndexGen> SPool<T, I, G> {
     pub fn get_mut(&mut self, handle: SPoolHandle<I, G>) -> Result<&mut T, &'static str> {
         let idx = handle.index.to_usize();
         if handle.valid() && handle.index < self.max && handle.generation == self.generations[idx] {
-            self.getmutbyindex(handle.index)
+            self.get_by_index_mut(handle.index)
         } else {
             Err("Invalid, out of bounds, or stale handle.")
         }
@@ -208,7 +208,7 @@ impl<T, I: TIndexGen, G: TIndexGen> SPool<T, I, G> {
         }
     }
 
-    fn getmutbyindex(&mut self, index: I) -> Result<&mut T, &'static str> {
+    fn get_by_index_mut(&mut self, index: I) -> Result<&mut T, &'static str> {
         if index < self.max {
             Ok(&mut self.buffer[index.to_usize()])
         } else {
@@ -285,10 +285,12 @@ impl<T, I: TIndexGen, G: TIndexGen> SStoragePool<T, I, G> {
 
     pub fn get_by_index(&self, index: I) -> Result<Option<&T>, &'static str> {
         let int = self.pool.get_by_index(index)?;
-        match int {
-            Some(a) => Ok(Some(&a)),
-            None => Ok(None),
-        }
+        Ok(int.as_ref())
+    }
+
+    pub fn get_by_index_mut(&mut self, index: I) -> Result<Option<&mut T>, &'static str> {
+        let int = self.pool.get_by_index_mut(index)?;
+        Ok(int.as_mut())
     }
 
     pub fn insert_val(&mut self, val: T) -> Result<SPoolHandle<I, G>, &'static str> {
@@ -345,7 +347,7 @@ impl<'a, T, I: TIndexGen, G: TIndexGen> Iterator for SStoragePoolIterator<'a, T,
     fn next(&mut self) -> Option<Self::Item> {
         let pool_max = self.pool.max();
         while self.next_idx < pool_max {
-            let cur = self.pool.get_by_index(self.next_idx).unwrap();
+            let cur = self.pool.get_by_index(self.next_idx).expect("loop bounded by pool_max");
             self.next_idx += I::ONE;
             if cur.is_some() {
                 return cur;

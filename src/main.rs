@@ -321,7 +321,7 @@ fn main_d3d12() -> Result<(), &'static str> {
 
         STACK_ALLOCATOR.with(|sa| -> Result<(), &'static str> {
             let imgui_draw_data = imgui_ui.render();
-            data_bucket.get_entities().unwrap().with(|entities: &SEntityBucket| {
+            data_bucket.get_entities().unwrap().with_mut(|entities: &mut SEntityBucket| {
                 data_bucket.get_renderer().unwrap().with_mut(|render: &mut render::SRender| {
                     let (_entities, model_xforms, models) = entities.build_render_data(sa);
 

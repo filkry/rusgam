@@ -79,6 +79,10 @@ impl SEntityBucket {
         &self.entities
     }
 
+    pub fn entities_mut(&mut self) -> &mut SStoragePool<SEntity, u16, u16> {
+        &mut self.entities
+    }
+
     pub fn get_entity_model(&self, entity: SEntityHandle) -> Option<SModel> {
         self.entities.get(entity).expect("invalid entity").model
     }

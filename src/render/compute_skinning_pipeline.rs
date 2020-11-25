@@ -61,14 +61,24 @@ impl SComputeSkinningPipeline {
         &self,
         command_list: &mut n12::SCommandList,
         mesh_loader: &SMeshLoader,
-        entities: &SEntityBucket,
+        entities: &mut SEntityBucket,
     ) {
 
         command_list.set_pipeline_state(&self.pipeline_state);
         command_list.set_compute_root_signature(&self.root_signature.raw());
 
-        for entity in entities.entities() {
-            if let Some(skinning) = &entity.model_skinning {
+        let entities_mut = entities.entities_mut();
+
+        for ei in 0..entities_mut.max() {
+            if let None = entities_mut.get_by_index_mut(ei).expect("loop bounded by max") {
+                continue;
+            }
+
+            let entity = entities_mut.get_by_index_mut(ei).expect("loop bounded by max").expect("checked None above");
+
+            if let Some(skinning) = &mut entity.model_skinning {
+                skinning.update_skinning_joint_buffer(mesh_loader);
+
                 let model = entity.model.expect("skinning without model");
 
                 let local_verts_address = mesh_loader.local_verts_resource(model.mesh).raw.raw().get_gpu_virtual_address();

@@ -457,7 +457,7 @@ impl<'a> SRender<'a> {
         &mut self,
         window: &mut n12::SD3D12Window,
         view_matrix: &Mat4,
-        entities: &SEntityBucket,
+        entities: &mut SEntityBucket,
         world_models: &[SModel],
         world_model_xforms: &[STransform],
         imgui_draw_data: Option<&imgui::DrawData>,
@@ -535,7 +535,7 @@ impl<'a> SRender<'a> {
         }
     }
 
-    fn compute_skinning(&mut self, entities: &SEntityBucket) -> Result<(), &'static str> {
+    fn compute_skinning(&mut self, entities: &mut SEntityBucket) -> Result<(), &'static str> {
         let mut handle = self.direct_command_pool.alloc_list()?;
         let mut list = self.direct_command_pool.get_list(&handle)?;
 
@@ -634,14 +634,10 @@ impl<'a> SRender<'a> {
                         self.texture_loader.texture_gpu_descriptor(handle).unwrap()
                     });
 
-                    /*
                     let (verts_vbv, normals_vbv) = match &entity.model_skinning {
                         Some(skinning) => (&skinning.skinned_verts_vbv, &skinning.skinned_normals_vbv),
                         None => (self.mesh_loader.local_verts_vbv(model.mesh), self.mesh_loader.local_normals_vbv(model.mesh)),
                     };
-                    */
-                    let (verts_vbv, normals_vbv) =
-                        (self.mesh_loader.local_verts_vbv(model.mesh), self.mesh_loader.local_normals_vbv(model.mesh));
 
                     self.vertex_hlsl.set_graphics_roots(
                         &self.vertex_hlsl_bind,

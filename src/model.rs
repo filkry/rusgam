@@ -27,7 +27,7 @@ pub struct SJoint {
 }
 
 pub struct SMeshSkinning<'a> {
-    vertex_skinning_data: SMemVec<'a, shaderbindings::SVertexSkinningData>,
+    _vertex_skinning_data: SMemVec<'a, shaderbindings::SVertexSkinningData>,
     pub vertex_skinning_buffer_resource: n12::SBufferResource<shaderbindings::SVertexSkinningData>,
     pub vertex_skinning_buffer_view: n12::SDescriptorAllocatorAllocation,
 
@@ -457,7 +457,7 @@ impl<'a> SMeshLoader<'a> {
             */
 
             skinning = Some(SMeshSkinning{
-                vertex_skinning_data,
+                _vertex_skinning_data: vertex_skinning_data,
                 vertex_skinning_buffer_resource,
                 vertex_skinning_buffer_view,
 
@@ -622,6 +622,8 @@ impl<'a> SMeshLoader<'a> {
         for joint in bind_joints.as_ref() {
             cur_joints_to_parents.push(joint.local_to_parent);
         }
+
+        cur_joints_to_parents[1].t = Vec3::new(1.0, 0.0, 0.0);
 
         // -- $$$FRK(TODO, HACK): lazily working around the borrow checker here
         let initial_verts = SMemVec::<Vec3>::new_copy_slice(&SYSTEM_ALLOCATOR, self.get_mesh_local_vertices(mesh))?;

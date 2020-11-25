@@ -1,19 +1,13 @@
-use allocate::{TMemAllocator, SMemVec};
-use model::{SModel, SModelSkinning};
-use utils::{STransform, SAABB};
+use model::{SModelSkinning};
+use utils::{STransform};
 use collections::{SStoragePool, SPoolHandle};
-use databucket::{SDataBucket};
-use bvh;
-use render;
 
 #[allow(dead_code)]
 pub struct SEntity {
     debug_name: Option<&'static str>,
     pub location: STransform,
-    pub model: Option<SModel>,
     pub model_skinning: Option<SModelSkinning>,
-    identity_aabb: Option<SAABB>, // $$$FRK(TODO): ONLY putting this in here right now to avoid moving the renderer!
-    bvh_entry: bvh::SNodeHandle,
+    //identity_aabb: Option<SAABB>, // $$$FRK(TODO): ONLY putting this in here right now to avoid moving the renderer!
 }
 
 #[allow(dead_code)]
@@ -28,10 +22,7 @@ impl SEntity {
         Self {
             debug_name: None,
             location: STransform::default(),
-            model: None,
             model_skinning: None,
-            identity_aabb: None,
-            bvh_entry: SPoolHandle::default(),
         }
     }
 }
@@ -55,9 +46,10 @@ impl SEntityBucket {
         self.entities.get(entity).expect("invalid entity").location
     }
 
-    pub fn set_entity_location(&mut self, entity: SEntityHandle, location: STransform, data_bucket: &SDataBucket) {
+    pub fn set_location(&mut self, entity: SEntityHandle, location: STransform) {
         self.entities.get_mut(entity).expect("invalid entity").location = location;
 
+        /*
         if let Some(bvh) = data_bucket.get_bvh() {
             bvh.with_mut(|bvh: &mut bvh::STree| {
                 let bvh_entry = self.get_entity_bvh_entry(entity);
@@ -73,6 +65,8 @@ impl SEntityBucket {
                 }
             });
         }
+        */
+        panic!("Must implement BVH update step.");
     }
 
     pub fn entities(&self) -> &SStoragePool<SEntity, u16, u16> {
@@ -83,34 +77,17 @@ impl SEntityBucket {
         &mut self.entities
     }
 
-    pub fn get_entity_model(&self, entity: SEntityHandle) -> Option<SModel> {
-        self.entities.get(entity).expect("invalid entity").model
-    }
-
-    pub fn set_entity_model(&mut self, entity: SEntityHandle, model: SModel, data_bucket: &SDataBucket) {
-        let data = self.entities.get_mut(entity).expect("invalid entity");
-        data.model = Some(model);
-
-        data_bucket.get_renderer().unwrap().with(|render: &render::SRender| {
-            data.identity_aabb = Some(render.mesh_loader().get_mesh_local_aabb(model.mesh).clone());
-        });
-    }
-
     pub fn set_entity_model_skinning(&mut self, entity: SEntityHandle, model_skinning: SModelSkinning) {
         let data = self.entities.get_mut(entity).expect("invalid entity");
-        assert!(data.model.is_some());
-        assert!(data.model.unwrap().mesh == model_skinning.mesh);
         data.model_skinning = Some(model_skinning);
     }
 
-    pub fn get_entity_bvh_entry(&self, entity: SEntityHandle) -> bvh::SNodeHandle {
-        self.entities.get(entity).expect("invalid entity").bvh_entry
+    pub fn get_model_skinning(&self, entity: SEntityHandle) -> Option<&SModelSkinning> {
+        let data = self.entities.get(entity).expect("invalid entity");
+        data.model_skinning.as_ref()
     }
 
-    pub fn set_entity_bvh_entry(&mut self, entity: SEntityHandle, bvh_entry: bvh::SNodeHandle) {
-        self.entities.get_mut(entity).expect("invalid entity").bvh_entry = bvh_entry;
-    }
-
+    /*
     pub fn build_render_data<'a>(&self, allocator: &'a dyn TMemAllocator) -> (SMemVec<'a, SEntityHandle>, SMemVec<'a, STransform>, SMemVec<'a, SModel>) {
         // -- $$$FRK(TODO): if the stack allocator is used, returning these is only safe if the caller makes references to each member  (no _)
         let mut entities = SMemVec::<SEntityHandle>::new(allocator, self.entities.used(), 0).expect("alloc fail");
@@ -129,6 +106,7 @@ impl SEntityBucket {
 
         (entities, transforms, models)
     }
+    */
 
     pub fn show_imgui_window(&mut self, entity: SEntityHandle, imgui_ui: &imgui::Ui) {
         use imgui::*;

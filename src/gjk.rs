@@ -410,10 +410,16 @@ impl SGJKDebug {
     }
 
     pub fn reset_to_entities(&mut self, ctxt: &SDataBucket, entity_1: SEntityHandle, entity_2: SEntityHandle) {
-        ctxt.get_entities().unwrap().with(|entities: &SEntityBucket| {
-            ctxt.get_renderer().unwrap().with_mut(|render: &mut SRender| {
+        use entity_model;
+
+        ctxt.get::<SEntityBucket>().unwrap()
+            .and::<render::SRender>(ctxt).unwrap()
+            .and::<entity_model::SBucket>(ctxt).unwrap()
+            .with_ccc(|entities: &SEntityBucket, render: &render::SRender, em: &entity_model::SBucket| {
                 let world_verts_a = {
-                    let model = entities.get_entity_model(entity_1).unwrap();
+                    let e1_model_handle = em.handle_for_entity(entity_1).unwrap();
+                    let model = em.get_model(e1_model_handle);
+
                     let loc = entities.get_entity_location(entity_1);
                     let mesh_local_vs = render.mesh_loader().get_mesh_local_vertices(model.mesh);
 
@@ -427,7 +433,8 @@ impl SGJKDebug {
                 };
 
                 let world_verts_b = {
-                    let model = entities.get_entity_model(entity_2).unwrap();
+                    let e2_model_handle = em.handle_for_entity(entity_2).unwrap();
+                    let model = em.get_model(e2_model_handle);
                     let loc = entities.get_entity_location(entity_2);
                     let mesh_local_vs = render.mesh_loader().get_mesh_local_vertices(model.mesh);
 
@@ -446,7 +453,6 @@ impl SGJKDebug {
                 self.pts_a = world_verts_a;
                 self.pts_b = world_verts_b;
             })
-        })
     }
 
     fn first_step(&self) -> EGJKDebugStep {

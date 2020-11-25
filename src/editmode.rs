@@ -379,11 +379,7 @@ impl SEditModeTranslationDragging {
             let mut new_e_loc = entities.get_entity_location(self.entity);
             new_e_loc.t = new_world_pos;
 
-            entities.set_entity_location(
-                self.entity,
-                new_e_loc,
-                &data_bucket,
-            );
+            entities.set_location(self.entity, new_e_loc);
         }
 
         return EEditMode::TranslationDragging(self.clone());
@@ -430,11 +426,7 @@ impl SEditModeRotationDragging {
                 let mut new_e_loc = e_loc;
                 new_e_loc.r = new_entity_ori;
 
-                entities.set_entity_location(
-                    self.entity,
-                    new_e_loc,
-                    &data_bucket,
-                );
+                entities.set_location(self.entity, new_e_loc);
 
                 let mut render_color : Vec4 = glm::zero();
                 render_color[self.axis] = 1.0;

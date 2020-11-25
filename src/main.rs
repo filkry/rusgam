@@ -20,6 +20,7 @@ mod databucket;
 mod directxgraphicssamples;
 mod editmode;
 mod entity;
+mod entity_model;
 mod gjk;
 mod input;
 mod niced3d12;
@@ -160,7 +161,7 @@ fn main_d3d12() -> Result<(), &'static str> {
         // -- update
         let cur_angle = ((_total_time as f32) / 1_000_000.0) * (3.14159 / 4.0);
         data_bucket.get_entities().unwrap().with_mut(|entities: &mut SEntityBucket| {
-            entities.set_entity_location(rotating_entity, STransform::new_rotation(&glm::quat_angle_axis(cur_angle, &_rot_axis)), &data_bucket);
+            entities.set_location(rotating_entity, STransform::new_rotation(&glm::quat_angle_axis(cur_angle, &_rot_axis)));
         });
 
         //let mut fixed_size_model_xform = STransform::new_translation(&glm::Vec3::new(0.0, 5.0, 0.0));
@@ -230,17 +231,18 @@ fn main_d3d12() -> Result<(), &'static str> {
         if draw_selected_bvh {
             if let Some(e) = editmode_ctxt.editing_entity() {
                 STACK_ALLOCATOR.with(|sa| {
-                    data_bucket.get_entities().unwrap().with(|entities: &SEntityBucket| {
-                        data_bucket.get_bvh().unwrap().with(|bvh: &bvh::STree| {
-                            data_bucket.get_renderer().unwrap().with_mut(|render: &mut render::SRender| {
-                                let mut aabbs = SMemVec::new(sa, 32, 0).unwrap();
-                                bvh.get_bvh_heirarchy_for_entry(entities.get_entity_bvh_entry(e), &mut aabbs);
-                                for aabb in aabbs.as_slice() {
-                                    render.temp().draw_aabb(aabb, &Vec4::new(1.0, 0.0, 0.0, 1.0), true);
-                                }
-                            });
+                    data_bucket.get::<render::SRender>().expect("")
+                        .and::<entity_model::SBucket>(&data_bucket).expect("")
+                        .and::<bvh::STree>(&data_bucket).expect("")
+                        .with_mcc(|render: &mut render::SRender, em: &entity_model::SBucket, bvh: &bvh::STree| {
+                            let model_handle = em.handle_for_entity(e).unwrap();
+
+                            let mut aabbs = SMemVec::new(sa, 32, 0).unwrap();
+                            bvh.get_bvh_heirarchy_for_entry(em.get_bvh_entry(model_handle).unwrap(), &mut aabbs);
+                            for aabb in aabbs.as_slice() {
+                                render.temp().draw_aabb(aabb, &Vec4::new(1.0, 0.0, 0.0, 1.0), true);
+                            }
                         });
-                    });
                 });
             }
         }
@@ -248,12 +250,16 @@ fn main_d3d12() -> Result<(), &'static str> {
         // -- draw selected object colliding/not with rotating_entity
         if let Some(e) = editmode_ctxt.editing_entity() {
             STACK_ALLOCATOR.with(|sa| {
-                data_bucket.get_renderer().unwrap().with_mut(|render: &mut render::SRender| {
-                    data_bucket.get_entities().unwrap().with(|entities: &SEntityBucket| {
+                data_bucket.get::<render::SRender>().expect("")
+                    .and::<entity::SEntityBucket>(&data_bucket).expect("")
+                    .and::<entity_model::SBucket>(&data_bucket).expect("")
+                    .with_mcc(|render: &mut render::SRender, entities: &entity::SEntityBucket, em: &entity_model::SBucket| {
+                        let e_model_handle = em.handle_for_entity(e).unwrap();
+                        let rot_model_handle = em.handle_for_entity(rotating_entity).unwrap();
                         let loc = entities.get_entity_location(e);
 
                         let world_verts = {
-                            let model = entities.get_entity_model(e).unwrap();
+                            let model = em.get_model(e_model_handle);
                             let mesh_local_vs = render.mesh_loader().get_mesh_local_vertices(model.mesh);
 
                             let mut world_verts = SMemVec::new(sa, mesh_local_vs.len(), 0).unwrap();
@@ -266,7 +272,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                         };
 
                         let rot_box_world_verts = {
-                            let model = entities.get_entity_model(rotating_entity).unwrap();
+                            let model = em.get_model(rot_model_handle);
                             let loc = entities.get_entity_location(rotating_entity);
                             let mesh_local_vs = render.mesh_loader().get_mesh_local_vertices(model.mesh);
 
@@ -283,10 +289,10 @@ fn main_d3d12() -> Result<(), &'static str> {
                             render.temp().draw_sphere(&loc.t, 1.0, &Vec4::new(1.0, 0.0, 0.0, 0.1), true, None);
                         }
                     });
-                });
             });
         }
 
+        /*
         // -- draw skeleton of selected entity
         STACK_ALLOCATOR.with(|sa| {
             data_bucket.get_renderer().unwrap().with_mut(|render: &mut render::SRender| {
@@ -318,7 +324,11 @@ fn main_d3d12() -> Result<(), &'static str> {
                 });
             });
         });
+        */
 
+        panic!("Implement render updates!");
+
+        /*
         STACK_ALLOCATOR.with(|sa| -> Result<(), &'static str> {
             let imgui_draw_data = imgui_ui.render();
             data_bucket.get_entities().unwrap().with_mut(|entities: &mut SEntityBucket| {
@@ -339,6 +349,7 @@ fn main_d3d12() -> Result<(), &'static str> {
 
             Ok(())
         })?;
+        */
 
         lastframetime = curframetime;
         _framecount += 1;

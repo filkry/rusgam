@@ -14,6 +14,7 @@ use typeyd3d12 as t12;
 use allocate::{SMemVec, STACK_ALLOCATOR};
 use databucket::{SDataBucket};
 use entity::{SEntityBucket, SEntityHandle};
+use entity_model;
 use model::{SModel, SModelSkinning, SMeshLoader, STextureLoader};
 use safewindows;
 use rustywindows;
@@ -458,6 +459,7 @@ impl<'a> SRender<'a> {
         window: &mut n12::SD3D12Window,
         view_matrix: &Mat4,
         entities: &mut SEntityBucket,
+        entity_model: &entity_model::SBucket,
         world_models: &[SModel],
         world_model_xforms: &[STransform],
         imgui_draw_data: Option<&imgui::DrawData>,
@@ -501,11 +503,11 @@ impl<'a> SRender<'a> {
         }
 
         // -- update skinned buffers
-        self.compute_skinning(entities)?;
+        self.compute_skinning(entities, entity_model)?;
 
         // -- $$$FRK(TODO): should initialize the shadow map depth buffer to empty, so we still get light if we don't render maps
         self.render_shadow_maps(world_models, world_model_xforms)?;
-        self.render_world(window, view_matrix, entities)?;
+        self.render_world(window, view_matrix, entities, entity_model)?;
         self.render_temp_in_world(window, view_matrix)?;
 
         // -- clear depth buffer again
@@ -528,11 +530,11 @@ impl<'a> SRender<'a> {
         Ok(())
     }
 
-    fn compute_skinning(&mut self, entities: &mut SEntityBucket) -> Result<(), &'static str> {
+    fn compute_skinning(&mut self, entities: &mut SEntityBucket, entity_model: &entity_model::SBucket) -> Result<(), &'static str> {
         let mut handle = self.direct_command_pool.alloc_list()?;
         let mut list = self.direct_command_pool.get_list(&handle)?;
 
-        self.compute_skinning_pipeline.compute(list.deref_mut(), &self.mesh_loader, entities);
+        self.compute_skinning_pipeline.compute(list.deref_mut(), &self.mesh_loader, entities, entity_model);
 
         drop(list);
 
@@ -566,7 +568,7 @@ impl<'a> SRender<'a> {
         Ok(())
     }
 
-    pub fn render_world(&mut self, window: &mut n12::SD3D12Window, view_matrix: &Mat4, entities: &SEntityBucket) -> Result<(), &'static str> {
+    pub fn render_world(&mut self, window: &mut n12::SD3D12Window, view_matrix: &Mat4, entities: &SEntityBucket, entity_model: &entity_model::SBucket) -> Result<(), &'static str> {
         let viewport = t12::SViewport::new(
             0.0,
             0.0,
@@ -615,19 +617,24 @@ impl<'a> SRender<'a> {
                 });
 
                 let view_perspective = perspective_matrix * view_matrix;
-                for entity in entities.entities() {
-                    if entity.model.is_none() {
+                assert!(false, "Should iterate over models");
+                for ei in 0..entities.entities().max() {
+                    let entity_handle_res = entities.entities().handle_for_index(ei);
+                    if entity_handle_res.is_err() {
                         continue;
                     }
+                    let entity_handle = entity_handle_res.expect("checked above");
 
-                    let model = &entity.model.expect("we checked none above");
+                    let model_handle = entity_model.handle_for_entity(entity_handle).unwrap();
+                    let model = entity_model.get_model(model_handle);
+
                     let texture_metadata = shaderbindings::STextureMetadata::new_from_model(&model);
 
                     let texture_gpu_descriptor = model.diffuse_texture.map(|handle| {
                         self.texture_loader.texture_gpu_descriptor(handle).unwrap()
                     });
 
-                    let (verts_vbv, normals_vbv) = match &entity.model_skinning {
+                    let (verts_vbv, normals_vbv) = match entities.get_model_skinning(entity_handle) {
                         Some(skinning) => (&skinning.skinned_verts_vbv, &skinning.skinned_normals_vbv),
                         None => (self.mesh_loader.local_verts_vbv(model.mesh), self.mesh_loader.local_normals_vbv(model.mesh)),
                     };
@@ -635,7 +642,7 @@ impl<'a> SRender<'a> {
                     self.vertex_hlsl.set_graphics_roots(
                         &self.vertex_hlsl_bind,
                         &mut list,
-                        &shaderbindings::SModelViewProjection::new(&view_perspective, &entity.location),
+                        &shaderbindings::SModelViewProjection::new(&view_perspective, &entities.get_entity_location(entity_handle)),
                     );
                     self.vertex_hlsl.set_vertex_buffers(
                         &mut list,
@@ -701,17 +708,17 @@ impl<'a> Drop for SRender<'a> {
     }
 }
 
-pub fn cast_ray_against_entity_model(ctxt: &SDataBucket, ray: &SRay, entity: SEntityHandle) -> Option<f32> {
+pub fn cast_ray_against_entity_model(data_bucket: &SDataBucket, ray: &SRay, entity: SEntityHandle) -> Option<f32> {
     let mut result = None;
 
-    ctxt.get_entities().unwrap().with(|entities: &SEntityBucket| {
-        ctxt.get_renderer().unwrap().with(|renderer: &SRender| {
+    data_bucket.get::<SEntityBucket>().unwrap()
+        .and::<SRender>(data_bucket).unwrap()
+        .and::<entity_model::SBucket>(data_bucket).unwrap()
+        .with_ccc(|entities: &SEntityBucket, render: &SRender, em: &entity_model::SBucket| {
             let entity_to_world = entities.get_entity_location(entity);
-            if let Some(model) = entities.get_entity_model(entity) {
-                result = renderer.ray_intersects(&model, &ray.origin, &ray.dir, &entity_to_world);
-            }
+            let model_handle = em.handle_for_entity(entity).unwrap();
+            result = render.ray_intersects(em.get_model(model_handle), &ray.origin, &ray.dir, &entity_to_world);
         });
-    });
 
     result
 }

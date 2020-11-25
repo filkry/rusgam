@@ -1,4 +1,5 @@
 use entity::{SEntityBucket};
+use entity_model;
 use model::{SMeshLoader};
 use n12;
 use t12;
@@ -62,6 +63,7 @@ impl SComputeSkinningPipeline {
         command_list: &mut n12::SCommandList,
         mesh_loader: &SMeshLoader,
         entities: &mut SEntityBucket,
+        entity_model: &entity_model::SBucket,
     ) {
 
         command_list.set_pipeline_state(&self.pipeline_state);
@@ -69,17 +71,20 @@ impl SComputeSkinningPipeline {
 
         let entities_mut = entities.entities_mut();
 
+        assert!(false, "Should loop over models (or even model skinning!");
         for ei in 0..entities_mut.max() {
             if let None = entities_mut.get_by_index_mut(ei).expect("loop bounded by max") {
                 continue;
             }
 
+            let entity_handle = entities_mut.handle_for_index(ei).unwrap();
             let entity = entities_mut.get_by_index_mut(ei).expect("loop bounded by max").expect("checked None above");
 
             if let Some(skinning) = &mut entity.model_skinning {
                 skinning.update_skinning_joint_buffer(mesh_loader);
 
-                let model = entity.model.expect("skinning without model");
+                let model_handle = entity_model.handle_for_entity(entity_handle).unwrap();
+                let model = entity_model.get_model(model_handle);
 
                 let local_verts_address = mesh_loader.local_verts_resource(model.mesh).raw.raw().get_gpu_virtual_address();
                 let local_normals_address = mesh_loader.local_normals_resource(model.mesh).raw.raw().get_gpu_virtual_address();

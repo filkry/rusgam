@@ -103,10 +103,10 @@ fn main_d3d12() -> Result<(), &'static str> {
     let mut data_bucket = databucket::SDataBucket::new(256, &SYSTEM_ALLOCATOR);
 
     let entities = SEntityBucket::new(67485, 16);
-    data_bucket.add_entities(entities);
-    data_bucket.add_renderer(render);
+    data_bucket.add(entities);
+    data_bucket.add(render);
     let bvh = bvh::STree::new();
-    data_bucket.add_bvh(bvh);
+    data_bucket.add(bvh);
 
     let rotating_entity = entitytypes::testtexturedcubeentity::create(
         &data_bucket, Some("tst_rotating"),

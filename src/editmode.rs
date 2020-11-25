@@ -250,7 +250,7 @@ impl EEditMode {
         // -- cast ray to select entity for edit mode
         ctxt.clicked_entity = None;
         if input.left_mouse_edge.down() && !em_input.imgui_want_capture_mouse && !mode.eats_mouse() {
-            data_bucket.get_bvh().unwrap().with(|bvh: &bvh::STree| {
+            data_bucket.get::<bvh::STree>().unwrap().with(|bvh: &bvh::STree| {
                 let entity_hit = bvh.cast_ray(&data_bucket, &cursor_ray);
                 if entity_hit.is_some() {
                     ctxt.clicked_entity = entity_hit;

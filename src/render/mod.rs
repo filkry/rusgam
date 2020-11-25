@@ -501,7 +501,7 @@ impl<'a> SRender<'a> {
         }
 
         // -- update skinned buffers
-        self.compute_skinning(entities);
+        self.compute_skinning(entities)?;
 
         // -- $$$FRK(TODO): should initialize the shadow map depth buffer to empty, so we still get light if we don't render maps
         self.render_shadow_maps(world_models, world_model_xforms)?;
@@ -526,13 +526,6 @@ impl<'a> SRender<'a> {
         self.render_temp.clear_tables_without_tokens();
 
         Ok(())
-    }
-
-    // -- $$$FRK(TODO): when I have somewhere to store SModelSkinning, should get rid of the &mut reference in the slice
-    pub fn update_skinning_joint_buffers(&self, model_skinnings: &mut [&mut SModelSkinning]) {
-        for i in 0..model_skinnings.len() {
-            model_skinnings[i].update_skinning_joint_buffer(&self.mesh_loader);
-        }
     }
 
     fn compute_skinning(&mut self, entities: &mut SEntityBucket) -> Result<(), &'static str> {

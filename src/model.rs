@@ -118,9 +118,6 @@ pub struct SModelSkinning {
     pub skinned_verts_vbv: t12::SVertexBufferView,
     pub skinned_normals_resource: n12::SBufferResource<Vec3>,
     pub skinned_normals_vbv: t12::SVertexBufferView,
-
-    // -- UAV descriptors
-    uav_descriptors: n12::SDescriptorAllocatorAllocation,
 }
 
 impl<'a> SMeshLoader<'a> {
@@ -645,22 +642,6 @@ impl<'a> SMeshLoader<'a> {
         )?;
         let skinned_normals_vbv = skinned_normals_resource.raw.create_vertex_buffer_view()?;
 
-        // -- create uav
-        let descriptors = descriptor_alloc(&self.cbv_srv_uav_heap.upgrade().expect("allocator dropped"), 2)?;
-        let vert_uav_desc = skinned_verts_resource.create_uav_desc();
-        let norm_uav_desc = skinned_normals_resource.create_uav_desc();
-
-        self.device.upgrade().expect("device dropped").create_unordered_access_view(
-            &skinned_verts_resource.raw,
-            &vert_uav_desc,
-            descriptors.cpu_descriptor(SModelSkinning::UAVS_VERT_IDX),
-        )?;
-        self.device.upgrade().expect("device dropped").create_unordered_access_view(
-            &skinned_normals_resource.raw,
-            &norm_uav_desc,
-            descriptors.cpu_descriptor(SModelSkinning::UAVS_NORM_IDX),
-        )?;
-
         Ok(SModelSkinning{
             mesh,
             cur_joints_to_parents,
@@ -671,8 +652,6 @@ impl<'a> SMeshLoader<'a> {
             skinned_verts_vbv,
             skinned_normals_resource,
             skinned_normals_vbv,
-
-            uav_descriptors: descriptors,
         })
     }
 
@@ -783,16 +762,6 @@ impl<'a> SMeshLoader<'a> {
     pub fn local_normals_vbv(&self, mesh_handle: SMeshHandle) -> &t12::SVertexBufferView {
         let mesh = self.mesh_pool.get(mesh_handle).expect("querying invalid mesh");
         &mesh.local_normals_vbv
-    }
-
-    pub fn local_verts_srv(&self, mesh_handle: SMeshHandle) -> t12::SGPUDescriptorHandle {
-        let mesh = self.mesh_pool.get(mesh_handle).expect("querying invalid mesh");
-        mesh.srv_descriptors.gpu_descriptor(SMesh::SRVS_VERT_IDX)
-    }
-
-    pub fn local_normals_srv(&self, mesh_handle: SMeshHandle) -> t12::SGPUDescriptorHandle {
-        let mesh = self.mesh_pool.get(mesh_handle).expect("querying invalid mesh");
-        mesh.srv_descriptors.gpu_descriptor(SMesh::SRVS_NORM_IDX)
     }
 
     pub fn uvs_vbv(&self, mesh_handle: SMeshHandle) -> &t12::SVertexBufferView {
@@ -1072,17 +1041,6 @@ impl SModel {
 }
 
 impl SModelSkinning {
-    const UAVS_VERT_IDX: usize = 0;
-    const UAVS_NORM_IDX: usize = 1;
-
-    pub fn skinned_verts_uav(&self) -> t12::SGPUDescriptorHandle {
-        self.uav_descriptors.gpu_descriptor(Self::UAVS_VERT_IDX)
-    }
-
-    pub fn skinned_normals_uav(&self) -> t12::SGPUDescriptorHandle {
-        self.uav_descriptors.gpu_descriptor(Self::UAVS_VERT_IDX)
-    }
-
     pub fn update_skinning_joint_buffer(&mut self, mesh_loader: &SMeshLoader) {
         STACK_ALLOCATOR.with(|sa| {
             if let Some(skinning) = mesh_loader.get_mesh_skinning(self.mesh) {

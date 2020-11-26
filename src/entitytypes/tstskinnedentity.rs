@@ -33,7 +33,7 @@ pub fn create(
                 entities.set_entity_debug_name(ent, n);
             }
 
-            em.add_instance(ent, model);
+            em.add_instance(ent, model)?;
             entities.set_entity_model_skinning(ent, model_skinning);
             entities.set_location(ent, starting_location);
 

@@ -28,7 +28,7 @@ pub fn create(
                 entities.set_entity_debug_name(ent, n);
             }
 
-            em.add_instance(ent, model);
+            em.add_instance(ent, model)?;
             entities.set_location(ent, starting_location);
 
             Ok(ent)

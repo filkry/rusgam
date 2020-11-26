@@ -327,29 +327,33 @@ fn main_d3d12() -> Result<(), &'static str> {
 
         // -- update bvh
         data_bucket.get::<bvh::STree<entity::SEntityHandle>>().unwrap()
+            .and::<entity_model::SBucket>(&data_bucket).unwrap()
             .and::<SEntityBucket>(&data_bucket).unwrap()
             .and::<render::SRender>(&data_bucket).unwrap()
-            .and::<entity_model::SBucket>(&data_bucket).unwrap()
-            .with_mccc(|
+            .with_mmcc(|
                 bvh: &mut bvh::STree<entity::SEntityHandle>,
+                entity_model: &mut entity_model::SBucket,
                 entities: &SEntityBucket,
                 render: &render::SRender,
-                entity_model: &entity_model::SBucket,
             | {
                 // -- $$$FRK(TODO): only update dirty
                 for i in 0..entity_model.models.len() {
                     let model_handle : entity_model::SHandle = i;
 
+                    let entity_handle = entity_model.get_entity(model_handle);
+                    let mesh = entity_model.get_model(model_handle).mesh;
+                    let identity_aabb = render.mesh_loader().get_mesh_local_aabb(mesh);
+
+                    let location = entities.get_entity_location(entity_handle);
+
+                    let transformed_aabb = utils::SAABB::transform(&identity_aabb, &location);
+
                     if let Some(bvh_entry) = entity_model.get_bvh_entry(model_handle) {
-                        let entity_handle = entity_model.get_entity(model_handle);
-                        let mesh = entity_model.get_model(model_handle).mesh;
-                        let identity_aabb = render.mesh_loader().get_mesh_local_aabb(mesh);
-
-                        let location = entities.get_entity_location(entity_handle);
-
-                        let transformed_aabb = utils::SAABB::transform(&identity_aabb, &location);
-
                         bvh.update_entry(bvh_entry, &transformed_aabb);
+                    }
+                    else {
+                        let new_bvh_handle = bvh.insert(entity_handle, &transformed_aabb, None);
+                        entity_model.set_bvh_entry(model_handle, new_bvh_handle);
                     }
                 }
             });

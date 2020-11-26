@@ -48,6 +48,10 @@ impl<'a> SBucket<'a> {
         &self.models[handle]
     }
 
+    pub fn set_bvh_entry(&mut self, handle: SHandle, entry: bvh::SNodeHandle) {
+        self.bvh_entries[handle] = Some(entry);
+    }
+
     pub fn get_bvh_entry(&self, handle: SHandle) -> Option<bvh::SNodeHandle> {
         self.bvh_entries[handle]
     }

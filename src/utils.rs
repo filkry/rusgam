@@ -32,6 +32,10 @@ pub struct SAABB {
     pub max: Vec3,
 }
 
+pub struct SGameContext {
+    pub cur_frame: u64,
+}
+
 //pub fn hash64<T: Hash>(t: &T) -> u64 {
 //    let mut s = DefaultHasher::new();
 //    t.hash(&mut s);

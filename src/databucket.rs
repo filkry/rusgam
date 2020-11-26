@@ -9,6 +9,7 @@ use bvh;
 use entity;
 use entity_model;
 use render;
+use utils;
 
 pub trait TDataBucketMember : std::any::Any {
 }
@@ -17,6 +18,7 @@ impl TDataBucketMember for bvh::STree<entity::SEntityHandle> {}
 impl TDataBucketMember for entity::SEntityBucket {}
 impl TDataBucketMember for entity_model::SBucket<'static> {}
 impl TDataBucketMember for render::SRender<'static> {}
+impl TDataBucketMember for utils::SGameContext {}
 
 // -- $$$FRK(TODO): originally I thought I might want to keep SDataRefs around, but maybe not?
 // -- If I don't, then this can become Box<RefCell> and the usage syntax can become cleaner (no
@@ -143,6 +145,15 @@ pub struct SMultiRef4<T0, T1, T2, T3> {
 }
 
 #[allow(dead_code)]
+pub struct SMultiRef5<T0, T1, T2, T3, T4> {
+    d0: SDataRef<T0>,
+    d1: SDataRef<T1>,
+    d2: SDataRef<T2>,
+    d3: SDataRef<T3>,
+    d4: SDataRef<T4>,
+}
+
+#[allow(dead_code)]
 impl<T0, T1> SMultiRef2<T0, T1> {
     pub fn and<T2: TDataBucketMember>(self, data_bucket: &SDataBucket) -> Option<SMultiRef3<T0, T1, T2>> {
         let third = data_bucket.get::<T2>();
@@ -264,6 +275,22 @@ impl<T0, T1, T2> SMultiRef3<T0, T1, T2> {
 
 #[allow(dead_code)]
 impl<T0, T1, T2, T3> SMultiRef4<T0, T1, T2, T3> {
+    pub fn and<T4: TDataBucketMember>(self, data_bucket: &SDataBucket) -> Option<SMultiRef5<T0, T1, T2, T3, T4>> {
+        let last = data_bucket.get::<T4>();
+        if let Some(d4) = last {
+            Some(SMultiRef5{
+                d0: self.d0,
+                d1: self.d1,
+                d2: self.d2,
+                d3: self.d3,
+                d4,
+            })
+        }
+        else {
+            None
+        }
+    }
+
     pub fn with_cccc<Fun, Ret>(&self, mut function: Fun) -> Ret where
     Fun: FnMut(&T0, &T1, &T2, &T3) -> Ret
     {
@@ -337,5 +364,42 @@ impl<T0, T1, T2, T3> SMultiRef4<T0, T1, T2, T3> {
         let mut data2 = rc2.borrow_mut();
         let mut data3 = rc3.borrow_mut();
         function(data0.deref_mut(), data1.deref_mut(), data2.deref_mut(), data3.deref_mut())
+    }
+}
+
+#[allow(dead_code)]
+impl<T0, T1, T2, T3, T4> SMultiRef5<T0, T1, T2, T3, T4> {
+    pub fn with_mmmcc<Fun, Ret>(&self, mut function: Fun) -> Ret where
+    Fun: FnMut(&mut T0, &mut T1, &mut T2, &T3, &T4) -> Ret
+    {
+        let rc0 = self.d0.data.upgrade().expect("dropped data bucket before ref!");
+        let rc1 = self.d1.data.upgrade().expect("dropped data bucket before ref!");
+        let rc2 = self.d2.data.upgrade().expect("dropped data bucket before ref!");
+        let rc3 = self.d3.data.upgrade().expect("dropped data bucket before ref!");
+        let rc4 = self.d4.data.upgrade().expect("dropped data bucket before ref!");
+
+        let mut data0 = rc0.borrow_mut();
+        let mut data1 = rc1.borrow_mut();
+        let mut data2 = rc2.borrow_mut();
+        let data3 = rc3.borrow();
+        let data4 = rc4.borrow();
+        function(data0.deref_mut(), data1.deref_mut(), data2.deref_mut(), data3.deref(), data4.deref())
+    }
+
+    pub fn with_mmccc<Fun, Ret>(&self, mut function: Fun) -> Ret where
+    Fun: FnMut(&mut T0, &mut T1, &T2, &T3, &T4) -> Ret
+    {
+        let rc0 = self.d0.data.upgrade().expect("dropped data bucket before ref!");
+        let rc1 = self.d1.data.upgrade().expect("dropped data bucket before ref!");
+        let rc2 = self.d2.data.upgrade().expect("dropped data bucket before ref!");
+        let rc3 = self.d3.data.upgrade().expect("dropped data bucket before ref!");
+        let rc4 = self.d4.data.upgrade().expect("dropped data bucket before ref!");
+
+        let mut data0 = rc0.borrow_mut();
+        let mut data1 = rc1.borrow_mut();
+        let data2 = rc2.borrow();
+        let data3 = rc3.borrow();
+        let data4 = rc4.borrow();
+        function(data0.deref_mut(), data1.deref_mut(), data2.deref(), data3.deref(), data4.deref())
     }
 }

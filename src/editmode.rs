@@ -11,7 +11,7 @@ use niced3d12 as n12;
 use render;
 use rustywindows;
 use utils;
-use utils::{STransform};
+use utils::{STransform, SGameContext};
 
 pub struct SEditModeInput {
     pub window_width: u32,
@@ -286,8 +286,10 @@ impl EEditMode {
             mode = EEditMode::Rotation;
         }
 
-        data_bucket.get_renderer().unwrap().with_mut(|render: &mut render::SRender| {
-            data_bucket.get_entities().unwrap().with_mut(|entities: &mut SEntityBucket| {
+        data_bucket.get_renderer().expect("editmode needs renderer")
+            .and::<SEntityBucket>(data_bucket).expect("editmode needs entities")
+            .and::<SGameContext>(data_bucket).expect("should always exist")
+            .with_mmc(|render: &mut render::SRender, entities: &mut SEntityBucket, gc: &super::SGameContext| {
                 if mode == EEditMode::Translation {
                     mode = EEditMode::update_translation(ctxt, &em_input, &input, &render, &entities);
                 }
@@ -295,13 +297,12 @@ impl EEditMode {
                     mode = EEditMode::update_rotation(ctxt, &em_input, &input, &render, &entities);
                 }
                 else if let EEditMode::TranslationDragging(data) = mode.clone() {
-                    mode = data.update(&input, &em_input, render, entities);
+                    mode = data.update(&input, &em_input, gc, render, entities);
                 }
                 else if let EEditMode::RotationDragging(data) = mode.clone() {
-                    mode = data.update(&input, &em_input, render, entities);
+                    mode = data.update(&input, &em_input, gc, render, entities);
                 }
             });
-        });
 
         if ctxt.can_select_clicked_entity && ctxt.clicked_entity.is_some() {
             ctxt.editing_entity = ctxt.clicked_entity;
@@ -360,6 +361,7 @@ impl SEditModeTranslationDragging {
         &self,
         input: &input::SInput,
         editmode_input: &SEditModeInput,
+        gc: &super::SGameContext,
         render: &mut render::SRender,
         entities: &mut SEntityBucket,
     ) -> EEditMode {
@@ -397,7 +399,7 @@ impl SEditModeTranslationDragging {
             let mut new_e_loc = entities.get_entity_location(self.entity);
             new_e_loc.t = new_world_pos;
 
-            entities.set_location(self.entity, new_e_loc);
+            entities.set_location(gc, self.entity, new_e_loc);
         }
 
         return EEditMode::TranslationDragging(self.clone());
@@ -418,6 +420,7 @@ impl SEditModeRotationDragging {
         &self,
         input: &input::SInput,
         editmode_input: &SEditModeInput,
+        gc: &super::SGameContext,
         render: &mut render::SRender,
         entities: &mut SEntityBucket,
     ) -> EEditMode {
@@ -443,7 +446,7 @@ impl SEditModeRotationDragging {
                 let mut new_e_loc = e_loc;
                 new_e_loc.r = new_entity_ori;
 
-                entities.set_location(self.entity, new_e_loc);
+                entities.set_location(gc, self.entity, new_e_loc);
 
                 let mut render_color : Vec4 = glm::zero();
                 render_color[self.axis] = 1.0;

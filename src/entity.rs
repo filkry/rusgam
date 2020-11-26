@@ -6,6 +6,7 @@ use collections::{SStoragePool, SPoolHandle};
 pub struct SEntity {
     debug_name: Option<&'static str>,
     pub location: STransform,
+    pub location_update_frame: u64,
     pub model_skinning: Option<SModelSkinning>,
     //identity_aabb: Option<SAABB>, // $$$FRK(TODO): ONLY putting this in here right now to avoid moving the renderer!
 }
@@ -22,6 +23,7 @@ impl SEntity {
         Self {
             debug_name: None,
             location: STransform::default(),
+            location_update_frame: 0,
             model_skinning: None,
         }
     }
@@ -46,8 +48,14 @@ impl SEntityBucket {
         self.entities.get(entity).expect("invalid entity").location
     }
 
-    pub fn set_location(&mut self, entity: SEntityHandle, location: STransform) {
-        self.entities.get_mut(entity).expect("invalid entity").location = location;
+    pub fn get_location_update_frame(&self, entity: SEntityHandle) -> u64 {
+        self.entities.get(entity).expect("invalid entity").location_update_frame
+    }
+
+    pub fn set_location(&mut self, gc: &super::SGameContext, entity: SEntityHandle, location: STransform) {
+        let entity = self.entities.get_mut(entity).expect("invalid entity");
+        entity.location = location;
+        entity.location_update_frame = gc.cur_frame;
     }
 
     #[allow(dead_code)]

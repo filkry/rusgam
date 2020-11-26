@@ -52,7 +52,7 @@ use entity::{SEntityBucket};
 use niced3d12 as n12;
 use typeyd3d12 as t12;
 //use allocate::{SMemVec, STACK_ALLOCATOR};
-use utils::{STransform};
+use utils::{STransform, SGameContext};
 //use model::{SModel, SMeshLoader, STextureLoader};
 
 #[derive(PartialEq)]
@@ -107,6 +107,9 @@ fn main_d3d12() -> Result<(), &'static str> {
     data_bucket.add(render);
     data_bucket.add(entity_model::SBucket::new(&SYSTEM_ALLOCATOR, 1024)?);
     data_bucket.add(bvh::STree::new());
+    data_bucket.add(SGameContext{
+        cur_frame: 0,
+    });
 
     let rotating_entity = entitytypes::testtexturedcubeentity::create(
         &data_bucket, Some("tst_rotating"),
@@ -125,7 +128,6 @@ fn main_d3d12() -> Result<(), &'static str> {
         STransform::new_translation(&glm::Vec3::new(-3.0, 2.0, 0.0)))?;
 
     // -- update loop
-    let mut _framecount: u64 = 0;
     let mut lastframetime = winapi.curtimemicroseconds();
 
     let start_time = winapi.curtimemicroseconds();
@@ -158,10 +160,12 @@ fn main_d3d12() -> Result<(), &'static str> {
         let _total_time = curframetime - start_time;
 
         // -- update
+        /*
         let cur_angle = ((_total_time as f32) / 1_000_000.0) * (3.14159 / 4.0);
         data_bucket.get_entities().unwrap().with_mut(|entities: &mut SEntityBucket| {
-            entities.set_location(rotating_entity, STransform::new_rotation(&glm::quat_angle_axis(cur_angle, &_rot_axis)));
+            entities.set_location(gc, rotating_entity, STransform::new_rotation(&glm::quat_angle_axis(cur_angle, &_rot_axis)));
         });
+        */
 
         //let mut fixed_size_model_xform = STransform::new_translation(&glm::Vec3::new(0.0, 5.0, 0.0));
 
@@ -330,17 +334,23 @@ fn main_d3d12() -> Result<(), &'static str> {
             .and::<entity_model::SBucket>(&data_bucket).unwrap()
             .and::<SEntityBucket>(&data_bucket).unwrap()
             .and::<render::SRender>(&data_bucket).unwrap()
-            .with_mmcc(|
+            .and::<utils::SGameContext>(&data_bucket).unwrap()
+            .with_mmccc(|
                 bvh: &mut bvh::STree<entity::SEntityHandle>,
                 entity_model: &mut entity_model::SBucket,
                 entities: &SEntityBucket,
                 render: &render::SRender,
+                gc: &utils::SGameContext,
             | {
                 // -- $$$FRK(TODO): only update dirty
                 for i in 0..entity_model.models.len() {
                     let model_handle : entity_model::SHandle = i;
 
                     let entity_handle = entity_model.get_entity(model_handle);
+                    if entities.get_location_update_frame(entity_handle) != gc.cur_frame {
+                        continue;
+                    }
+
                     let mesh = entity_model.get_model(model_handle).mesh;
                     let identity_aabb = render.mesh_loader().get_mesh_local_aabb(mesh);
 
@@ -380,8 +390,10 @@ fn main_d3d12() -> Result<(), &'static str> {
             });
 
         lastframetime = curframetime;
-        _framecount += 1;
 
+        data_bucket.get::<SGameContext>().expect("should always have this").with_mut(|ctxt: &mut SGameContext| {
+            ctxt.cur_frame += 1;
+        });
 
         // -- $$$FRK(TODO): framerate is uncapped
 

@@ -4,7 +4,7 @@ use model::{SMeshSkinning};
 use utils::{STransform, lerp, unlerp_f32, gltf_accessor_slice, clamp};
 
 pub struct SAnimation<'a> {
-    duration: f32,
+    pub duration: f32,
     channels: SMemVec<'a, EChannel<'a>>,
     bound_node_to_joint_map: SMemVec<'a, Option<usize>>,
 }
@@ -84,7 +84,7 @@ impl<'a> SScaleChannel<'a> {
     }
 }
 
-fn update_joints<'a>(animation: &SAnimation, anim_time: f32, mut output_joints: SMemVec<'a, STransform>) -> SMemVec<'a, STransform> {
+pub fn update_joints<'a>(animation: &SAnimation, anim_time: f32, output_joints: &mut SMemVec<'a, STransform>) {
     for channel in animation.channels.as_ref() {
         let joint_idx = animation.bound_node_to_joint_map[channel.node()].expect("binding was bad!");
 
@@ -100,8 +100,6 @@ fn update_joints<'a>(animation: &SAnimation, anim_time: f32, mut output_joints: 
             },
         }
     }
-
-    output_joints
 }
 
 impl<'a> SAnimation<'a> {

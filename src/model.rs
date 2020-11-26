@@ -108,7 +108,7 @@ pub struct SModel {
 pub struct SModelSkinning {
     pub mesh: SMeshHandle,
 
-    cur_joints_to_parents: SMemVec<'static, STransform>,
+    pub cur_joints_to_parents: SMemVec<'static, STransform>,
 
     pub joints_bind_to_cur_resource: n12::SBufferResource<Mat4>,
     pub joints_bind_to_cur_view: n12::SDescriptorAllocatorAllocation,

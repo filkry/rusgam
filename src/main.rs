@@ -128,7 +128,7 @@ fn main_d3d12() -> Result<(), &'static str> {
         &data_bucket, Some("tst_skinned_entity"), Some(glm::Vec4::new(1.0, 1.0, 1.0, 1.0)),
         STransform::new_translation(&glm::Vec3::new(-3.0, 2.0, 0.0)))?;
 
-    data_bucket.get::<render::SRender>().expect("")
+    let skinned_entity_animation = data_bucket.get::<render::SRender>().expect("")
         .and::<entity_model::SBucket>(&data_bucket).expect("")
         .with_cc(|render: &render::SRender, em: &entity_model::SBucket| {
             let gltf = gltf::Gltf::open("assets/test_armature_animation.gltf").unwrap();
@@ -138,7 +138,7 @@ fn main_d3d12() -> Result<(), &'static str> {
 
             let mesh_skinning = render.mesh_loader().get_mesh_skinning(mesh).unwrap();
 
-            animation::SAnimation::new_from_gltf(&SYSTEM_ALLOCATOR, &gltf, &mesh_skinning).unwrap();
+            animation::SAnimation::new_from_gltf(&SYSTEM_ALLOCATOR, &gltf, &mesh_skinning).unwrap()
         });
 
     // -- update loop
@@ -172,10 +172,11 @@ fn main_d3d12() -> Result<(), &'static str> {
         let dts = (dt as f32) / 1_000_000.0;
 
         let _total_time = curframetime - start_time;
+        let _total_time_seconds = (_total_time as f32) / 1_000_000.0;
 
         // -- update
         /*
-        let cur_angle = ((_total_time as f32) / 1_000_000.0) * (3.14159 / 4.0);
+        let cur_angle = _total_time_seconds * (3.14159 / 4.0);
         data_bucket.get_entities().unwrap().with_mut(|entities: &mut SEntityBucket| {
             entities.set_location(gc, rotating_entity, STransform::new_rotation(&glm::quat_angle_axis(cur_angle, &_rot_axis)));
         });
@@ -380,6 +381,15 @@ fn main_d3d12() -> Result<(), &'static str> {
                         entity_model.set_bvh_entry(model_handle, new_bvh_handle);
                     }
                 }
+            });
+
+        // -- update animation
+        data_bucket.get::<SEntityBucket>().unwrap()
+            .with_mut(|entities: &mut SEntityBucket| {
+                let model_skinning = entities.get_model_skinning_mut(skinned_entity).unwrap();
+                let anim_time = _total_time_seconds % skinned_entity_animation.duration;
+
+                animation::update_joints(&skinned_entity_animation, anim_time, &mut model_skinning.cur_joints_to_parents);
             });
 
         // -- render frame

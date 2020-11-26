@@ -69,18 +69,10 @@ impl SComputeSkinningPipeline {
         command_list.set_pipeline_state(&self.pipeline_state);
         command_list.set_compute_root_signature(&self.root_signature.raw());
 
-        let entities_mut = entities.entities_mut();
+        for model_handle in 0..entity_model.models.len() {
+            let entity_handle = entity_model.get_entity(model_handle);
 
-        assert!(false, "Should loop over models (or even model skinning!");
-        for ei in 0..entities_mut.max() {
-            if let None = entities_mut.get_by_index_mut(ei).expect("loop bounded by max") {
-                continue;
-            }
-
-            let entity_handle = entities_mut.handle_for_index(ei).unwrap();
-            let entity = entities_mut.get_by_index_mut(ei).expect("loop bounded by max").expect("checked None above");
-
-            if let Some(skinning) = &mut entity.model_skinning {
+            if let Some(skinning) = entities.get_model_skinning_mut(entity_handle) {
                 skinning.update_skinning_joint_buffer(mesh_loader);
 
                 let model_handle = entity_model.handle_for_entity(entity_handle).unwrap();

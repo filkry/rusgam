@@ -1,12 +1,13 @@
 //use std::ops::{Deref};
 use std::rc::{Weak};
 
+use entity;
+use entity_model;
 use model;
 use n12;
 use t12;
 use super::shaderbindings;
 use utils;
-use utils::{STransform};
 
 use glm::{Vec3, Mat4};
 
@@ -141,8 +142,8 @@ impl SShadowMappingPipeline {
         mesh_loader: &model::SMeshLoader,
         light_pos_world: &Vec3,
         cl: &mut n12::SCommandList,
-        models: &[model::SModel],
-        model_matrices: &[STransform],
+        entities: &entity::SEntityBucket,
+        entity_model: &entity_model::SBucket,
     ) -> Result<(), &'static str> {
 
         // -- all this data could be cached ----------------------------------------
@@ -218,11 +219,15 @@ impl SShadowMappingPipeline {
 
             let view_perspective = perspective_matrix * view_matrix;
 
-            for modeli in 0..models.len() {
-                let mvp = shaderbindings::SModelViewProjection::new(&view_perspective, &model_matrices[modeli]);
+            for model_handle in 0..entity_model.models.len() {
+                let entity_handle = entity_model.get_entity(model_handle);
+                let model = entity_model.get_model(model_handle);
+                let location = entities.get_entity_location(entity_handle);
+
+                let mvp = shaderbindings::SModelViewProjection::new(&view_perspective, &location);
                 self.vertex_shader.set_graphics_roots(&self.vertex_shader_bind, cl, &mvp);
-                self.vertex_shader.set_vertex_buffers(cl, mesh_loader.local_verts_vbv(models[modeli].mesh));
-                mesh_loader.set_index_buffer_and_draw(models[modeli].mesh, cl)?;
+                self.vertex_shader.set_vertex_buffers(cl, mesh_loader.local_verts_vbv(model.mesh));
+                mesh_loader.set_index_buffer_and_draw(model.mesh, cl)?;
             }
         }
 

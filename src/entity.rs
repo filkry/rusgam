@@ -70,6 +70,11 @@ impl SEntityBucket {
         data.model_skinning.as_ref()
     }
 
+    pub fn get_model_skinning_mut(&mut self, entity: SEntityHandle) -> Option<&mut SModelSkinning> {
+        let data = self.entities.get_mut(entity).expect("invalid entity");
+        data.model_skinning.as_mut()
+    }
+
     /*
     pub fn build_render_data<'a>(&self, allocator: &'a dyn TMemAllocator) -> (SMemVec<'a, SEntityHandle>, SMemVec<'a, STransform>, SMemVec<'a, SModel>) {
         // -- $$$FRK(TODO): if the stack allocator is used, returning these is only safe if the caller makes references to each member  (no _)

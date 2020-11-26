@@ -325,6 +325,7 @@ fn main_d3d12() -> Result<(), &'static str> {
         });
         */
 
+        // -- update bvh
         data_bucket.get::<bvh::STree<entity::SEntityHandle>>().unwrap()
             .and::<SEntityBucket>(&data_bucket).unwrap()
             .and::<render::SRender>(&data_bucket).unwrap()
@@ -353,30 +354,26 @@ fn main_d3d12() -> Result<(), &'static str> {
                 }
             });
 
-        panic!("Implement render updates!");
+        // -- render frame
+        let imgui_draw_data = imgui_ui.render();
 
-        /*
-        STACK_ALLOCATOR.with(|sa| -> Result<(), &'static str> {
-            let imgui_draw_data = imgui_ui.render();
-            data_bucket.get_entities().unwrap().with_mut(|entities: &mut SEntityBucket| {
-                data_bucket.get_renderer().unwrap().with_mut(|render: &mut render::SRender| {
-                    let (_entities, model_xforms, models) = entities.build_render_data(sa);
-
-                    // -- render world
-                    let render_result = render.render_frame(&mut window, &view_matrix, entities, models.as_slice(), model_xforms.as_slice(), Some(&imgui_draw_data));
-                    match render_result {
-                        Ok(_) => {},
-                        Err(e) => {
-                            println!("ERROR: render failed with error '{}'", e);
-                            panic!();
-                        },
-                    }
-                });
+        data_bucket.get::<render::SRender>().unwrap()
+            .and::<SEntityBucket>(&data_bucket).unwrap()
+            .and::<entity_model::SBucket>(&data_bucket).unwrap()
+            .with_mmc(|
+                render: &mut render::SRender,
+                entities: &mut SEntityBucket,
+                entity_model: &entity_model::SBucket,
+            | {
+                let render_result = render.render_frame(&mut window, &view_matrix, entities, entity_model, Some(&imgui_draw_data));
+                match render_result {
+                    Ok(_) => {},
+                    Err(e) => {
+                        println!("ERROR: render failed with error '{}'", e);
+                        panic!();
+                    },
+                }
             });
-
-            Ok(())
-        })?;
-        */
 
         lastframetime = curframetime;
         _framecount += 1;

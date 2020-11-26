@@ -460,8 +460,6 @@ impl<'a> SRender<'a> {
         view_matrix: &Mat4,
         entities: &mut SEntityBucket,
         entity_model: &entity_model::SBucket,
-        world_models: &[SModel],
-        world_model_xforms: &[STransform],
         imgui_draw_data: Option<&imgui::DrawData>,
     ) -> Result<(), &'static str> {
         let back_buffer_idx = window.currentbackbufferindex();
@@ -506,7 +504,7 @@ impl<'a> SRender<'a> {
         self.compute_skinning(entities, entity_model)?;
 
         // -- $$$FRK(TODO): should initialize the shadow map depth buffer to empty, so we still get light if we don't render maps
-        self.render_shadow_maps(world_models, world_model_xforms)?;
+        self.render_shadow_maps(entities, entity_model)?;
         self.render_world(window, view_matrix, entities, entity_model)?;
         self.render_temp_in_world(window, view_matrix)?;
 
@@ -546,8 +544,8 @@ impl<'a> SRender<'a> {
 
     pub fn render_shadow_maps(
         &mut self,
-        world_models: &[SModel],
-        world_model_xforms: &[STransform],
+        entities: &SEntityBucket,
+        entity_model: &entity_model::SBucket,
     ) -> Result<(), &'static str> {
         let mut handle = self.direct_command_pool.alloc_list()?;
         let mut list = self.direct_command_pool.get_list(&handle)?;
@@ -556,8 +554,8 @@ impl<'a> SRender<'a> {
             &self.mesh_loader,
             &Vec3::new(5.0, 5.0, 5.0),
             list.deref_mut(),
-            world_models,
-            world_model_xforms,
+            entities,
+            entity_model,
         )?;
 
         drop(list);
@@ -568,7 +566,13 @@ impl<'a> SRender<'a> {
         Ok(())
     }
 
-    pub fn render_world(&mut self, window: &mut n12::SD3D12Window, view_matrix: &Mat4, entities: &SEntityBucket, entity_model: &entity_model::SBucket) -> Result<(), &'static str> {
+    pub fn render_world(
+        &mut self,
+        window: &mut n12::SD3D12Window,
+        view_matrix: &Mat4,
+        entities: &SEntityBucket,
+        entity_model: &entity_model::SBucket,
+    ) -> Result<(), &'static str> {
         let viewport = t12::SViewport::new(
             0.0,
             0.0,
@@ -617,15 +621,9 @@ impl<'a> SRender<'a> {
                 });
 
                 let view_perspective = perspective_matrix * view_matrix;
-                assert!(false, "Should iterate over models");
-                for ei in 0..entities.entities().max() {
-                    let entity_handle_res = entities.entities().handle_for_index(ei);
-                    if entity_handle_res.is_err() {
-                        continue;
-                    }
-                    let entity_handle = entity_handle_res.expect("checked above");
 
-                    let model_handle = entity_model.handle_for_entity(entity_handle).unwrap();
+                for model_handle in 0..entity_model.models.len() {
+                    let entity_handle = entity_model.get_entity(model_handle);
                     let model = entity_model.get_model(model_handle);
 
                     let texture_metadata = shaderbindings::STextureMetadata::new_from_model(&model);

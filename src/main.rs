@@ -124,9 +124,22 @@ fn main_d3d12() -> Result<(), &'static str> {
     entitytypes::testopenroomentity::create(
         &data_bucket, Some("tst_room"),
         STransform::new_translation(&glm::Vec3::new(0.0, -2.0, 0.0)))?;
-    entitytypes::tstskinnedentity::create(
+    let skinned_entity = entitytypes::tstskinnedentity::create(
         &data_bucket, Some("tst_skinned_entity"), Some(glm::Vec4::new(1.0, 1.0, 1.0, 1.0)),
         STransform::new_translation(&glm::Vec3::new(-3.0, 2.0, 0.0)))?;
+
+    data_bucket.get::<render::SRender>().expect("")
+        .and::<entity_model::SBucket>(&data_bucket).expect("")
+        .with_cc(|render: &render::SRender, em: &entity_model::SBucket| {
+            let gltf = gltf::Gltf::open("assets/test_armature_animation.gltf").unwrap();
+
+            let model_handle = em.handle_for_entity(skinned_entity).unwrap();
+            let mesh = em.get_model(model_handle).mesh;
+
+            let mesh_skinning = render.mesh_loader().get_mesh_skinning(mesh).unwrap();
+
+            animation::SAnimation::new_from_gltf(&SYSTEM_ALLOCATOR, &gltf, &mesh_skinning).unwrap();
+        });
 
     // -- update loop
     let mut lastframetime = winapi.curtimemicroseconds();

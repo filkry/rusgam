@@ -3,7 +3,8 @@ use glm::{Vec3, Quat};
 use model::{SMeshSkinning};
 use utils::{STransform, lerp, unlerp_f32, gltf_accessor_slice, clamp};
 
-struct SAnimation<'a> {
+pub struct SAnimation<'a> {
+    duration: f32,
     channels: SMemVec<'a, EChannel<'a>>,
     bound_node_to_joint_map: SMemVec<'a, Option<usize>>,
 }
@@ -130,6 +131,8 @@ impl<'a> SAnimation<'a> {
 
         let mut channels = SMemVec::<EChannel>::new(allocator, animation.channels().count(), 0)?;
 
+        let mut duration = 0.0;
+
         for channel in animation.channels() {
             let target_node = channel.target().node();
             let target_node_idx = target_node.index();
@@ -151,6 +154,8 @@ impl<'a> SAnimation<'a> {
                 &buffer_bytes,
             );
             let sample_times = SMemVec::new_copy_slice(allocator, sample_times_bin)?;
+
+            duration = f32::max(duration, *sample_times.last().unwrap());
 
             match channel.target().property() {
                 Property::Translation => {
@@ -188,6 +193,10 @@ impl<'a> SAnimation<'a> {
                     ));
                 },
                 Property::Scale => {
+                    // -- do nothing, not handling scale in animations currently
+                }
+                /*
+                Property::Scale => {
                     let sample_values_bin : &[f32] = gltf_accessor_slice(
                         &sampler.output(),
                         gltf::accessor::DataType::F32,
@@ -203,12 +212,13 @@ impl<'a> SAnimation<'a> {
                             sample_values: SMemVec::new_copy_slice(allocator, sample_values_bin)?,
                         }
                     ));
-                },
+                },*/
                 _ => panic!("not implemented"),
             }
         }
 
         Ok(Self{
+            duration,
             channels,
             bound_node_to_joint_map,
         })

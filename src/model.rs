@@ -1,7 +1,5 @@
 use std::cell::RefCell;
 use std::ops::{Deref, DerefMut};
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
 use std::rc::Weak;
 
 use glm::{Vec4, Vec3, Vec2, Mat4};
@@ -18,12 +16,13 @@ use safewindows;
 use render::shaderbindings;
 use rustywindows;
 use utils;
-use utils::{STransform};
+use utils::{STransform, gltf_accessor_slice, SHashedStr, hash_str};
 
 #[derive(Debug)]
 pub struct SJoint {
     pub local_to_parent: STransform,
     pub parent_idx: Option<usize>,
+    pub name: SHashedStr,
 }
 
 pub struct SMeshSkinning<'a> {
@@ -215,11 +214,7 @@ impl<'a> SMeshLoader<'a> {
     }
 
     pub fn get_or_create_mesh_gltf(&mut self, asset_file_path: &'static str, gltf_data: &gltf::Gltf) -> Result<SMeshHandle, &'static str> {
-        let uid = {
-            let mut s = DefaultHasher::new();
-            asset_file_path.hash(&mut s);
-            s.finish()
-        };
+        let uid = hash_str(asset_file_path);
 
         // -- $$$FRK(TODO): replace with some accelerated lookup structure
         for i in 0..self.mesh_pool.used() {
@@ -251,48 +246,21 @@ impl<'a> SMeshLoader<'a> {
         assert!(mesh.primitives().len() == 1, "can't handle multi-primitive mesh currently");
         let primitive = mesh.primitives().nth(0).unwrap();
 
-        fn accessor_slice<'a, T>(
-            accessor: &gltf::Accessor,
-            expected_datatype: gltf::accessor::DataType,
-            expected_dimensions: gltf::accessor::Dimensions,
-            bytes: &'a Vec<u8>,
-        ) -> &'a [T] {
-            if accessor.data_type() != expected_datatype {
-                println!("Expected datatype {:?}, got {:?}", expected_datatype, accessor.data_type());
-                assert!(false);
-            }
-            assert!(accessor.dimensions() == expected_dimensions);
-
-            let size = accessor.size();
-            assert!(size == std::mem::size_of::<T>());
-            let count = accessor.count();
-
-            let view = accessor.view().unwrap();
-            assert!(view.stride().is_none());
-
-            let slice_bytes = &bytes[view.offset()..(view.offset() + size * count)];
-            let (_a, result, _b) = unsafe { slice_bytes.align_to::<T>() };
-            assert!(_a.len () == 0 && _b.len() == 0);
-
-            result
-        }
-
-        ;
-        let positions : &[Vec3] = accessor_slice(
+        let positions : &[Vec3] = gltf_accessor_slice(
             &primitive.get(&gltf::mesh::Semantic::Positions).unwrap(),
             gltf::accessor::DataType::F32,
             gltf::accessor::Dimensions::Vec3,
             &buffer_bytes,
         );
         //println!("Dumped GLTF positions: {:?}", positions);
-        let normals : &[Vec3] = accessor_slice(
+        let normals : &[Vec3] = gltf_accessor_slice(
             &primitive.get(&gltf::mesh::Semantic::Normals).unwrap(),
             gltf::accessor::DataType::F32,
             gltf::accessor::Dimensions::Vec3,
             &buffer_bytes,
         );
         //println!("Dumped GLTF normals: {:?}", normals);
-        let bin_uvs : &[Vec2] = accessor_slice(
+        let bin_uvs : &[Vec2] = gltf_accessor_slice(
             &primitive.get(&gltf::mesh::Semantic::TexCoords(0)).unwrap(),
             gltf::accessor::DataType::F32,
             gltf::accessor::Dimensions::Vec2,
@@ -306,7 +274,7 @@ impl<'a> SMeshLoader<'a> {
         let local_normals = SMemVec::<Vec3>::new_copy_slice(&SYSTEM_ALLOCATOR, normals).unwrap();
         let uvs = SMemVec::<Vec2>::new_copy_slice(&SYSTEM_ALLOCATOR, bin_uvs).unwrap();
 
-        let indices_bin : &[u16] = accessor_slice(
+        let indices_bin : &[u16] = gltf_accessor_slice(
             &primitive.indices().unwrap(),
             gltf::accessor::DataType::U16,
             gltf::accessor::Dimensions::Scalar,
@@ -353,13 +321,13 @@ impl<'a> SMeshLoader<'a> {
         let mut skinning = None;
         let joints_accessor_opt = &primitive.get(&gltf::mesh::Semantic::Joints(0));
         if let Some(joints_accessor) = joints_accessor_opt {
-            let joints : &[[u16; 4]] = accessor_slice(
+            let joints : &[[u16; 4]] = gltf_accessor_slice(
                 joints_accessor,
                 gltf::accessor::DataType::U16,
                 gltf::accessor::Dimensions::Vec4,
                 &buffer_bytes,
             );
-            let weights : &[[f32; 4]] = accessor_slice(
+            let weights : &[[f32; 4]] = gltf_accessor_slice(
                 &primitive.get(&gltf::mesh::Semantic::Weights(0)).unwrap(),
                 gltf::accessor::DataType::F32,
                 gltf::accessor::Dimensions::Vec4,
@@ -395,7 +363,7 @@ impl<'a> SMeshLoader<'a> {
             assert!(gltf_data.skins().len() == 1, "Can't handle multi-skin model currently");
             let skin = gltf_data.skins().nth(0).unwrap();
 
-            let inverse_bind_matrices_bin : &[Mat4] = accessor_slice(
+            let inverse_bind_matrices_bin : &[Mat4] = gltf_accessor_slice(
                 &skin.inverse_bind_matrices().unwrap(),
                 gltf::accessor::DataType::F32,
                 gltf::accessor::Dimensions::Mat4,
@@ -424,6 +392,7 @@ impl<'a> SMeshLoader<'a> {
                     result.push(SJoint{
                         local_to_parent: transform,
                         parent_idx: None,
+                        name: hash_str(joint_node.name().unwrap()),
                     });
                     index_map[joint_node.index()] = Some(result.len() - 1);
                 }
@@ -492,11 +461,7 @@ impl<'a> SMeshLoader<'a> {
     }
 
     pub fn get_or_create_mesh_obj(&mut self, asset_name: &'static str, tobj_mesh: &tobj::Mesh) -> Result<SMeshHandle, &'static str> {
-        let uid = {
-            let mut s = DefaultHasher::new();
-            asset_name.hash(&mut s);
-            s.finish()
-        };
+        let uid = hash_str(asset_name);
 
         // -- $$$FRK(TODO): replace with some accelerated lookup structure
         for i in 0..self.mesh_pool.used() {
@@ -900,11 +865,7 @@ impl STextureLoader {
 
     pub fn get_or_create_texture(&mut self, texture_name: &String) -> Result<STextureHandle, &'static str> {
 
-        let uid = {
-            let mut s = DefaultHasher::new();
-            texture_name.hash(&mut s);
-            s.finish()
-        };
+        let uid = hash_str(texture_name);
 
         // -- $$$FRK(TODO): replace with some accelerated lookup structure
         for i in 0..self.texture_pool.used() {
@@ -954,6 +915,19 @@ impl STextureLoader {
         }
 
         return Err("Tried to get descriptor for invalid SRV.")
+    }
+}
+
+impl<'a> SMeshSkinning<'a> {
+    pub fn joint_index_by_name(&self, name: &str) -> Option<usize> {
+        let hashed_name = utils::hash_str(name);
+        for (ji, joint) in self.bind_joints.as_ref().iter().enumerate() {
+            if joint.name == hashed_name {
+                return Some(ji);
+            }
+        }
+
+        None
     }
 }
 

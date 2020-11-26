@@ -15,6 +15,9 @@ Things necessary to start messing around with a game:
         + static/ambient lighting?
 
 Misc:
++ move Pools out of collections mod.rs
++ move SMemVec from allocate to collections
++ Port SPool to use SMemVec backing rather than Vec
 + some stuff in model.rs should move into render
 + look for everywhere we wait on a fence and consider what it would take to actually synchronize w/o huge perf overhead
 + search for unwrap() calls and clean up

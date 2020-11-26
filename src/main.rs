@@ -14,6 +14,7 @@ extern crate gltf;
 #[macro_use]
 mod safewindows;
 mod allocate;
+mod animation;
 mod bvh;
 mod collections;
 mod databucket;

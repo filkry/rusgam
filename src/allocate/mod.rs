@@ -432,6 +432,22 @@ impl<'a, T> SMemVec<'a, T> {
     }
 }
 
+impl<'a, T: Clone> SMemVec<'a, T> {
+    pub fn push_all(&mut self, val: T) {
+        while self.remaining_capacity() > 0 {
+            self.push(val.clone());
+        }
+    }
+}
+
+impl<'a, T: Default> SMemVec<'a, T> {
+    pub fn push_all_default(&mut self) {
+        while self.remaining_capacity() > 0 {
+            self.push(Default::default());
+        }
+    }
+}
+
 impl<'a, T> Drop for SMemVec<'a, T> {
     fn drop(&mut self) {
         self.clear();

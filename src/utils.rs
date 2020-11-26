@@ -4,6 +4,9 @@
 
 use safewindows;
 use glm::{Vec3, Vec4, Quat, Mat4};
+use gltf;
+use std::collections::hash_map::{DefaultHasher};
+use std::hash::{Hash, Hasher};
 
 pub static PI : f32 = 3.14159265358979;
 
@@ -36,11 +39,12 @@ pub struct SGameContext {
     pub cur_frame: u64,
 }
 
-//pub fn hash64<T: Hash>(t: &T) -> u64 {
-//    let mut s = DefaultHasher::new();
-//    t.hash(&mut s);
-//    s.finish()
-//}
+pub type SHashedStr = u64;
+pub fn hash_str(s: &str) -> SHashedStr {
+    let mut hasher = DefaultHasher::new();
+    s.hash(&mut hasher);
+    hasher.finish()
+}
 
 impl SAABB {
     pub fn new(p: &Vec3) -> Self {
@@ -127,15 +131,14 @@ pub fn clamp<T: Copy + PartialOrd<T>>(val: T, min: T, max: T) -> T {
     return val;
 }
 
-// -- $$$FRK(TODO): come back to this, not in the mood right now
-/*
-pub fn lerp<T: Copy + PartialOrd<T> + Add<Output=T> + Sub<Output=T> + Mul<f32>>(start: T, end: T, t: f32) -> T {
-    start + t * (end - start)
+pub fn lerp<T>(start: T, end: T, t: f32) -> T
+where T: std::ops::Sub<Output = T> + std::ops::Add<Output = T> + std::ops::Mul<f32, Output = T> + Copy
+{
+    start + (end - start) * t
 }
-*/
 
-pub fn lerp_f32(start: f32, end: f32, t: f32) -> f32 {
-    start + t * (end - start)
+pub fn unlerp_f32(start: f32, end: f32, cur: f32) -> f32 {
+    (cur - start) / (end - start)
 }
 
 pub fn closest_point_on_line(line_p0: &Vec3, line_p1: &Vec3, p: &Vec3) -> (Vec3, f32) {
@@ -383,4 +386,30 @@ impl STransform {
     pub fn mul_vec(&self, point: &Vec3) -> Vec3 {
         return glm::quat_rotate_vec3(&self.r, &(self.s * point));
     }
+}
+
+pub fn gltf_accessor_slice<'a, T>(
+    accessor: &gltf::Accessor,
+    expected_datatype: gltf::accessor::DataType,
+    expected_dimensions: gltf::accessor::Dimensions,
+    bytes: &'a Vec<u8>,
+) -> &'a [T] {
+    if accessor.data_type() != expected_datatype {
+        println!("Expected datatype {:?}, got {:?}", expected_datatype, accessor.data_type());
+        assert!(false);
+    }
+    assert!(accessor.dimensions() == expected_dimensions);
+
+    let size = accessor.size();
+    assert!(size == std::mem::size_of::<T>());
+    let count = accessor.count();
+
+    let view = accessor.view().unwrap();
+    assert!(view.stride().is_none());
+
+    let slice_bytes = &bytes[view.offset()..(view.offset() + size * count)];
+    let (_a, result, _b) = unsafe { slice_bytes.align_to::<T>() };
+    assert!(_a.len () == 0 && _b.len() == 0);
+
+    result
 }

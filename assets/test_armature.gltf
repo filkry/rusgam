@@ -8,41 +8,11 @@
         {
             "name" : "Scene",
             "nodes" : [
-                0,
-                1,
-                5
+                3
             ]
         }
     ],
     "nodes" : [
-        {
-            "name" : "Light",
-            "rotation" : [
-                0.16907575726509094,
-                0.7558803558349609,
-                -0.27217137813568115,
-                0.570947527885437
-            ],
-            "translation" : [
-                4.076245307922363,
-                5.903861999511719,
-                -1.0054539442062378
-            ]
-        },
-        {
-            "name" : "Camera",
-            "rotation" : [
-                0.483536034822464,
-                0.33687159419059753,
-                -0.20870360732078552,
-                0.7804827094078064
-            ],
-            "translation" : [
-                7.358891487121582,
-                4.958309173583984,
-                6.925790786743164
-            ]
-        },
         {
             "name" : "Bone.001",
             "translation" : [
@@ -53,7 +23,7 @@
         },
         {
             "children" : [
-                2
+                0
             ],
             "name" : "Bone"
         },
@@ -64,8 +34,8 @@
         },
         {
             "children" : [
-                4,
-                3
+                2,
+                1
             ],
             "name" : "Armature"
         }
@@ -95,10 +65,11 @@
                         "POSITION" : 0,
                         "NORMAL" : 1,
                         "TEXCOORD_0" : 2,
-                        "JOINTS_0" : 3,
-                        "WEIGHTS_0" : 4
+                        "COLOR_0" : 3,
+                        "JOINTS_0" : 4,
+                        "WEIGHTS_0" : 5
                     },
-                    "indices" : 5,
+                    "indices" : 6,
                     "material" : 0
                 }
             ]
@@ -106,10 +77,10 @@
     ],
     "skins" : [
         {
-            "inverseBindMatrices" : 6,
+            "inverseBindMatrices" : 7,
             "joints" : [
-                3,
-                2
+                1,
+                0
             ],
             "name" : "Armature"
         }
@@ -145,24 +116,30 @@
         },
         {
             "bufferView" : 3,
-            "componentType" : 5123,
-            "count" : 48,
-            "type" : "VEC4"
-        },
-        {
-            "bufferView" : 4,
             "componentType" : 5126,
             "count" : 48,
             "type" : "VEC4"
         },
         {
+            "bufferView" : 4,
+            "componentType" : 5123,
+            "count" : 48,
+            "type" : "VEC4"
+        },
+        {
             "bufferView" : 5,
+            "componentType" : 5126,
+            "count" : 48,
+            "type" : "VEC4"
+        },
+        {
+            "bufferView" : 6,
             "componentType" : 5123,
             "count" : 72,
             "type" : "SCALAR"
         },
         {
-            "bufferView" : 6,
+            "bufferView" : 7,
             "componentType" : 5126,
             "count" : 2,
             "type" : "MAT4"
@@ -186,28 +163,33 @@
         },
         {
             "buffer" : 0,
-            "byteLength" : 384,
+            "byteLength" : 768,
             "byteOffset" : 1536
         },
         {
             "buffer" : 0,
-            "byteLength" : 768,
-            "byteOffset" : 1920
+            "byteLength" : 384,
+            "byteOffset" : 2304
         },
         {
             "buffer" : 0,
-            "byteLength" : 144,
+            "byteLength" : 768,
             "byteOffset" : 2688
         },
         {
             "buffer" : 0,
+            "byteLength" : 144,
+            "byteOffset" : 3456
+        },
+        {
+            "buffer" : 0,
             "byteLength" : 128,
-            "byteOffset" : 2832
+            "byteOffset" : 3600
         }
     ],
     "buffers" : [
         {
-            "byteLength" : 2960,
+            "byteLength" : 3728,
             "uri" : "test_armature.bin"
         }
     ]

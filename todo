@@ -1,20 +1,5 @@
-+ factor out editing layer
-+ refactor DataBucket
+! shutdown crash due to descriptors being in entity_animation::SBucket
 
-Things necessary to start messing around with a game:
-    + level data:
-        + environment definition/placement
-        + define entity types in code and/or data
-        + place entity type from edit mode
-        + save/load levels
-        + menu
-    + collision detection:
-        + collision resolution
-    + lighting
-        + define dynamic runtime lights instead of baking into shader
-        + static/ambient lighting?
-
-Misc:
 + move Pools out of collections mod.rs
 + move SMemVec from allocate to collections
 + Port SPool to use SMemVec backing rather than Vec
@@ -28,3 +13,16 @@ Misc:
 + data IO
 + identifier storage (hashed vs string interning)
 + port math library
+
+Things necessary to start messing around with a game:
+    + level data:
+        + environment definition/placement
+        + define entity types in code and/or data
+        + place entity type from edit mode
+        + save/load levels
+        + menu
+    + collision detection:
+        + collision resolution
+    + lighting
+        + define dynamic runtime lights instead of baking into shader
+        + static/ambient lighting?

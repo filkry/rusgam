@@ -111,7 +111,6 @@ pub struct SModelSkinning {
     pub cur_joints_to_parents: SMemVec<'static, STransform>,
 
     pub joints_bind_to_cur_resource: n12::SBufferResource<Mat4>,
-    pub joints_bind_to_cur_view: n12::SDescriptorAllocatorAllocation,
 
     pub skinned_verts_resource: n12::SBufferResource<Vec3>,
     pub skinned_verts_vbv: t12::SVertexBufferView,
@@ -565,17 +564,6 @@ impl<'a> SMeshLoader<'a> {
             t12::EResourceStates::GenericRead,
             bind_joints.len(),
         )?;
-        let joints_bind_to_cur_view = {
-            let descriptors = descriptor_alloc(&self.cbv_srv_uav_heap.upgrade().expect("allocator dropped"), 1)?;
-            let srv_desc = joints_bind_to_cur_resource.create_srv_desc();
-            self.device.upgrade().expect("device dropped").create_shader_resource_view(
-                &joints_bind_to_cur_resource.raw,
-                &srv_desc,
-                descriptors.cpu_descriptor(0),
-            )?;
-
-            descriptors
-        };
 
         joints_bind_to_cur_resource.map();
         //frame_model_to_joint_to_world_xforms_resource.copy_to_map(bind_joints.as_ref());
@@ -611,7 +599,6 @@ impl<'a> SMeshLoader<'a> {
             mesh,
             cur_joints_to_parents,
             joints_bind_to_cur_resource,
-            joints_bind_to_cur_view,
 
             skinned_verts_resource,
             skinned_verts_vbv,

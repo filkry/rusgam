@@ -27,6 +27,7 @@ struct SScaleChannel<'a> {
     sample_values: SMemVec<'a, f32>,
 }
 
+#[allow(dead_code)]
 enum EChannel<'a> {
     Translation(STranslationChannel<'a>),
     Rotation(SRotationChannel<'a>),

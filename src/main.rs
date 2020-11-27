@@ -310,14 +310,16 @@ fn main_d3d12() -> Result<(), &'static str> {
             });
         }
 
-        /*
         // -- draw skeleton of selected entity
         STACK_ALLOCATOR.with(|sa| {
-            data_bucket.get_renderer().unwrap().with_mut(|render: &mut render::SRender| {
-                data_bucket.get_entities().unwrap().with(|entities: &SEntityBucket| {
+            data_bucket.get::<render::SRender>().unwrap()
+                .and::<entity_model::SBucket>(&data_bucket).unwrap()
+                .and::<SEntityBucket>(&data_bucket).unwrap()
+                .with_mcc(|render: &mut render::SRender, em: &entity_model::SBucket, entities: &SEntityBucket| {
                     if let Some(e) = editmode_ctxt.editing_entity() {
                         let loc = entities.get_entity_location(e);
-                        let model = entities.get_entity_model(e).unwrap();
+                        let model_handle = em.handle_for_entity(e).unwrap();
+                        let model = em.get_model(model_handle);
 
                         let mut joint_locs = SMemVec::new(sa, 128, 0).unwrap();
 
@@ -340,9 +342,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                         }
                     }
                 });
-            });
         });
-        */
 
         // -- update bvh
         data_bucket.get::<bvh::STree<entity::SEntityHandle>>().unwrap()

@@ -56,7 +56,7 @@ fn find_segment_and_segment_t(time: f32, sample_times: &[f32]) -> (usize, f32) {
 
     for i in 0..(sample_times.len() - 1) {
         if sample_times[i] <= time && sample_times[i + 1] >= time {
-            let segment_t = unlerp_f32(time, sample_times[i], sample_times[i + 1]);
+            let segment_t = unlerp_f32(sample_times[i], sample_times[i + 1], time);
             return (i, segment_t);
         }
     }
@@ -182,6 +182,14 @@ impl<'a> SAnimation<'a> {
                         &buffer_bytes,
                     );
                     assert!(sample_times.len() == sample_values_bin.len());
+
+                    /*
+                    println!("Dumping anim rotation properties:");
+                    println!("sample_times: {:?}", sample_times.as_ref());
+                    for sample_value in sample_values_bin {
+                        println!("sample_values: {:?}", sample_value);
+                    }
+                    */
 
                     channels.push(EChannel::Rotation(
                         SRotationChannel{

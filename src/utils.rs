@@ -138,6 +138,7 @@ where T: std::ops::Sub<Output = T> + std::ops::Add<Output = T> + std::ops::Mul<f
 }
 
 pub fn unlerp_f32(start: f32, end: f32, cur: f32) -> f32 {
+    assert!(start < end);
     (cur - start) / (end - start)
 }
 

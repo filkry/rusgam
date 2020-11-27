@@ -1,4 +1,3 @@
-! shutdown crash due to descriptors being in entity_animation::SBucket
 
 + move Pools out of collections mod.rs
 + move SMemVec from allocate to collections

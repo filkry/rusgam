@@ -554,7 +554,7 @@ impl<'a> SMeshLoader<'a> {
     }
 
     pub fn bind_skinning(
-        &mut self,
+        &self,
         mesh: SMeshHandle,
     ) -> Result<SModelSkinning, &'static str> {
         let bind_joints = self.get_mesh_bind_joints(mesh).unwrap();

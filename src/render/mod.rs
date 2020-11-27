@@ -14,8 +14,9 @@ use typeyd3d12 as t12;
 use allocate::{SMemVec, STACK_ALLOCATOR};
 use databucket::{SDataBucket};
 use entity::{SEntityBucket, SEntityHandle};
+use entity_animation;
 use entity_model;
-use model::{SModel, SModelSkinning, SMeshLoader, STextureLoader};
+use model::{SModel, SMeshLoader, STextureLoader};
 use safewindows;
 use rustywindows;
 use utils;
@@ -408,10 +409,6 @@ impl<'a> SRender<'a> {
         &self.mesh_loader
     }
 
-    pub fn bind_model_skinning(&mut self, model: &SModel) -> Result<SModelSkinning, &'static str> {
-        self.mesh_loader.bind_skinning(model.mesh)
-    }
-
     #[allow(dead_code)]
     pub fn ray_intersects(
         &self,
@@ -459,6 +456,7 @@ impl<'a> SRender<'a> {
         window: &mut n12::SD3D12Window,
         view_matrix: &Mat4,
         entities: &mut SEntityBucket,
+        entity_animation: &mut entity_animation::SBucket,
         entity_model: &entity_model::SBucket,
         imgui_draw_data: Option<&imgui::DrawData>,
     ) -> Result<(), &'static str> {
@@ -501,11 +499,11 @@ impl<'a> SRender<'a> {
         }
 
         // -- update skinned buffers
-        self.compute_skinning(entities, entity_model)?;
+        self.compute_skinning(entity_animation, entity_model)?;
 
         // -- $$$FRK(TODO): should initialize the shadow map depth buffer to empty, so we still get light if we don't render maps
         self.render_shadow_maps(entities, entity_model)?;
-        self.render_world(window, view_matrix, entities, entity_model)?;
+        self.render_world(window, view_matrix, entities, entity_animation, entity_model)?;
         self.render_temp_in_world(window, view_matrix)?;
 
         // -- clear depth buffer again
@@ -528,11 +526,11 @@ impl<'a> SRender<'a> {
         Ok(())
     }
 
-    fn compute_skinning(&mut self, entities: &mut SEntityBucket, entity_model: &entity_model::SBucket) -> Result<(), &'static str> {
+    fn compute_skinning(&mut self, entity_animation: &mut entity_animation::SBucket, entity_model: &entity_model::SBucket) -> Result<(), &'static str> {
         let mut handle = self.direct_command_pool.alloc_list()?;
         let mut list = self.direct_command_pool.get_list(&handle)?;
 
-        self.compute_skinning_pipeline.compute(list.deref_mut(), &self.mesh_loader, entities, entity_model);
+        self.compute_skinning_pipeline.compute(list.deref_mut(), &self.mesh_loader, entity_animation, entity_model);
 
         drop(list);
 
@@ -571,6 +569,7 @@ impl<'a> SRender<'a> {
         window: &mut n12::SD3D12Window,
         view_matrix: &Mat4,
         entities: &SEntityBucket,
+        entity_animation: &entity_animation::SBucket,
         entity_model: &entity_model::SBucket,
     ) -> Result<(), &'static str> {
         let viewport = t12::SViewport::new(
@@ -632,7 +631,7 @@ impl<'a> SRender<'a> {
                         self.texture_loader.texture_gpu_descriptor(handle).unwrap()
                     });
 
-                    let (verts_vbv, normals_vbv) = match entities.get_model_skinning(entity_handle) {
+                    let (verts_vbv, normals_vbv) = match entity_animation.get_skinning_for_entity(entity_handle) {
                         Some(skinning) => (&skinning.skinned_verts_vbv, &skinning.skinned_normals_vbv),
                         None => (self.mesh_loader.local_verts_vbv(model.mesh), self.mesh_loader.local_normals_vbv(model.mesh)),
                     };

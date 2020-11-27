@@ -3,6 +3,7 @@ extern crate nalgebra_glm as glm;
 use databucket::{SDataBucket};
 use entity::*;
 use entity_model;
+use entity_animation;
 use render;
 use utils::{STransform, SGameContext};
 
@@ -16,21 +17,18 @@ pub fn create(
     data_bucket.get::<SEntityBucket>().unwrap()
         .and::<render::SRender>(data_bucket).unwrap()
         .and::<entity_model::SBucket>(data_bucket).unwrap()
+        .and::<entity_animation::SBucket>(data_bucket).unwrap()
         .and::<SGameContext>(data_bucket).unwrap()
-        .with_mmmc(|
+        .with_mmmmc(|
             entities: &mut SEntityBucket,
             render: &mut render::SRender,
-            em: &mut entity_model::SBucket,
+            e_model: &mut entity_model::SBucket,
+            e_animation: &mut entity_animation::SBucket,
             gc: &SGameContext,
         | {
             let ent = entities.create_entity()?;
 
-            let (mut model, model_skinning) = {
-                let model = render.new_model_from_gltf("assets/test_armature.gltf", 1.0, true).unwrap();
-                let model_skinning = render.bind_model_skinning(&model).unwrap();
-
-                (model, model_skinning)
-            };
+            let mut model = render.new_model_from_gltf("assets/test_armature.gltf", 1.0, true)?;
             if let Some(c) = diffuse_colour {
                 model.diffuse_colour = c;
             }
@@ -39,8 +37,9 @@ pub fn create(
                 entities.set_entity_debug_name(ent, n);
             }
 
-            em.add_instance(ent, model)?;
-            entities.set_entity_model_skinning(ent, model_skinning);
+            let model_handle = e_model.add_instance(ent, model)?;
+            e_animation.add_instance(ent, (&e_model, model_handle), render.mesh_loader())?;
+
             entities.set_location(gc, ent, starting_location);
 
             Ok(ent)

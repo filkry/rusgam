@@ -21,6 +21,7 @@ mod databucket;
 mod directxgraphicssamples;
 mod editmode;
 mod entity;
+mod entity_animation;
 mod entity_model;
 mod gjk;
 mod input;
@@ -106,13 +107,14 @@ fn main_d3d12() -> Result<(), &'static str> {
     let mut data_bucket = databucket::SDataBucket::new(256, &SYSTEM_ALLOCATOR);
 
     data_bucket.add(SEntityBucket::new(67485, 16));
+    data_bucket.add(SAnimationLoader::new(&SYSTEM_ALLOCATOR, 64));
     data_bucket.add(render);
     data_bucket.add(entity_model::SBucket::new(&SYSTEM_ALLOCATOR, 1024)?);
+    data_bucket.add(entity_animation::SBucket::new(&SYSTEM_ALLOCATOR, 1024)?);
     data_bucket.add(bvh::STree::new());
     data_bucket.add(SGameContext{
         cur_frame: 0,
     });
-    data_bucket.add(SAnimationLoader::new(&SYSTEM_ALLOCATOR, 64));
 
     let rotating_entity = entitytypes::testtexturedcubeentity::create(
         &data_bucket, Some("tst_rotating"),
@@ -130,17 +132,17 @@ fn main_d3d12() -> Result<(), &'static str> {
         &data_bucket, Some("tst_skinned_entity"), Some(glm::Vec4::new(1.0, 1.0, 1.0, 1.0)),
         STransform::new_translation(&glm::Vec3::new(-3.0, 2.0, 0.0)))?;
 
-    let skinned_entity_animation = data_bucket.get::<render::SRender>().expect("")
-        .and::<entity_model::SBucket>(&data_bucket).expect("")
-        .with_cc(|render: &render::SRender, em: &entity_model::SBucket| {
-            let gltf = gltf::Gltf::open("assets/test_armature_animation.gltf").unwrap();
-
-            let model_handle = em.handle_for_entity(skinned_entity).unwrap();
-            let mesh = em.get_model(model_handle).mesh;
-
-            let mesh_skinning = render.mesh_loader().get_mesh_skinning(mesh).unwrap();
-
-            animation::SAnimation::new_from_gltf(&SYSTEM_ALLOCATOR, &gltf, &mesh_skinning).unwrap()
+    data_bucket.get::<entity_animation::SBucket>().expect("")
+        .and::<animation::SAnimationLoader>(&data_bucket).expect("")
+        .and::<render::SRender>(&data_bucket).expect("")
+        .with_mmc(|
+            ea: &mut entity_animation::SBucket,
+            anim_loader: &mut animation::SAnimationLoader,
+            render: &render::SRender
+        | {
+            let handle = ea.handle_for_entity(skinned_entity).unwrap();
+            let asset_file_path = "assets/test_armature_animation.gltf";
+            ea.play_animation(handle, anim_loader, render.mesh_loader(), asset_file_path, 0.0);
         });
 
     // -- update loop
@@ -352,16 +354,14 @@ fn main_d3d12() -> Result<(), &'static str> {
             });
 
         // -- update animation
-        data_bucket.get::<SEntityBucket>().unwrap()
-            .with_mut(|entities: &mut SEntityBucket| {
-                let model_skinning = entities.get_model_skinning_mut(skinned_entity).unwrap();
-                let anim_time = _total_time_seconds % skinned_entity_animation.duration;
-
-                //println!("time sampled: {:?}", anim_time);
-                animation::update_joints(&skinned_entity_animation, anim_time, &mut model_skinning.cur_joints_to_parents);
+        data_bucket.get::<entity_animation::SBucket>().unwrap()
+            .and::<animation::SAnimationLoader>(&data_bucket).unwrap()
+            .with_mc(|e_animation: &mut entity_animation::SBucket, anim_loader: &animation::SAnimationLoader| {
+                e_animation.update_joints(anim_loader, _total_time_seconds);
             });
 
         // -- draw skeleton of selected entity
+        /*
         STACK_ALLOCATOR.with(|sa| {
             data_bucket.get::<render::SRender>().unwrap()
                 .and::<entity_model::SBucket>(&data_bucket).unwrap()
@@ -397,19 +397,22 @@ fn main_d3d12() -> Result<(), &'static str> {
                     }
                 });
         });
+        */
 
         // -- render frame
         let imgui_draw_data = imgui_ui.render();
 
         data_bucket.get::<render::SRender>().unwrap()
             .and::<SEntityBucket>(&data_bucket).unwrap()
+            .and::<entity_animation::SBucket>(&data_bucket).unwrap()
             .and::<entity_model::SBucket>(&data_bucket).unwrap()
-            .with_mmc(|
+            .with_mmmc(|
                 render: &mut render::SRender,
                 entities: &mut SEntityBucket,
+                entity_animation: &mut entity_animation::SBucket,
                 entity_model: &entity_model::SBucket,
             | {
-                let render_result = render.render_frame(&mut window, &view_matrix, entities, entity_model, Some(&imgui_draw_data));
+                let render_result = render.render_frame(&mut window, &view_matrix, entities, entity_animation, entity_model, Some(&imgui_draw_data));
                 match render_result {
                     Ok(_) => {},
                     Err(e) => {

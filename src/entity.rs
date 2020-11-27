@@ -1,4 +1,3 @@
-use model::{SModelSkinning};
 use utils::{STransform};
 use collections::{SStoragePool, SPoolHandle};
 
@@ -7,7 +6,6 @@ pub struct SEntity {
     debug_name: Option<&'static str>,
     pub location: STransform,
     pub location_update_frame: u64,
-    pub model_skinning: Option<SModelSkinning>,
     //identity_aabb: Option<SAABB>, // $$$FRK(TODO): ONLY putting this in here right now to avoid moving the renderer!
 }
 
@@ -24,7 +22,6 @@ impl SEntity {
             debug_name: None,
             location: STransform::default(),
             location_update_frame: 0,
-            model_skinning: None,
         }
     }
 }
@@ -67,42 +64,6 @@ impl SEntityBucket {
     pub fn entities_mut(&mut self) -> &mut SStoragePool<SEntity, u16, u16> {
         &mut self.entities
     }
-
-    pub fn set_entity_model_skinning(&mut self, entity: SEntityHandle, model_skinning: SModelSkinning) {
-        let data = self.entities.get_mut(entity).expect("invalid entity");
-        data.model_skinning = Some(model_skinning);
-    }
-
-    pub fn get_model_skinning(&self, entity: SEntityHandle) -> Option<&SModelSkinning> {
-        let data = self.entities.get(entity).expect("invalid entity");
-        data.model_skinning.as_ref()
-    }
-
-    pub fn get_model_skinning_mut(&mut self, entity: SEntityHandle) -> Option<&mut SModelSkinning> {
-        let data = self.entities.get_mut(entity).expect("invalid entity");
-        data.model_skinning.as_mut()
-    }
-
-    /*
-    pub fn build_render_data<'a>(&self, allocator: &'a dyn TMemAllocator) -> (SMemVec<'a, SEntityHandle>, SMemVec<'a, STransform>, SMemVec<'a, SModel>) {
-        // -- $$$FRK(TODO): if the stack allocator is used, returning these is only safe if the caller makes references to each member  (no _)
-        let mut entities = SMemVec::<SEntityHandle>::new(allocator, self.entities.used(), 0).expect("alloc fail");
-        let mut transforms = SMemVec::<STransform>::new(allocator, self.entities.used(), 0).expect("alloc fail");
-        let mut models = SMemVec::<SModel>::new(allocator, self.entities.used(), 0).expect("alloc fail");
-
-        for entity_idx in 0..self.entities.max() {
-            if let Ok(Some(e)) = self.entities.get_by_index(entity_idx) {
-                if let Some(m) = e.model {
-                    entities.push(self.entities.handle_for_index(entity_idx).unwrap());
-                    transforms.push(e.location);
-                    models.push(m);
-                }
-            }
-        }
-
-        (entities, transforms, models)
-    }
-    */
 
     pub fn show_imgui_window(&mut self, entity: SEntityHandle, imgui_ui: &imgui::Ui) {
         use imgui::*;

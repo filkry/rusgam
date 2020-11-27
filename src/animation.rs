@@ -265,6 +265,10 @@ impl<'a> SAnimationLoader<'a> {
         None
     }
 
+    pub fn get_anim(&self, handle: SAnimHandle) -> Result<&SAnimation, &'static str> {
+        self.animation_pool.get(handle).map(|entry| &entry.animation)
+    }
+
     pub fn get_or_create_anim(&mut self, asset_file_path: &str, target_skinning: &SMeshSkinning) -> Result<SAnimHandle, &'static str> {
         assert!(asset_file_path.contains("assets/"));
         assert!(asset_file_path.contains(".gltf"));

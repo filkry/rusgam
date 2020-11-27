@@ -1,4 +1,4 @@
-use entity::{SEntityBucket};
+use entity_animation;
 use entity_model;
 use model::{SMeshLoader};
 use n12;
@@ -62,53 +62,51 @@ impl SComputeSkinningPipeline {
         &self,
         command_list: &mut n12::SCommandList,
         mesh_loader: &SMeshLoader,
-        entities: &mut SEntityBucket,
-        entity_model: &entity_model::SBucket,
+        e_animation: &mut entity_animation::SBucket,
+        e_model: &entity_model::SBucket,
     ) {
 
         command_list.set_pipeline_state(&self.pipeline_state);
         command_list.set_compute_root_signature(&self.root_signature.raw());
 
-        for model_handle in 0..entity_model.models.len() {
-            let entity_handle = entity_model.get_entity(model_handle);
+        for e_anim_instance in e_animation.instances.as_mut() {
+            let entity_handle = e_anim_instance.owner;
 
-            if let Some(skinning) = entities.get_model_skinning_mut(entity_handle) {
-                skinning.update_skinning_joint_buffer(mesh_loader);
+            e_anim_instance.skinning.update_skinning_joint_buffer(mesh_loader);
 
-                let model_handle = entity_model.handle_for_entity(entity_handle).unwrap();
-                let model = entity_model.get_model(model_handle);
+            let model_handle = e_model.handle_for_entity(entity_handle).unwrap();
+            let model = e_model.get_model(model_handle);
 
-                let local_verts_address = mesh_loader.local_verts_resource(model.mesh).raw.raw().get_gpu_virtual_address();
-                let local_normals_address = mesh_loader.local_normals_resource(model.mesh).raw.raw().get_gpu_virtual_address();
+            let local_verts_address = mesh_loader.local_verts_resource(model.mesh).raw.raw().get_gpu_virtual_address();
+            let local_normals_address = mesh_loader.local_normals_resource(model.mesh).raw.raw().get_gpu_virtual_address();
 
-                let mesh_skinning = mesh_loader.get_mesh_skinning(model.mesh).expect("model skinning without mesh skinning");
+            let mesh_skinning = mesh_loader.get_mesh_skinning(model.mesh).expect("model skinning without mesh skinning");
 
-                self.compute_shader.set_compute_roots(
-                    &self.compute_shader_bind,
-                    command_list,
-                    skinning.joints_bind_to_cur_resource.raw.raw().get_gpu_virtual_address(),
-                    local_verts_address,
-                    local_normals_address,
-                    mesh_skinning.vertex_skinning_buffer_resource.raw.raw().get_gpu_virtual_address(),
-                    skinning.skinned_verts_resource.raw.raw().get_gpu_virtual_address(),
-                    skinning.skinned_normals_resource.raw.raw().get_gpu_virtual_address(),
-                );
+            self.compute_shader.set_compute_roots(
+                &self.compute_shader_bind,
+                command_list,
+                e_anim_instance.skinning.joints_bind_to_cur_resource.raw.raw().get_gpu_virtual_address(),
+                local_verts_address,
+                local_normals_address,
+                mesh_skinning.vertex_skinning_buffer_resource.raw.raw().get_gpu_virtual_address(),
+                e_anim_instance.skinning.skinned_verts_resource.raw.raw().get_gpu_virtual_address(),
+                e_anim_instance.skinning.skinned_normals_resource.raw.raw().get_gpu_virtual_address(),
+            );
 
-                let num_verts = mesh_loader.vertex_count(model.mesh);
-                let num_groups = (num_verts / 64) + (if num_verts % 64 != 0 { 1 } else { 0 });
-                command_list.dispatch(num_groups as u32, 1, 1);
+            let num_verts = mesh_loader.vertex_count(model.mesh);
+            let num_groups = (num_verts / 64) + (if num_verts % 64 != 0 { 1 } else { 0 });
+            command_list.dispatch(num_groups as u32, 1, 1);
 
-                command_list.transition_resource(
-                    &skinning.skinned_verts_resource.raw,
-                    t12::EResourceStates::UnorderedAccess,
-                    t12::EResourceStates::VertexAndConstantBuffer,
-                ).unwrap();
-                command_list.transition_resource(
-                    &skinning.skinned_normals_resource.raw,
-                    t12::EResourceStates::UnorderedAccess,
-                    t12::EResourceStates::VertexAndConstantBuffer,
-                ).unwrap();
-            }
+            command_list.transition_resource(
+                &e_anim_instance.skinning.skinned_verts_resource.raw,
+                t12::EResourceStates::UnorderedAccess,
+                t12::EResourceStates::VertexAndConstantBuffer,
+            ).unwrap();
+            command_list.transition_resource(
+                &e_anim_instance.skinning.skinned_normals_resource.raw,
+                t12::EResourceStates::UnorderedAccess,
+                t12::EResourceStates::VertexAndConstantBuffer,
+            ).unwrap();
         }
     }
 }

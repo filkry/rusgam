@@ -1,6 +1,8 @@
 use allocate::{TMemAllocator, SMemVec};
+use collections::{SStoragePool, SPoolHandle};
 use glm::{Vec3, Quat};
 use model::{SMeshSkinning};
+use utils;
 use utils::{STransform, lerp, unlerp_f32, gltf_accessor_slice, clamp};
 
 pub struct SAnimation<'a> {
@@ -49,6 +51,17 @@ impl<'a> EChannel<'a> {
         }
     }
 }
+
+pub struct SAnimLoaderEntry<'a> {
+    uid: u64,
+    animation: SAnimation<'a>,
+}
+
+pub struct SAnimationLoader<'a> {
+    allocator: &'a dyn TMemAllocator,
+    animation_pool: SStoragePool<SAnimLoaderEntry<'a>, u16, u16>,
+}
+pub type SAnimHandle = SPoolHandle<u16, u16>;
 
 fn find_segment_and_segment_t(time: f32, sample_times: &[f32]) -> (usize, f32) {
     assert!(sample_times.len() >= 2);
@@ -229,5 +242,46 @@ impl<'a> SAnimation<'a> {
             channels,
             bound_node_to_joint_map,
         })
+    }
+}
+
+impl<'a> SAnimationLoader<'a> {
+    pub fn new(allocator: &'a dyn TMemAllocator, max_anim_count: usize) -> Self {
+        Self{
+            allocator,
+            animation_pool: SStoragePool::create(34892308423, max_anim_count as u16),
+        }
+    }
+
+    fn find_anim_by_uid(&self, uid: u64) -> Option<SAnimHandle> {
+        for i in 0..self.animation_pool.used() {
+            if let Some(anim) = &self.animation_pool.get_by_index(i as u16).unwrap() {
+                if anim.uid == uid {
+                    return Some(self.animation_pool.handle_for_index(i as u16).expect("checked above"));
+                }
+            }
+        }
+
+        None
+    }
+
+    pub fn get_or_create_anim(&mut self, asset_file_path: &str, target_skinning: &SMeshSkinning) -> Result<SAnimHandle, &'static str> {
+        assert!(asset_file_path.contains("assets/"));
+        assert!(asset_file_path.contains(".gltf"));
+
+        let uid = utils::hash_str(asset_file_path);
+        if let Some(result) = self.find_anim_by_uid(uid) {
+            return Ok(result);
+        }
+
+        let gltf_data = gltf::Gltf::open(asset_file_path).unwrap();
+        let animation = SAnimation::new_from_gltf(self.allocator, &gltf_data, target_skinning)?;
+
+        let entry = SAnimLoaderEntry {
+            uid,
+            animation,
+        };
+
+        self.animation_pool.insert_val(entry)
     }
 }

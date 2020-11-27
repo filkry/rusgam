@@ -47,6 +47,7 @@ mod entitytypes;
 //use serde::{Serialize, Deserialize};
 use glm::{Vec3, Vec4};
 
+use animation::{SAnimationLoader};
 use allocate::{STACK_ALLOCATOR, SYSTEM_ALLOCATOR, SMemVec};
 use editmode::{SEditModeContext, EEditMode};
 use entity::{SEntityBucket};
@@ -111,6 +112,7 @@ fn main_d3d12() -> Result<(), &'static str> {
     data_bucket.add(SGameContext{
         cur_frame: 0,
     });
+    data_bucket.add(SAnimationLoader::new(&SYSTEM_ALLOCATOR, 64));
 
     let rotating_entity = entitytypes::testtexturedcubeentity::create(
         &data_bucket, Some("tst_rotating"),

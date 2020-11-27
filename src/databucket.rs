@@ -5,6 +5,7 @@ use std::rc::{Rc, Weak};
 
 use allocate::{SMemVec, TMemAllocator};
 
+use animation;
 use bvh;
 use entity;
 use entity_model;
@@ -19,6 +20,7 @@ impl TDataBucketMember for entity::SEntityBucket {}
 impl TDataBucketMember for entity_model::SBucket<'static> {}
 impl TDataBucketMember for render::SRender<'static> {}
 impl TDataBucketMember for utils::SGameContext {}
+impl TDataBucketMember for animation::SAnimationLoader<'static> {}
 
 // -- $$$FRK(TODO): originally I thought I might want to keep SDataRefs around, but maybe not?
 // -- If I don't, then this can become Box<RefCell> and the usage syntax can become cleaner (no

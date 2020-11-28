@@ -413,8 +413,8 @@ impl SGJKDebug {
         use entity_model;
 
         ctxt.get::<SEntityBucket>().unwrap()
-            .and::<render::SRender>(ctxt).unwrap()
-            .and::<entity_model::SBucket>(ctxt).unwrap()
+            .and::<render::SRender>().unwrap()
+            .and::<entity_model::SBucket>().unwrap()
             .with_ccc(|entities: &SEntityBucket, render: &render::SRender, em: &entity_model::SBucket| {
                 let world_verts_a = {
                     let e1_model_handle = em.handle_for_entity(entity_1).unwrap();

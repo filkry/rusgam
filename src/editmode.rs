@@ -287,8 +287,8 @@ impl EEditMode {
         }
 
         data_bucket.get_renderer().expect("editmode needs renderer")
-            .and::<SEntityBucket>(data_bucket).expect("editmode needs entities")
-            .and::<SGameContext>(data_bucket).expect("should always exist")
+            .and::<SEntityBucket>().expect("editmode needs entities")
+            .and::<SGameContext>().expect("should always exist")
             .with_mmc(|render: &mut render::SRender, entities: &mut SEntityBucket, gc: &super::SGameContext| {
                 if mode == EEditMode::Translation {
                     mode = EEditMode::update_translation(ctxt, &em_input, &input, &render, &entities);

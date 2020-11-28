@@ -133,13 +133,9 @@ fn main_d3d12() -> Result<(), &'static str> {
         STransform::new_translation(&glm::Vec3::new(-3.0, 2.0, 0.0)))?;
 
     data_bucket.get::<entity_animation::SBucket>().expect("")
-        .and::<animation::SAnimationLoader>(&data_bucket).expect("")
-        .and::<render::SRender>(&data_bucket).expect("")
-        .with_mmc(|
-            ea: &mut entity_animation::SBucket,
-            anim_loader: &mut animation::SAnimationLoader,
-            render: &render::SRender
-        | {
+        .and::<animation::SAnimationLoader>().expect("")
+        .and::<render::SRender>().expect("")
+        .with_mmc(|ea, anim_loader, render| {
             let handle = ea.handle_for_entity(skinned_entity).unwrap();
             let asset_file_path = "assets/test_armature_animation.gltf";
             ea.play_animation(handle, anim_loader, render.mesh_loader(), asset_file_path, 0.0);
@@ -254,8 +250,8 @@ fn main_d3d12() -> Result<(), &'static str> {
             if let Some(e) = editmode_ctxt.editing_entity() {
                 STACK_ALLOCATOR.with(|sa| {
                     data_bucket.get::<render::SRender>().expect("")
-                        .and::<entity_model::SBucket>(&data_bucket).expect("")
-                        .and::<bvh::STree<entity::SEntityHandle>>(&data_bucket).expect("")
+                        .and::<entity_model::SBucket>().expect("")
+                        .and::<bvh::STree<entity::SEntityHandle>>().expect("")
                         .with_mcc(|render: &mut render::SRender, em: &entity_model::SBucket, bvh: &bvh::STree<entity::SEntityHandle>| {
                             let model_handle = em.handle_for_entity(e).unwrap();
 
@@ -273,8 +269,8 @@ fn main_d3d12() -> Result<(), &'static str> {
         if let Some(e) = editmode_ctxt.editing_entity() {
             STACK_ALLOCATOR.with(|sa| {
                 data_bucket.get::<render::SRender>().expect("")
-                    .and::<entity::SEntityBucket>(&data_bucket).expect("")
-                    .and::<entity_model::SBucket>(&data_bucket).expect("")
+                    .and::<entity::SEntityBucket>().expect("")
+                    .and::<entity_model::SBucket>().expect("")
                     .with_mcc(|render: &mut render::SRender, entities: &entity::SEntityBucket, em: &entity_model::SBucket| {
                         let e_model_handle = em.handle_for_entity(e).unwrap();
                         let rot_model_handle = em.handle_for_entity(rotating_entity).unwrap();
@@ -316,10 +312,10 @@ fn main_d3d12() -> Result<(), &'static str> {
 
         // -- update bvh
         data_bucket.get::<bvh::STree<entity::SEntityHandle>>().unwrap()
-            .and::<entity_model::SBucket>(&data_bucket).unwrap()
-            .and::<SEntityBucket>(&data_bucket).unwrap()
-            .and::<render::SRender>(&data_bucket).unwrap()
-            .and::<utils::SGameContext>(&data_bucket).unwrap()
+            .and::<entity_model::SBucket>().unwrap()
+            .and::<SEntityBucket>().unwrap()
+            .and::<render::SRender>().unwrap()
+            .and::<utils::SGameContext>().unwrap()
             .with_mmccc(|
                 bvh: &mut bvh::STree<entity::SEntityHandle>,
                 entity_model: &mut entity_model::SBucket,
@@ -355,7 +351,7 @@ fn main_d3d12() -> Result<(), &'static str> {
 
         // -- update animation
         data_bucket.get::<entity_animation::SBucket>().unwrap()
-            .and::<animation::SAnimationLoader>(&data_bucket).unwrap()
+            .and::<animation::SAnimationLoader>().unwrap()
             .with_mc(|e_animation: &mut entity_animation::SBucket, anim_loader: &animation::SAnimationLoader| {
                 e_animation.update_joints(anim_loader, _total_time_seconds);
             });
@@ -403,9 +399,9 @@ fn main_d3d12() -> Result<(), &'static str> {
         let imgui_draw_data = imgui_ui.render();
 
         data_bucket.get::<render::SRender>().unwrap()
-            .and::<SEntityBucket>(&data_bucket).unwrap()
-            .and::<entity_animation::SBucket>(&data_bucket).unwrap()
-            .and::<entity_model::SBucket>(&data_bucket).unwrap()
+            .and::<SEntityBucket>().unwrap()
+            .and::<entity_animation::SBucket>().unwrap()
+            .and::<entity_model::SBucket>().unwrap()
             .with_mmmc(|
                 render: &mut render::SRender,
                 entities: &mut SEntityBucket,

@@ -13,9 +13,9 @@ pub fn create(
 ) -> Result<SEntityHandle, &'static str> {
 
     data_bucket.get::<SEntityBucket>().unwrap()
-        .and::<render::SRender>(data_bucket).unwrap()
-        .and::<entity_model::SBucket>(data_bucket).unwrap()
-        .and::<SGameContext>(data_bucket).unwrap()
+        .and::<render::SRender>().unwrap()
+        .and::<entity_model::SBucket>().unwrap()
+        .and::<SGameContext>().unwrap()
         .with_mmmc(|
             entities: &mut SEntityBucket,
             render: &mut render::SRender,

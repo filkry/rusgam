@@ -709,8 +709,8 @@ pub fn cast_ray_against_entity_model(data_bucket: &SDataBucket, ray: &SRay, enti
     let mut result = None;
 
     data_bucket.get::<SEntityBucket>().unwrap()
-        .and::<SRender>(data_bucket).unwrap()
-        .and::<entity_model::SBucket>(data_bucket).unwrap()
+        .and::<SRender>().unwrap()
+        .and::<entity_model::SBucket>().unwrap()
         .with_ccc(|entities: &SEntityBucket, render: &SRender, em: &entity_model::SBucket| {
             let entity_to_world = entities.get_entity_location(entity);
             let model_handle = em.handle_for_entity(entity).unwrap();

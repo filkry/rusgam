@@ -252,7 +252,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                     data_bucket.get::<render::SRender>().expect("")
                         .and::<entity_model::SBucket>().expect("")
                         .and::<bvh::STree<entity::SEntityHandle>>().expect("")
-                        .with_mcc(|render: &mut render::SRender, em: &entity_model::SBucket, bvh: &bvh::STree<entity::SEntityHandle>| {
+                        .with_mcc(|render, em, bvh| {
                             let model_handle = em.handle_for_entity(e).unwrap();
 
                             let mut aabbs = SMemVec::new(sa, 32, 0).unwrap();
@@ -271,7 +271,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                 data_bucket.get::<render::SRender>().expect("")
                     .and::<entity::SEntityBucket>().expect("")
                     .and::<entity_model::SBucket>().expect("")
-                    .with_mcc(|render: &mut render::SRender, entities: &entity::SEntityBucket, em: &entity_model::SBucket| {
+                    .with_mcc(|render, entities, em| {
                         let e_model_handle = em.handle_for_entity(e).unwrap();
                         let rot_model_handle = em.handle_for_entity(rotating_entity).unwrap();
                         let loc = entities.get_entity_location(e);
@@ -316,13 +316,7 @@ fn main_d3d12() -> Result<(), &'static str> {
             .and::<SEntityBucket>().unwrap()
             .and::<render::SRender>().unwrap()
             .and::<utils::SGameContext>().unwrap()
-            .with_mmccc(|
-                bvh: &mut bvh::STree<entity::SEntityHandle>,
-                entity_model: &mut entity_model::SBucket,
-                entities: &SEntityBucket,
-                render: &render::SRender,
-                gc: &utils::SGameContext,
-            | {
+            .with_mmccc(|bvh, entity_model, entities, render, gc| {
                 // -- $$$FRK(TODO): only update dirty
                 for i in 0..entity_model.models.len() {
                     let model_handle : entity_model::SHandle = i;
@@ -352,7 +346,7 @@ fn main_d3d12() -> Result<(), &'static str> {
         // -- update animation
         data_bucket.get::<entity_animation::SBucket>().unwrap()
             .and::<animation::SAnimationLoader>().unwrap()
-            .with_mc(|e_animation: &mut entity_animation::SBucket, anim_loader: &animation::SAnimationLoader| {
+            .with_mc(|e_animation, anim_loader| {
                 e_animation.update_joints(anim_loader, _total_time_seconds);
             });
 
@@ -402,12 +396,7 @@ fn main_d3d12() -> Result<(), &'static str> {
             .and::<SEntityBucket>().unwrap()
             .and::<entity_animation::SBucket>().unwrap()
             .and::<entity_model::SBucket>().unwrap()
-            .with_mmmc(|
-                render: &mut render::SRender,
-                entities: &mut SEntityBucket,
-                entity_animation: &mut entity_animation::SBucket,
-                entity_model: &entity_model::SBucket,
-            | {
+            .with_mmmc(|render, entities, entity_animation, entity_model| {
                 let render_result = render.render_frame(&mut window, &view_matrix, entities, entity_animation, entity_model, Some(&imgui_draw_data));
                 match render_result {
                     Ok(_) => {},

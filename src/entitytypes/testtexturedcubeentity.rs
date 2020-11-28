@@ -12,17 +12,11 @@ pub fn create(
     starting_location: STransform,
 ) -> Result<SEntityHandle, &'static str> {
 
-    data_bucket.get::<SEntityBucket>().unwrap()
-        .and::<render::SRender>().unwrap()
-        .and::<entity_model::SBucket>().unwrap()
-        .and::<SGameContext>().unwrap()
-        .with_mmmc(|
-            entities: &mut SEntityBucket,
-            render: &mut render::SRender,
-            em: &mut entity_model::SBucket,
-            gc: &SGameContext,
-        | {
-
+    data_bucket.get::<SEntityBucket>()
+        .and::<render::SRender>()
+        .and::<entity_model::SBucket>()
+        .and::<SGameContext>()
+        .with_mmmc(|entities, render, em, gc| {
             let ent = entities.create_entity()?;
 
             let model = render.new_model_from_obj("assets/first_test_asset.obj", 1.0, true)?;

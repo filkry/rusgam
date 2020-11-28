@@ -85,19 +85,20 @@ impl<'a> SDataBucket<'a> {
         None
     }
 
-    pub fn get<T: TDataBucketMember>(&self) -> Option<SDataRef<T>> {
-        self.get_entry::<T>().map(|entry| SDataRef::new(self, entry))
+    pub fn get<T: TDataBucketMember>(&self) -> SDataRef<T> {
+        let entry = self.get_entry::<T>().expect("invalid entry");
+        SDataRef::new(self, entry)
     }
 
-    pub fn get_bvh(&self) -> Option<SDataRef<bvh::STree<entity::SEntityHandle>>> {
+    pub fn get_bvh(&self) -> SDataRef<bvh::STree<entity::SEntityHandle>> {
         self.get::<bvh::STree<entity::SEntityHandle>>()
     }
 
-    pub fn get_entities(&self) -> Option<SDataRef<entity::SEntityBucket>> {
+    pub fn get_entities(&self) -> SDataRef<entity::SEntityBucket> {
         self.get::<entity::SEntityBucket>()
     }
 
-    pub fn get_renderer(&self) -> Option<SDataRef<render::SRender<'static>>> {
+    pub fn get_renderer(&self) -> SDataRef<render::SRender<'static>> {
         self.get::<render::SRender>()
     }
 }
@@ -110,8 +111,9 @@ impl<'a, T: 'static + TDataBucketMember> SDataRef<'a, T> {
         }
     }
 
-    pub fn and<T1: TDataBucketMember>(self) -> Option<SMultiRef2<'a, T, T1>> {
-        self.bucket.get_entry::<T1>().map(|d1| SMultiRef2::new_from_1(self, d1))
+    pub fn and<T1: TDataBucketMember>(self) -> SMultiRef2<'a, T, T1> {
+        let d1 = self.bucket.get_entry::<T1>().expect("invalid entry");
+        SMultiRef2::new_from_1(self, d1)
     }
 
     pub fn with<F, R>(&self, mut function: F) -> R where
@@ -177,8 +179,9 @@ impl<'a, T0, T1: TDataBucketMember> SMultiRef2<'a, T0, T1> {
         }
     }
 
-    pub fn and<T2: TDataBucketMember>(self) -> Option<SMultiRef3<'a, T0, T1, T2>> {
-        self.bucket.get_entry::<T2>().map(|last| SMultiRef3::new_from_2(self, last))
+    pub fn and<T2: TDataBucketMember>(self) -> SMultiRef3<'a, T0, T1, T2> {
+        let last = self.bucket.get_entry::<T2>().expect("invalid entry");
+        SMultiRef3::new_from_2(self, last)
     }
 
     pub fn with_cc<Fun, Ret>(&self, mut function: Fun) -> Ret where
@@ -226,8 +229,9 @@ impl<'a, T0, T1, T2: TDataBucketMember> SMultiRef3<'a, T0, T1, T2> {
         }
     }
 
-    pub fn and<T3: TDataBucketMember>(self) -> Option<SMultiRef4<'a, T0, T1, T2, T3>> {
-        self.bucket.get_entry::<T3>().map(|last| SMultiRef4::new_from_3(self, last))
+    pub fn and<T3: TDataBucketMember>(self) -> SMultiRef4<'a, T0, T1, T2, T3> {
+        let last = self.bucket.get_entry::<T3>().expect("invalid entry");
+        SMultiRef4::new_from_3(self, last)
     }
 
     pub fn with_ccc<Fun, Ret>(&self, mut function: Fun) -> Ret where
@@ -295,8 +299,9 @@ impl<'a, T0, T1, T2, T3: TDataBucketMember> SMultiRef4<'a, T0, T1, T2, T3> {
         }
     }
 
-    pub fn and<T4: TDataBucketMember>(self) -> Option<SMultiRef5<'a, T0, T1, T2, T3, T4>> {
-        self.bucket.get_entry::<T4>().map(|last| SMultiRef5::new_from_4(self, last))
+    pub fn and<T4: TDataBucketMember>(self) -> SMultiRef5<'a, T0, T1, T2, T3, T4> {
+        let last = self.bucket.get_entry::<T4>().expect("invalid entry");
+        SMultiRef5::new_from_4(self, last)
     }
 
     pub fn with_cccc<Fun, Ret>(&self, mut function: Fun) -> Ret where

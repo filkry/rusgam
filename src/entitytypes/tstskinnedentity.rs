@@ -14,18 +14,12 @@ pub fn create(
     starting_location: STransform,
 ) -> Result<SEntityHandle, &'static str> {
 
-    data_bucket.get::<SEntityBucket>().unwrap()
-        .and::<render::SRender>().unwrap()
-        .and::<entity_model::SBucket>().unwrap()
-        .and::<entity_animation::SBucket>().unwrap()
-        .and::<SGameContext>().unwrap()
-        .with_mmmmc(|
-            entities: &mut SEntityBucket,
-            render: &mut render::SRender,
-            e_model: &mut entity_model::SBucket,
-            e_animation: &mut entity_animation::SBucket,
-            gc: &SGameContext,
-        | {
+    data_bucket.get::<SEntityBucket>()
+        .and::<render::SRender>()
+        .and::<entity_model::SBucket>()
+        .and::<entity_animation::SBucket>()
+        .and::<SGameContext>()
+        .with_mmmmc(|entities, render, e_model, e_animation, gc| {
             let ent = entities.create_entity()?;
 
             let mut model = render.new_model_from_gltf("assets/test_armature.gltf", 1.0, true)?;

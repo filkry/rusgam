@@ -251,7 +251,7 @@ impl EEditMode {
         // -- cast ray to select entity for edit mode
         ctxt.clicked_entity = None;
         if input.left_mouse_edge.down() && !em_input.imgui_want_capture_mouse && !mode.eats_mouse() {
-            data_bucket.get::<bvh::STree<SEntityHandle>>().unwrap().with(|bvh: &bvh::STree<SEntityHandle>| {
+            data_bucket.get::<bvh::STree<SEntityHandle>>().with(|bvh: &bvh::STree<SEntityHandle>| {
 
                 STACK_ALLOCATOR.with(|sa| {
                     let mut bvh_results = SMemVec::<(f32, SEntityHandle)>::new(sa, 256, 0).unwrap();
@@ -286,9 +286,9 @@ impl EEditMode {
             mode = EEditMode::Rotation;
         }
 
-        data_bucket.get_renderer().expect("editmode needs renderer")
-            .and::<SEntityBucket>().expect("editmode needs entities")
-            .and::<SGameContext>().expect("should always exist")
+        data_bucket.get_renderer()
+            .and::<SEntityBucket>()
+            .and::<SGameContext>()
             .with_mmc(|render: &mut render::SRender, entities: &mut SEntityBucket, gc: &super::SGameContext| {
                 if mode == EEditMode::Translation {
                     mode = EEditMode::update_translation(ctxt, &em_input, &input, &render, &entities);
@@ -310,7 +310,7 @@ impl EEditMode {
 
         // -- move/scale edit widgets
         if let Some(e) = ctxt.editing_entity {
-            data_bucket.get_entities().unwrap().with(|entities: &SEntityBucket| {
+            data_bucket.get_entities().with(|entities: &SEntityBucket| {
                 ctxt.translation_widget_transforms[0].t = entities.get_entity_location(e).t;
                 ctxt.translation_widget_transforms[1].t = entities.get_entity_location(e).t;
                 ctxt.translation_widget_transforms[2].t = entities.get_entity_location(e).t;
@@ -329,7 +329,7 @@ impl EEditMode {
             });
 
             // -- draw edit widgets
-            data_bucket.get_renderer().unwrap().with_mut(|render: &mut render::SRender| {
+            data_bucket.get_renderer().with_mut(|render: &mut render::SRender| {
                 for axis in 0..=2 {
                     if mode.show_translation_widget(axis) {
                             render.temp().draw_model(&ctxt.translation_widgets[axis], &ctxt.translation_widget_transforms[axis], true);

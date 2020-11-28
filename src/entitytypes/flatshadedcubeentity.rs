@@ -13,10 +13,10 @@ pub fn create(
     starting_location: STransform,
 ) -> Result<SEntityHandle, &'static str> {
 
-    data_bucket.get::<SEntityBucket>().unwrap()
-        .and::<render::SRender>().unwrap()
-        .and::<entity_model::SBucket>().unwrap()
-        .and::<SGameContext>().unwrap()
+    data_bucket.get::<SEntityBucket>()
+        .and::<render::SRender>()
+        .and::<entity_model::SBucket>()
+        .and::<SGameContext>()
         .with_mmmc(|entities: &mut SEntityBucket, render: &mut render::SRender, em: &mut entity_model::SBucket, gc: &SGameContext| {
             let ent = entities.create_entity()?;
 

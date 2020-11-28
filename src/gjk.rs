@@ -397,7 +397,7 @@ pub fn gjk(pts_a: &[Vec3], pts_b: &[Vec3]) -> bool {
 
 impl SGJKDebug {
     pub fn new(ctxt: &SDataBucket) -> Self {
-        ctxt.get_renderer().unwrap().with_mut(|render: &mut SRender| {
+        ctxt.get_renderer().with_mut(|render: &mut SRender| {
             Self {
                 has_pts: false,
                 cur_step: 0,
@@ -412,10 +412,10 @@ impl SGJKDebug {
     pub fn reset_to_entities(&mut self, ctxt: &SDataBucket, entity_1: SEntityHandle, entity_2: SEntityHandle) {
         use entity_model;
 
-        ctxt.get::<SEntityBucket>().unwrap()
-            .and::<render::SRender>().unwrap()
-            .and::<entity_model::SBucket>().unwrap()
-            .with_ccc(|entities: &SEntityBucket, render: &render::SRender, em: &entity_model::SBucket| {
+        ctxt.get::<SEntityBucket>()
+            .and::<render::SRender>()
+            .and::<entity_model::SBucket>()
+            .with_ccc(|entities, render, em| {
                 let world_verts_a = {
                     let e1_model_handle = em.handle_for_entity(entity_1).unwrap();
                     let model = em.get_model(e1_model_handle);
@@ -526,7 +526,7 @@ impl SGJKDebug {
     pub fn render_cur_step(&self, ctxt: &SDataBucket) {
         use glm::{Vec4};
 
-        ctxt.get_renderer().unwrap().with_mut(|render: &mut SRender| {
+        ctxt.get_renderer().with_mut(|render: &mut SRender| {
 
             let tok = Some(self.temp_render_token);
 

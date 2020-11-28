@@ -132,9 +132,9 @@ fn main_d3d12() -> Result<(), &'static str> {
         &data_bucket, Some("tst_skinned_entity"), Some(glm::Vec4::new(1.0, 1.0, 1.0, 1.0)),
         STransform::new_translation(&glm::Vec3::new(-3.0, 2.0, 0.0)))?;
 
-    data_bucket.get::<entity_animation::SBucket>().expect("")
-        .and::<animation::SAnimationLoader>().expect("")
-        .and::<render::SRender>().expect("")
+    data_bucket.get::<entity_animation::SBucket>()
+        .and::<animation::SAnimationLoader>()
+        .and::<render::SRender>()
         .with_mmc(|ea, anim_loader, render| {
             let handle = ea.handle_for_entity(skinned_entity).unwrap();
             let asset_file_path = "assets/test_armature_animation.gltf";
@@ -193,7 +193,7 @@ fn main_d3d12() -> Result<(), &'static str> {
         }
         camera.update_from_input(&input, dts, can_rotate_camera);
 
-        let editmode_input = data_bucket.get_renderer().unwrap().with(|render: &render::SRender| {
+        let editmode_input = data_bucket.get_renderer().with(|render: &render::SRender| {
             editmode::SEditModeInput::new_for_frame(&window, &winapi, &camera, &render, &imgui_ctxt)
         });
 
@@ -230,7 +230,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                     }
                 });
 
-                data_bucket.get_bvh().unwrap().with(|bvh: &bvh::STree<entity::SEntityHandle>| {
+                data_bucket.get_bvh().with(|bvh: &bvh::STree<entity::SEntityHandle>| {
                     bvh.imgui_menu(&imgui_ui, &mut draw_selected_bvh);
                 });
 
@@ -239,7 +239,7 @@ fn main_d3d12() -> Result<(), &'static str> {
             });
 
             if let Some(e) = editmode_ctxt.editing_entity() {
-                data_bucket.get_entities().unwrap().with_mut(|entities: &mut SEntityBucket| {
+                data_bucket.get_entities().with_mut(|entities: &mut SEntityBucket| {
                     entities.show_imgui_window(e, &imgui_ui);
                 });
             }
@@ -249,9 +249,9 @@ fn main_d3d12() -> Result<(), &'static str> {
         if draw_selected_bvh {
             if let Some(e) = editmode_ctxt.editing_entity() {
                 STACK_ALLOCATOR.with(|sa| {
-                    data_bucket.get::<render::SRender>().expect("")
-                        .and::<entity_model::SBucket>().expect("")
-                        .and::<bvh::STree<entity::SEntityHandle>>().expect("")
+                    data_bucket.get::<render::SRender>()
+                        .and::<entity_model::SBucket>()
+                        .and::<bvh::STree<entity::SEntityHandle>>()
                         .with_mcc(|render, em, bvh| {
                             let model_handle = em.handle_for_entity(e).unwrap();
 
@@ -268,9 +268,9 @@ fn main_d3d12() -> Result<(), &'static str> {
         // -- draw selected object colliding/not with rotating_entity
         if let Some(e) = editmode_ctxt.editing_entity() {
             STACK_ALLOCATOR.with(|sa| {
-                data_bucket.get::<render::SRender>().expect("")
-                    .and::<entity::SEntityBucket>().expect("")
-                    .and::<entity_model::SBucket>().expect("")
+                data_bucket.get::<render::SRender>()
+                    .and::<entity::SEntityBucket>()
+                    .and::<entity_model::SBucket>()
                     .with_mcc(|render, entities, em| {
                         let e_model_handle = em.handle_for_entity(e).unwrap();
                         let rot_model_handle = em.handle_for_entity(rotating_entity).unwrap();
@@ -311,11 +311,11 @@ fn main_d3d12() -> Result<(), &'static str> {
         }
 
         // -- update bvh
-        data_bucket.get::<bvh::STree<entity::SEntityHandle>>().unwrap()
-            .and::<entity_model::SBucket>().unwrap()
-            .and::<SEntityBucket>().unwrap()
-            .and::<render::SRender>().unwrap()
-            .and::<utils::SGameContext>().unwrap()
+        data_bucket.get::<bvh::STree<entity::SEntityHandle>>()
+            .and::<entity_model::SBucket>()
+            .and::<SEntityBucket>()
+            .and::<render::SRender>()
+            .and::<utils::SGameContext>()
             .with_mmccc(|bvh, entity_model, entities, render, gc| {
                 // -- $$$FRK(TODO): only update dirty
                 for i in 0..entity_model.models.len() {
@@ -344,8 +344,8 @@ fn main_d3d12() -> Result<(), &'static str> {
             });
 
         // -- update animation
-        data_bucket.get::<entity_animation::SBucket>().unwrap()
-            .and::<animation::SAnimationLoader>().unwrap()
+        data_bucket.get::<entity_animation::SBucket>()
+            .and::<animation::SAnimationLoader>()
             .with_mc(|e_animation, anim_loader| {
                 e_animation.update_joints(anim_loader, _total_time_seconds);
             });
@@ -392,10 +392,10 @@ fn main_d3d12() -> Result<(), &'static str> {
         // -- render frame
         let imgui_draw_data = imgui_ui.render();
 
-        data_bucket.get::<render::SRender>().unwrap()
-            .and::<SEntityBucket>().unwrap()
-            .and::<entity_animation::SBucket>().unwrap()
-            .and::<entity_model::SBucket>().unwrap()
+        data_bucket.get::<render::SRender>()
+            .and::<SEntityBucket>()
+            .and::<entity_animation::SBucket>()
+            .and::<entity_model::SBucket>()
             .with_mmmc(|render, entities, entity_animation, entity_model| {
                 let render_result = render.render_frame(&mut window, &view_matrix, entities, entity_animation, entity_model, Some(&imgui_draw_data));
                 match render_result {
@@ -409,7 +409,7 @@ fn main_d3d12() -> Result<(), &'static str> {
 
         lastframetime = curframetime;
 
-        data_bucket.get::<SGameContext>().expect("should always have this").with_mut(|ctxt: &mut SGameContext| {
+        data_bucket.get::<SGameContext>().with_mut(|ctxt: &mut SGameContext| {
             ctxt.cur_frame += 1;
         });
 
@@ -457,7 +457,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                         let newwidth = rect.right - rect.left;
                         let newheight = rect.bottom - rect.top;
 
-                        data_bucket.get_renderer().unwrap().with_mut(|render: &mut render::SRender| {
+                        data_bucket.get_renderer().with_mut(|render: &mut render::SRender| {
                             render.resize_window(&mut window, newwidth, newheight)
                         })?;
                     }
@@ -471,7 +471,7 @@ fn main_d3d12() -> Result<(), &'static str> {
     }
 
     // -- wait for all commands to clear
-    data_bucket.get_renderer().unwrap().with_mut(|render: &mut render::SRender| {
+    data_bucket.get_renderer().with_mut(|render: &mut render::SRender| {
         render.flush()
     })?;
 

@@ -708,10 +708,10 @@ impl<'a> Drop for SRender<'a> {
 pub fn cast_ray_against_entity_model(data_bucket: &SDataBucket, ray: &SRay, entity: SEntityHandle) -> Option<f32> {
     let mut result = None;
 
-    data_bucket.get::<SEntityBucket>().unwrap()
-        .and::<SRender>().unwrap()
-        .and::<entity_model::SBucket>().unwrap()
-        .with_ccc(|entities: &SEntityBucket, render: &SRender, em: &entity_model::SBucket| {
+    data_bucket.get::<SEntityBucket>()
+        .and::<SRender>()
+        .and::<entity_model::SBucket>()
+        .with_ccc(|entities, render, em| {
             let entity_to_world = entities.get_entity_location(entity);
             let model_handle = em.handle_for_entity(entity).unwrap();
             result = render.ray_intersects(em.get_model(model_handle), &ray.origin, &ray.dir, &entity_to_world);

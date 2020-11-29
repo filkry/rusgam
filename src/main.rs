@@ -106,10 +106,7 @@ fn main_d3d12() -> Result<(), &'static str> {
 
     let mut editmode_ctxt = SEditModeContext::new(&mut render).unwrap();
 
-    let mut game_context = SGameContext{
-        cur_frame: 0,
-        data_bucket: databucket::SDataBucket::new(256, &SYSTEM_ALLOCATOR),
-    };
+    let mut game_context = SGameContext::new(&winapi);
 
     game_context.data_bucket.add(SEntityBucket::new(67485, 16));
     game_context.data_bucket.add(SAnimationLoader::new(&SYSTEM_ALLOCATOR, 64));
@@ -144,8 +141,6 @@ fn main_d3d12() -> Result<(), &'static str> {
         });
 
     // -- update loop
-    let mut lastframetime = winapi.curtimemicroseconds();
-
     let start_time = winapi.curtimemicroseconds();
     let _rot_axis = Vec3::new(0.0, 1.0, 0.0);
 
@@ -163,13 +158,15 @@ fn main_d3d12() -> Result<(), &'static str> {
     let mut gjk_debug = gjk::SGJKDebug::new(&game_context.data_bucket);
 
     while !input.q_down {
+        let frame_context = game_context.start_frame(&winapi);
+
         // -- handle edit mode toggles
         if input.tilde_edge.down() {
             mode.toggle(&mut edit_mode);
         }
 
         let curframetime = winapi.curtimemicroseconds();
-        let dt = curframetime - lastframetime;
+        let dt = curframetime - game_context.last_frame_start_time_micro_s;
         let _dtms = dt as f64;
         let dts = (dt as f32) / 1_000_000.0;
 
@@ -408,8 +405,6 @@ fn main_d3d12() -> Result<(), &'static str> {
                 }
             });
 
-        lastframetime = curframetime;
-
         game_context.cur_frame += 1;
 
         // -- $$$FRK(TODO): framerate is uncapped
@@ -464,6 +459,8 @@ fn main_d3d12() -> Result<(), &'static str> {
                 },
             }
         }
+
+        game_context.end_frame(frame_context);
 
         // -- increase frame time for testing
         //std::thread::sleep(std::time::Duration::from_millis(111));

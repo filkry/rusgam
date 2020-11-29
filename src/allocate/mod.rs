@@ -87,6 +87,10 @@ impl SAllocator {
             }
         }
     }
+
+    pub fn steal_mem(self) -> Option<SMem> {
+        panic!("figure this out");
+    }
 }
 
 impl SAllocatorRef {
@@ -199,6 +203,18 @@ impl SLinearAllocator {
         Ok(Self {
             data: RefCell::new(SLinearAllocatorData {
                 raw: parent.alloc(size, align)?,
+                cur_offset: 0,
+                allow_realloc: false,
+            }),
+        })
+    }
+
+    pub fn new_from_mem(
+        raw: SMem,
+    ) -> Result<Self, &'static str> {
+        Ok(Self {
+            data: RefCell::new(SLinearAllocatorData {
+                raw,
                 cur_offset: 0,
                 allow_realloc: false,
             }),

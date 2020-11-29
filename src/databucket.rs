@@ -10,6 +10,7 @@ use bvh;
 use entity;
 use entity_animation;
 use entity_model;
+use game_mode;
 use render;
 
 pub trait TDataBucketMember : std::any::Any {
@@ -19,6 +20,7 @@ impl TDataBucketMember for bvh::STree<entity::SEntityHandle> {}
 impl TDataBucketMember for entity::SEntityBucket {}
 impl TDataBucketMember for render::SRender<'static> {}
 impl TDataBucketMember for animation::SAnimationLoader<'static> {}
+impl TDataBucketMember for game_mode::SGameMode {}
 
 // -- "components"
 impl TDataBucketMember for entity_animation::SBucket<'static> {}

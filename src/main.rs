@@ -24,6 +24,7 @@ mod entity;
 mod entity_animation;
 mod entity_model;
 mod game_context;
+mod game_mode;
 mod gjk;
 mod input;
 mod niced3d12;
@@ -51,7 +52,7 @@ use glm::{Vec3, Vec4};
 
 use animation::{SAnimationLoader};
 use allocate::{STACK_ALLOCATOR, SYSTEM_ALLOCATOR, SMemVec};
-use editmode::{SEditModeContext, EEditMode};
+use editmode::{SEditModeContext};
 use entity::{SEntityBucket};
 use game_context::{SGameContext};
 use niced3d12 as n12;
@@ -60,26 +61,6 @@ use typeyd3d12 as t12;
 use utils::{STransform};
 //use model::{SModel, SMeshLoader, STextureLoader};
 
-#[derive(PartialEq)]
-enum EMode {
-    Play,
-    Edit,
-}
-
-impl EMode {
-    pub fn toggle(&mut self, edit_mode: &mut EEditMode) {
-        match self {
-            Self::Play => {
-                *self = Self::Edit;
-                *edit_mode = EEditMode::None;
-            },
-            Self::Edit => {
-                *self = Self::Play;
-                *edit_mode = EEditMode::Translation;
-            },
-        }
-    }
-}
 
 fn main_d3d12() -> Result<(), &'static str> {
     render::compile_shaders_if_changed();
@@ -114,6 +95,7 @@ fn main_d3d12() -> Result<(), &'static str> {
     game_context.data_bucket.add(entity_model::SBucket::new(&SYSTEM_ALLOCATOR, 1024)?);
     game_context.data_bucket.add(entity_animation::SBucket::new(&SYSTEM_ALLOCATOR, 1024)?);
     game_context.data_bucket.add(bvh::STree::new());
+    game_context.data_bucket.add(game_mode::SGameMode::new());
 
     let rotating_entity = entitytypes::testtexturedcubeentity::create(
         &game_context, Some("tst_rotating"),
@@ -148,9 +130,6 @@ fn main_d3d12() -> Result<(), &'static str> {
 
     let mut input = input::SInput::new();
 
-    let mut mode = EMode::Edit;
-    let mut edit_mode = EEditMode::None;
-
     let mut draw_selected_bvh  = false;
 
     let mut show_imgui_demo_window = false;
@@ -161,9 +140,11 @@ fn main_d3d12() -> Result<(), &'static str> {
         let frame_context = game_context.start_frame(&winapi);
 
         // -- handle edit mode toggles
-        if input.tilde_edge.down() {
-            mode.toggle(&mut edit_mode);
-        }
+        game_context.data_bucket.get::<game_mode::SGameMode>().with_mut(|game_mode| {
+            if input.tilde_edge.down() {
+                game_mode.mode.toggle(&mut game_mode.edit_mode);
+            }
+        });
 
         let curframetime = winapi.curtimemicroseconds();
         let dt = curframetime - game_context.last_frame_start_time_micro_s;
@@ -184,12 +165,14 @@ fn main_d3d12() -> Result<(), &'static str> {
         //let mut fixed_size_model_xform = STransform::new_translation(&glm::Vec3::new(0.0, 5.0, 0.0));
 
         let mut can_rotate_camera = false;
-        if let EMode::Play = mode {
-            can_rotate_camera = true;
-        }
-        else if input.middle_mouse_down {
-            can_rotate_camera = true;
-        }
+        game_context.data_bucket.get::<game_mode::SGameMode>().with(|game_mode| {
+            if let game_mode::EMode::Play = game_mode.mode {
+                can_rotate_camera = true;
+            }
+            else if input.middle_mouse_down {
+                can_rotate_camera = true;
+            }
+        });
         camera.update_from_input(&input, dts, can_rotate_camera);
 
         let editmode_input = game_context.data_bucket.get_renderer().with(|render: &render::SRender| {
@@ -206,43 +189,47 @@ fn main_d3d12() -> Result<(), &'static str> {
         //println!("Frame time: {}us", _dtms);
 
         // update edit mode
-        if mode == EMode::Edit {
-            edit_mode = edit_mode.update(&game_context, &mut editmode_ctxt, &editmode_input, &input, &game_context.data_bucket);
-        }
+        game_context.data_bucket.get::<game_mode::SGameMode>().with_mut(|game_mode| {
+            if game_mode.mode == game_mode::EMode::Edit {
+                game_mode.edit_mode = game_mode.edit_mode.update(&game_context, &mut editmode_ctxt, &editmode_input, &input, &game_context.data_bucket);
+            }
+        });
 
         // -- update IMGUI
         let io = imgui_ctxt.io_mut();
         io.display_size = [window.width() as f32, window.height() as f32];
 
         let imgui_ui = imgui_ctxt.frame();
-        if let EMode::Edit = mode {
+        game_context.data_bucket.get::<game_mode::SGameMode>().with(|game_mode| {
+            if let game_mode::EMode::Edit = game_mode.mode {
 
-            if show_imgui_demo_window {
-                let mut opened = true;
-                imgui_ui.show_demo_window(&mut opened);
+                if show_imgui_demo_window {
+                    let mut opened = true;
+                    imgui_ui.show_demo_window(&mut opened);
+                }
+
+                imgui_ui.main_menu_bar(|| {
+                    imgui_ui.menu(imgui::im_str!("Misc"), true, || {
+                        if imgui::MenuItem::new(imgui::im_str!("Toggle Demo Window")).build(&imgui_ui) {
+                            show_imgui_demo_window = !show_imgui_demo_window;
+                        }
+                    });
+
+                    game_context.data_bucket.get_bvh().with(|bvh: &bvh::STree<entity::SEntityHandle>| {
+                        bvh.imgui_menu(&imgui_ui, &mut draw_selected_bvh);
+                    });
+
+                    gjk_debug.imgui_menu(&imgui_ui, &game_context.data_bucket, editmode_ctxt.editing_entity(), Some(rotating_entity));
+
+                });
+
+                if let Some(e) = editmode_ctxt.editing_entity() {
+                    game_context.data_bucket.get_entities().with_mut(|entities: &mut SEntityBucket| {
+                        entities.show_imgui_window(e, &imgui_ui);
+                    });
+                }
             }
-
-            imgui_ui.main_menu_bar(|| {
-                imgui_ui.menu(imgui::im_str!("Misc"), true, || {
-                    if imgui::MenuItem::new(imgui::im_str!("Toggle Demo Window")).build(&imgui_ui) {
-                        show_imgui_demo_window = !show_imgui_demo_window;
-                    }
-                });
-
-                game_context.data_bucket.get_bvh().with(|bvh: &bvh::STree<entity::SEntityHandle>| {
-                    bvh.imgui_menu(&imgui_ui, &mut draw_selected_bvh);
-                });
-
-                gjk_debug.imgui_menu(&imgui_ui, &game_context.data_bucket, editmode_ctxt.editing_entity(), Some(rotating_entity));
-
-            });
-
-            if let Some(e) = editmode_ctxt.editing_entity() {
-                game_context.data_bucket.get_entities().with_mut(|entities: &mut SEntityBucket| {
-                    entities.show_imgui_window(e, &imgui_ui);
-                });
-            }
-        }
+        });
 
         // -- draw selected object's BVH heirarchy
         if draw_selected_bvh {

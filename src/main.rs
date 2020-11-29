@@ -142,12 +142,7 @@ fn main_d3d12() -> Result<(), &'static str> {
             }
         });
 
-        let curframetime = winapi.curtimemicroseconds();
-        let dt = curframetime - game_context.last_frame_start_time_micro_s;
-        let _dtms = dt as f64;
-        let dts = (dt as f32) / 1_000_000.0;
-
-        let _total_time = curframetime - game_context.start_time_micro_s;
+        let _total_time = frame_context.start_time_micro_s - game_context.start_time_micro_s;
         let _total_time_seconds = (_total_time as f32) / 1_000_000.0;
 
         let mut can_rotate_camera = false;
@@ -160,7 +155,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                 else if input.middle_mouse_down {
                     can_rotate_camera = true;
                 }
-                camera.update_from_input(&input, dts, can_rotate_camera);
+                camera.update_from_input(&input, frame_context.dt_s, can_rotate_camera);
             });
 
         let editmode_input = game_context.data_bucket.get_renderer()

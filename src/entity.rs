@@ -1,3 +1,4 @@
+use game_context::{SGameContextInt};
 use utils::{STransform};
 use collections::{SStoragePool, SPoolHandle};
 
@@ -49,7 +50,7 @@ impl SEntityBucket {
         self.entities.get(entity).expect("invalid entity").location_update_frame
     }
 
-    pub fn set_location(&mut self, gc: &super::SGameContext, entity: SEntityHandle, location: STransform) {
+    pub fn set_location(&mut self, gc: &SGameContextInt, entity: SEntityHandle, location: STransform) {
         let entity = self.entities.get_mut(entity).expect("invalid entity");
         entity.location = location;
         entity.location_update_frame = gc.cur_frame;

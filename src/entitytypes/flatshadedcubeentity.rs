@@ -3,10 +3,12 @@ extern crate nalgebra_glm as glm;
 use databucket::{SDataBucket};
 use entity::*;
 use entity_model;
+use game_context::SGameContext;
 use render;
-use utils::{STransform, SGameContext};
+use utils::{STransform};
 
 pub fn create(
+    game_context: &SGameContext,
     data_bucket: &SDataBucket,
     debug_name: Option<&'static str>,
     diffuse_colour: Option<glm::Vec4>,
@@ -16,8 +18,7 @@ pub fn create(
     data_bucket.get::<SEntityBucket>()
         .and::<render::SRender>()
         .and::<entity_model::SBucket>()
-        .and::<SGameContext>()
-        .with_mmmc(|entities: &mut SEntityBucket, render: &mut render::SRender, em: &mut entity_model::SBucket, gc: &SGameContext| {
+        .with_mmm(|entities, render, em| {
             let ent = entities.create_entity()?;
 
             let mut model = render.new_model_from_gltf("assets/test_untextured_flat_colour_cube.gltf", 1.0, true)?;
@@ -30,7 +31,7 @@ pub fn create(
             }
 
             em.add_instance(ent, model)?;
-            entities.set_location(gc, ent, starting_location);
+            entities.set_location(game_context, ent, starting_location);
 
             Ok(ent)
         })

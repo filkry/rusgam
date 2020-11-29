@@ -35,6 +35,10 @@ pub struct SAABB {
     pub max: Vec3,
 }
 
+pub struct SGameContext {
+    pub cur_frame: u64,
+}
+
 pub type SHashedStr = u64;
 pub fn hash_str(s: &str) -> SHashedStr {
     let mut hasher = DefaultHasher::new();

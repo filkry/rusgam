@@ -23,7 +23,6 @@ mod editmode;
 mod entity;
 mod entity_animation;
 mod entity_model;
-mod game_context;
 mod gjk;
 mod input;
 mod niced3d12;
@@ -47,36 +46,51 @@ mod entitytypes;
 // -- crate includes
 //use arrayvec::{ArrayVec};
 //use serde::{Serialize, Deserialize};
-use glm::{Vec4};
+use glm::{Vec3, Vec4};
 
 use animation::{SAnimationLoader};
 use allocate::{STACK_ALLOCATOR, SYSTEM_ALLOCATOR, SMemVec};
-use databucket::{SDataBucket};
+use editmode::{SEditModeContext, EEditMode};
 use entity::{SEntityBucket};
-use game_context::{SGameContext, SFrameContext};
 use niced3d12 as n12;
 use typeyd3d12 as t12;
 //use allocate::{SMemVec, STACK_ALLOCATOR};
-use utils::{STransform};
+use utils::{STransform, SGameContext};
 //use model::{SModel, SMeshLoader, STextureLoader};
 
-fn update_frame<'gc>(game_context: &'gc mut SGameContext, data_bucket: &SDataBucket, window: &n12::SD3D12Window) -> Result<SFrameContext<'gc>, &'static str> {
-    let fc = game_context.update_start_frame(data_bucket, window);
-    game_context.update_debug_camera(&fc);
-    game_context.update_edit_mode(data_bucket, &fc);
+#[derive(PartialEq)]
+enum EMode {
+    Play,
+    Edit,
+}
 
-    Ok(fc)
+impl EMode {
+    pub fn toggle(&mut self, edit_mode: &mut EEditMode) {
+        match self {
+            Self::Play => {
+                *self = Self::Edit;
+                *edit_mode = EEditMode::None;
+            },
+            Self::Edit => {
+                *self = Self::Play;
+                *edit_mode = EEditMode::Translation;
+            },
+        }
+    }
 }
 
 fn main_d3d12() -> Result<(), &'static str> {
     render::compile_shaders_if_changed();
 
-    let mut game_context = SGameContext::new();
-    let mut render = render::SRender::new(&rustywindows::winapi, &mut game_context.as_ref().imgui_ctxt)?;
-    game_context.setup_edit_mode_context(&mut render);
+    let winapi = rustywindows::SWinAPI::create();
+
+    let mut imgui_ctxt = imgui::Context::create();
+    input::setup_imgui_key_map(imgui_ctxt.io_mut());
+
+    let mut render = render::SRender::new(&winapi, &mut imgui_ctxt)?;
 
     // -- setup window
-    let windowclass_result = rustywindows::winapi.rawwinapi().registerclassex("rusgam");
+    let windowclass_result = winapi.rawwinapi().registerclassex("rusgam");
     if let Err(e) = windowclass_result {
         println!("Failed to make windowclass, error code {:?}", e);
         return Err("failed to make windowclass");
@@ -88,6 +102,8 @@ fn main_d3d12() -> Result<(), &'static str> {
     window.init_render_target_views(render.device())?;
     window.show();
 
+    let mut editmode_ctxt = SEditModeContext::new(&mut render).unwrap();
+
     let mut data_bucket = databucket::SDataBucket::new(256, &SYSTEM_ALLOCATOR);
 
     data_bucket.add(SEntityBucket::new(67485, 16));
@@ -96,25 +112,23 @@ fn main_d3d12() -> Result<(), &'static str> {
     data_bucket.add(entity_model::SBucket::new(&SYSTEM_ALLOCATOR, 1024)?);
     data_bucket.add(entity_animation::SBucket::new(&SYSTEM_ALLOCATOR, 1024)?);
     data_bucket.add(bvh::STree::new());
+    data_bucket.add(SGameContext{
+        cur_frame: 0,
+    });
 
     let rotating_entity = entitytypes::testtexturedcubeentity::create(
-        &game_context,
         &data_bucket, Some("tst_rotating"),
         STransform::new_translation(&glm::Vec3::new(0.0, 0.0, 0.0)))?;
     entitytypes::testtexturedcubeentity::create(
-        &game_context,
         &data_bucket, Some("tst_textured_cube"),
         STransform::new_translation(&glm::Vec3::new(3.0, 0.0, 0.0)))?;
     entitytypes::flatshadedcubeentity::create(
-        &game_context,
         &data_bucket, Some("tst_coloured_cube"), Some(glm::Vec4::new(1.0, 0.0, 0.0, 0.9)),
         STransform::new_translation(&glm::Vec3::new(0.0, 2.0, 0.0)))?;
     entitytypes::testopenroomentity::create(
-        &game_context,
         &data_bucket, Some("tst_room"),
         STransform::new_translation(&glm::Vec3::new(0.0, -2.0, 0.0)))?;
     let skinned_entity = entitytypes::tstskinnedentity::create(
-        &game_context,
         &data_bucket, Some("tst_skinned_entity"), Some(glm::Vec4::new(1.0, 1.0, 1.0, 1.0)),
         STransform::new_translation(&glm::Vec3::new(-3.0, 2.0, 0.0)))?;
 
@@ -127,57 +141,118 @@ fn main_d3d12() -> Result<(), &'static str> {
             ea.play_animation(handle, anim_loader, render.mesh_loader(), asset_file_path, 0.0);
         });
 
+    // -- update loop
+    let mut lastframetime = winapi.curtimemicroseconds();
+
+    let start_time = winapi.curtimemicroseconds();
+    let _rot_axis = Vec3::new(0.0, 1.0, 0.0);
+
+    let mut camera = camera::SCamera::new(glm::Vec3::new(0.0, 0.0, -10.0));
+
+    let mut input = input::SInput::new();
+
+    let mut mode = EMode::Edit;
+    let mut edit_mode = EEditMode::None;
+
     let mut draw_selected_bvh  = false;
+
+    let mut show_imgui_demo_window = false;
 
     let mut gjk_debug = gjk::SGJKDebug::new(&data_bucket);
 
-    let should_quit = false;
+    while !input.q_down {
+        // -- handle edit mode toggles
+        if input.tilde_edge.down() {
+            mode.toggle(&mut edit_mode);
+        }
 
-    // -- update loop
-    while !should_quit {
-        let frame_context = update_frame(&mut game_context, &data_bucket, &window)?;
+        let curframetime = winapi.curtimemicroseconds();
+        let dt = curframetime - lastframetime;
+        let _dtms = dt as f64;
+        let dts = (dt as f32) / 1_000_000.0;
 
-        let view_matrix = game_context.as_ref().debug_camera.world_to_view_matrix();
+        let _total_time = curframetime - start_time;
+        let _total_time_seconds = (_total_time as f32) / 1_000_000.0;
+
+        // -- update
+        /*
+        let cur_angle = _total_time_seconds * (3.14159 / 4.0);
+        data_bucket.get_entities().unwrap().with_mut(|entities: &mut SEntityBucket| {
+            entities.set_location(gc, rotating_entity, STransform::new_rotation(&glm::quat_angle_axis(cur_angle, &_rot_axis)));
+        });
+        */
+
+        //let mut fixed_size_model_xform = STransform::new_translation(&glm::Vec3::new(0.0, 5.0, 0.0));
+
+        let mut can_rotate_camera = false;
+        if let EMode::Play = mode {
+            can_rotate_camera = true;
+        }
+        else if input.middle_mouse_down {
+            can_rotate_camera = true;
+        }
+        camera.update_from_input(&input, dts, can_rotate_camera);
+
+        let editmode_input = data_bucket.get_renderer().with(|render: &render::SRender| {
+            editmode::SEditModeInput::new_for_frame(&window, &winapi, &camera, &render, &imgui_ctxt)
+        });
+
+        input.mouse_dx = 0;
+        input.mouse_dy = 0;
+        let view_matrix = camera.world_to_view_matrix();
+
+        //println!("View: {}", view_matrix);
+        //println!("Perspective: {}", perspective_matrix);
+
+        //println!("Frame time: {}us", _dtms);
 
         // update edit mode
+        if mode == EMode::Edit {
+            edit_mode = edit_mode.update(&mut editmode_ctxt, &editmode_input, &input, &data_bucket);
+        }
 
         // -- update IMGUI
-        if let game_context::EMode::Edit = game_context.as_ref().mode {
-            if game_context.as_ref().show_imgui_demo_window {
+        let io = imgui_ctxt.io_mut();
+        io.display_size = [window.width() as f32, window.height() as f32];
+
+        let imgui_ui = imgui_ctxt.frame();
+        if let EMode::Edit = mode {
+
+            if show_imgui_demo_window {
                 let mut opened = true;
-                frame_context.imgui_ui.show_demo_window(&mut opened);
+                imgui_ui.show_demo_window(&mut opened);
             }
 
-            frame_context.imgui_ui.main_menu_bar(|| {
-                frame_context.imgui_ui.menu(imgui::im_str!("Misc"), true, || {
-                    if imgui::MenuItem::new(imgui::im_str!("Toggle Demo Window")).build(&frame_context.imgui_ui) {
-                        game_context.as_mut().show_imgui_demo_window = !game_context.as_ref().show_imgui_demo_window;
+            imgui_ui.main_menu_bar(|| {
+                imgui_ui.menu(imgui::im_str!("Misc"), true, || {
+                    if imgui::MenuItem::new(imgui::im_str!("Toggle Demo Window")).build(&imgui_ui) {
+                        show_imgui_demo_window = !show_imgui_demo_window;
                     }
                 });
 
                 data_bucket.get_bvh().with(|bvh: &bvh::STree<entity::SEntityHandle>| {
-                    bvh.imgui_menu(&frame_context.imgui_ui, &mut draw_selected_bvh);
+                    bvh.imgui_menu(&imgui_ui, &mut draw_selected_bvh);
                 });
 
-                gjk_debug.imgui_menu(&frame_context.imgui_ui, &data_bucket, game_context.as_ref().edit_mode_ctxt.unwrap().editing_entity(), Some(rotating_entity));
+                gjk_debug.imgui_menu(&imgui_ui, &data_bucket, editmode_ctxt.editing_entity(), Some(rotating_entity));
 
             });
 
-            if let Some(e) = game_context.as_ref().edit_mode_ctxt.unwrap().editing_entity() {
+            if let Some(e) = editmode_ctxt.editing_entity() {
                 data_bucket.get_entities().with_mut(|entities: &mut SEntityBucket| {
-                    entities.show_imgui_window(e, &frame_context.imgui_ui);
+                    entities.show_imgui_window(e, &imgui_ui);
                 });
             }
         }
 
         // -- draw selected object's BVH heirarchy
-        data_bucket.get::<render::SRender>()
-            .and::<entity_model::SBucket>()
-            .and::<bvh::STree<entity::SEntityHandle>>()
-            .with_mcc(|render, em, bvh| {
-                if draw_selected_bvh {
-                    if let Some(e) = game_context.as_ref().edit_mode_ctxt.unwrap().editing_entity() {
-                        STACK_ALLOCATOR.with(|sa| {
+        if draw_selected_bvh {
+            if let Some(e) = editmode_ctxt.editing_entity() {
+                STACK_ALLOCATOR.with(|sa| {
+                    data_bucket.get::<render::SRender>()
+                        .and::<entity_model::SBucket>()
+                        .and::<bvh::STree<entity::SEntityHandle>>()
+                        .with_mcc(|render, em, bvh| {
                             let model_handle = em.handle_for_entity(e).unwrap();
 
                             let mut aabbs = SMemVec::new(sa, 32, 0).unwrap();
@@ -186,12 +261,12 @@ fn main_d3d12() -> Result<(), &'static str> {
                                 render.temp().draw_aabb(aabb, &Vec4::new(1.0, 0.0, 0.0, 1.0), true);
                             }
                         });
-                    }
-                }
-            });
+                });
+            }
+        }
 
         // -- draw selected object colliding/not with rotating_entity
-        if let Some(e) = game_context.as_ref().edit_mode_ctxt.unwrap().editing_entity() {
+        if let Some(e) = editmode_ctxt.editing_entity() {
             STACK_ALLOCATOR.with(|sa| {
                 data_bucket.get::<render::SRender>()
                     .and::<entity::SEntityBucket>()
@@ -240,13 +315,14 @@ fn main_d3d12() -> Result<(), &'static str> {
             .and::<entity_model::SBucket>()
             .and::<SEntityBucket>()
             .and::<render::SRender>()
-            .with_mmcc(|bvh, entity_model, entities, render| {
+            .and::<utils::SGameContext>()
+            .with_mmccc(|bvh, entity_model, entities, render, gc| {
                 // -- $$$FRK(TODO): only update dirty
                 for i in 0..entity_model.models.len() {
                     let model_handle : entity_model::SHandle = i;
 
                     let entity_handle = entity_model.get_entity(model_handle);
-                    if entities.get_location_update_frame(entity_handle) != game_context.as_ref().cur_frame {
+                    if entities.get_location_update_frame(entity_handle) != gc.cur_frame {
                         continue;
                     }
 
@@ -271,7 +347,7 @@ fn main_d3d12() -> Result<(), &'static str> {
         data_bucket.get::<entity_animation::SBucket>()
             .and::<animation::SAnimationLoader>()
             .with_mc(|e_animation, anim_loader| {
-                e_animation.update_joints(anim_loader, frame_context.total_time_s);
+                e_animation.update_joints(anim_loader, _total_time_seconds);
             });
 
         // -- draw skeleton of selected entity
@@ -314,7 +390,7 @@ fn main_d3d12() -> Result<(), &'static str> {
         */
 
         // -- render frame
-        let imgui_draw_data = frame_context.imgui_ui.render();
+        let imgui_draw_data = imgui_ui.render();
 
         data_bucket.get::<render::SRender>()
             .and::<SEntityBucket>()
@@ -331,13 +407,64 @@ fn main_d3d12() -> Result<(), &'static str> {
                 }
             });
 
+        lastframetime = curframetime;
+
+        data_bucket.get::<SGameContext>().with_mut(|ctxt: &mut SGameContext| {
+            ctxt.cur_frame += 1;
+        });
+
         // -- $$$FRK(TODO): framerate is uncapped
 
-        game_context.update_io(&data_bucket, &frame_context, &window);
+        let io = imgui_ctxt.io_mut(); // for filling out io state
+        io.mouse_pos = [editmode_input.mouse_window_pos[0] as f32, editmode_input.mouse_window_pos[1] as f32];
 
-        game_context.update_end_frame(frame_context);
+        let mut input_handler = input.frame(io);
+        loop {
+            let msg = window.pollmessage();
+            match msg {
+                None => break,
+                Some(m) => match m {
+                    safewindows::EMsgType::Paint => {
+                        //println!("Paint!");
+                        window.dummyrepaint();
+                    }
+                    safewindows::EMsgType::KeyDown { key } => {
+                        input_handler.handle_key_down_up(key, true);
+                    },
+                    safewindows::EMsgType::KeyUp { key } => {
+                        input_handler.handle_key_down_up(key, false);
+                    },
+                    safewindows::EMsgType::LButtonDown{ .. } => {
+                        input_handler.handle_lmouse_down_up(true);
+                    },
+                    safewindows::EMsgType::LButtonUp{ .. } => {
+                        input_handler.handle_lmouse_down_up(false);
+                    },
+                    safewindows::EMsgType::MButtonDown{ .. } => {
+                        input_handler.handle_mmouse_down_up(true);
+                    },
+                    safewindows::EMsgType::MButtonUp{ .. } => {
+                        input_handler.handle_mmouse_down_up(false);
+                    },
+                    safewindows::EMsgType::Input{ raw_input } => {
+                        if let safewindows::rawinput::ERawInputData::Mouse{data} = raw_input.data {
+                            input_handler.handle_mouse_move(data.last_x, data.last_y);
+                        }
+                    },
+                    safewindows::EMsgType::Size => {
+                        //println!("Size");
+                        let rect: safewindows::SRect = window.raw().getclientrect()?;
+                        let newwidth = rect.right - rect.left;
+                        let newheight = rect.bottom - rect.top;
 
-        panic!("must update should_quit");
+                        data_bucket.get_renderer().with_mut(|render: &mut render::SRender| {
+                            render.resize_window(&mut window, newwidth, newheight)
+                        })?;
+                    }
+                    safewindows::EMsgType::Invalid => (),
+                },
+            }
+        }
 
         // -- increase frame time for testing
         //std::thread::sleep(std::time::Duration::from_millis(111));

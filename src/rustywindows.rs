@@ -4,8 +4,6 @@ use safewindows;
 
 use std::ops::{Deref, DerefMut};
 
-pub static winapi : SWinAPI = SWinAPI::create();
-
 pub struct SWinAPI {
     wapi: safewindows::SWinAPI,
     frequency: i64,

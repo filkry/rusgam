@@ -3,7 +3,6 @@ use bvh;
 use camera;
 use databucket;
 use entity::{SEntityBucket, SEntityHandle};
-use game_context::{SGameContextInt, SFrameContext};
 use glm::{Vec3, Vec4};
 use imgui;
 use input;
@@ -12,7 +11,7 @@ use niced3d12 as n12;
 use render;
 use rustywindows;
 use utils;
-use utils::{STransform};
+use utils::{STransform, SGameContext};
 
 pub struct SEditModeInput {
     pub window_width: u32,
@@ -238,19 +237,16 @@ impl EEditMode {
 
     pub fn update(
         &self,
-        game_context: &mut SGameContextInt,
-        frame_context: &SFrameContext,
+        ctxt: &mut SEditModeContext,
+        em_input: &SEditModeInput,
+        input: &input::SInput,
         data_bucket: &databucket::SDataBucket
     ) -> Self {
         let mut mode = self.clone();
 
         drop(self);
 
-        let cursor_ray = cursor_ray_world(&frame_context.edit_mode_input);
-
-        let mut ctxt = game_context.edit_mode_ctxt.as_mut().unwrap();
-        let input = &game_context.input;
-        let em_input = &frame_context.edit_mode_input;
+        let cursor_ray = cursor_ray_world(&em_input);
 
         // -- cast ray to select entity for edit mode
         ctxt.clicked_entity = None;
@@ -283,18 +279,17 @@ impl EEditMode {
         }
 
         // -- toggle edit modes
-        if game_context.input.t_edge.down() && ctxt.editing_entity.is_some() {
+        if input.t_edge.down() && ctxt.editing_entity.is_some() {
             mode = EEditMode::Translation;
         }
-        else if game_context.input.r_edge.down() && ctxt.editing_entity.is_some() {
+        else if input.r_edge.down() && ctxt.editing_entity.is_some() {
             mode = EEditMode::Rotation;
         }
 
-        drop(ctxt);
-
         data_bucket.get_renderer()
             .and::<SEntityBucket>()
-            .with_mm(|render, entities| {
+            .and::<SGameContext>()
+            .with_mmc(|render: &mut render::SRender, entities: &mut SEntityBucket, gc: &super::SGameContext| {
                 if mode == EEditMode::Translation {
                     mode = EEditMode::update_translation(ctxt, &em_input, &input, &render, &entities);
                 }
@@ -302,10 +297,10 @@ impl EEditMode {
                     mode = EEditMode::update_rotation(ctxt, &em_input, &input, &render, &entities);
                 }
                 else if let EEditMode::TranslationDragging(data) = mode.clone() {
-                    mode = data.update(&em_input, game_context, render, entities);
+                    mode = data.update(&input, &em_input, gc, render, entities);
                 }
                 else if let EEditMode::RotationDragging(data) = mode.clone() {
-                    mode = data.update(&em_input, game_context, render, entities);
+                    mode = data.update(&input, &em_input, gc, render, entities);
                 }
             });
 
@@ -364,12 +359,13 @@ impl SEditModeTranslationDragging {
 
     pub fn update(
         &self,
+        input: &input::SInput,
         editmode_input: &SEditModeInput,
-        gc: &SGameContextInt,
+        gc: &super::SGameContext,
         render: &mut render::SRender,
         entities: &mut SEntityBucket,
     ) -> EEditMode {
-        if !gc.input.left_mouse_down {
+        if !input.left_mouse_down {
             return EEditMode::Translation;
         }
         else {
@@ -422,12 +418,13 @@ impl SEditModeRotationDragging {
 
     pub fn update(
         &self,
+        input: &input::SInput,
         editmode_input: &SEditModeInput,
-        gc: &SGameContextInt,
+        gc: &super::SGameContext,
         render: &mut render::SRender,
         entities: &mut SEntityBucket,
     ) -> EEditMode {
-        if !gc.input.left_mouse_down {
+        if !input.left_mouse_down {
             return EEditMode::Rotation;
         }
         else {

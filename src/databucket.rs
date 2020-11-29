@@ -11,6 +11,7 @@ use bvh;
 use entity;
 use entity_animation;
 use entity_model;
+use gjk;
 use input;
 use game_mode;
 use render;
@@ -25,6 +26,7 @@ impl TDataBucketMember for animation::SAnimationLoader<'static> {}
 impl TDataBucketMember for game_mode::SGameMode {}
 impl TDataBucketMember for camera::SDebugFPCamera {}
 impl TDataBucketMember for input::SInput {}
+impl TDataBucketMember for gjk::SGJKDebug {}
 
 // -- "components"
 impl TDataBucketMember for entity_animation::SBucket<'static> {}

@@ -95,6 +95,7 @@ fn main_d3d12() -> Result<(), &'static str> {
     game_context.data_bucket.add(bvh::STree::new());
     game_context.data_bucket.add(camera::SDebugFPCamera::new(glm::Vec3::new(0.0, 0.0, -10.0)));
     game_context.data_bucket.add(input::SInput::new());
+    game_context.data_bucket.add(gjk::SGJKDebug::new(&game_context.data_bucket));
 
     let rotating_entity = entitytypes::testtexturedcubeentity::create(
         &game_context, Some("tst_rotating"),
@@ -122,8 +123,6 @@ fn main_d3d12() -> Result<(), &'static str> {
         });
 
     // -- update loop
-    let mut gjk_debug = gjk::SGJKDebug::new(&game_context.data_bucket);
-
     while !game_context.data_bucket.get::<input::SInput>().with(|input| input.q_down) {
         let frame_context = game_context.start_frame(&winapi);
 
@@ -185,36 +184,38 @@ fn main_d3d12() -> Result<(), &'static str> {
         io.display_size = [window.width() as f32, window.height() as f32];
 
         let imgui_ui = imgui_ctxt.frame();
-        game_context.data_bucket.get::<game_mode::SGameMode>().with_mut(|game_mode| {
-            if let game_mode::EMode::Edit = game_mode.mode {
+        game_context.data_bucket.get::<game_mode::SGameMode>()
+            .and::<gjk::SGJKDebug>()
+            .with_mm(|game_mode, gjk_debug| {
+                if let game_mode::EMode::Edit = game_mode.mode {
 
-                if game_mode.show_imgui_demo_window {
-                    let mut opened = true;
-                    imgui_ui.show_demo_window(&mut opened);
+                    if game_mode.show_imgui_demo_window {
+                        let mut opened = true;
+                        imgui_ui.show_demo_window(&mut opened);
+                    }
+
+                    imgui_ui.main_menu_bar(|| {
+                        imgui_ui.menu(imgui::im_str!("Misc"), true, || {
+                            if imgui::MenuItem::new(imgui::im_str!("Toggle Demo Window")).build(&imgui_ui) {
+                                game_mode.show_imgui_demo_window = !game_mode.show_imgui_demo_window;
+                            }
+                        });
+
+                        game_context.data_bucket.get_bvh().with(|bvh: &bvh::STree<entity::SEntityHandle>| {
+                            bvh.imgui_menu(&imgui_ui, &mut game_mode.draw_selected_bvh);
+                        });
+
+                        gjk_debug.imgui_menu(&imgui_ui, &game_context.data_bucket, game_mode.edit_mode_ctxt.editing_entity(), Some(rotating_entity));
+
+                    });
+
+                    if let Some(e) = game_mode.edit_mode_ctxt.editing_entity() {
+                        game_context.data_bucket.get_entities().with_mut(|entities: &mut SEntityBucket| {
+                            entities.show_imgui_window(e, &imgui_ui);
+                        });
+                    }
                 }
-
-                imgui_ui.main_menu_bar(|| {
-                    imgui_ui.menu(imgui::im_str!("Misc"), true, || {
-                        if imgui::MenuItem::new(imgui::im_str!("Toggle Demo Window")).build(&imgui_ui) {
-                            game_mode.show_imgui_demo_window = !game_mode.show_imgui_demo_window;
-                        }
-                    });
-
-                    game_context.data_bucket.get_bvh().with(|bvh: &bvh::STree<entity::SEntityHandle>| {
-                        bvh.imgui_menu(&imgui_ui, &mut game_mode.draw_selected_bvh);
-                    });
-
-                    gjk_debug.imgui_menu(&imgui_ui, &game_context.data_bucket, game_mode.edit_mode_ctxt.editing_entity(), Some(rotating_entity));
-
-                });
-
-                if let Some(e) = game_mode.edit_mode_ctxt.editing_entity() {
-                    game_context.data_bucket.get_entities().with_mut(|entities: &mut SEntityBucket| {
-                        entities.show_imgui_window(e, &imgui_ui);
-                    });
-                }
-            }
-        });
+            });
 
         // -- draw selected object's BVH heirarchy
         STACK_ALLOCATOR.with(|sa| {

@@ -72,8 +72,8 @@ impl SData {
     }
 }
 
-impl<'a> SDataBucket<'a> {
-    pub fn new(max_entries: usize, allocator: &'a dyn TMemAllocator) -> Self {
+impl<'alloc> SDataBucket<'alloc> {
+    pub fn new(max_entries: usize, allocator: &'alloc dyn TMemAllocator) -> Self {
         Self {
             entries: SMemVec::new(allocator, max_entries, 0).unwrap(),
         }
@@ -111,7 +111,7 @@ impl<'a> SDataBucket<'a> {
     }
 }
 
-impl<'bucket, 'alloc, T: 'static + TDataBucketMember> SDataRef<'bucket, 'alloc, T> {
+impl<'bucket, 'alloc, T: TDataBucketMember> SDataRef<'bucket, 'alloc, T> {
     fn new(bucket: &'bucket SDataBucket<'alloc>, data: &SData) -> Self {
         Self{
             bucket,

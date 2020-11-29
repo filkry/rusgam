@@ -1,4 +1,5 @@
-use editmode::{EEditMode};
+use editmode::{EEditMode, SEditModeContext};
+use render;
 
 #[derive(PartialEq)]
 pub enum EMode {
@@ -24,13 +25,15 @@ impl EMode {
 pub struct SGameMode {
     pub mode: EMode,
     pub edit_mode: EEditMode,
+    pub edit_mode_ctxt: SEditModeContext,
 }
 
 impl SGameMode {
-    pub fn new() -> Self {
+    pub fn new(render: &mut render::SRender) -> Self {
         Self{
             mode: EMode::Edit,
             edit_mode: EEditMode::None,
+            edit_mode_ctxt: SEditModeContext::new(render).unwrap(),
         }
     }
 }

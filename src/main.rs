@@ -52,7 +52,6 @@ use glm::{Vec4};
 
 use animation::{SAnimationLoader};
 use allocate::{STACK_ALLOCATOR, SYSTEM_ALLOCATOR, SMemVec};
-use editmode::{SEditModeContext};
 use entity::{SEntityBucket};
 use game_context::{SGameContext};
 use niced3d12 as n12;
@@ -85,17 +84,15 @@ fn main_d3d12() -> Result<(), &'static str> {
     window.init_render_target_views(render.device())?;
     window.show();
 
-    let mut editmode_ctxt = SEditModeContext::new(&mut render).unwrap();
-
     let mut game_context = SGameContext::new(&winapi);
 
     game_context.data_bucket.add(SEntityBucket::new(67485, 16));
     game_context.data_bucket.add(SAnimationLoader::new(&SYSTEM_ALLOCATOR, 64));
+    game_context.data_bucket.add(game_mode::SGameMode::new(&mut render));
     game_context.data_bucket.add(render);
     game_context.data_bucket.add(entity_model::SBucket::new(&SYSTEM_ALLOCATOR, 1024)?);
     game_context.data_bucket.add(entity_animation::SBucket::new(&SYSTEM_ALLOCATOR, 1024)?);
     game_context.data_bucket.add(bvh::STree::new());
-    game_context.data_bucket.add(game_mode::SGameMode::new());
     game_context.data_bucket.add(camera::SDebugFPCamera::new(glm::Vec3::new(0.0, 0.0, -10.0)));
 
     let rotating_entity = entitytypes::testtexturedcubeentity::create(
@@ -142,8 +139,6 @@ fn main_d3d12() -> Result<(), &'static str> {
             }
         });
 
-        let _total_time = frame_context.start_time_micro_s - game_context.start_time_micro_s;
-        let _total_time_seconds = (_total_time as f32) / 1_000_000.0;
 
         let mut can_rotate_camera = false;
         game_context.data_bucket.get::<camera::SDebugFPCamera>()
@@ -179,7 +174,7 @@ fn main_d3d12() -> Result<(), &'static str> {
         // update edit mode
         game_context.data_bucket.get::<game_mode::SGameMode>().with_mut(|game_mode| {
             if game_mode.mode == game_mode::EMode::Edit {
-                game_mode.edit_mode = game_mode.edit_mode.update(&game_context, &mut editmode_ctxt, &editmode_input, &input, &game_context.data_bucket);
+                game_mode.edit_mode = game_mode.edit_mode.update(&game_context, &mut game_mode.edit_mode_ctxt, &editmode_input, &input, &game_context.data_bucket);
             }
         });
 
@@ -207,11 +202,11 @@ fn main_d3d12() -> Result<(), &'static str> {
                         bvh.imgui_menu(&imgui_ui, &mut draw_selected_bvh);
                     });
 
-                    gjk_debug.imgui_menu(&imgui_ui, &game_context.data_bucket, editmode_ctxt.editing_entity(), Some(rotating_entity));
+                    gjk_debug.imgui_menu(&imgui_ui, &game_context.data_bucket, game_mode.edit_mode_ctxt.editing_entity(), Some(rotating_entity));
 
                 });
 
-                if let Some(e) = editmode_ctxt.editing_entity() {
+                if let Some(e) = game_mode.edit_mode_ctxt.editing_entity() {
                     game_context.data_bucket.get_entities().with_mut(|entities: &mut SEntityBucket| {
                         entities.show_imgui_window(e, &imgui_ui);
                     });
@@ -221,12 +216,13 @@ fn main_d3d12() -> Result<(), &'static str> {
 
         // -- draw selected object's BVH heirarchy
         if draw_selected_bvh {
-            if let Some(e) = editmode_ctxt.editing_entity() {
-                STACK_ALLOCATOR.with(|sa| {
-                    game_context.data_bucket.get::<render::SRender>()
-                        .and::<entity_model::SBucket>()
-                        .and::<bvh::STree<entity::SEntityHandle>>()
-                        .with_mcc(|render, em, bvh| {
+            STACK_ALLOCATOR.with(|sa| {
+                game_context.data_bucket.get::<render::SRender>()
+                    .and::<entity_model::SBucket>()
+                    .and::<bvh::STree<entity::SEntityHandle>>()
+                    .and::<game_mode::SGameMode>()
+                    .with_mccc(|render, em, bvh, game_mode| {
+                        if let Some(e) = game_mode.edit_mode_ctxt.editing_entity() {
                             let model_handle = em.handle_for_entity(e).unwrap();
 
                             let mut aabbs = SMemVec::new(sa, 32, 0).unwrap();
@@ -234,18 +230,19 @@ fn main_d3d12() -> Result<(), &'static str> {
                             for aabb in aabbs.as_slice() {
                                 render.temp().draw_aabb(aabb, &Vec4::new(1.0, 0.0, 0.0, 1.0), true);
                             }
-                        });
+                        }
+                    });
                 });
-            }
         }
 
         // -- draw selected object colliding/not with rotating_entity
-        if let Some(e) = editmode_ctxt.editing_entity() {
-            STACK_ALLOCATOR.with(|sa| {
-                game_context.data_bucket.get::<render::SRender>()
-                    .and::<entity::SEntityBucket>()
-                    .and::<entity_model::SBucket>()
-                    .with_mcc(|render, entities, em| {
+        STACK_ALLOCATOR.with(|sa| {
+            game_context.data_bucket.get::<render::SRender>()
+                .and::<entity::SEntityBucket>()
+                .and::<entity_model::SBucket>()
+                .and::<game_mode::SGameMode>()
+                .with_mccc(|render, entities, em, game_mode| {
+                    if let Some(e) = game_mode.edit_mode_ctxt.editing_entity() {
                         let e_model_handle = em.handle_for_entity(e).unwrap();
                         let rot_model_handle = em.handle_for_entity(rotating_entity).unwrap();
                         let loc = entities.get_entity_location(e);
@@ -280,9 +277,9 @@ fn main_d3d12() -> Result<(), &'static str> {
                         if gjk::gjk(world_verts.as_slice(), rot_box_world_verts.as_slice()) {
                             render.temp().draw_sphere(&loc.t, 1.0, &Vec4::new(1.0, 0.0, 0.0, 0.1), true, None);
                         }
-                    });
-            });
-        }
+                    }
+                });
+        });
 
         // -- update bvh
         game_context.data_bucket.get::<bvh::STree<entity::SEntityHandle>>()
@@ -320,7 +317,7 @@ fn main_d3d12() -> Result<(), &'static str> {
         game_context.data_bucket.get::<entity_animation::SBucket>()
             .and::<animation::SAnimationLoader>()
             .with_mc(|e_animation, anim_loader| {
-                e_animation.update_joints(anim_loader, _total_time_seconds);
+                e_animation.update_joints(anim_loader, frame_context.total_time_s);
             });
 
         // -- draw skeleton of selected entity

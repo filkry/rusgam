@@ -14,6 +14,7 @@ pub struct SFrameContext {
     pub start_time_micro_s: i64,
     pub dt_micro_s: i64,
     pub dt_s: f32,
+    pub total_time_s: f32,
 }
 
 impl<'a> SGameContext<'a> {
@@ -31,10 +32,14 @@ impl<'a> SGameContext<'a> {
         let dt_micro_s = start_time_micro_s - self.last_frame_start_time_micro_s;
         let dt_s = (dt_micro_s as f32) / 1_000_000.0;
 
+        let total_time_micro_s = start_time_micro_s - self.start_time_micro_s;
+        let total_time_s = (total_time_micro_s as f32) / 1_000_000.0;
+
         SFrameContext {
             start_time_micro_s,
             dt_micro_s,
             dt_s,
+            total_time_s,
         }
     }
 

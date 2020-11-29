@@ -129,13 +129,11 @@ fn main_d3d12() -> Result<(), &'static str> {
             ea.play_animation(handle, anim_loader, render.mesh_loader(), asset_file_path, 0.0);
         });
 
-    let frame_linear_allocator = SAllocator::new(
-        allocate::SLinearAllocator::new(SYSTEM_ALLOCATOR(), 128 * 1024 * 1024, 8)?,
-    );
-
     // -- update loop
     while !game_context.data_bucket.get::<input::SInput>().with(|input| input.q_down) {
-        frame_linear_allocator.reset();
+        let frame_linear_allocator = SAllocator::new(
+            allocate::SLinearAllocator::new(SYSTEM_ALLOCATOR(), 128 * 1024 * 1024, 8)?,
+        );
 
         let mut frame_context = game_context.start_frame(&winapi, &frame_linear_allocator.as_ref());
 

@@ -87,10 +87,6 @@ impl SAllocator {
             }
         }
     }
-
-    pub fn steal_mem(self) -> Option<SMem> {
-        panic!("figure this out");
-    }
 }
 
 impl SAllocatorRef {
@@ -208,18 +204,6 @@ impl SLinearAllocator {
             }),
         })
     }
-
-    pub fn new_from_mem(
-        raw: SMem,
-    ) -> Result<Self, &'static str> {
-        Ok(Self {
-            data: RefCell::new(SLinearAllocatorData {
-                raw,
-                cur_offset: 0,
-                allow_realloc: false,
-            }),
-        })
-    }
 }
 
 impl TMemAllocator for SLinearAllocator {
@@ -229,6 +213,9 @@ impl TMemAllocator for SLinearAllocator {
         if (data.raw.data as usize) % align != 0 {
             panic!("Currently don't support different alignments.");
         }
+
+        panic!("Refcount");
+        panic!("Should put a struct at the start of the memory which track the allocation.");
 
         let aligned_offset = align_up(data.cur_offset, align);
         let aligned_size = align_up(size, align);
@@ -255,10 +242,12 @@ impl TMemAllocator for SLinearAllocator {
     }
 
     unsafe fn free_unsafe(&self, _existing_allocation: &mut SMem) -> Result<(), &'static str> {
+        panic!("Should free the allocation, verify with embedded record, and modify refcount");
         Ok(())
     }
 
     fn free(&self, mut _existing_allocation: SMem) -> Result<(), &'static str> {
+        panic!("Should free the allocation, verify with embedded record, and modify refcount");
         Ok(())
     }
 

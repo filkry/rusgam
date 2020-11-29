@@ -135,15 +135,20 @@ fn main_d3d12() -> Result<(), &'static str> {
 
     // -- update loop
     while !game_context.data_bucket.get::<input::SInput>().with(|input| input.q_down) {
+        frame_linear_allocator.reset();
+
         let mut frame_context = game_context.start_frame(&winapi, &frame_linear_allocator.as_ref());
 
         update_frame(&game_context, &frame_context)?;
 
-        game_context.data_bucket.get_renderer()
-            .and::<camera::SDebugFPCamera>()
-            .with_cc(|render, camera| {
-                frame_context.data_bucket.add(editmode::SEditModeInput::new_for_frame(&window, &winapi, &camera, &render, &imgui_ctxt));
-            });
+        {
+            let edit_mode_input = game_context.data_bucket.get_renderer()
+                .and::<camera::SDebugFPCamera>()
+                .with_cc(|render, camera| {
+                    editmode::SEditModeInput::new_for_frame(&window, &winapi, &camera, &render, &imgui_ctxt)
+                });
+            frame_context.data_bucket.add(edit_mode_input);
+        }
 
         game_context.data_bucket.get::<input::SInput>().with_mut(|input| {
             input.mouse_dx = 0;

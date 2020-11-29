@@ -273,6 +273,18 @@ pub struct SMem<'a> {
 }
 
 impl<'a> SMem<'a> {
+    pub unsafe fn as_ref_typed<T>(&self) -> &T {
+        assert!(self.size >= size_of::<T>());
+        assert!(!self.data.is_null());
+        (self.data as *const T).as_ref().expect("asserted on null above")
+    }
+
+    pub unsafe fn as_mut_typed<T>(&mut self) -> &mut T {
+        assert!(self.size >= size_of::<T>());
+        assert!(!self.data.is_null());
+        (self.data as *mut T).as_mut().expect("asserted on null above")
+    }
+
     fn invalidate(&mut self) {
         self.data = std::ptr::null_mut();
         self.size = 0;

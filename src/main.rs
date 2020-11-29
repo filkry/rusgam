@@ -105,6 +105,16 @@ fn main_d3d12() -> Result<(), &'static str> {
     game_context.data_bucket.add(input::SInput::new());
     game_context.data_bucket.add(gjk::SGJKDebug::new(&game_context.data_bucket));
 
+    let db2 = {
+        let temp_linear_allocator = allocate::SLinearAllocator::new(&SYSTEM_ALLOCATOR, 128 * 1024 * 1024, 8)?;
+        let anim_loader = SAnimationLoader::new(&temp_linear_allocator, 64);
+
+        let mut db2 = databucket2::SDataBucket::new(128, &SYSTEM_ALLOCATOR);
+        db2.add(anim_loader);
+
+        db2
+    };
+
     let rotating_entity = entitytypes::testtexturedcubeentity::create(
         &game_context, Some("tst_rotating"),
         STransform::new_translation(&glm::Vec3::new(0.0, 0.0, 0.0)))?;

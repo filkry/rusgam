@@ -1,42 +1,42 @@
-use allocate::{TMemAllocator, SMemVec};
+use allocate::{SAllocatorRef, SMemVec};
 use collections::{SStoragePool, SPoolHandle};
 use glm::{Vec3, Quat};
 use model::{SMeshSkinning};
 use utils;
 use utils::{STransform, lerp, unlerp_f32, gltf_accessor_slice, clamp};
 
-pub struct SAnimation<'a> {
+pub struct SAnimation {
     pub duration: f32,
-    channels: SMemVec<'a, EChannel<'a>>,
-    bound_node_to_joint_map: SMemVec<'a, Option<usize>>,
+    channels: SMemVec<EChannel>,
+    bound_node_to_joint_map: SMemVec<Option<usize>>,
 }
 
-struct STranslationChannel<'a> {
+struct STranslationChannel {
     node: usize,
-    sample_times: SMemVec<'a, f32>,
-    sample_values: SMemVec<'a, Vec3>,
+    sample_times: SMemVec<f32>,
+    sample_values: SMemVec<Vec3>,
 }
 
-struct SRotationChannel<'a> {
+struct SRotationChannel {
     node: usize,
-    sample_times: SMemVec<'a, f32>,
-    sample_values: SMemVec<'a, Quat>,
+    sample_times: SMemVec<f32>,
+    sample_values: SMemVec<Quat>,
 }
 
-struct SScaleChannel<'a> {
+struct SScaleChannel {
     node: usize,
-    sample_times: SMemVec<'a, f32>,
-    sample_values: SMemVec<'a, f32>,
+    sample_times: SMemVec<f32>,
+    sample_values: SMemVec<f32>,
 }
 
 #[allow(dead_code)]
-enum EChannel<'a> {
-    Translation(STranslationChannel<'a>),
-    Rotation(SRotationChannel<'a>),
-    Scale(SScaleChannel<'a>),
+enum EChannel {
+    Translation(STranslationChannel),
+    Rotation(SRotationChannel),
+    Scale(SScaleChannel),
 }
 
-impl<'a> EChannel<'a> {
+impl EChannel {
     fn node(&self) -> usize {
         match self {
             Self::Translation(tc) => {
@@ -52,14 +52,14 @@ impl<'a> EChannel<'a> {
     }
 }
 
-pub struct SAnimLoaderEntry<'a> {
+pub struct SAnimLoaderEntry {
     uid: u64,
-    animation: SAnimation<'a>,
+    animation: SAnimation,
 }
 
-pub struct SAnimationLoader<'a> {
-    allocator: &'a dyn TMemAllocator,
-    animation_pool: SStoragePool<SAnimLoaderEntry<'a>, u16, u16>,
+pub struct SAnimationLoader {
+    allocator: SAllocatorRef,
+    animation_pool: SStoragePool<SAnimLoaderEntry, u16, u16>,
 }
 pub type SAnimHandle = SPoolHandle<u16, u16>;
 
@@ -77,28 +77,28 @@ fn find_segment_and_segment_t(time: f32, sample_times: &[f32]) -> (usize, f32) {
     panic!("It is expected to always return by here.");
 }
 
-impl<'a> STranslationChannel<'a> {
+impl STranslationChannel {
     pub fn sample(&self, time: f32) -> Vec3 {
         let (i, segment_t) = find_segment_and_segment_t(time, &self.sample_times);
         glm::lerp(&self.sample_values[i], &self.sample_values[i + 1], segment_t)
     }
 }
 
-impl<'a> SRotationChannel<'a> {
+impl SRotationChannel {
     pub fn sample(&self, time: f32) -> Quat {
         let (i, segment_t) = find_segment_and_segment_t(time, &self.sample_times);
         glm::quat_slerp(&self.sample_values[i], &self.sample_values[i + 1], segment_t)
     }
 }
 
-impl<'a> SScaleChannel<'a> {
+impl SScaleChannel {
     pub fn sample(&self, time: f32) -> f32 {
         let (i, segment_t) = find_segment_and_segment_t(time, &self.sample_times);
         lerp(self.sample_values[i], self.sample_values[i + 1], segment_t)
     }
 }
 
-pub fn update_joints<'a>(animation: &SAnimation, anim_time: f32, output_joints: &mut SMemVec<'a, STransform>) {
+pub fn update_joints(animation: &SAnimation, anim_time: f32, output_joints: &mut SMemVec<STransform>) {
     for channel in animation.channels.as_ref() {
         let joint_idx = animation.bound_node_to_joint_map[channel.node()].expect("binding was bad!");
 
@@ -116,8 +116,8 @@ pub fn update_joints<'a>(animation: &SAnimation, anim_time: f32, output_joints: 
     }
 }
 
-impl<'a> SAnimation<'a> {
-    pub fn new_from_gltf(allocator: &'a dyn TMemAllocator, gltf_data: &gltf::Gltf, target_skinning: &SMeshSkinning) -> Result<Self, &'static str> {
+impl SAnimation {
+    pub fn new_from_gltf(allocator: &SAllocatorRef, gltf_data: &gltf::Gltf, target_skinning: &SMeshSkinning) -> Result<Self, &'static str> {
         use gltf::animation::{Property};
 
         assert!(gltf_data.buffers().len() == 1, "can't handle multi-buffer gltf currently");
@@ -138,10 +138,10 @@ impl<'a> SAnimation<'a> {
         assert!(gltf_data.animations().len() == 1, "Can't handle multi-animation gltf currently");
         let animation = gltf_data.animations().nth(0).unwrap();
 
-        let mut bound_node_to_joint_map = SMemVec::<Option<usize>>::new(allocator, gltf_data.nodes().len(), 0)?;
+        let mut bound_node_to_joint_map = SMemVec::<Option<usize>>::new(&allocator, gltf_data.nodes().len(), 0)?;
         bound_node_to_joint_map.push_all_default();
 
-        let mut channels = SMemVec::<EChannel>::new(allocator, animation.channels().count(), 0)?;
+        let mut channels = SMemVec::<EChannel>::new(&allocator, animation.channels().count(), 0)?;
 
         let mut duration = 0.0;
 
@@ -165,7 +165,7 @@ impl<'a> SAnimation<'a> {
                 gltf::accessor::Dimensions::Scalar,
                 &buffer_bytes,
             );
-            let sample_times = SMemVec::new_copy_slice(allocator, sample_times_bin)?;
+            let sample_times = SMemVec::new_copy_slice(&allocator, sample_times_bin)?;
 
             duration = f32::max(duration, *sample_times.last().unwrap());
 
@@ -183,7 +183,7 @@ impl<'a> SAnimation<'a> {
                         STranslationChannel{
                             node: target_node_idx,
                             sample_times,
-                            sample_values: SMemVec::new_copy_slice(allocator, sample_values_bin)?,
+                            sample_values: SMemVec::new_copy_slice(&allocator, sample_values_bin)?,
                         }
                     ));
                 },
@@ -208,7 +208,7 @@ impl<'a> SAnimation<'a> {
                         SRotationChannel{
                             node: target_node_idx,
                             sample_times,
-                            sample_values: SMemVec::new_copy_slice(allocator, sample_values_bin)?,
+                            sample_values: SMemVec::new_copy_slice(&allocator, sample_values_bin)?,
                         }
                     ));
                 },
@@ -245,8 +245,8 @@ impl<'a> SAnimation<'a> {
     }
 }
 
-impl<'a> SAnimationLoader<'a> {
-    pub fn new(allocator: &'a dyn TMemAllocator, max_anim_count: usize) -> Self {
+impl SAnimationLoader {
+    pub fn new(allocator: SAllocatorRef, max_anim_count: usize) -> Self {
         Self{
             allocator,
             animation_pool: SStoragePool::create(34892308423, max_anim_count as u16),
@@ -279,7 +279,7 @@ impl<'a> SAnimationLoader<'a> {
         }
 
         let gltf_data = gltf::Gltf::open(asset_file_path).unwrap();
-        let animation = SAnimation::new_from_gltf(self.allocator, &gltf_data, target_skinning)?;
+        let animation = SAnimation::new_from_gltf(&self.allocator, &gltf_data, target_skinning)?;
 
         let entry = SAnimLoaderEntry {
             uid,

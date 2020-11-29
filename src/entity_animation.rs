@@ -1,4 +1,4 @@
-use allocate::{SMemVec, TMemAllocator};
+use allocate::{SMemVec, SAllocatorRef};
 use animation::{SAnimHandle, SAnimationLoader, update_joints};
 use entity::{SEntityHandle};
 use entity_model;
@@ -17,13 +17,13 @@ pub struct SEntityAnimation {
     playing_animation: Option<SPlayingAnimation>,
 }
 
-pub struct SBucket<'a> {
-    pub instances: SMemVec<'a, SEntityAnimation>,
+pub struct SBucket {
+    pub instances: SMemVec<SEntityAnimation>,
 }
 pub type SHandle = usize;
 
-impl<'a> SBucket<'a> {
-    pub fn new(allocator: &'a dyn TMemAllocator, max_entries: usize) -> Result<Self, &'static str> {
+impl SBucket {
+    pub fn new(allocator: &SAllocatorRef, max_entries: usize) -> Result<Self, &'static str> {
         Ok(Self {
             instances: SMemVec::new(allocator, max_entries, 0)?,
         })

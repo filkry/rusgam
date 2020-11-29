@@ -26,7 +26,7 @@ struct SImguiPipelineStateStream<'a> {
     rtv_formats: n12::SPipelineStateStreamRTVFormats<'a>,
 }
 
-pub(super) struct SRenderImgui<'a> {
+pub(super) struct SRenderImgui {
     font_texture: STextureHandle,
     font_texture_id: imgui::TextureId,
     root_signature: n12::SRootSignature,
@@ -35,15 +35,15 @@ pub(super) struct SRenderImgui<'a> {
     texture_descriptor_table_param_idx: usize,
     _vert_byte_code: t12::SShaderBytecode,
     _pixel_byte_code: t12::SShaderBytecode,
-    vert_buffer_resources: [SMemVec::<'a, n12::SResource>; 2],
-    int_vert_buffer_resources: [SMemVec::<'a, n12::SResource>; 2],
-    vert_buffer_views: [SMemVec::<'a, t12::SVertexBufferView>; 2],
-    index_buffer_resources: [SMemVec::<'a, n12::SResource>; 2],
-    int_index_buffer_resources: [SMemVec::<'a, n12::SResource>; 2],
-    index_buffer_views: [SMemVec::<'a, t12::SIndexBufferView>; 2],
+    vert_buffer_resources: [SMemVec::<n12::SResource>; 2],
+    int_vert_buffer_resources: [SMemVec::<n12::SResource>; 2],
+    vert_buffer_views: [SMemVec::<t12::SVertexBufferView>; 2],
+    index_buffer_resources: [SMemVec::<n12::SResource>; 2],
+    int_index_buffer_resources: [SMemVec::<n12::SResource>; 2],
+    index_buffer_views: [SMemVec::<t12::SIndexBufferView>; 2],
 }
 
-impl<'a> SRenderImgui<'a> {
+impl SRenderImgui {
     pub fn new(imgui_ctxt: &mut imgui::Context, texture_loader: &mut STextureLoader, device: &n12::SDevice) -> Result<Self, &'static str> {
         // -- set up font
         let font_size = 13.0 as f32;
@@ -204,25 +204,27 @@ impl<'a> SRenderImgui<'a> {
             .raw()
             .create_pipeline_state(&pipeline_state_stream_desc)?;
 
+        let allocator = SYSTEM_ALLOCATOR();
+
         let vert_buffer_resources = [
-            SMemVec::new(&SYSTEM_ALLOCATOR, 128, 0)?,
-            SMemVec::new(&SYSTEM_ALLOCATOR, 128, 0)?,
+            SMemVec::new(&allocator, 128, 0)?,
+            SMemVec::new(&allocator, 128, 0)?,
         ];
         let int_vert_buffer_resources = [
-            SMemVec::new(&SYSTEM_ALLOCATOR, 128, 0)?,
-            SMemVec::new(&SYSTEM_ALLOCATOR, 128, 0)?,
+            SMemVec::new(&allocator, 128, 0)?,
+            SMemVec::new(&allocator, 128, 0)?,
         ];
-        let vert_buffer_views = [SMemVec::new(&SYSTEM_ALLOCATOR, 128, 0)?,
-            SMemVec::new(&SYSTEM_ALLOCATOR, 128, 0)?,
+        let vert_buffer_views = [SMemVec::new(&allocator, 128, 0)?,
+            SMemVec::new(&allocator, 128, 0)?,
         ];
-        let index_buffer_resources = [SMemVec::new(&SYSTEM_ALLOCATOR, 128, 0)?,
-            SMemVec::new(&SYSTEM_ALLOCATOR, 128, 0)?,
+        let index_buffer_resources = [SMemVec::new(&allocator, 128, 0)?,
+            SMemVec::new(&allocator, 128, 0)?,
         ];
-        let int_index_buffer_resources = [SMemVec::new(&SYSTEM_ALLOCATOR, 128, 0)?,
-            SMemVec::new(&SYSTEM_ALLOCATOR, 128, 0)?,
+        let int_index_buffer_resources = [SMemVec::new(&allocator, 128, 0)?,
+            SMemVec::new(&allocator, 128, 0)?,
         ];
-        let index_buffer_views = [SMemVec::new(&SYSTEM_ALLOCATOR, 128, 0)?,
-            SMemVec::new(&SYSTEM_ALLOCATOR, 128, 0)?,
+        let index_buffer_views = [SMemVec::new(&allocator, 128, 0)?,
+            SMemVec::new(&allocator, 128, 0)?,
         ];
 
         Ok(Self {
@@ -252,7 +254,7 @@ impl<'a> SRenderImgui<'a> {
     }
 }
 
-impl<'a> super::SRender<'a> {
+impl super::SRender {
     pub fn setup_imgui_draw_data_resources(&mut self, window: &n12::SD3D12Window, draw_data: &imgui::DrawData) -> Result<(), &'static str> {
         let ri = &mut self.render_imgui;
 

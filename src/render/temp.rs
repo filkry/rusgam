@@ -103,7 +103,7 @@ struct STempModel {
     token: SToken,
 }
 
-pub struct SRenderTemp<'a> {
+pub struct SRenderTemp {
     // -- point pipelines stuff
     point_pipeline_state: t12::SPipelineState,
     point_root_signature: n12::SRootSignature,
@@ -111,7 +111,7 @@ pub struct SRenderTemp<'a> {
     _point_vert_byte_code: t12::SShaderBytecode,
     _point_pixel_byte_code: t12::SShaderBytecode,
 
-    points: SMemVec::<'a, SPoint>,
+    points: SMemVec::<SPoint>,
     point_vertex_buffer_intermediate_resource: [Option<n12::SResource>; 2],
     point_vertex_buffer_resource: [Option<n12::SResource>; 2],
     point_vertex_buffer_view: [Option<t12::SVertexBufferView>; 2],
@@ -123,7 +123,7 @@ pub struct SRenderTemp<'a> {
     _line_vert_byte_code: t12::SShaderBytecode,
     _line_pixel_byte_code: t12::SShaderBytecode,
 
-    lines: SMemVec::<'a, SLine>,
+    lines: SMemVec::<SLine>,
     line_vertex_buffer_intermediate_resource: [Option<n12::SResource>; 2],
     line_vertex_buffer_resource: [Option<n12::SResource>; 2],
     line_vertex_buffer_view: [Option<t12::SVertexBufferView>; 2],
@@ -135,7 +135,7 @@ pub struct SRenderTemp<'a> {
     _instance_mesh_vert_byte_code: t12::SShaderBytecode,
     _instance_mesh_pixel_byte_code: t12::SShaderBytecode,
 
-    spheres: SMemVec::<'a, SSphere>,
+    spheres: SMemVec::<SSphere>,
     sphere_mesh: SMeshHandle,
     sphere_instance_buffer_intermediate_resource: [Option<n12::SResource>; 2],
     sphere_instance_buffer_resource: [Option<n12::SResource>; 2],
@@ -149,7 +149,7 @@ pub struct SRenderTemp<'a> {
     _mesh_vert_byte_code: t12::SShaderBytecode,
     _mesh_pixel_byte_code: t12::SShaderBytecode,
 
-    models: SMemVec::<'a, STempModel>,
+    models: SMemVec::<STempModel>,
 
     next_token: u64,
 }
@@ -166,7 +166,7 @@ impl Default for SToken {
     }
 }
 
-impl<'a> SRenderTemp<'a> {
+impl SRenderTemp {
 
     pub fn new(device: &n12::SDevice, mesh_loader: &mut SMeshLoader, texture_loader: &mut STextureLoader) -> Result<Self, &'static str> {
         // =========================================================================================
@@ -524,13 +524,15 @@ impl<'a> SRenderTemp<'a> {
             .raw()
             .create_pipeline_state(&mesh_pipeline_state_stream_desc)?;
 
+        let allocator = SYSTEM_ALLOCATOR();
+
         Ok(Self{
             point_pipeline_state,
             point_root_signature,
             point_vp_root_param_idx,
             _point_vert_byte_code: point_vert_byte_code,
             _point_pixel_byte_code: point_pixel_byte_code,
-            points: SMemVec::new(&SYSTEM_ALLOCATOR, 1024, 0)?,
+            points: SMemVec::new(&allocator, 1024, 0)?,
             point_vertex_buffer_intermediate_resource: [None, None],
             point_vertex_buffer_resource: [None, None],
             point_vertex_buffer_view: [None, None],
@@ -540,7 +542,7 @@ impl<'a> SRenderTemp<'a> {
             line_vp_root_param_idx,
             _line_vert_byte_code: line_vert_byte_code,
             _line_pixel_byte_code: line_pixel_byte_code,
-            lines: SMemVec::new(&SYSTEM_ALLOCATOR, 1024, 0)?,
+            lines: SMemVec::new(&allocator, 1024, 0)?,
             line_vertex_buffer_intermediate_resource: [None, None],
             line_vertex_buffer_resource: [None, None],
             line_vertex_buffer_view: [None, None],
@@ -551,7 +553,7 @@ impl<'a> SRenderTemp<'a> {
             _instance_mesh_vert_byte_code: instance_mesh_vert_byte_code,
             _instance_mesh_pixel_byte_code: instance_mesh_pixel_byte_code,
 
-            spheres: SMemVec::new(&SYSTEM_ALLOCATOR, 1024, 0)?,
+            spheres: SMemVec::new(&allocator, 1024, 0)?,
             sphere_mesh,
             sphere_instance_buffer_intermediate_resource: [None, None],
             sphere_instance_buffer_resource: [None, None],
@@ -564,7 +566,7 @@ impl<'a> SRenderTemp<'a> {
             _mesh_vert_byte_code: mesh_vert_byte_code,
             _mesh_pixel_byte_code: mesh_pixel_byte_code,
 
-            models: SMemVec::new(&SYSTEM_ALLOCATOR, 1024, 0)?,
+            models: SMemVec::new(&allocator, 1024, 0)?,
 
             next_token: 1,
         })
@@ -688,7 +690,7 @@ impl<'a> SRenderTemp<'a> {
     }
 }
 
-impl<'a> super::SRender<'a> {
+impl super::SRender {
     pub fn render_temp_in_world(&mut self, window: &mut n12::SD3D12Window, view_matrix: &Mat4) -> Result<(), &'static str> {
         self.render_temp_points(window, view_matrix, true)?;
         self.render_temp_lines(window, view_matrix, true)?;
@@ -745,7 +747,7 @@ impl<'a> super::SRender<'a> {
             let tr = &mut self.render_temp;
 
             let mut vertex_buffer_data = SMemVec::new(
-                sa,
+                &sa.as_ref(),
                 tr.points.len(),
                 0,
             )?;
@@ -902,7 +904,7 @@ impl<'a> super::SRender<'a> {
             let tr = &mut self.render_temp;
 
             let mut vertex_buffer_data = SMemVec::new(
-                sa,
+                &sa.as_ref(),
                 tr.lines.len() * 2,
                 0,
             )?;
@@ -1059,7 +1061,7 @@ impl<'a> super::SRender<'a> {
             let tr = &mut self.render_temp;
 
             let mut instance_buffer_data = SMemVec::new(
-                sa,
+                &sa.as_ref(),
                 tr.spheres.len(),
                 0,
             )?;

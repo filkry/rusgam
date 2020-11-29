@@ -4,6 +4,7 @@
 use std::cell::RefCell;
 use std::mem::size_of;
 use std::ops::{Deref, DerefMut, Index, IndexMut};
+use std::rc::{Rc, Weak};
 
 use utils::align_up;
 
@@ -11,7 +12,10 @@ pub mod memqueue;
 
 pub use self::memqueue::*;
 
-pub static SYSTEM_ALLOCATOR: SSystemAllocator = SSystemAllocator {};
+#[allow(non_snake_case)]
+pub fn SYSTEM_ALLOCATOR() -> SAllocatorRef {
+    SAllocator::new_system().as_ref()
+}
 
 thread_local! {
     /*
@@ -21,15 +25,37 @@ thread_local! {
                 SLinearAllocator::new(&SYSTEM_ALLOCATOR, 4 * 1024 * 1024, 8).unwrap()));
     */
 
-    pub static STACK_ALLOCATOR : SStackAllocator<'static> =
-        SStackAllocator::new(&SYSTEM_ALLOCATOR, 4 * 1024 * 1024, 8).unwrap();
+    pub static STACK_ALLOCATOR : SAllocator =
+        SAllocator::new(SStackAllocator::new(SYSTEM_ALLOCATOR(), 4 * 1024 * 1024, 8).unwrap());
 }
+
+enum EAllocator {
+    System,
+    MemAllocator(Rc<dyn TMemAllocator>),
+}
+
+pub struct SAllocator {
+    allocator: EAllocator,
+}
+
+#[derive(Clone)]
+enum EAllocatorRef{
+    System,
+    MemAllocator(Weak<dyn TMemAllocator>),
+}
+
+#[derive(Clone)]
+pub struct SAllocatorRef {
+    allocator: EAllocatorRef,
+}
+
+pub struct SSystemAllocatorRef {}
 
 pub trait TMemAllocator {
     // -- things implementing TMemAllocator should rely on internal mutability, since their
     // -- allocations will have a reference to them
-    fn alloc(&self, size: usize, align: usize) -> Result<SMem, &'static str>;
-    fn realloc(&self, existing_allocation: SMem, new_size: usize) -> Result<SMem, &'static str>;
+    fn alloc(&self, size: usize, align: usize) -> Result<(*mut u8, usize), &'static str>;
+    fn realloc(&self, existing_allocation: SMem, new_size: usize) -> Result<(*mut u8, usize), &'static str>;
 
     // -- unsafe because it doesn't consume the SMem
     fn free(&self, existing_allocation: SMem) -> Result<(), &'static str>;
@@ -38,10 +64,72 @@ pub trait TMemAllocator {
     unsafe fn reset(&self);
 }
 
+impl SAllocator {
+    pub fn new<T: 'static + TMemAllocator>(allocator: T) -> Self {
+        Self{
+            allocator: EAllocator::MemAllocator(Rc::new(allocator)),
+        }
+    }
+
+    pub fn new_system() -> Self {
+        Self {
+            allocator: EAllocator::System,
+        }
+    }
+
+    pub fn as_ref(&self) -> SAllocatorRef {
+        match &self.allocator {
+            EAllocator::System => SAllocatorRef {
+                allocator: EAllocatorRef::System,
+            },
+            EAllocator::MemAllocator(mem_allocator) => SAllocatorRef {
+                allocator: EAllocatorRef::MemAllocator(Rc::downgrade(mem_allocator)),
+            }
+        }
+    }
+}
+
+impl SAllocatorRef {
+    pub fn alloc(&self, size: usize, align: usize) -> Result<SMem, &'static str> {
+        let (ptr, actual_size) = match &self.allocator {
+            EAllocatorRef::System => {
+                SSystemAllocator{}.alloc(size, align)?
+            },
+            EAllocatorRef::MemAllocator(mem_allocator) => {
+                mem_allocator.upgrade()
+                   .expect("trying to allocate from dropped allocator")
+                   .alloc(size, align)?
+            }
+        };
+
+        Ok(SMem{
+            data: ptr,
+            size: actual_size,
+            alignment: align,
+            allocator: self.clone(),
+        })
+    }
+
+    unsafe fn free_unsafe(&self, existing_allocation: &mut SMem) -> Result<(), &'static str> {
+        match &self.allocator {
+            EAllocatorRef::System => {
+                SSystemAllocator{}.free_unsafe(existing_allocation)?
+            },
+            EAllocatorRef::MemAllocator(mem_allocator) => {
+                mem_allocator.upgrade()
+                    .expect("trying to allocate from dropped allocator")
+                    .free_unsafe(existing_allocation)?
+            }
+        };
+
+        Ok(())
+    }
+}
+
 pub struct SSystemAllocator {}
 
 impl TMemAllocator for SSystemAllocator {
-    fn alloc(&self, size: usize, align: usize) -> Result<SMem, &'static str> {
+    fn alloc(&self, size: usize, align: usize) -> Result<(*mut u8, usize), &'static str> {
         let layout = std::alloc::Layout::from_size_align(size, align).unwrap();
         let data = unsafe { std::alloc::alloc(layout) as *mut u8 };
 
@@ -49,15 +137,10 @@ impl TMemAllocator for SSystemAllocator {
             return Err("failed to allocate");
         }
 
-        Ok(SMem {
-            data: data,
-            size: size,
-            alignment: align,
-            allocator: self,
-        })
+        Ok((data, size))
     }
 
-    fn realloc(&self, existing_allocation: SMem, new_size: usize) -> Result<SMem, &'static str> {
+    fn realloc(&self, existing_allocation: SMem, new_size: usize) -> Result<(*mut u8, usize), &'static str> {
         let layout = std::alloc::Layout::from_size_align(
             existing_allocation.size,
             existing_allocation.alignment,
@@ -72,12 +155,7 @@ impl TMemAllocator for SSystemAllocator {
             return Err("failed to re-alloc");
         }
 
-        Ok(SMem {
-            data: data,
-            size: new_size,
-            alignment: existing_allocation.alignment,
-            allocator: self,
-        })
+        Ok((data, new_size))
     }
 
     unsafe fn free_unsafe(&self, existing_allocation: &mut SMem) -> Result<(), &'static str> {
@@ -102,19 +180,19 @@ impl TMemAllocator for SSystemAllocator {
     unsafe fn reset(&self) {}
 }
 
-struct SLinearAllocatorData<'a> {
-    raw: SMem<'a>,
+struct SLinearAllocatorData {
+    raw: SMem,
     cur_offset: usize,
     allow_realloc: bool,
 }
 
-pub struct SLinearAllocator<'a> {
-    data: RefCell<SLinearAllocatorData<'a>>,
+pub struct SLinearAllocator {
+    data: RefCell<SLinearAllocatorData>,
 }
 
-impl<'a> SLinearAllocator<'a> {
+impl SLinearAllocator {
     pub fn new(
-        parent: &'a dyn TMemAllocator,
+        parent: SAllocatorRef,
         size: usize,
         align: usize,
     ) -> Result<Self, &'static str> {
@@ -128,8 +206,8 @@ impl<'a> SLinearAllocator<'a> {
     }
 }
 
-impl<'a> TMemAllocator for SLinearAllocator<'a> {
-    fn alloc(&self, size: usize, align: usize) -> Result<SMem, &'static str> {
+impl TMemAllocator for SLinearAllocator {
+    fn alloc(&self, size: usize, align: usize) -> Result<(*mut u8, usize), &'static str> {
         let mut data = self.data.borrow_mut();
 
         if (data.raw.data as usize) % align != 0 {
@@ -143,19 +221,14 @@ impl<'a> TMemAllocator for SLinearAllocator<'a> {
             return Err("Out of memory");
         }
 
-        let result = SMem {
-            data: unsafe { data.raw.data.add(aligned_offset) },
-            size: aligned_size,
-            alignment: align,
-            allocator: self,
-        };
+        let result = unsafe { data.raw.data.add(aligned_offset) };
 
         data.cur_offset = aligned_offset + aligned_size;
 
-        Ok(result)
+        Ok((result, aligned_size))
     }
 
-    fn realloc(&self, _existing_allocation: SMem, _new_size: usize) -> Result<SMem, &'static str> {
+    fn realloc(&self, _existing_allocation: SMem, _new_size: usize) -> Result<(*mut u8, usize), &'static str> {
         let data = self.data.borrow_mut();
 
         if data.allow_realloc {
@@ -180,23 +253,23 @@ impl<'a> TMemAllocator for SLinearAllocator<'a> {
     }
 }
 
-impl<'a> Drop for SLinearAllocator<'a> {
+impl Drop for SLinearAllocator {
     fn drop(&mut self) {
     }
 }
 
-struct SStackAllocatorData<'a> {
-    raw: SMem<'a>,
+struct SStackAllocatorData {
+    raw: SMem,
     top_offset: usize,
 }
 
-pub struct SStackAllocator<'a> {
-    data: RefCell<SStackAllocatorData<'a>>,
+pub struct SStackAllocator {
+    data: RefCell<SStackAllocatorData>,
 }
 
-impl<'a> SStackAllocator<'a> {
+impl SStackAllocator {
     pub fn new(
-        parent: &'a dyn TMemAllocator,
+        parent: SAllocatorRef,
         size: usize,
         align: usize,
     ) -> Result<Self, &'static str> {
@@ -210,8 +283,8 @@ impl<'a> SStackAllocator<'a> {
 }
 
 // -- $$$FRK(TODO): allocators should check if they own the mem when they free!
-impl<'a> TMemAllocator for SStackAllocator<'a> {
-    fn alloc(&self, size: usize, align: usize) -> Result<SMem, &'static str> {
+impl TMemAllocator for SStackAllocator {
+    fn alloc(&self, size: usize, align: usize) -> Result<(*mut u8, usize), &'static str> {
         let mut data = self.data.borrow_mut();
 
         if (data.raw.data as usize) % align != 0 {
@@ -225,19 +298,14 @@ impl<'a> TMemAllocator for SStackAllocator<'a> {
             return Err("Out of memory");
         }
 
-        let result = SMem {
-            data: unsafe { data.raw.data.add(aligned_offset) },
-            size: aligned_size,
-            alignment: align,
-            allocator: self,
-        };
+        let result =  unsafe { data.raw.data.add(aligned_offset) };
 
         data.top_offset = aligned_offset + aligned_size;
 
-        Ok(result)
+        Ok((result, aligned_size))
     }
 
-    fn realloc(&self, _existing_allocation: SMem, _new_size: usize) -> Result<SMem, &'static str> {
+    fn realloc(&self, _existing_allocation: SMem, _new_size: usize) -> Result<(*mut u8, usize), &'static str> {
         panic!("Cannot re-alloc in stack allocator.")
     }
 
@@ -247,6 +315,7 @@ impl<'a> TMemAllocator for SStackAllocator<'a> {
         let ea_top = existing_allocation.data.add(existing_allocation.size);
         let self_top = data.raw.data.add(data.top_offset);
         if ea_top != self_top {
+            println!("{:?}, {:?}", ea_top, self_top);
             panic!("Trying to free from the stack array, but not the top.");
         }
 
@@ -265,14 +334,14 @@ impl<'a> TMemAllocator for SStackAllocator<'a> {
     }
 }
 
-pub struct SMem<'a> {
+pub struct SMem {
     data: *mut u8,
     size: usize,
     alignment: usize,
-    allocator: &'a dyn TMemAllocator,
+    allocator: SAllocatorRef,
 }
 
-impl<'a> SMem<'a> {
+impl SMem {
     pub unsafe fn as_ref_typed<T>(&self) -> &T {
         assert!(self.size >= size_of::<T>());
         assert!(!self.data.is_null());
@@ -292,21 +361,22 @@ impl<'a> SMem<'a> {
     }
 }
 
-impl<'a> Drop for SMem<'a> {
+impl Drop for SMem {
     fn drop(&mut self) {
-        let allocator = self.allocator;
+        let allocator = self.allocator.clone();
         unsafe { allocator.free_unsafe(self).unwrap() };
     }
 }
 
-pub struct SMemT<'a, T> {
-    mem: SMem<'a>,
+/*
+pub struct SMemT<T> {
+    mem: SMem,
     phantom: std::marker::PhantomData<T>,
 }
 
-impl<'a, T> SMemT<'a, T> {
+impl<T> SMemT<T> {
     pub fn new(
-        allocator: &'a dyn TMemAllocator,
+        allocator: SAllocatorRef,
         mut value: T,
     ) -> Result<Self, &'static str> {
         let num_bytes = size_of::<T>();
@@ -324,7 +394,7 @@ impl<'a, T> SMemT<'a, T> {
         Ok(result)
     }
 
-    pub unsafe fn into_raw(mut self) -> SMem<'a> {
+    pub unsafe fn into_raw(mut self) -> SMem {
         let mut result = SMem {
             data: std::ptr::null_mut(),
             size: 0,
@@ -338,7 +408,7 @@ impl<'a, T> SMemT<'a, T> {
         result
     }
 
-    pub unsafe fn from_raw(mem: SMem<'a>) -> Self {
+    pub unsafe fn from_raw(mem: SMem) -> Self {
         assert!(mem.size > size_of::<T>());
         Self {
             mem,
@@ -347,13 +417,13 @@ impl<'a, T> SMemT<'a, T> {
     }
 }
 
-impl<'a, T> Drop for SMemT<'a, T> {
+impl<T> Drop for SMemT<T> {
     fn drop(&mut self) {
         panic!("not implemented");
     }
 }
 
-impl<'a, T> Deref for SMemT<'a, T> {
+impl<T> Deref for SMemT<T> {
     type Target = T;
 
     fn deref(&self) -> &T {
@@ -363,16 +433,17 @@ impl<'a, T> Deref for SMemT<'a, T> {
     }
 }
 
-impl<'a, T> DerefMut for SMemT<'a, T> {
+impl<T> DerefMut for SMemT<T> {
     fn deref_mut(&mut self) -> &mut T {
         unsafe {
             (self.mem.data as *mut T).as_mut().unwrap()
         }
     }
 }
+*/
 
-pub struct SMemVec<'a, T> {
-    mem: SMem<'a>,
+pub struct SMemVec<T> {
+    mem: SMem,
     len: usize,
     capacity: usize,
     grow_capacity: usize,
@@ -380,9 +451,9 @@ pub struct SMemVec<'a, T> {
     phantom: std::marker::PhantomData<T>,
 }
 
-impl<'a, T> SMemVec<'a, T> {
+impl<T> SMemVec<T> {
     pub fn new(
-        allocator: &'a dyn TMemAllocator,
+        allocator: &SAllocatorRef,
         initial_capacity: usize,
         grow_capacity: usize,
     ) -> Result<Self, &'static str> {
@@ -398,7 +469,7 @@ impl<'a, T> SMemVec<'a, T> {
     }
 
     pub fn new_copy_slice(
-        allocator: &'a dyn TMemAllocator,
+        allocator: &SAllocatorRef,
         slice: &[T],
     ) -> Result<Self, &'static str> {
         let initial_capacity = slice.len();
@@ -514,7 +585,7 @@ impl<'a, T> SMemVec<'a, T> {
     }
 }
 
-impl<'a, T: Clone> SMemVec<'a, T> {
+impl<T: Clone> SMemVec<T> {
     pub fn push_all(&mut self, val: T) {
         while self.remaining_capacity() > 0 {
             self.push(val.clone());
@@ -522,7 +593,7 @@ impl<'a, T: Clone> SMemVec<'a, T> {
     }
 }
 
-impl<'a, T: Default> SMemVec<'a, T> {
+impl<T: Default> SMemVec<T> {
     pub fn push_all_default(&mut self) {
         while self.remaining_capacity() > 0 {
             self.push(Default::default());
@@ -530,13 +601,13 @@ impl<'a, T: Default> SMemVec<'a, T> {
     }
 }
 
-impl<'a, T> Drop for SMemVec<'a, T> {
+impl<T> Drop for SMemVec<T> {
     fn drop(&mut self) {
         self.clear();
     }
 }
 
-impl<'a, T> Deref for SMemVec<'a, T> {
+impl<T> Deref for SMemVec<T> {
     type Target = [T];
 
     fn deref(&self) -> &[T] {
@@ -544,13 +615,13 @@ impl<'a, T> Deref for SMemVec<'a, T> {
     }
 }
 
-impl<'a, T> DerefMut for SMemVec<'a, T> {
+impl<T> DerefMut for SMemVec<T> {
     fn deref_mut(&mut self) -> &mut [T] {
         self.as_mut_slice()
     }
 }
 
-impl<'a, T, I: std::slice::SliceIndex<[T]>> Index<I> for SMemVec<'a, T> {
+impl<T, I: std::slice::SliceIndex<[T]>> Index<I> for SMemVec<T> {
     type Output = I::Output;
 
     #[inline]
@@ -560,7 +631,7 @@ impl<'a, T, I: std::slice::SliceIndex<[T]>> Index<I> for SMemVec<'a, T> {
     }
 }
 
-impl<'a, T, I: std::slice::SliceIndex<[T]>> IndexMut<I> for SMemVec<'a, T> {
+impl<T, I: std::slice::SliceIndex<[T]>> IndexMut<I> for SMemVec<T> {
     #[inline]
     fn index_mut(&mut self, index: I) -> &mut Self::Output {
         //IndexMut::index_mut(&mut **self, index)
@@ -568,13 +639,13 @@ impl<'a, T, I: std::slice::SliceIndex<[T]>> IndexMut<I> for SMemVec<'a, T> {
     }
 }
 
-impl<'a> SMemVec<'a, u8> {
+impl SMemVec<u8> {
     pub fn as_str(&self) -> &str {
         unsafe { std::str::from_utf8_unchecked(self.as_slice()) }
     }
 }
 
-impl<'a> std::io::Write for SMemVec<'a, u8> {
+impl std::io::Write for SMemVec<u8> {
     fn write(&mut self, buf: &[u8]) -> Result<usize, std::io::Error> {
 
         for ch in buf {
@@ -679,7 +750,7 @@ I NEED TO WRITE BOTH VERSIONS FIRST, then find commonalities
 
 #[test]
 fn test_basic() {
-    let allocator = SSystemAllocator {};
+    let allocator = SYSTEM_ALLOCATOR();
 
     let mut vec = SMemVec::<u32>::new(&allocator, 5, 0).unwrap();
     assert_eq!(vec.len(), 0);
@@ -703,7 +774,7 @@ fn test_basic() {
 
 #[test]
 fn test_multiple_allocations() {
-    let allocator = SSystemAllocator {};
+    let allocator = SYSTEM_ALLOCATOR();
 
     let mut vec = SMemVec::<u32>::new(&allocator, 5, 0).unwrap();
     assert_eq!(vec.len(), 0);
@@ -724,7 +795,7 @@ fn test_multiple_allocations() {
 
 #[test]
 fn test_iter() {
-    let allocator = SSystemAllocator {};
+    let allocator = SYSTEM_ALLOCATOR();
 
     let mut vec = SMemVec::<u32>::new(&allocator, 5, 0).unwrap();
     vec.push(0);
@@ -740,7 +811,7 @@ fn test_iter() {
 
 #[test]
 fn test_drop() {
-    let allocator = SSystemAllocator {};
+    let allocator = SYSTEM_ALLOCATOR();
     let refcount = RefCell::<i64>::new(0);
 
     struct SRefCounter<'a> {
@@ -828,9 +899,9 @@ fn test_genned_should_panic() {
 
 #[test]
 fn test_stack_allocator() {
-    let stack_allocator = SStackAllocator::new(&SYSTEM_ALLOCATOR, 1024, 8).unwrap();
+    let stack_allocator = SAllocator::new(SStackAllocator::new(SYSTEM_ALLOCATOR(), 1024, 8).unwrap());
 
-    let mut vec = SMemVec::<u32>::new(&stack_allocator, 5, 0).unwrap();
+    let mut vec = SMemVec::<u32>::new(&stack_allocator.as_ref(), 5, 0).unwrap();
     assert_eq!(vec.len(), 0);
     assert_eq!(vec.capacity(), 5);
 
@@ -838,7 +909,7 @@ fn test_stack_allocator() {
     assert_eq!(vec[0], 33);
     assert_eq!(vec.len(), 1);
 
-    let mut vec2 = SMemVec::<u32>::new(&stack_allocator, 15, 0).unwrap();
+    let mut vec2 = SMemVec::<u32>::new(&stack_allocator.as_ref(), 15, 0).unwrap();
     assert_eq!(vec2.len(), 0);
     assert_eq!(vec2.capacity(), 15);
 
@@ -849,7 +920,7 @@ fn test_stack_allocator() {
 
 #[test]
 fn test_slice() {
-    let allocator = SSystemAllocator {};
+    let allocator = SYSTEM_ALLOCATOR();
 
     let mut vec = SMemVec::<u32>::new(&allocator, 5, 0).unwrap();
     vec.push(33);

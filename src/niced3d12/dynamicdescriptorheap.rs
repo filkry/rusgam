@@ -167,7 +167,7 @@ impl SDynamicDescriptorHeap {
                 ::allocate::STACK_ALLOCATOR.with(|sa| {
                     let mut unwrapped_handles =
                         ::allocate::SMemVec::<t12::SCPUDescriptorHandle>::new(
-                            sa,
+                            &sa.as_ref(),
                             cache.num_descriptors,
                             0,
                         )

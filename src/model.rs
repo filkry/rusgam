@@ -25,23 +25,23 @@ pub struct SJoint {
     pub name: SHashedStr,
 }
 
-pub struct SMeshSkinning<'a> {
-    _vertex_skinning_data: SMemVec<'a, shaderbindings::SVertexSkinningData>,
+pub struct SMeshSkinning {
+    _vertex_skinning_data: SMemVec<shaderbindings::SVertexSkinningData>,
     pub vertex_skinning_buffer_resource: n12::SBufferResource<shaderbindings::SVertexSkinningData>,
     pub vertex_skinning_buffer_view: n12::SDescriptorAllocatorAllocation,
 
-    bind_joints: SMemVec<'a, SJoint>,
-    bind_model_to_joint_xforms: SMemVec<'a, Mat4>,
+    bind_joints: SMemVec<SJoint>,
+    bind_model_to_joint_xforms: SMemVec<Mat4>,
 }
 
 #[allow(dead_code)]
-pub struct SMesh<'a> {
+pub struct SMesh {
     uid: u64,
 
-    local_verts: SMemVec<'a, Vec3>,
-    local_normals: SMemVec<'a, Vec3>,
-    uvs: SMemVec<'a, Vec2>,
-    pub(super) indices: SMemVec<'a, u16>,
+    local_verts: SMemVec<Vec3>,
+    local_normals: SMemVec<Vec3>,
+    uvs: SMemVec<Vec2>,
+    pub(super) indices: SMemVec<u16>,
 
     local_aabb: utils::SAABB,
 
@@ -60,7 +60,7 @@ pub struct SMesh<'a> {
     // -- SRV descriptors
     srv_descriptors: n12::SDescriptorAllocatorAllocation,
 
-    skinning: Option<SMeshSkinning<'a>>, // $$$FRK(TODO): most meshes won't have skinning, this should be factored out
+    skinning: Option<SMeshSkinning>, // $$$FRK(TODO): most meshes won't have skinning, this should be factored out
 }
 
 pub struct STexture {
@@ -72,13 +72,13 @@ pub struct STexture {
     pub(super) diffuse_texture_srv: Option<n12::descriptorallocator::SDescriptorAllocatorAllocation>,
 }
 
-pub struct SMeshLoader<'a> {
+pub struct SMeshLoader {
     device: Weak<n12::SDevice>,
     copy_command_list_pool: n12::SCommandListPool,
     direct_command_list_pool: n12::SCommandListPool,
     cbv_srv_uav_heap: Weak<n12::descriptorallocator::SDescriptorAllocator>,
 
-    mesh_pool: SStoragePool<SMesh<'a>, u16, u16>,
+    mesh_pool: SStoragePool<SMesh, u16, u16>,
 }
 pub type SMeshHandle = collections::SPoolHandle<u16, u16>;
 
@@ -108,7 +108,7 @@ pub struct SModel {
 pub struct SModelSkinning {
     pub mesh: SMeshHandle,
 
-    pub cur_joints_to_parents: SMemVec<'static, STransform>,
+    pub cur_joints_to_parents: SMemVec<STransform>,
 
     pub joints_bind_to_cur_resource: n12::SBufferResource<Mat4>,
 
@@ -118,7 +118,7 @@ pub struct SModelSkinning {
     pub skinned_normals_vbv: t12::SVertexBufferView,
 }
 
-impl<'a> SMeshLoader<'a> {
+impl SMeshLoader {
     pub fn new(
         device: Weak<n12::SDevice>,
         winapi: &rustywindows::SWinAPI,
@@ -269,9 +269,11 @@ impl<'a> SMeshLoader<'a> {
         assert!(positions.len() == normals.len());
         assert!(positions.len() == bin_uvs.len());
 
-        let local_verts = SMemVec::<Vec3>::new_copy_slice(&SYSTEM_ALLOCATOR, positions).unwrap();
-        let local_normals = SMemVec::<Vec3>::new_copy_slice(&SYSTEM_ALLOCATOR, normals).unwrap();
-        let uvs = SMemVec::<Vec2>::new_copy_slice(&SYSTEM_ALLOCATOR, bin_uvs).unwrap();
+        let allocator = SYSTEM_ALLOCATOR();
+
+        let local_verts = SMemVec::<Vec3>::new_copy_slice(&allocator, positions).unwrap();
+        let local_normals = SMemVec::<Vec3>::new_copy_slice(&allocator, normals).unwrap();
+        let uvs = SMemVec::<Vec2>::new_copy_slice(&allocator, bin_uvs).unwrap();
 
         let indices_bin : &[u16] = gltf_accessor_slice(
             &primitive.indices().unwrap(),
@@ -280,7 +282,7 @@ impl<'a> SMeshLoader<'a> {
             &buffer_bytes,
         );
 
-        let indices = SMemVec::<u16>::new_copy_slice(&SYSTEM_ALLOCATOR, indices_bin).unwrap();
+        let indices = SMemVec::<u16>::new_copy_slice(&allocator, indices_bin).unwrap();
 
         let local_verts_resource = self.sync_create_and_upload_buffer_resource(
             local_verts.as_slice(),
@@ -334,7 +336,7 @@ impl<'a> SMeshLoader<'a> {
             );
             assert!(joints.len() == weights.len());
 
-            let mut vertex_skinning_data = SMemVec::<shaderbindings::SVertexSkinningData>::new(&SYSTEM_ALLOCATOR, joints.len(), 0).unwrap();
+            let mut vertex_skinning_data = SMemVec::<shaderbindings::SVertexSkinningData>::new(&allocator, joints.len(), 0).unwrap();
             for i in 0..joints.len() {
                 vertex_skinning_data.push(shaderbindings::SVertexSkinningData{
                     joints: [joints[i][0] as u32, joints[i][1] as u32, joints[i][2] as u32, joints[i][3] as u32],
@@ -368,12 +370,12 @@ impl<'a> SMeshLoader<'a> {
                 gltf::accessor::Dimensions::Mat4,
                 &buffer_bytes,
             );
-            let bind_model_to_joint_xforms = SMemVec::<Mat4>::new_copy_slice(&SYSTEM_ALLOCATOR, inverse_bind_matrices_bin).unwrap();
+            let bind_model_to_joint_xforms = SMemVec::<Mat4>::new_copy_slice(&allocator, inverse_bind_matrices_bin).unwrap();
 
             let bind_joints = STACK_ALLOCATOR.with(|sa| {
-                let mut result = SMemVec::<SJoint>::new(&SYSTEM_ALLOCATOR, skin.joints().count(), 0).unwrap();
+                let mut result = SMemVec::<SJoint>::new(&allocator, skin.joints().count(), 0).unwrap();
 
-                let mut index_map = SMemVec::<Option<usize>>::new(sa, gltf_data.nodes().count(), 0).unwrap();
+                let mut index_map = SMemVec::<Option<usize>>::new(&sa.as_ref(), gltf_data.nodes().count(), 0).unwrap();
                 for _ in 0..index_map.capacity() {
                     index_map.push(None);
                 }
@@ -471,21 +473,23 @@ impl<'a> SMeshLoader<'a> {
             }
         }
 
+        let allocator = SYSTEM_ALLOCATOR();
+
         assert!(tobj_mesh.positions.len() % 3 == 0);
         assert!(tobj_mesh.texcoords.len() / 2 == tobj_mesh.positions.len() / 3);
         assert!(tobj_mesh.normals.len() == tobj_mesh.positions.len());
 
-        fn to_memvec<I, T>(input: &[I]) -> SMemVec<'static, T> {
+        fn to_memvec<I, T>(input: &[I]) -> SMemVec<T> {
             let (_a, input_aligned, _b) = unsafe { input.align_to::<T>() };
             assert!(_a.len() == 0 && _b.len() == 0);
-            SMemVec::<T>::new_copy_slice(&SYSTEM_ALLOCATOR, input_aligned).unwrap()
+            SMemVec::<T>::new_copy_slice(&SYSTEM_ALLOCATOR(), input_aligned).unwrap()
         }
 
         let local_verts : SMemVec::<Vec3> = to_memvec(&tobj_mesh.positions);
         let local_normals : SMemVec::<Vec3> = to_memvec(&tobj_mesh.normals);
         let uvs : SMemVec::<Vec2> = to_memvec(&tobj_mesh.texcoords);
 
-        let mut indices : SMemVec::<u16> = SMemVec::new(&SYSTEM_ALLOCATOR, tobj_mesh.indices.len(), 0)?;
+        let mut indices : SMemVec::<u16> = SMemVec::new(&allocator, tobj_mesh.indices.len(), 0)?;
         for index in &tobj_mesh.indices {
             indices.push(*index as u16);
         }
@@ -565,10 +569,12 @@ impl<'a> SMeshLoader<'a> {
             bind_joints.len(),
         )?;
 
+        let allocator = SYSTEM_ALLOCATOR();
+
         joints_bind_to_cur_resource.map();
         //frame_model_to_joint_to_world_xforms_resource.copy_to_map(bind_joints.as_ref());
 
-        let mut cur_joints_to_parents = SMemVec::<STransform>::new(&SYSTEM_ALLOCATOR, bind_joints.len(), 0)?;
+        let mut cur_joints_to_parents = SMemVec::<STransform>::new(&allocator, bind_joints.len(), 0)?;
         for joint in bind_joints.as_ref() {
             cur_joints_to_parents.push(joint.local_to_parent);
         }
@@ -576,8 +582,8 @@ impl<'a> SMeshLoader<'a> {
         cur_joints_to_parents[1].t = Vec3::new(1.0, 0.0, 0.0);
 
         // -- $$$FRK(TODO, HACK): lazily working around the borrow checker here
-        let initial_verts = SMemVec::<Vec3>::new_copy_slice(&SYSTEM_ALLOCATOR, self.get_mesh_local_vertices(mesh))?;
-        let initial_normals = SMemVec::<Vec3>::new_copy_slice(&SYSTEM_ALLOCATOR, self.get_mesh_local_normals(mesh))?;
+        let initial_verts = SMemVec::<Vec3>::new_copy_slice(&allocator, self.get_mesh_local_vertices(mesh))?;
+        let initial_normals = SMemVec::<Vec3>::new_copy_slice(&allocator, self.get_mesh_local_normals(mesh))?;
 
         let skinned_verts_resource = self.device.upgrade().expect("device dropped").create_committed_buffer_resource_for_data(
             t12::EHeapType::Default,
@@ -905,7 +911,7 @@ impl STextureLoader {
     }
 }
 
-impl<'a> SMeshSkinning<'a> {
+impl SMeshSkinning {
     pub fn joint_index_by_name(&self, name: &str) -> Option<usize> {
         let hashed_name = utils::hash_str(name);
         for (ji, joint) in self.bind_joints.as_ref().iter().enumerate() {
@@ -918,7 +924,7 @@ impl<'a> SMeshSkinning<'a> {
     }
 }
 
-impl<'a> SMesh<'a> {
+impl SMesh {
     const SRVS_VERT_IDX: usize = 0;
     const SRVS_NORM_IDX: usize = 1;
 }
@@ -1007,7 +1013,7 @@ impl SModelSkinning {
             if let Some(skinning) = mesh_loader.get_mesh_skinning(self.mesh) {
                 let bind_joints = mesh_loader.get_mesh_bind_joints(self.mesh).unwrap();
 
-                let mut frame_joint_to_model = SMemVec::<STransform>::new(sa, skinning.bind_joints.len(), 0).unwrap();
+                let mut frame_joint_to_model = SMemVec::<STransform>::new(&sa.as_ref(), skinning.bind_joints.len(), 0).unwrap();
                 // -- we can just iterate the table once because all parents are earlier in the table,
                 // -- this is essentially flattening the table from joint -> parent to joint -> model
                 for i in 0..bind_joints.len() {
@@ -1024,7 +1030,7 @@ impl SModelSkinning {
                     frame_joint_to_model.push(local_to_model);
                 }
 
-                let mut frame_joints_bind_to_cur = SMemVec::<Mat4>::new(sa, skinning.bind_joints.len(), 0).unwrap();
+                let mut frame_joints_bind_to_cur = SMemVec::<Mat4>::new(&sa.as_ref(), skinning.bind_joints.len(), 0).unwrap();
                 // -- essentially the pipeline for this is:
                 // -- (bind vertex to bind joint) x (frame joint to model) x (model to world)
 

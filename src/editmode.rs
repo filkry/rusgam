@@ -256,7 +256,7 @@ impl EEditMode {
             data_bucket.get::<bvh::STree<SEntityHandle>>().with(|bvh: &bvh::STree<SEntityHandle>| {
 
                 STACK_ALLOCATOR.with(|sa| {
-                    let mut bvh_results = SMemVec::<(f32, SEntityHandle)>::new(sa, 256, 0).unwrap();
+                    let mut bvh_results = SMemVec::<(f32, SEntityHandle)>::new(&sa.as_ref(), 256, 0).unwrap();
                     bvh.cast_ray(&cursor_ray, &mut bvh_results);
 
                     let mut min_t : Option::<f32> = None;

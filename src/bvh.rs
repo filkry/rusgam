@@ -121,7 +121,7 @@ impl<TOwner: Clone> STree<TOwner> {
         }
 
         STACK_ALLOCATOR.with(|sa| -> SNodeHandle {
-            let mut search_queue = SMemQueue::<SSearch>::new(sa, self.nodes.used()).unwrap();
+            let mut search_queue = SMemQueue::<SSearch>::new(&sa.as_ref(), self.nodes.used()).unwrap();
             break_assert!(self.root.valid());
             let mut best = self.root;
             let mut best_cost = self.union(query_node, best).surface_area();
@@ -370,8 +370,8 @@ impl<TOwner: Clone> STree<TOwner> {
 
     fn tree_valid(&self) -> bool {
         STACK_ALLOCATOR.with(|sa| -> bool {
-            let mut search_queue = SMemQueue::<SNodeHandle>::new(sa, self.nodes.used()).unwrap();
-            let mut child_count = SMemVec::<u16>::new(sa, self.nodes.max() as usize, 0).unwrap();
+            let mut search_queue = SMemQueue::<SNodeHandle>::new(&sa.as_ref(), self.nodes.used()).unwrap();
+            let mut child_count = SMemVec::<u16>::new(&sa.as_ref(), self.nodes.max() as usize, 0).unwrap();
             for _ in 0..self.nodes.max() {
                 child_count.push(0);
             }
@@ -586,7 +586,7 @@ impl<TOwner: Clone> STree<TOwner> {
         let mut max_height = 0;
 
         STACK_ALLOCATOR.with(|sa| {
-            let mut to_search = SMemVec::<SSearchItem>::new(sa, self.nodes.used() as usize, 0).unwrap();
+            let mut to_search = SMemVec::<SSearchItem>::new(&sa.as_ref(), self.nodes.used() as usize, 0).unwrap();
             to_search.push(SSearchItem{
                 node: self.root,
                 height: 1,
@@ -625,7 +625,7 @@ impl<TOwner: Clone> STree<TOwner> {
         let mut num_leaves = 0.0;
 
         STACK_ALLOCATOR.with(|sa| {
-            let mut to_search = SMemVec::<SSearchItem>::new(sa, self.nodes.used() as usize, 0).unwrap();
+            let mut to_search = SMemVec::<SSearchItem>::new(&sa.as_ref(), self.nodes.used() as usize, 0).unwrap();
             to_search.push(SSearchItem{
                 node: self.root,
                 height: 1.0,
@@ -660,13 +660,13 @@ impl<TOwner: Clone> STree<TOwner> {
     }
 
     // -- returns all leaf nodes, and the t to their start
-    pub fn cast_ray<'a>(&self, ray: &SRay, out: &mut SMemVec<'a, (f32, TOwner)>) {
+    pub fn cast_ray(&self, ray: &SRay, out: &mut SMemVec<(f32, TOwner)>) {
         if self.nodes.used() == 0 {
             return;
         }
 
         STACK_ALLOCATOR.with(|sa| {
-            let mut to_search = SMemVec::<SNodeHandle>::new(sa, self.nodes.used() as usize, 0).unwrap();
+            let mut to_search = SMemVec::<SNodeHandle>::new(&sa.as_ref(), self.nodes.used() as usize, 0).unwrap();
             to_search.push(self.root);
 
             while let Some(cur_handle) = to_search.pop() {
@@ -694,7 +694,7 @@ impl<TOwner: Clone> STree<TOwner> {
         }
 
         STACK_ALLOCATOR.with(|sa| {
-            let mut to_show = SMemVec::<SNodeHandle>::new(sa, self.nodes.used() as usize, 0).unwrap();
+            let mut to_show = SMemVec::<SNodeHandle>::new(&sa.as_ref(), self.nodes.used() as usize, 0).unwrap();
             to_show.push(self.root);
 
             imgui_ui.menu(imgui::im_str!("BVH"), true, || {

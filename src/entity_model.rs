@@ -1,18 +1,18 @@
-use allocate::{SMemVec, TMemAllocator};
+use allocate::{SMemVec, SAllocatorRef};
 use entity::{SEntityHandle};
 use bvh;
 use model::SModel;
 
-pub struct SBucket<'a> {
-    pub owners: SMemVec<'a, SEntityHandle>,
-    pub models: SMemVec<'a, SModel>,
-    pub bvh_entries: SMemVec<'a, Option<bvh::SNodeHandle>>,
+pub struct SBucket {
+    pub owners: SMemVec<SEntityHandle>,
+    pub models: SMemVec<SModel>,
+    pub bvh_entries: SMemVec<Option<bvh::SNodeHandle>>,
 }
 
 pub type SHandle = usize;
 
-impl<'a> SBucket<'a> {
-    pub fn new(allocator: &'a dyn TMemAllocator, max_entries: usize) -> Result<Self, &'static str> {
+impl SBucket {
+    pub fn new(allocator: &SAllocatorRef, max_entries: usize) -> Result<Self, &'static str> {
         Ok(Self {
             owners: SMemVec::new(allocator, max_entries, 0)?,
             models: SMemVec::new(allocator, max_entries, 0)?,

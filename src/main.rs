@@ -18,7 +18,6 @@ mod animation;
 mod bvh;
 mod collections;
 mod databucket;
-mod databucket2;
 mod directxgraphicssamples;
 mod editmode;
 mod entity;
@@ -52,7 +51,7 @@ mod entitytypes;
 use glm::{Vec4};
 
 use animation::{SAnimationLoader};
-use allocate::{STACK_ALLOCATOR, SYSTEM_ALLOCATOR, SMemVec};
+use allocate::{STACK_ALLOCATOR, SYSTEM_ALLOCATOR, SMemVec, SAllocator};
 use entity::{SEntityBucket};
 use game_context::{SGameContext, SFrameContext};
 use niced3d12 as n12;
@@ -95,25 +94,15 @@ fn main_d3d12() -> Result<(), &'static str> {
     let mut game_context = SGameContext::new(&winapi);
 
     game_context.data_bucket.add(SEntityBucket::new(67485, 16));
-    game_context.data_bucket.add(SAnimationLoader::new(&SYSTEM_ALLOCATOR, 64));
+    game_context.data_bucket.add(SAnimationLoader::new(SYSTEM_ALLOCATOR(), 64));
     game_context.data_bucket.add(game_mode::SGameMode::new(&mut render));
     game_context.data_bucket.add(render);
-    game_context.data_bucket.add(entity_model::SBucket::new(&SYSTEM_ALLOCATOR, 1024)?);
-    game_context.data_bucket.add(entity_animation::SBucket::new(&SYSTEM_ALLOCATOR, 1024)?);
+    game_context.data_bucket.add(entity_model::SBucket::new(&SYSTEM_ALLOCATOR(), 1024)?);
+    game_context.data_bucket.add(entity_animation::SBucket::new(&SYSTEM_ALLOCATOR(), 1024)?);
     game_context.data_bucket.add(bvh::STree::new());
     game_context.data_bucket.add(camera::SDebugFPCamera::new(glm::Vec3::new(0.0, 0.0, -10.0)));
     game_context.data_bucket.add(input::SInput::new());
     game_context.data_bucket.add(gjk::SGJKDebug::new(&game_context.data_bucket));
-
-    let db2 = {
-        let temp_linear_allocator = allocate::SLinearAllocator::new(&SYSTEM_ALLOCATOR, 128 * 1024 * 1024, 8)?;
-        let anim_loader = SAnimationLoader::new(&temp_linear_allocator, 64);
-
-        let mut db2 = databucket2::SDataBucket::new(128, &SYSTEM_ALLOCATOR);
-        db2.add(anim_loader);
-
-        db2
-    };
 
     let rotating_entity = entitytypes::testtexturedcubeentity::create(
         &game_context, Some("tst_rotating"),
@@ -140,11 +129,13 @@ fn main_d3d12() -> Result<(), &'static str> {
             ea.play_animation(handle, anim_loader, render.mesh_loader(), asset_file_path, 0.0);
         });
 
-    let frame_linear_allocator = allocate::SLinearAllocator::new(&SYSTEM_ALLOCATOR, 128 * 1024 * 1024, 8)?;
+    let frame_linear_allocator = SAllocator::new(
+        allocate::SLinearAllocator::new(SYSTEM_ALLOCATOR(), 128 * 1024 * 1024, 8)?,
+    );
 
     // -- update loop
     while !game_context.data_bucket.get::<input::SInput>().with(|input| input.q_down) {
-        let mut frame_context = game_context.start_frame(&winapi, &frame_linear_allocator);
+        let mut frame_context = game_context.start_frame(&winapi, &frame_linear_allocator.as_ref());
 
         update_frame(&game_context, &frame_context)?;
 
@@ -230,7 +221,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                         if let Some(e) = game_mode.edit_mode_ctxt.editing_entity() {
                             let model_handle = em.handle_for_entity(e).unwrap();
 
-                            let mut aabbs = SMemVec::new(sa, 32, 0).unwrap();
+                            let mut aabbs = SMemVec::new(&sa.as_ref(), 32, 0).unwrap();
                             bvh.get_bvh_heirarchy_for_entry(em.get_bvh_entry(model_handle).unwrap(), &mut aabbs);
                             for aabb in aabbs.as_slice() {
                                 render.temp().draw_aabb(aabb, &Vec4::new(1.0, 0.0, 0.0, 1.0), true);
@@ -256,7 +247,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                             let model = em.get_model(e_model_handle);
                             let mesh_local_vs = render.mesh_loader().get_mesh_local_vertices(model.mesh);
 
-                            let mut world_verts = SMemVec::new(sa, mesh_local_vs.len(), 0).unwrap();
+                            let mut world_verts = SMemVec::new(&sa.as_ref(), mesh_local_vs.len(), 0).unwrap();
 
                             for v in mesh_local_vs.as_slice() {
                                 world_verts.push(loc.mul_point(&v));
@@ -270,7 +261,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                             let loc = entities.get_entity_location(rotating_entity);
                             let mesh_local_vs = render.mesh_loader().get_mesh_local_vertices(model.mesh);
 
-                            let mut world_verts = SMemVec::new(sa, mesh_local_vs.len(), 0).unwrap();
+                            let mut world_verts = SMemVec::new(&sa.as_ref(), mesh_local_vs.len(), 0).unwrap();
 
                             for v in mesh_local_vs.as_slice() {
                                 world_verts.push(loc.mul_point(&v));

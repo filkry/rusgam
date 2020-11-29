@@ -2,8 +2,8 @@ use safewindows;
 
 use super::*;
 
-pub struct SMemQueue<'a, T> {
-    mem: SMem<'a>,
+pub struct SMemQueue<T> {
+    mem: SMem,
     len: usize,
     capacity: usize,
     first: usize,
@@ -12,9 +12,9 @@ pub struct SMemQueue<'a, T> {
     phantom: std::marker::PhantomData<T>,
 }
 
-impl<'a, T> SMemQueue<'a, T> {
+impl<'a, T> SMemQueue<T> {
     pub fn new(
-        allocator: &'a dyn TMemAllocator,
+        allocator: &SAllocatorRef,
         capacity: usize,
     ) -> Result<Self, &'static str> {
         let num_bytes = capacity * size_of::<T>();
@@ -104,7 +104,7 @@ impl<'a, T> SMemQueue<'a, T> {
 
 #[test]
 fn test_basic() {
-    let allocator = SSystemAllocator {};
+    let allocator = SYSTEM_ALLOCATOR();
 
     let mut q = SMemQueue::<u32>::new(&allocator, 5).unwrap();
     assert_eq!(q.len(), 0);
@@ -140,18 +140,18 @@ fn test_basic() {
 
 #[test]
 fn test_ring() {
-    let allocator = SSystemAllocator {};
+    let allocator = SYSTEM_ALLOCATOR();
 
     let mut q = SMemQueue::<u32>::new(&allocator, 3).unwrap();
     assert_eq!(q.len(), 0);
     assert_eq!(q.capacity(), 3);
 
-    let mut push_test = |q: &mut SMemQueue<u32>, i: u32, expected_len: usize| {
+    let push_test = |q: &mut SMemQueue<u32>, i: u32, expected_len: usize| {
         q.push_back(i);
         assert_eq!(q.len(), expected_len);
     };
 
-    let mut pop_test = |q: &mut SMemQueue<u32>, expected_i: u32, expected_len: usize| {
+    let pop_test = |q: &mut SMemQueue<u32>, expected_i: u32, expected_len: usize| {
         let val = q.pop_front();
         assert!(val.is_some());
         assert_eq!(val.unwrap(), expected_i);

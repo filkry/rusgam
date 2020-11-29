@@ -49,7 +49,7 @@ struct SBuiltShaderMetadata {
     src_write_time: std::time::SystemTime,
 }
 
-pub struct SRender<'a> {
+pub struct SRender {
     factory: n12::SFactory,
     _adapter: n12::SAdapter, // -- maybe don't need to keep
     device: Rc<n12::SDevice>,
@@ -62,7 +62,7 @@ pub struct SRender<'a> {
     dsv_heap: Rc<n12::SDescriptorAllocator>,
     cbv_srv_uav_heap: Rc<n12::SDescriptorAllocator>,
 
-    mesh_loader: SMeshLoader<'a>,
+    mesh_loader: SMeshLoader,
     texture_loader: STextureLoader,
 
     // -- global RTV properties -----------------------------------
@@ -91,8 +91,8 @@ pub struct SRender<'a> {
 
     // -- other rendering pipelines
     render_shadow_map: shadowmapping::SShadowMappingPipeline,
-    render_imgui: SRenderImgui<'a>,
-    render_temp: SRenderTemp<'a>,
+    render_imgui: SRenderImgui,
+    render_temp: SRenderTemp,
 }
 
 pub fn compile_shaders_if_changed() {
@@ -118,15 +118,15 @@ pub fn compile_shaders_if_changed() {
         let mut needs_build = false;
 
         STACK_ALLOCATOR.with(|sa| {
-            let mut shader_src_path_string = SMemVec::<u8>::new(sa, 256, 0).unwrap();
+            let mut shader_src_path_string = SMemVec::<u8>::new(&sa.as_ref(), 256, 0).unwrap();
             write!(&mut shader_src_path_string, "shaders/{}.hlsl", shader_name).unwrap();
             let shader_src_path = std::path::Path::new(shader_src_path_string.as_str());
 
-            let mut built_shader_path_string = SMemVec::<u8>::new(sa, 256, 0).unwrap();
+            let mut built_shader_path_string = SMemVec::<u8>::new(&sa.as_ref(), 256, 0).unwrap();
             write!(&mut built_shader_path_string, "shaders_built/{}.cso", shader_name).unwrap();
             let built_shader_path = std::path::Path::new(built_shader_path_string.as_str());
 
-            let mut build_metadata_path_string = SMemVec::<u8>::new(sa, 256, 0).unwrap();
+            let mut build_metadata_path_string = SMemVec::<u8>::new(&sa.as_ref(), 256, 0).unwrap();
             write!(&mut build_metadata_path_string, "shaders_built/{}.shader_build_metadata", shader_name).unwrap();
             let build_metadata_path = std::path::Path::new(build_metadata_path_string.as_str());
 
@@ -189,7 +189,7 @@ pub fn compile_shaders_if_changed() {
     }
 }
 
-impl<'a> SRender<'a> {
+impl SRender {
     pub fn new(winapi: &rustywindows::SWinAPI, imgui_ctxt: &mut imgui::Context) -> Result<Self, &'static str> {
         // -- initialize debug
         let debuginterface = t12::SDebugInterface::new()?;
@@ -358,7 +358,7 @@ impl<'a> SRender<'a> {
         self.znear
     }
 
-    pub fn temp(&mut self) -> &mut SRenderTemp<'a> {
+    pub fn temp(&mut self) -> &mut SRenderTemp {
         &mut self.render_temp
     }
 
@@ -697,7 +697,7 @@ impl<'a> SRender<'a> {
     }
 }
 
-impl<'a> Drop for SRender<'a> {
+impl Drop for SRender {
     fn drop(&mut self) {
         self.flush().unwrap();
 

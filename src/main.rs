@@ -53,13 +53,20 @@ use glm::{Vec4};
 use animation::{SAnimationLoader};
 use allocate::{STACK_ALLOCATOR, SYSTEM_ALLOCATOR, SMemVec};
 use entity::{SEntityBucket};
-use game_context::{SGameContext};
+use game_context::{SGameContext, SFrameContext};
 use niced3d12 as n12;
 use typeyd3d12 as t12;
 //use allocate::{SMemVec, STACK_ALLOCATOR};
 use utils::{STransform};
 //use model::{SModel, SMeshLoader, STextureLoader};
 
+
+fn update_frame(game_context: &SGameContext, frame_context: &SFrameContext) -> Result<(), &'static str> {
+    game_mode::update_toggle_mode(game_context);
+    camera::update_debug_camera(game_context, frame_context);
+
+    Ok(())
+}
 
 fn main_d3d12() -> Result<(), &'static str> {
     render::compile_shaders_if_changed();
@@ -122,37 +129,18 @@ fn main_d3d12() -> Result<(), &'static str> {
             ea.play_animation(handle, anim_loader, render.mesh_loader(), asset_file_path, 0.0);
         });
 
+    let frame_linear_allocator = allocate::SLinearAllocator::new(&SYSTEM_ALLOCATOR, 128 * 1024 * 1024, 8)?;
+
     // -- update loop
     while !game_context.data_bucket.get::<input::SInput>().with(|input| input.q_down) {
-        let frame_context = game_context.start_frame(&winapi);
+        let mut frame_context = game_context.start_frame(&winapi, &frame_linear_allocator);
 
-        // -- handle edit mode toggles
-        game_context.data_bucket.get::<game_mode::SGameMode>()
-            .and::<input::SInput>()
-            .with_mc(|game_mode, input| {
-                if input.tilde_edge.down() {
-                    game_mode.mode.toggle(&mut game_mode.edit_mode);
-                }
-            });
+        update_frame(&game_context, &frame_context)?;
 
-        let mut can_rotate_camera = false;
-        game_context.data_bucket.get::<camera::SDebugFPCamera>()
-            .and::<game_mode::SGameMode>()
-            .and::<input::SInput>()
-            .with_mcc(|camera, game_mode, input| {
-                if let game_mode::EMode::Play = game_mode.mode {
-                    can_rotate_camera = true;
-                }
-                else if input.middle_mouse_down {
-                    can_rotate_camera = true;
-                }
-                camera.update_from_input(&input, frame_context.dt_s, can_rotate_camera);
-            });
-
-        let editmode_input = game_context.data_bucket.get_renderer()
+        game_context.data_bucket.get_renderer()
             .and::<camera::SDebugFPCamera>()
             .with_cc(|render, camera| {
-                editmode::SEditModeInput::new_for_frame(&window, &winapi, &camera, &render, &imgui_ctxt)
+                frame_context.data_bucket.add(editmode::SEditModeInput::new_for_frame(&window, &winapi, &camera, &render, &imgui_ctxt));
             });
 
         game_context.data_bucket.get::<input::SInput>().with_mut(|input| {
@@ -174,9 +162,12 @@ fn main_d3d12() -> Result<(), &'static str> {
         game_context.data_bucket.get::<game_mode::SGameMode>()
             .and::<input::SInput>()
             .with_mc(|game_mode, input| {
-                if game_mode.mode == game_mode::EMode::Edit {
-                    game_mode.edit_mode = game_mode.edit_mode.update(&game_context, &mut game_mode.edit_mode_ctxt, &editmode_input, &input, &game_context.data_bucket);
-                }
+                frame_context.data_bucket.get::<editmode::SEditModeInput>()
+                    .with(|editmode_input| {
+                        if game_mode.mode == game_mode::EMode::Edit {
+                            game_mode.edit_mode = game_mode.edit_mode.update(&game_context, &mut game_mode.edit_mode_ctxt, &editmode_input, &input, &game_context.data_bucket);
+                        }
+                    });
             });
 
         // -- update IMGUI
@@ -387,7 +378,10 @@ fn main_d3d12() -> Result<(), &'static str> {
         game_context.data_bucket.get::<input::SInput>()
             .with_mut(|input| {
                 let io = imgui_ctxt.io_mut(); // for filling out io state
-                io.mouse_pos = [editmode_input.mouse_window_pos[0] as f32, editmode_input.mouse_window_pos[1] as f32];
+                frame_context.data_bucket.get::<editmode::SEditModeInput>()
+                    .with(|editmode_input| {
+                        io.mouse_pos = [editmode_input.mouse_window_pos[0] as f32, editmode_input.mouse_window_pos[1] as f32];
+                    });
 
                 let mut input_handler = input.frame(io);
                 loop {

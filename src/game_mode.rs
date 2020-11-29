@@ -1,4 +1,6 @@
 use editmode::{EEditMode, SEditModeContext};
+use game_context::{SGameContext};
+use input;
 use render;
 
 #[derive(PartialEq)]
@@ -41,4 +43,14 @@ impl SGameMode {
             show_imgui_demo_window: false,
         }
     }
+}
+
+pub fn update_toggle_mode(game_context: &SGameContext) {
+    game_context.data_bucket.get::<SGameMode>()
+        .and::<input::SInput>()
+        .with_mc(|game_mode, input| {
+            if input.tilde_edge.down() {
+                game_mode.mode.toggle(&mut game_mode.edit_mode);
+            }
+        });
 }

@@ -1,5 +1,7 @@
 use glm::{Vec3, Mat4};
 
+use game_context::{SGameContext, SFrameContext};
+use game_mode;
 use input;
 
 pub struct SDebugFPCamera {
@@ -85,4 +87,20 @@ impl SDebugFPCamera {
     pub fn world_to_view_matrix(&self) -> Mat4 {
         glm::look_at_lh(&self.pos_world, &(self.pos_world + self.forward_world()), &Self::up_world())
     }
+}
+
+pub fn update_debug_camera(game_context: &SGameContext, frame_context: &SFrameContext) {
+    let mut can_rotate_camera = false;
+    game_context.data_bucket.get::<SDebugFPCamera>()
+        .and::<game_mode::SGameMode>()
+        .and::<input::SInput>()
+        .with_mcc(|camera, game_mode, input| {
+            if let game_mode::EMode::Play = game_mode.mode {
+                can_rotate_camera = true;
+            }
+            else if input.middle_mouse_down {
+                can_rotate_camera = true;
+            }
+            camera.update_from_input(&input, frame_context.dt_s, can_rotate_camera);
+        });
 }

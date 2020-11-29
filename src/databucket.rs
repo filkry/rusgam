@@ -8,6 +8,7 @@ use allocate::{SMemVec, TMemAllocator};
 use animation;
 use camera;
 use bvh;
+use editmode;
 use entity;
 use entity_animation;
 use entity_model;
@@ -27,6 +28,7 @@ impl TDataBucketMember for game_mode::SGameMode {}
 impl TDataBucketMember for camera::SDebugFPCamera {}
 impl TDataBucketMember for input::SInput {}
 impl TDataBucketMember for gjk::SGJKDebug {}
+impl TDataBucketMember for editmode::SEditModeInput {}
 
 // -- "components"
 impl TDataBucketMember for entity_animation::SBucket<'static> {}

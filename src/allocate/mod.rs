@@ -145,9 +145,9 @@ impl<'a> TMemAllocator for SLinearAllocator<'a> {
 
         let result = SMem {
             data: unsafe { data.raw.data.add(aligned_offset) },
-            size: aligned_size,
-            alignment: align,
-            allocator: self,
+            size: aligned_size,   
+            alignment: align,   
+            allocator: self,   
         };
 
         data.cur_offset = aligned_offset + aligned_size;
@@ -182,8 +182,6 @@ impl<'a> TMemAllocator for SLinearAllocator<'a> {
 
 impl<'a> Drop for SLinearAllocator<'a> {
     fn drop(&mut self) {
-        let data = self.data.borrow();
-        assert_eq!(data.cur_offset, 0);
     }
 }
 

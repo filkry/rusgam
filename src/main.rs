@@ -106,41 +106,35 @@ fn main_d3d12() -> Result<(), &'static str> {
 
     let mut editmode_ctxt = SEditModeContext::new(&mut render).unwrap();
 
-    let mut data_bucket = databucket::SDataBucket::new(256, &SYSTEM_ALLOCATOR);
-
     let mut game_context = SGameContext{
         cur_frame: 0,
+        data_bucket: databucket::SDataBucket::new(256, &SYSTEM_ALLOCATOR),
     };
 
-    data_bucket.add(SEntityBucket::new(67485, 16));
-    data_bucket.add(SAnimationLoader::new(&SYSTEM_ALLOCATOR, 64));
-    data_bucket.add(render);
-    data_bucket.add(entity_model::SBucket::new(&SYSTEM_ALLOCATOR, 1024)?);
-    data_bucket.add(entity_animation::SBucket::new(&SYSTEM_ALLOCATOR, 1024)?);
-    data_bucket.add(bvh::STree::new());
+    game_context.data_bucket.add(SEntityBucket::new(67485, 16));
+    game_context.data_bucket.add(SAnimationLoader::new(&SYSTEM_ALLOCATOR, 64));
+    game_context.data_bucket.add(render);
+    game_context.data_bucket.add(entity_model::SBucket::new(&SYSTEM_ALLOCATOR, 1024)?);
+    game_context.data_bucket.add(entity_animation::SBucket::new(&SYSTEM_ALLOCATOR, 1024)?);
+    game_context.data_bucket.add(bvh::STree::new());
 
     let rotating_entity = entitytypes::testtexturedcubeentity::create(
-        &game_context,
-        &data_bucket, Some("tst_rotating"),
+        &game_context, Some("tst_rotating"),
         STransform::new_translation(&glm::Vec3::new(0.0, 0.0, 0.0)))?;
     entitytypes::testtexturedcubeentity::create(
-        &game_context,
-        &data_bucket, Some("tst_textured_cube"),
+        &game_context, Some("tst_textured_cube"),
         STransform::new_translation(&glm::Vec3::new(3.0, 0.0, 0.0)))?;
     entitytypes::flatshadedcubeentity::create(
-        &game_context,
-        &data_bucket, Some("tst_coloured_cube"), Some(glm::Vec4::new(1.0, 0.0, 0.0, 0.9)),
+        &game_context, Some("tst_coloured_cube"), Some(glm::Vec4::new(1.0, 0.0, 0.0, 0.9)),
         STransform::new_translation(&glm::Vec3::new(0.0, 2.0, 0.0)))?;
     entitytypes::testopenroomentity::create(
-        &game_context,
-        &data_bucket, Some("tst_room"),
+        &game_context, Some("tst_room"),
         STransform::new_translation(&glm::Vec3::new(0.0, -2.0, 0.0)))?;
     let skinned_entity = entitytypes::tstskinnedentity::create(
-        &game_context,
-        &data_bucket, Some("tst_skinned_entity"), Some(glm::Vec4::new(1.0, 1.0, 1.0, 1.0)),
+        &game_context, Some("tst_skinned_entity"), Some(glm::Vec4::new(1.0, 1.0, 1.0, 1.0)),
         STransform::new_translation(&glm::Vec3::new(-3.0, 2.0, 0.0)))?;
 
-    data_bucket.get::<entity_animation::SBucket>()
+    game_context.data_bucket.get::<entity_animation::SBucket>()
         .and::<animation::SAnimationLoader>()
         .and::<render::SRender>()
         .with_mmc(|ea, anim_loader, render| {
@@ -166,7 +160,7 @@ fn main_d3d12() -> Result<(), &'static str> {
 
     let mut show_imgui_demo_window = false;
 
-    let mut gjk_debug = gjk::SGJKDebug::new(&data_bucket);
+    let mut gjk_debug = gjk::SGJKDebug::new(&game_context.data_bucket);
 
     while !input.q_down {
         // -- handle edit mode toggles
@@ -201,7 +195,7 @@ fn main_d3d12() -> Result<(), &'static str> {
         }
         camera.update_from_input(&input, dts, can_rotate_camera);
 
-        let editmode_input = data_bucket.get_renderer().with(|render: &render::SRender| {
+        let editmode_input = game_context.data_bucket.get_renderer().with(|render: &render::SRender| {
             editmode::SEditModeInput::new_for_frame(&window, &winapi, &camera, &render, &imgui_ctxt)
         });
 
@@ -216,7 +210,7 @@ fn main_d3d12() -> Result<(), &'static str> {
 
         // update edit mode
         if mode == EMode::Edit {
-            edit_mode = edit_mode.update(&game_context, &mut editmode_ctxt, &editmode_input, &input, &data_bucket);
+            edit_mode = edit_mode.update(&game_context, &mut editmode_ctxt, &editmode_input, &input, &game_context.data_bucket);
         }
 
         // -- update IMGUI
@@ -238,16 +232,16 @@ fn main_d3d12() -> Result<(), &'static str> {
                     }
                 });
 
-                data_bucket.get_bvh().with(|bvh: &bvh::STree<entity::SEntityHandle>| {
+                game_context.data_bucket.get_bvh().with(|bvh: &bvh::STree<entity::SEntityHandle>| {
                     bvh.imgui_menu(&imgui_ui, &mut draw_selected_bvh);
                 });
 
-                gjk_debug.imgui_menu(&imgui_ui, &data_bucket, editmode_ctxt.editing_entity(), Some(rotating_entity));
+                gjk_debug.imgui_menu(&imgui_ui, &game_context.data_bucket, editmode_ctxt.editing_entity(), Some(rotating_entity));
 
             });
 
             if let Some(e) = editmode_ctxt.editing_entity() {
-                data_bucket.get_entities().with_mut(|entities: &mut SEntityBucket| {
+                game_context.data_bucket.get_entities().with_mut(|entities: &mut SEntityBucket| {
                     entities.show_imgui_window(e, &imgui_ui);
                 });
             }
@@ -257,7 +251,7 @@ fn main_d3d12() -> Result<(), &'static str> {
         if draw_selected_bvh {
             if let Some(e) = editmode_ctxt.editing_entity() {
                 STACK_ALLOCATOR.with(|sa| {
-                    data_bucket.get::<render::SRender>()
+                    game_context.data_bucket.get::<render::SRender>()
                         .and::<entity_model::SBucket>()
                         .and::<bvh::STree<entity::SEntityHandle>>()
                         .with_mcc(|render, em, bvh| {
@@ -276,7 +270,7 @@ fn main_d3d12() -> Result<(), &'static str> {
         // -- draw selected object colliding/not with rotating_entity
         if let Some(e) = editmode_ctxt.editing_entity() {
             STACK_ALLOCATOR.with(|sa| {
-                data_bucket.get::<render::SRender>()
+                game_context.data_bucket.get::<render::SRender>()
                     .and::<entity::SEntityBucket>()
                     .and::<entity_model::SBucket>()
                     .with_mcc(|render, entities, em| {
@@ -319,7 +313,7 @@ fn main_d3d12() -> Result<(), &'static str> {
         }
 
         // -- update bvh
-        data_bucket.get::<bvh::STree<entity::SEntityHandle>>()
+        game_context.data_bucket.get::<bvh::STree<entity::SEntityHandle>>()
             .and::<entity_model::SBucket>()
             .and::<SEntityBucket>()
             .and::<render::SRender>()
@@ -351,7 +345,7 @@ fn main_d3d12() -> Result<(), &'static str> {
             });
 
         // -- update animation
-        data_bucket.get::<entity_animation::SBucket>()
+        game_context.data_bucket.get::<entity_animation::SBucket>()
             .and::<animation::SAnimationLoader>()
             .with_mc(|e_animation, anim_loader| {
                 e_animation.update_joints(anim_loader, _total_time_seconds);
@@ -399,7 +393,7 @@ fn main_d3d12() -> Result<(), &'static str> {
         // -- render frame
         let imgui_draw_data = imgui_ui.render();
 
-        data_bucket.get::<render::SRender>()
+        game_context.data_bucket.get::<render::SRender>()
             .and::<SEntityBucket>()
             .and::<entity_animation::SBucket>()
             .and::<entity_model::SBucket>()
@@ -462,7 +456,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                         let newwidth = rect.right - rect.left;
                         let newheight = rect.bottom - rect.top;
 
-                        data_bucket.get_renderer().with_mut(|render: &mut render::SRender| {
+                        game_context.data_bucket.get_renderer().with_mut(|render: &mut render::SRender| {
                             render.resize_window(&mut window, newwidth, newheight)
                         })?;
                     }
@@ -476,7 +470,7 @@ fn main_d3d12() -> Result<(), &'static str> {
     }
 
     // -- wait for all commands to clear
-    data_bucket.get_renderer().with_mut(|render: &mut render::SRender| {
+    game_context.data_bucket.get_renderer().with_mut(|render: &mut render::SRender| {
         render.flush()
     })?;
 

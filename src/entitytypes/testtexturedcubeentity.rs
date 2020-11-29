@@ -1,6 +1,5 @@
 extern crate nalgebra_glm as glm;
 
-use databucket::{SDataBucket};
 use entity::*;
 use entity_model;
 use game_context::{SGameContext};
@@ -9,12 +8,11 @@ use utils::{STransform};
 
 pub fn create(
     gc: &SGameContext,
-    data_bucket: &SDataBucket,
     debug_name: Option<&'static str>,
     starting_location: STransform,
 ) -> Result<SEntityHandle, &'static str> {
 
-    data_bucket.get::<SEntityBucket>()
+    gc.data_bucket.get::<SEntityBucket>()
         .and::<render::SRender>()
         .and::<entity_model::SBucket>()
         .with_mmm(|entities, render, em| {

@@ -48,7 +48,7 @@ mod entitytypes;
 // -- crate includes
 //use arrayvec::{ArrayVec};
 //use serde::{Serialize, Deserialize};
-use glm::{Vec3, Vec4};
+use glm::{Vec4};
 
 use animation::{SAnimationLoader};
 use allocate::{STACK_ALLOCATOR, SYSTEM_ALLOCATOR, SMemVec};
@@ -96,6 +96,7 @@ fn main_d3d12() -> Result<(), &'static str> {
     game_context.data_bucket.add(entity_animation::SBucket::new(&SYSTEM_ALLOCATOR, 1024)?);
     game_context.data_bucket.add(bvh::STree::new());
     game_context.data_bucket.add(game_mode::SGameMode::new());
+    game_context.data_bucket.add(camera::SDebugFPCamera::new(glm::Vec3::new(0.0, 0.0, -10.0)));
 
     let rotating_entity = entitytypes::testtexturedcubeentity::create(
         &game_context, Some("tst_rotating"),
@@ -123,11 +124,6 @@ fn main_d3d12() -> Result<(), &'static str> {
         });
 
     // -- update loop
-    let start_time = winapi.curtimemicroseconds();
-    let _rot_axis = Vec3::new(0.0, 1.0, 0.0);
-
-    let mut camera = camera::SCamera::new(glm::Vec3::new(0.0, 0.0, -10.0));
-
     let mut input = input::SInput::new();
 
     let mut draw_selected_bvh  = false;
@@ -151,37 +147,34 @@ fn main_d3d12() -> Result<(), &'static str> {
         let _dtms = dt as f64;
         let dts = (dt as f32) / 1_000_000.0;
 
-        let _total_time = curframetime - start_time;
+        let _total_time = curframetime - game_context.start_time_micro_s;
         let _total_time_seconds = (_total_time as f32) / 1_000_000.0;
 
-        // -- update
-        /*
-        let cur_angle = _total_time_seconds * (3.14159 / 4.0);
-        data_bucket.get_entities().unwrap().with_mut(|entities: &mut SEntityBucket| {
-            entities.set_location(gc, rotating_entity, STransform::new_rotation(&glm::quat_angle_axis(cur_angle, &_rot_axis)));
-        });
-        */
-
-        //let mut fixed_size_model_xform = STransform::new_translation(&glm::Vec3::new(0.0, 5.0, 0.0));
-
         let mut can_rotate_camera = false;
-        game_context.data_bucket.get::<game_mode::SGameMode>().with(|game_mode| {
-            if let game_mode::EMode::Play = game_mode.mode {
-                can_rotate_camera = true;
-            }
-            else if input.middle_mouse_down {
-                can_rotate_camera = true;
-            }
-        });
-        camera.update_from_input(&input, dts, can_rotate_camera);
+        game_context.data_bucket.get::<camera::SDebugFPCamera>()
+            .and::<game_mode::SGameMode>()
+            .with_mc(|camera, game_mode| {
+                if let game_mode::EMode::Play = game_mode.mode {
+                    can_rotate_camera = true;
+                }
+                else if input.middle_mouse_down {
+                    can_rotate_camera = true;
+                }
+                camera.update_from_input(&input, dts, can_rotate_camera);
+            });
 
-        let editmode_input = game_context.data_bucket.get_renderer().with(|render: &render::SRender| {
-            editmode::SEditModeInput::new_for_frame(&window, &winapi, &camera, &render, &imgui_ctxt)
-        });
+        let editmode_input = game_context.data_bucket.get_renderer()
+            .and::<camera::SDebugFPCamera>()
+            .with_cc(|render, camera| {
+                editmode::SEditModeInput::new_for_frame(&window, &winapi, &camera, &render, &imgui_ctxt)
+            });
 
         input.mouse_dx = 0;
         input.mouse_dy = 0;
-        let view_matrix = camera.world_to_view_matrix();
+        let view_matrix = game_context.data_bucket.get::<camera::SDebugFPCamera>()
+            .with(|camera| {
+                camera.world_to_view_matrix()
+            });
 
         //println!("View: {}", view_matrix);
         //println!("Perspective: {}", perspective_matrix);

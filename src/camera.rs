@@ -2,13 +2,13 @@ use glm::{Vec3, Mat4};
 
 use input;
 
-pub struct SCamera {
+pub struct SDebugFPCamera {
     pub pos_world: Vec3,
     x_angle: f32,
     y_angle: f32,
 }
 
-impl SCamera {
+impl SDebugFPCamera {
     const MAX_X_DELTA : f32 = std::f32::consts::PI / 2.5;
     const TWOPI : f32 = std::f32::consts::PI * 2.0;
 

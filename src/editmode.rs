@@ -67,7 +67,7 @@ impl SEditModeInput {
     pub fn new_for_frame(
         window: &n12::SD3D12Window,
         winapi: &rustywindows::SWinAPI,
-        camera: &camera::SCamera,
+        camera: &camera::SDebugFPCamera,
         render: &render::SRender,
         imgui: &imgui::Context,
     ) -> Self {

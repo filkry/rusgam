@@ -6,6 +6,7 @@ use std::rc::{Rc, Weak};
 use allocate::{SMemVec, TMemAllocator};
 
 use animation;
+use camera;
 use bvh;
 use entity;
 use entity_animation;
@@ -21,6 +22,7 @@ impl TDataBucketMember for entity::SEntityBucket {}
 impl TDataBucketMember for render::SRender<'static> {}
 impl TDataBucketMember for animation::SAnimationLoader<'static> {}
 impl TDataBucketMember for game_mode::SGameMode {}
+impl TDataBucketMember for camera::SDebugFPCamera {}
 
 // -- "components"
 impl TDataBucketMember for entity_animation::SBucket<'static> {}

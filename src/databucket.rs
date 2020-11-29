@@ -42,13 +42,13 @@ struct SData {
     data: Rc<dyn std::any::Any>, // $$$FRK(TODO): write Rc+Weak that can go in my own allocators
 }
 
-pub struct SDataRef<'a, T> {
-    bucket: &'a SDataBucket<'a>,
+pub struct SDataRef<'bucket, 'alloc, T> {
+    bucket: &'bucket SDataBucket<'alloc>,
     data: Weak<RefCell<T>>,
 }
 
-pub struct SDataBucket<'a> {
-    entries: SMemVec<'a, SData>,
+pub struct SDataBucket<'alloc> {
+    entries: SMemVec<'alloc, SData>,
 }
 
 impl SData {
@@ -111,15 +111,15 @@ impl<'a> SDataBucket<'a> {
     }
 }
 
-impl<'a, T: 'static + TDataBucketMember> SDataRef<'a, T> {
-    fn new(bucket: &'a SDataBucket, data: &SData) -> Self {
+impl<'bucket, 'alloc, T: 'static + TDataBucketMember> SDataRef<'bucket, 'alloc, T> {
+    fn new(bucket: &'bucket SDataBucket<'alloc>, data: &SData) -> Self {
         Self{
             bucket,
             data: data.get_weak(),
         }
     }
 
-    pub fn and<T1: TDataBucketMember>(self) -> SMultiRef2<'a, T, T1> {
+    pub fn and<T1: TDataBucketMember>(self) -> SMultiRef2<'bucket, 'alloc, T, T1> {
         let d1 = self.bucket.get_entry::<T1>().expect("invalid entry");
         SMultiRef2::new_from_1(self, d1)
     }
@@ -144,23 +144,23 @@ impl<'a, T: 'static + TDataBucketMember> SDataRef<'a, T> {
 // -- ugly helpers
 
 #[allow(dead_code)]
-pub struct SMultiRef2<'a, T0, T1> {
-    bucket: &'a SDataBucket<'a>,
+pub struct SMultiRef2<'bucket, 'alloc, T0, T1> {
+    bucket: &'bucket SDataBucket<'alloc>,
     d0: Weak<RefCell<T0>>,
     d1: Weak<RefCell<T1>>,
 }
 
 #[allow(dead_code)]
-pub struct SMultiRef3<'a, T0, T1, T2> {
-    bucket: &'a SDataBucket<'a>,
+pub struct SMultiRef3<'bucket, 'alloc, T0, T1, T2> {
+    bucket: &'bucket SDataBucket<'alloc>,
     d0: Weak<RefCell<T0>>,
     d1: Weak<RefCell<T1>>,
     d2: Weak<RefCell<T2>>,
 }
 
 #[allow(dead_code)]
-pub struct SMultiRef4<'a, T0, T1, T2, T3> {
-    bucket: &'a SDataBucket<'a>,
+pub struct SMultiRef4<'bucket, 'alloc, T0, T1, T2, T3> {
+    bucket: &'bucket SDataBucket<'alloc>,
     d0: Weak<RefCell<T0>>,
     d1: Weak<RefCell<T1>>,
     d2: Weak<RefCell<T2>>,
@@ -168,8 +168,8 @@ pub struct SMultiRef4<'a, T0, T1, T2, T3> {
 }
 
 #[allow(dead_code)]
-pub struct SMultiRef5<'a, T0, T1, T2, T3, T4> {
-    bucket: &'a SDataBucket<'a>,
+pub struct SMultiRef5<'bucket, 'alloc, T0, T1, T2, T3, T4> {
+    bucket: &'bucket SDataBucket<'alloc>,
     d0: Weak<RefCell<T0>>,
     d1: Weak<RefCell<T1>>,
     d2: Weak<RefCell<T2>>,
@@ -178,8 +178,8 @@ pub struct SMultiRef5<'a, T0, T1, T2, T3, T4> {
 }
 
 #[allow(dead_code)]
-impl<'a, T0, T1: TDataBucketMember> SMultiRef2<'a, T0, T1> {
-    fn new_from_1(prev: SDataRef<'a, T0>, last: &SData) -> Self {
+impl<'bucket, 'alloc, T0, T1: TDataBucketMember> SMultiRef2<'bucket, 'alloc, T0, T1> {
+    fn new_from_1(prev: SDataRef<'bucket, 'alloc, T0>, last: &SData) -> Self {
         Self{
             bucket: prev.bucket,
             d0: prev.data,
@@ -187,7 +187,7 @@ impl<'a, T0, T1: TDataBucketMember> SMultiRef2<'a, T0, T1> {
         }
     }
 
-    pub fn and<T2: TDataBucketMember>(self) -> SMultiRef3<'a, T0, T1, T2> {
+    pub fn and<T2: TDataBucketMember>(self) -> SMultiRef3<'bucket, 'alloc, T0, T1, T2> {
         let last = self.bucket.get_entry::<T2>().expect("invalid entry");
         SMultiRef3::new_from_2(self, last)
     }
@@ -227,8 +227,8 @@ impl<'a, T0, T1: TDataBucketMember> SMultiRef2<'a, T0, T1> {
 }
 
 #[allow(dead_code)]
-impl<'a, T0, T1, T2: TDataBucketMember> SMultiRef3<'a, T0, T1, T2> {
-    fn new_from_2(prev: SMultiRef2<'a, T0, T1>, last: &SData) -> Self {
+impl<'bucket, 'alloc, T0, T1, T2: TDataBucketMember> SMultiRef3<'bucket, 'alloc, T0, T1, T2> {
+    fn new_from_2(prev: SMultiRef2<'bucket, 'alloc, T0, T1>, last: &SData) -> Self {
         Self{
             bucket: prev.bucket,
             d0: prev.d0,
@@ -237,7 +237,7 @@ impl<'a, T0, T1, T2: TDataBucketMember> SMultiRef3<'a, T0, T1, T2> {
         }
     }
 
-    pub fn and<T3: TDataBucketMember>(self) -> SMultiRef4<'a, T0, T1, T2, T3> {
+    pub fn and<T3: TDataBucketMember>(self) -> SMultiRef4<'bucket, 'alloc, T0, T1, T2, T3> {
         let last = self.bucket.get_entry::<T3>().expect("invalid entry");
         SMultiRef4::new_from_3(self, last)
     }
@@ -296,8 +296,8 @@ impl<'a, T0, T1, T2: TDataBucketMember> SMultiRef3<'a, T0, T1, T2> {
 }
 
 #[allow(dead_code)]
-impl<'a, T0, T1, T2, T3: TDataBucketMember> SMultiRef4<'a, T0, T1, T2, T3> {
-    fn new_from_3(prev: SMultiRef3<'a, T0, T1, T2>, last: &SData) -> Self {
+impl<'bucket, 'alloc, T0, T1, T2, T3: TDataBucketMember> SMultiRef4<'bucket, 'alloc, T0, T1, T2, T3> {
+    fn new_from_3(prev: SMultiRef3<'bucket, 'alloc, T0, T1, T2>, last: &SData) -> Self {
         Self{
             bucket: prev.bucket,
             d0: prev.d0,
@@ -307,7 +307,7 @@ impl<'a, T0, T1, T2, T3: TDataBucketMember> SMultiRef4<'a, T0, T1, T2, T3> {
         }
     }
 
-    pub fn and<T4: TDataBucketMember>(self) -> SMultiRef5<'a, T0, T1, T2, T3, T4> {
+    pub fn and<T4: TDataBucketMember>(self) -> SMultiRef5<'bucket, 'alloc, T0, T1, T2, T3, T4> {
         let last = self.bucket.get_entry::<T4>().expect("invalid entry");
         SMultiRef5::new_from_4(self, last)
     }
@@ -389,8 +389,8 @@ impl<'a, T0, T1, T2, T3: TDataBucketMember> SMultiRef4<'a, T0, T1, T2, T3> {
 }
 
 #[allow(dead_code)]
-impl<'a, T0, T1, T2, T3, T4: TDataBucketMember> SMultiRef5<'a, T0, T1, T2, T3, T4> {
-    fn new_from_4(prev: SMultiRef4<'a, T0, T1, T2, T3>, last: &SData) -> Self {
+impl<'bucket, 'alloc, T0, T1, T2, T3, T4: TDataBucketMember> SMultiRef5<'bucket, 'alloc, T0, T1, T2, T3, T4> {
+    fn new_from_4(prev: SMultiRef4<'bucket, 'alloc, T0, T1, T2, T3>, last: &SData) -> Self {
         Self{
             bucket: prev.bucket,
             d0: prev.d0,

@@ -145,9 +145,9 @@ impl<'a> TMemAllocator for SLinearAllocator<'a> {
 
         let result = SMem {
             data: unsafe { data.raw.data.add(aligned_offset) },
-            size: aligned_size,   
-            alignment: align,   
-            allocator: self,   
+            size: aligned_size,
+            alignment: align,
+            allocator: self,
         };
 
         data.cur_offset = aligned_offset + aligned_size;
@@ -284,6 +284,78 @@ impl<'a> Drop for SMem<'a> {
     fn drop(&mut self) {
         let allocator = self.allocator;
         unsafe { allocator.free_unsafe(self).unwrap() };
+    }
+}
+
+pub struct SMemT<'a, T> {
+    mem: SMem<'a>,
+    phantom: std::marker::PhantomData<T>,
+}
+
+impl<'a, T> SMemT<'a, T> {
+    pub fn new(
+        allocator: &'a dyn TMemAllocator,
+        mut value: T,
+    ) -> Result<Self, &'static str> {
+        let num_bytes = size_of::<T>();
+
+        let mem = allocator.alloc(num_bytes, 8)?;
+
+        let mut result = Ok(Self {
+            mem,
+            phantom: std::marker::PhantomData,
+        })?;
+
+        std::mem::swap(&mut value, result.deref_mut());
+        std::mem::forget(value);
+
+        Ok(result)
+    }
+
+    pub unsafe fn into_raw(mut self) -> SMem<'a> {
+        let mut result = SMem {
+            data: std::ptr::null_mut(),
+            size: 0,
+            alignment: 0,
+            allocator: self.mem.allocator,
+        };
+
+        std::mem::swap(&mut result, &mut self.mem);
+        std::mem::forget(self);
+
+        result
+    }
+
+    pub unsafe fn from_raw(mem: SMem<'a>) -> Self {
+        assert!(mem.size > size_of::<T>());
+        Self {
+            mem,
+            phantom: std::marker::PhantomData,
+        }
+    }
+}
+
+impl<'a, T> Drop for SMemT<'a, T> {
+    fn drop(&mut self) {
+        panic!("not implemented");
+    }
+}
+
+impl<'a, T> Deref for SMemT<'a, T> {
+    type Target = T;
+
+    fn deref(&self) -> &T {
+        unsafe {
+            (self.mem.data as *const T).as_ref().unwrap()
+        }
+    }
+}
+
+impl<'a, T> DerefMut for SMemT<'a, T> {
+    fn deref_mut(&mut self) -> &mut T {
+        unsafe {
+            (self.mem.data as *mut T).as_mut().unwrap()
+        }
     }
 }
 

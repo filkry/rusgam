@@ -18,6 +18,7 @@ mod animation;
 mod bvh;
 mod collections;
 mod databucket;
+mod databucket2;
 mod directxgraphicssamples;
 mod editmode;
 mod entity;

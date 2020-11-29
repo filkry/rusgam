@@ -26,6 +26,9 @@ pub struct SGameMode {
     pub mode: EMode,
     pub edit_mode: EEditMode,
     pub edit_mode_ctxt: SEditModeContext,
+
+    pub draw_selected_bvh: bool,
+    pub show_imgui_demo_window: bool,
 }
 
 impl SGameMode {
@@ -34,6 +37,8 @@ impl SGameMode {
             mode: EMode::Edit,
             edit_mode: EEditMode::None,
             edit_mode_ctxt: SEditModeContext::new(render).unwrap(),
+            draw_selected_bvh: false,
+            show_imgui_demo_window: false,
         }
     }
 }

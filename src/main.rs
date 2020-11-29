@@ -122,10 +122,6 @@ fn main_d3d12() -> Result<(), &'static str> {
         });
 
     // -- update loop
-    let mut draw_selected_bvh  = false;
-
-    let mut show_imgui_demo_window = false;
-
     let mut gjk_debug = gjk::SGJKDebug::new(&game_context.data_bucket);
 
     while !game_context.data_bucket.get::<input::SInput>().with(|input| input.q_down) {
@@ -189,10 +185,10 @@ fn main_d3d12() -> Result<(), &'static str> {
         io.display_size = [window.width() as f32, window.height() as f32];
 
         let imgui_ui = imgui_ctxt.frame();
-        game_context.data_bucket.get::<game_mode::SGameMode>().with(|game_mode| {
+        game_context.data_bucket.get::<game_mode::SGameMode>().with_mut(|game_mode| {
             if let game_mode::EMode::Edit = game_mode.mode {
 
-                if show_imgui_demo_window {
+                if game_mode.show_imgui_demo_window {
                     let mut opened = true;
                     imgui_ui.show_demo_window(&mut opened);
                 }
@@ -200,12 +196,12 @@ fn main_d3d12() -> Result<(), &'static str> {
                 imgui_ui.main_menu_bar(|| {
                     imgui_ui.menu(imgui::im_str!("Misc"), true, || {
                         if imgui::MenuItem::new(imgui::im_str!("Toggle Demo Window")).build(&imgui_ui) {
-                            show_imgui_demo_window = !show_imgui_demo_window;
+                            game_mode.show_imgui_demo_window = !game_mode.show_imgui_demo_window;
                         }
                     });
 
                     game_context.data_bucket.get_bvh().with(|bvh: &bvh::STree<entity::SEntityHandle>| {
-                        bvh.imgui_menu(&imgui_ui, &mut draw_selected_bvh);
+                        bvh.imgui_menu(&imgui_ui, &mut game_mode.draw_selected_bvh);
                     });
 
                     gjk_debug.imgui_menu(&imgui_ui, &game_context.data_bucket, game_mode.edit_mode_ctxt.editing_entity(), Some(rotating_entity));
@@ -221,13 +217,13 @@ fn main_d3d12() -> Result<(), &'static str> {
         });
 
         // -- draw selected object's BVH heirarchy
-        if draw_selected_bvh {
-            STACK_ALLOCATOR.with(|sa| {
-                game_context.data_bucket.get::<render::SRender>()
-                    .and::<entity_model::SBucket>()
-                    .and::<bvh::STree<entity::SEntityHandle>>()
-                    .and::<game_mode::SGameMode>()
-                    .with_mccc(|render, em, bvh, game_mode| {
+        STACK_ALLOCATOR.with(|sa| {
+            game_context.data_bucket.get::<render::SRender>()
+                .and::<entity_model::SBucket>()
+                .and::<bvh::STree<entity::SEntityHandle>>()
+                .and::<game_mode::SGameMode>()
+                .with_mccc(|render, em, bvh, game_mode| {
+                    if game_mode.draw_selected_bvh {
                         if let Some(e) = game_mode.edit_mode_ctxt.editing_entity() {
                             let model_handle = em.handle_for_entity(e).unwrap();
 
@@ -237,9 +233,9 @@ fn main_d3d12() -> Result<(), &'static str> {
                                 render.temp().draw_aabb(aabb, &Vec4::new(1.0, 0.0, 0.0, 1.0), true);
                             }
                         }
-                    });
+                    }
                 });
-        }
+            });
 
         // -- draw selected object colliding/not with rotating_entity
         STACK_ALLOCATOR.with(|sa| {

@@ -94,6 +94,7 @@ fn main_d3d12() -> Result<(), &'static str> {
     game_context.data_bucket.add(entity_animation::SBucket::new(&SYSTEM_ALLOCATOR, 1024)?);
     game_context.data_bucket.add(bvh::STree::new());
     game_context.data_bucket.add(camera::SDebugFPCamera::new(glm::Vec3::new(0.0, 0.0, -10.0)));
+    game_context.data_bucket.add(input::SInput::new());
 
     let rotating_entity = entitytypes::testtexturedcubeentity::create(
         &game_context, Some("tst_rotating"),
@@ -121,29 +122,29 @@ fn main_d3d12() -> Result<(), &'static str> {
         });
 
     // -- update loop
-    let mut input = input::SInput::new();
-
     let mut draw_selected_bvh  = false;
 
     let mut show_imgui_demo_window = false;
 
     let mut gjk_debug = gjk::SGJKDebug::new(&game_context.data_bucket);
 
-    while !input.q_down {
+    while !game_context.data_bucket.get::<input::SInput>().with(|input| input.q_down) {
         let frame_context = game_context.start_frame(&winapi);
 
         // -- handle edit mode toggles
-        game_context.data_bucket.get::<game_mode::SGameMode>().with_mut(|game_mode| {
-            if input.tilde_edge.down() {
-                game_mode.mode.toggle(&mut game_mode.edit_mode);
-            }
-        });
-
+        game_context.data_bucket.get::<game_mode::SGameMode>()
+            .and::<input::SInput>()
+            .with_mc(|game_mode, input| {
+                if input.tilde_edge.down() {
+                    game_mode.mode.toggle(&mut game_mode.edit_mode);
+                }
+            });
 
         let mut can_rotate_camera = false;
         game_context.data_bucket.get::<camera::SDebugFPCamera>()
             .and::<game_mode::SGameMode>()
-            .with_mc(|camera, game_mode| {
+            .and::<input::SInput>()
+            .with_mcc(|camera, game_mode, input| {
                 if let game_mode::EMode::Play = game_mode.mode {
                     can_rotate_camera = true;
                 }
@@ -159,8 +160,11 @@ fn main_d3d12() -> Result<(), &'static str> {
                 editmode::SEditModeInput::new_for_frame(&window, &winapi, &camera, &render, &imgui_ctxt)
             });
 
-        input.mouse_dx = 0;
-        input.mouse_dy = 0;
+        game_context.data_bucket.get::<input::SInput>().with_mut(|input| {
+            input.mouse_dx = 0;
+            input.mouse_dy = 0;
+        });
+
         let view_matrix = game_context.data_bucket.get::<camera::SDebugFPCamera>()
             .with(|camera| {
                 camera.world_to_view_matrix()
@@ -172,11 +176,13 @@ fn main_d3d12() -> Result<(), &'static str> {
         //println!("Frame time: {}us", _dtms);
 
         // update edit mode
-        game_context.data_bucket.get::<game_mode::SGameMode>().with_mut(|game_mode| {
-            if game_mode.mode == game_mode::EMode::Edit {
-                game_mode.edit_mode = game_mode.edit_mode.update(&game_context, &mut game_mode.edit_mode_ctxt, &editmode_input, &input, &game_context.data_bucket);
-            }
-        });
+        game_context.data_bucket.get::<game_mode::SGameMode>()
+            .and::<input::SInput>()
+            .with_mc(|game_mode, input| {
+                if game_mode.mode == game_mode::EMode::Edit {
+                    game_mode.edit_mode = game_mode.edit_mode.update(&game_context, &mut game_mode.edit_mode_ctxt, &editmode_input, &input, &game_context.data_bucket);
+                }
+            });
 
         // -- update IMGUI
         let io = imgui_ctxt.io_mut();
@@ -381,56 +387,59 @@ fn main_d3d12() -> Result<(), &'static str> {
 
         // -- $$$FRK(TODO): framerate is uncapped
 
-        let io = imgui_ctxt.io_mut(); // for filling out io state
-        io.mouse_pos = [editmode_input.mouse_window_pos[0] as f32, editmode_input.mouse_window_pos[1] as f32];
+        game_context.data_bucket.get::<input::SInput>()
+            .with_mut(|input| {
+                let io = imgui_ctxt.io_mut(); // for filling out io state
+                io.mouse_pos = [editmode_input.mouse_window_pos[0] as f32, editmode_input.mouse_window_pos[1] as f32];
 
-        let mut input_handler = input.frame(io);
-        loop {
-            let msg = window.pollmessage();
-            match msg {
-                None => break,
-                Some(m) => match m {
-                    safewindows::EMsgType::Paint => {
-                        //println!("Paint!");
-                        window.dummyrepaint();
-                    }
-                    safewindows::EMsgType::KeyDown { key } => {
-                        input_handler.handle_key_down_up(key, true);
-                    },
-                    safewindows::EMsgType::KeyUp { key } => {
-                        input_handler.handle_key_down_up(key, false);
-                    },
-                    safewindows::EMsgType::LButtonDown{ .. } => {
-                        input_handler.handle_lmouse_down_up(true);
-                    },
-                    safewindows::EMsgType::LButtonUp{ .. } => {
-                        input_handler.handle_lmouse_down_up(false);
-                    },
-                    safewindows::EMsgType::MButtonDown{ .. } => {
-                        input_handler.handle_mmouse_down_up(true);
-                    },
-                    safewindows::EMsgType::MButtonUp{ .. } => {
-                        input_handler.handle_mmouse_down_up(false);
-                    },
-                    safewindows::EMsgType::Input{ raw_input } => {
-                        if let safewindows::rawinput::ERawInputData::Mouse{data} = raw_input.data {
-                            input_handler.handle_mouse_move(data.last_x, data.last_y);
-                        }
-                    },
-                    safewindows::EMsgType::Size => {
-                        //println!("Size");
-                        let rect: safewindows::SRect = window.raw().getclientrect()?;
-                        let newwidth = rect.right - rect.left;
-                        let newheight = rect.bottom - rect.top;
+                let mut input_handler = input.frame(io);
+                loop {
+                    let msg = window.pollmessage();
+                    match msg {
+                        None => break,
+                        Some(m) => match m {
+                            safewindows::EMsgType::Paint => {
+                                //println!("Paint!");
+                                window.dummyrepaint();
+                            }
+                            safewindows::EMsgType::KeyDown { key } => {
+                                input_handler.handle_key_down_up(key, true);
+                            },
+                            safewindows::EMsgType::KeyUp { key } => {
+                                input_handler.handle_key_down_up(key, false);
+                            },
+                            safewindows::EMsgType::LButtonDown{ .. } => {
+                                input_handler.handle_lmouse_down_up(true);
+                            },
+                            safewindows::EMsgType::LButtonUp{ .. } => {
+                                input_handler.handle_lmouse_down_up(false);
+                            },
+                            safewindows::EMsgType::MButtonDown{ .. } => {
+                                input_handler.handle_mmouse_down_up(true);
+                            },
+                            safewindows::EMsgType::MButtonUp{ .. } => {
+                                input_handler.handle_mmouse_down_up(false);
+                            },
+                            safewindows::EMsgType::Input{ raw_input } => {
+                                if let safewindows::rawinput::ERawInputData::Mouse{data} = raw_input.data {
+                                    input_handler.handle_mouse_move(data.last_x, data.last_y);
+                                }
+                            },
+                            safewindows::EMsgType::Size => {
+                                //println!("Size");
+                                let rect: safewindows::SRect = window.raw().getclientrect().unwrap();
+                                let newwidth = rect.right - rect.left;
+                                let newheight = rect.bottom - rect.top;
 
-                        game_context.data_bucket.get_renderer().with_mut(|render: &mut render::SRender| {
-                            render.resize_window(&mut window, newwidth, newheight)
-                        })?;
+                                game_context.data_bucket.get_renderer().with_mut(|render: &mut render::SRender| {
+                                    render.resize_window(&mut window, newwidth, newheight)
+                                }).unwrap();
+                            }
+                            safewindows::EMsgType::Invalid => (),
+                        },
                     }
-                    safewindows::EMsgType::Invalid => (),
-                },
-            }
-        }
+                }
+            });
 
         game_context.end_frame(frame_context);
 

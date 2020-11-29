@@ -11,7 +11,6 @@ use entity;
 use entity_animation;
 use entity_model;
 use render;
-use utils;
 
 pub trait TDataBucketMember : std::any::Any {
 }
@@ -19,7 +18,6 @@ pub trait TDataBucketMember : std::any::Any {
 impl TDataBucketMember for bvh::STree<entity::SEntityHandle> {}
 impl TDataBucketMember for entity::SEntityBucket {}
 impl TDataBucketMember for render::SRender<'static> {}
-impl TDataBucketMember for utils::SGameContext {}
 impl TDataBucketMember for animation::SAnimationLoader<'static> {}
 
 // -- "components"

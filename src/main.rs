@@ -23,6 +23,7 @@ mod editmode;
 mod entity;
 mod entity_animation;
 mod entity_model;
+mod game_context;
 mod gjk;
 mod input;
 mod niced3d12;
@@ -52,10 +53,11 @@ use animation::{SAnimationLoader};
 use allocate::{STACK_ALLOCATOR, SYSTEM_ALLOCATOR, SMemVec};
 use editmode::{SEditModeContext, EEditMode};
 use entity::{SEntityBucket};
+use game_context::{SGameContext};
 use niced3d12 as n12;
 use typeyd3d12 as t12;
 //use allocate::{SMemVec, STACK_ALLOCATOR};
-use utils::{STransform, SGameContext};
+use utils::{STransform};
 //use model::{SModel, SMeshLoader, STextureLoader};
 
 #[derive(PartialEq)]
@@ -106,29 +108,35 @@ fn main_d3d12() -> Result<(), &'static str> {
 
     let mut data_bucket = databucket::SDataBucket::new(256, &SYSTEM_ALLOCATOR);
 
+    let mut game_context = SGameContext{
+        cur_frame: 0,
+    };
+
     data_bucket.add(SEntityBucket::new(67485, 16));
     data_bucket.add(SAnimationLoader::new(&SYSTEM_ALLOCATOR, 64));
     data_bucket.add(render);
     data_bucket.add(entity_model::SBucket::new(&SYSTEM_ALLOCATOR, 1024)?);
     data_bucket.add(entity_animation::SBucket::new(&SYSTEM_ALLOCATOR, 1024)?);
     data_bucket.add(bvh::STree::new());
-    data_bucket.add(SGameContext{
-        cur_frame: 0,
-    });
 
     let rotating_entity = entitytypes::testtexturedcubeentity::create(
+        &game_context,
         &data_bucket, Some("tst_rotating"),
         STransform::new_translation(&glm::Vec3::new(0.0, 0.0, 0.0)))?;
     entitytypes::testtexturedcubeentity::create(
+        &game_context,
         &data_bucket, Some("tst_textured_cube"),
         STransform::new_translation(&glm::Vec3::new(3.0, 0.0, 0.0)))?;
     entitytypes::flatshadedcubeentity::create(
+        &game_context,
         &data_bucket, Some("tst_coloured_cube"), Some(glm::Vec4::new(1.0, 0.0, 0.0, 0.9)),
         STransform::new_translation(&glm::Vec3::new(0.0, 2.0, 0.0)))?;
     entitytypes::testopenroomentity::create(
+        &game_context,
         &data_bucket, Some("tst_room"),
         STransform::new_translation(&glm::Vec3::new(0.0, -2.0, 0.0)))?;
     let skinned_entity = entitytypes::tstskinnedentity::create(
+        &game_context,
         &data_bucket, Some("tst_skinned_entity"), Some(glm::Vec4::new(1.0, 1.0, 1.0, 1.0)),
         STransform::new_translation(&glm::Vec3::new(-3.0, 2.0, 0.0)))?;
 
@@ -208,7 +216,7 @@ fn main_d3d12() -> Result<(), &'static str> {
 
         // update edit mode
         if mode == EMode::Edit {
-            edit_mode = edit_mode.update(&mut editmode_ctxt, &editmode_input, &input, &data_bucket);
+            edit_mode = edit_mode.update(&game_context, &mut editmode_ctxt, &editmode_input, &input, &data_bucket);
         }
 
         // -- update IMGUI
@@ -315,14 +323,13 @@ fn main_d3d12() -> Result<(), &'static str> {
             .and::<entity_model::SBucket>()
             .and::<SEntityBucket>()
             .and::<render::SRender>()
-            .and::<utils::SGameContext>()
-            .with_mmccc(|bvh, entity_model, entities, render, gc| {
+            .with_mmcc(|bvh, entity_model, entities, render| {
                 // -- $$$FRK(TODO): only update dirty
                 for i in 0..entity_model.models.len() {
                     let model_handle : entity_model::SHandle = i;
 
                     let entity_handle = entity_model.get_entity(model_handle);
-                    if entities.get_location_update_frame(entity_handle) != gc.cur_frame {
+                    if entities.get_location_update_frame(entity_handle) != game_context.cur_frame {
                         continue;
                     }
 
@@ -409,9 +416,7 @@ fn main_d3d12() -> Result<(), &'static str> {
 
         lastframetime = curframetime;
 
-        data_bucket.get::<SGameContext>().with_mut(|ctxt: &mut SGameContext| {
-            ctxt.cur_frame += 1;
-        });
+        game_context.cur_frame += 1;
 
         // -- $$$FRK(TODO): framerate is uncapped
 

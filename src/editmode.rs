@@ -2,6 +2,7 @@ use allocate::{STACK_ALLOCATOR, SMemVec};
 use bvh;
 use camera;
 use databucket;
+use game_context::SGameContext;
 use entity::{SEntityBucket, SEntityHandle};
 use glm::{Vec3, Vec4};
 use imgui;
@@ -11,7 +12,7 @@ use niced3d12 as n12;
 use render;
 use rustywindows;
 use utils;
-use utils::{STransform, SGameContext};
+use utils::{STransform};
 
 pub struct SEditModeInput {
     pub window_width: u32,
@@ -237,6 +238,7 @@ impl EEditMode {
 
     pub fn update(
         &self,
+        gc: &SGameContext,
         ctxt: &mut SEditModeContext,
         em_input: &SEditModeInput,
         input: &input::SInput,
@@ -288,8 +290,7 @@ impl EEditMode {
 
         data_bucket.get_renderer()
             .and::<SEntityBucket>()
-            .and::<SGameContext>()
-            .with_mmc(|render: &mut render::SRender, entities: &mut SEntityBucket, gc: &super::SGameContext| {
+            .with_mm(|render, entities| {
                 if mode == EEditMode::Translation {
                     mode = EEditMode::update_translation(ctxt, &em_input, &input, &render, &entities);
                 }

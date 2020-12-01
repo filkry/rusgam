@@ -145,15 +145,16 @@ fn main_d3d12() -> Result<(), &'static str> {
             allocate::SLinearAllocator::new(frame_linear_allocator_helper.as_ref(), 120 * 1024 * 1024, 8)?,
         );
 
-        let mut frame_context = game_context.start_frame(&winapi, &window, &imgui_ctxt, &frame_linear_allocator.as_ref());
+        let mut frame_context = game_context.start_frame(&winapi, &window, &mut imgui_ctxt, &frame_linear_allocator.as_ref());
 
         update_frame(&game_context, &mut frame_context)?;
 
         // -- update IMGUI
-        let imgui_ui = imgui_ctxt.frame();
         game_context.data_bucket.get::<game_mode::SGameMode>()
             .and::<gjk::SGJKDebug>()
             .with_mm(|game_mode, gjk_debug| {
+                let imgui_ui = frame_context.imgui_ui.as_ref().expect("this should happen before imgui render");
+
                 if let game_mode::EMode::Edit = game_mode.mode {
 
                     if game_mode.show_imgui_demo_window {
@@ -330,7 +331,7 @@ fn main_d3d12() -> Result<(), &'static str> {
         */
 
         // -- render frame
-        let imgui_draw_data = imgui_ui.render();
+        let imgui_draw_data = frame_context.imgui_ui.take().expect("this is where we take it").render();
 
         game_context.data_bucket.get::<render::SRender>()
             .and::<SEntityBucket>()
@@ -350,6 +351,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                 }
             });
 
+        game_context.end_frame(frame_context);
         game_context.cur_frame += 1;
 
         // -- $$$FRK(TODO): framerate is uncapped
@@ -417,8 +419,6 @@ fn main_d3d12() -> Result<(), &'static str> {
                 io.display_size = [window.width() as f32, window.height() as f32];
                 input.mouse_cursor_pos_window = window.mouse_pos(&winapi.rawwinapi());
             });
-
-        game_context.end_frame(frame_context);
 
         drop(frame_linear_allocator);
         frame_linear_allocator_helper.reset();

@@ -11,7 +11,7 @@ pub struct SGameContext {
     pub data_bucket: SDataBucket,
 }
 
-pub struct SFrameContext {
+pub struct SFrameContext<'ui> {
     pub start_time_micro_s: i64,
     pub dt_micro_s: i64,
     pub dt_s: f32,
@@ -20,6 +20,7 @@ pub struct SFrameContext {
     pub window_width: u32,
     pub window_height: u32,
 
+    pub imgui_ui: Option<imgui::Ui<'ui>>, // -- goes away partway through the frame
     pub imgui_want_capture_mouse: bool,
 
     pub data_bucket: SDataBucket,
@@ -35,19 +36,21 @@ impl SGameContext {
         }
     }
 
-    pub fn start_frame(
+    pub fn start_frame<'ui>(
         &mut self,
         winapi: &rustywindows::SWinAPI,
         window: &n12::SD3D12Window,
-        imgui_ctxt: &imgui::Context,
+        imgui_ctxt: &'ui mut imgui::Context,
         allocator: &SAllocatorRef
-    ) -> SFrameContext {
+    ) -> SFrameContext<'ui> {
         let start_time_micro_s = winapi.curtimemicroseconds();
         let dt_micro_s = start_time_micro_s - self.last_frame_start_time_micro_s;
         let dt_s = (dt_micro_s as f32) / 1_000_000.0;
 
         let total_time_micro_s = start_time_micro_s - self.start_time_micro_s;
         let total_time_s = (total_time_micro_s as f32) / 1_000_000.0;
+
+        let imgui_want_capture_mouse = imgui_ctxt.io().want_capture_mouse;
 
         SFrameContext {
             start_time_micro_s,
@@ -58,7 +61,8 @@ impl SGameContext {
             window_width: window.width(),
             window_height: window.height(),
 
-            imgui_want_capture_mouse: imgui_ctxt.io().want_capture_mouse,
+            imgui_ui: Some(imgui_ctxt.frame()),
+            imgui_want_capture_mouse,
 
             data_bucket: SDataBucket::new(32, allocator),
         }

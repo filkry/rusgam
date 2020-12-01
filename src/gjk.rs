@@ -85,6 +85,7 @@ pub enum ESimplex {
     Four(S4Simplex),
 }
 
+#[allow(dead_code)]
 enum EGJKDebugStep {
     NoIntersection,
     Intersection,
@@ -93,6 +94,7 @@ enum EGJKDebugStep {
 }
 
 // -- used Vecs here for ease of use, since it's just a debug thing
+#[allow(dead_code)]
 pub struct SGJKDebug {
     has_pts: bool,
     cur_step: usize,
@@ -395,6 +397,7 @@ pub fn gjk(pts_a: &[Vec3], pts_b: &[Vec3]) -> bool {
     return false;
 }
 
+#[allow(dead_code)]
 impl SGJKDebug {
     pub fn new(ctxt: &SDataBucket) -> Self {
         ctxt.get_renderer().with_mut(|render: &mut SRender| {

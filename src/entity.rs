@@ -65,6 +65,7 @@ impl SEntityBucket {
         &mut self.entities
     }
 
+    // $$$FRK(TODO): move all this into the debug_ui.rs update
     pub fn show_imgui_window(&mut self, entity: SEntityHandle, imgui_ui: &imgui::Ui) {
         use imgui::*;
 

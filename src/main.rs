@@ -18,6 +18,7 @@ mod animation;
 mod bvh;
 mod collections;
 mod databucket;
+mod debug_ui;
 mod directxgraphicssamples;
 mod editmode;
 mod entity;
@@ -67,6 +68,8 @@ fn update_frame(game_context: &SGameContext, frame_context: &mut SFrameContext) 
     let edit_mode_input = editmode::update_create_input_for_frame(game_context, frame_context);
     frame_context.data_bucket.add(edit_mode_input);
     editmode::update_edit_mode(game_context, frame_context);
+    debug_ui::update_debug_main_menu(game_context, frame_context);
+    debug_ui::update_debug_entity_menu(game_context, frame_context);
 
     Ok(())
 }
@@ -148,42 +151,6 @@ fn main_d3d12() -> Result<(), &'static str> {
         let mut frame_context = game_context.start_frame(&winapi, &window, &mut imgui_ctxt, &frame_linear_allocator.as_ref());
 
         update_frame(&game_context, &mut frame_context)?;
-
-        // -- update IMGUI
-        game_context.data_bucket.get::<game_mode::SGameMode>()
-            .and::<gjk::SGJKDebug>()
-            .with_mm(|game_mode, gjk_debug| {
-                let imgui_ui = frame_context.imgui_ui.as_ref().expect("this should happen before imgui render");
-
-                if let game_mode::EMode::Edit = game_mode.mode {
-
-                    if game_mode.show_imgui_demo_window {
-                        let mut opened = true;
-                        imgui_ui.show_demo_window(&mut opened);
-                    }
-
-                    imgui_ui.main_menu_bar(|| {
-                        imgui_ui.menu(imgui::im_str!("Misc"), true, || {
-                            if imgui::MenuItem::new(imgui::im_str!("Toggle Demo Window")).build(&imgui_ui) {
-                                game_mode.show_imgui_demo_window = !game_mode.show_imgui_demo_window;
-                            }
-                        });
-
-                        game_context.data_bucket.get_bvh().with(|bvh: &bvh::STree<entity::SEntityHandle>| {
-                            bvh.imgui_menu(&imgui_ui, &mut game_mode.draw_selected_bvh);
-                        });
-
-                        gjk_debug.imgui_menu(&imgui_ui, &game_context.data_bucket, game_mode.edit_mode_ctxt.editing_entity(), Some(rotating_entity));
-
-                    });
-
-                    if let Some(e) = game_mode.edit_mode_ctxt.editing_entity() {
-                        game_context.data_bucket.get_entities().with_mut(|entities: &mut SEntityBucket| {
-                            entities.show_imgui_window(e, &imgui_ui);
-                        });
-                    }
-                }
-            });
 
         // -- draw selected object's BVH heirarchy
         STACK_ALLOCATOR.with(|sa| {

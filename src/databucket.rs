@@ -98,10 +98,6 @@ impl SDataBucket {
         SDataRef::new(self, entry)
     }
 
-    pub fn get_bvh(&self) -> SDataRef<bvh::STree<entity::SEntityHandle>> {
-        self.get::<bvh::STree<entity::SEntityHandle>>()
-    }
-
     pub fn get_entities(&self) -> SDataRef<entity::SEntityBucket> {
         self.get::<entity::SEntityBucket>()
     }

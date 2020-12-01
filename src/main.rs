@@ -49,10 +49,8 @@ mod entitytypes;
 // -- crate includes
 //use arrayvec::{ArrayVec};
 //use serde::{Serialize, Deserialize};
-use glm::{Vec4};
-
 use animation::{SAnimationLoader};
-use allocate::{STACK_ALLOCATOR, SYSTEM_ALLOCATOR, SMemVec, SAllocator};
+use allocate::{SYSTEM_ALLOCATOR, SAllocator};
 use entity::{SEntityBucket};
 use game_context::{SGameContext, SFrameContext};
 use niced3d12 as n12;
@@ -65,9 +63,12 @@ use utils::{STransform};
 fn update_frame(game_context: &SGameContext, frame_context: &mut SFrameContext) -> Result<(), &'static str> {
     game_mode::update_toggle_mode(game_context);
     camera::update_debug_camera(game_context, frame_context);
+
     let edit_mode_input = editmode::update_create_input_for_frame(game_context, frame_context);
     frame_context.data_bucket.add(edit_mode_input);
     editmode::update_edit_mode(game_context, frame_context);
+
+    update_entity_bvh_entries(game_context, frame_context);
 
     // -- debug updates
     debug_ui::update_debug_main_menu(game_context, frame_context);
@@ -75,6 +76,39 @@ fn update_frame(game_context: &SGameContext, frame_context: &mut SFrameContext) 
     debug_ui::update_draw_entity_bvh(game_context, frame_context);
 
     Ok(())
+}
+
+pub fn update_entity_bvh_entries(game_context: &SGameContext, _frame_context: &SFrameContext) {
+    game_context.data_bucket.get::<bvh::STree<entity::SEntityHandle>>()
+        .and::<entity_model::SBucket>()
+        .and::<SEntityBucket>()
+        .and::<render::SRender>()
+        .with_mmcc(|bvh, entity_model, entities, render| {
+            // -- $$$FRK(TODO): only update dirty
+            for i in 0..entity_model.models.len() {
+                let model_handle : entity_model::SHandle = i;
+
+                let entity_handle = entity_model.get_entity(model_handle);
+                if entities.get_location_update_frame(entity_handle) != game_context.cur_frame {
+                    continue;
+                }
+
+                let mesh = entity_model.get_model(model_handle).mesh;
+                let identity_aabb = render.mesh_loader().get_mesh_local_aabb(mesh);
+
+                let location = entities.get_entity_location(entity_handle);
+
+                let transformed_aabb = utils::SAABB::transform(&identity_aabb, &location);
+
+                if let Some(bvh_entry) = entity_model.get_bvh_entry(model_handle) {
+                    bvh.update_entry(bvh_entry, &transformed_aabb);
+                }
+                else {
+                    let new_bvh_handle = bvh.insert(entity_handle, &transformed_aabb, None);
+                    entity_model.set_bvh_entry(model_handle, new_bvh_handle);
+                }
+            }
+        });
 }
 
 fn main_d3d12() -> Result<(), &'static str> {
@@ -115,7 +149,7 @@ fn main_d3d12() -> Result<(), &'static str> {
     game_context.data_bucket.add(input::SInput::new());
     game_context.data_bucket.add(gjk::SGJKDebug::new(&game_context.data_bucket));
 
-    let rotating_entity = entitytypes::testtexturedcubeentity::create(
+    entitytypes::testtexturedcubeentity::create(
         &game_context, Some("tst_rotating"),
         STransform::new_translation(&glm::Vec3::new(0.0, 0.0, 0.0)))?;
     entitytypes::testtexturedcubeentity::create(
@@ -154,84 +188,6 @@ fn main_d3d12() -> Result<(), &'static str> {
         let mut frame_context = game_context.start_frame(&winapi, &window, &mut imgui_ctxt, &frame_linear_allocator.as_ref());
 
         update_frame(&game_context, &mut frame_context)?;
-
-        // -- draw selected object colliding/not with rotating_entity
-        STACK_ALLOCATOR.with(|sa| {
-            game_context.data_bucket.get::<render::SRender>()
-                .and::<entity::SEntityBucket>()
-                .and::<entity_model::SBucket>()
-                .and::<game_mode::SGameMode>()
-                .with_mccc(|render, entities, em, game_mode| {
-                    if let Some(e) = game_mode.edit_mode_ctxt.editing_entity() {
-                        let e_model_handle = em.handle_for_entity(e).unwrap();
-                        let rot_model_handle = em.handle_for_entity(rotating_entity).unwrap();
-                        let loc = entities.get_entity_location(e);
-
-                        let world_verts = {
-                            let model = em.get_model(e_model_handle);
-                            let mesh_local_vs = render.mesh_loader().get_mesh_local_vertices(model.mesh);
-
-                            let mut world_verts = SMemVec::new(&sa.as_ref(), mesh_local_vs.len(), 0).unwrap();
-
-                            for v in mesh_local_vs.as_slice() {
-                                world_verts.push(loc.mul_point(&v));
-                            }
-
-                            world_verts
-                        };
-
-                        let rot_box_world_verts = {
-                            let model = em.get_model(rot_model_handle);
-                            let loc = entities.get_entity_location(rotating_entity);
-                            let mesh_local_vs = render.mesh_loader().get_mesh_local_vertices(model.mesh);
-
-                            let mut world_verts = SMemVec::new(&sa.as_ref(), mesh_local_vs.len(), 0).unwrap();
-
-                            for v in mesh_local_vs.as_slice() {
-                                world_verts.push(loc.mul_point(&v));
-                            }
-
-                            world_verts
-                        };
-
-                        if gjk::gjk(world_verts.as_slice(), rot_box_world_verts.as_slice()) {
-                            render.temp().draw_sphere(&loc.t, 1.0, &Vec4::new(1.0, 0.0, 0.0, 0.1), true, None);
-                        }
-                    }
-                });
-        });
-
-        // -- update bvh
-        game_context.data_bucket.get::<bvh::STree<entity::SEntityHandle>>()
-            .and::<entity_model::SBucket>()
-            .and::<SEntityBucket>()
-            .and::<render::SRender>()
-            .with_mmcc(|bvh, entity_model, entities, render| {
-                // -- $$$FRK(TODO): only update dirty
-                for i in 0..entity_model.models.len() {
-                    let model_handle : entity_model::SHandle = i;
-
-                    let entity_handle = entity_model.get_entity(model_handle);
-                    if entities.get_location_update_frame(entity_handle) != game_context.cur_frame {
-                        continue;
-                    }
-
-                    let mesh = entity_model.get_model(model_handle).mesh;
-                    let identity_aabb = render.mesh_loader().get_mesh_local_aabb(mesh);
-
-                    let location = entities.get_entity_location(entity_handle);
-
-                    let transformed_aabb = utils::SAABB::transform(&identity_aabb, &location);
-
-                    if let Some(bvh_entry) = entity_model.get_bvh_entry(model_handle) {
-                        bvh.update_entry(bvh_entry, &transformed_aabb);
-                    }
-                    else {
-                        let new_bvh_handle = bvh.insert(entity_handle, &transformed_aabb, None);
-                        entity_model.set_bvh_entry(model_handle, new_bvh_handle);
-                    }
-                }
-            });
 
         // -- update animation
         game_context.data_bucket.get::<entity_animation::SBucket>()

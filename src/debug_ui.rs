@@ -71,3 +71,53 @@ pub fn update_draw_entity_bvh(game_context: &SGameContext, _frame_context: &SFra
             });
         });
 }
+
+/*
+pub fn update_debug_draw_entity_colliding() {
+    // -- draw selected object colliding/not with rotating_entity
+    STACK_ALLOCATOR.with(|sa| {
+        game_context.data_bucket.get::<render::SRender>()
+            .and::<entity::SEntityBucket>()
+            .and::<entity_model::SBucket>()
+            .and::<game_mode::SGameMode>()
+            .with_mccc(|render, entities, em, game_mode| {
+                if let Some(e) = game_mode.edit_mode_ctxt.editing_entity() {
+                    let e_model_handle = em.handle_for_entity(e).unwrap();
+                    let rot_model_handle = em.handle_for_entity(rotating_entity).unwrap();
+                    let loc = entities.get_entity_location(e);
+
+                    let world_verts = {
+                        let model = em.get_model(e_model_handle);
+                        let mesh_local_vs = render.mesh_loader().get_mesh_local_vertices(model.mesh);
+
+                        let mut world_verts = SMemVec::new(&sa.as_ref(), mesh_local_vs.len(), 0).unwrap();
+
+                        for v in mesh_local_vs.as_slice() {
+                            world_verts.push(loc.mul_point(&v));
+                        }
+
+                        world_verts
+                    };
+
+                    let rot_box_world_verts = {
+                        let model = em.get_model(rot_model_handle);
+                        let loc = entities.get_entity_location(rotating_entity);
+                        let mesh_local_vs = render.mesh_loader().get_mesh_local_vertices(model.mesh);
+
+                        let mut world_verts = SMemVec::new(&sa.as_ref(), mesh_local_vs.len(), 0).unwrap();
+
+                        for v in mesh_local_vs.as_slice() {
+                            world_verts.push(loc.mul_point(&v));
+                        }
+
+                        world_verts
+                    };
+
+                    if gjk::gjk(world_verts.as_slice(), rot_box_world_verts.as_slice()) {
+                        render.temp().draw_sphere(&loc.t, 1.0, &Vec4::new(1.0, 0.0, 0.0, 0.1), true, None);
+                    }
+                }
+            });
+    });
+}
+*/

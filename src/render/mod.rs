@@ -12,10 +12,12 @@ use glm::{Vec3, Mat4};
 use niced3d12 as n12;
 use typeyd3d12 as t12;
 use allocate::{SMemVec, STACK_ALLOCATOR};
+use camera::{SDebugFPCamera};
 use databucket::{SDataBucket};
 use entity::{SEntityBucket, SEntityHandle};
 use entity_animation;
 use entity_model;
+use game_context::{SGameContext, SFrameContext};
 use model::{SModel, SMeshLoader, STextureLoader};
 use safewindows;
 use rustywindows;
@@ -93,6 +95,10 @@ pub struct SRender {
     render_shadow_map: shadowmapping::SShadowMappingPipeline,
     render_imgui: SRenderImgui,
     render_temp: SRenderTemp,
+}
+
+struct SRenderFrameContext {
+    current_back_buffer_index: usize,
 }
 
 pub fn compile_shaders_if_changed() {
@@ -451,15 +457,7 @@ impl SRender {
         Ok(())
     }
 
-    pub fn render_frame(
-        &mut self,
-        window: &mut n12::SD3D12Window,
-        view_matrix: &Mat4,
-        entities: &mut SEntityBucket,
-        entity_animation: &mut entity_animation::SBucket,
-        entity_model: &entity_model::SBucket,
-        imgui_draw_data: Option<&imgui::DrawData>,
-    ) -> Result<(), &'static str> {
+    pub fn render_begin_frame(&mut self, window: &mut n12::SD3D12Window) -> Result<SRenderFrameContext, &'static str> {
         let back_buffer_idx = window.currentbackbufferindex();
 
         // -- wait for buffer to be available
@@ -493,9 +491,24 @@ impl SRender {
             self.direct_command_pool.execute_and_free_list(&mut handle)?;
         }
 
+        Ok(SRenderFrameContext{
+            current_back_buffer_index: back_buffer_idx,
+        })
+    }
+
+    pub fn render_frame(
+        &mut self,
+        render_frame_context: &SRenderFrameContext,
+        view_matrix: &Mat4,
+        entities: &mut SEntityBucket,
+        entity_animation: &mut entity_animation::SBucket,
+        entity_model: &entity_model::SBucket,
+        imgui_draw_data: Option<&imgui::DrawData>,
+    ) -> Result<(), &'static str> {
+
         // -- kick off imgui copies
         if let Some(idd) = imgui_draw_data {
-            self.setup_imgui_draw_data_resources(window, idd)?;
+            self.setup_imgui_draw_data_resources(render_frame_context, idd)?;
         }
 
         // -- update skinned buffers
@@ -503,8 +516,8 @@ impl SRender {
 
         // -- $$$FRK(TODO): should initialize the shadow map depth buffer to empty, so we still get light if we don't render maps
         self.render_shadow_maps(entities, entity_model)?;
-        self.render_world(window, view_matrix, entities, entity_animation, entity_model)?;
-        self.render_temp_in_world(window, view_matrix)?;
+        self.render_world(render_frame_context, view_matrix, entities, entity_animation, entity_model)?;
+        self.render_temp_in_world(render_frame_context, view_matrix)?;
 
         // -- clear depth buffer again
         {
@@ -515,11 +528,10 @@ impl SRender {
             self.direct_command_pool.execute_and_free_list(&mut handle)?;
         }
 
-        self.render_temp_over_world(window, view_matrix)?;
+        self.render_temp_over_world(render_frame_context, view_matrix)?;
         if let Some(idd) = imgui_draw_data {
-            self.render_imgui(window, idd)?;
+            self.render_imgui(render_frame_context, idd)?;
         }
-        self.present(window)?;
 
         self.render_temp.clear_tables_without_tokens();
 
@@ -566,7 +578,7 @@ impl SRender {
 
     pub fn render_world(
         &mut self,
-        window: &mut n12::SD3D12Window,
+        render_frame_context: &SRenderFrameContext,
         view_matrix: &Mat4,
         entities: &SEntityBucket,
         entity_animation: &entity_animation::SBucket,
@@ -720,4 +732,22 @@ pub fn cast_ray_against_entity_model(data_bucket: &SDataBucket, ray: &SRay, enti
     result
 }
 
+pub fn update_render(game_context: &SGameContext, frame_context: &SFrameContext) {
+    game_context.data_bucket.get::<SRender>()
+        .and::<SEntityBucket>()
+        .and::<entity_animation::SBucket>()
+        .and::<entity_model::SBucket>()
+        .and::<SDebugFPCamera>()
+        .with_mmmcc(|render, entities, entity_animation, entity_model, camera| {
+            let view_matrix = camera.world_to_view_matrix();
 
+            let render_result = render.render_frame(&mut window, &view_matrix, entities, entity_animation, entity_model, frame_context.imgui_draw_data);
+            match render_result {
+                Ok(_) => {},
+                Err(e) => {
+                    println!("ERROR: render failed with error '{}'", e);
+                    panic!();
+                },
+            }
+        });
+}

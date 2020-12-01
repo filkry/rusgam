@@ -111,3 +111,44 @@ pub fn update_animation(game_context: &SGameContext, frame_context: &SFrameConte
             e_animation.update_joints(anim_loader, frame_context.total_time_s);
         });
 }
+
+/*
+pub fn debug_draw_skeleton(game_context: &SGameContext, frame_context: &SFrameContext) {
+    // -- draw skeleton of selected entity
+    STACK_ALLOCATOR.with(|sa| {
+        data_bucket.get::<render::SRender>().unwrap()
+            .and::<entity_model::SBucket>(&data_bucket).unwrap()
+            .and::<SEntityBucket>(&data_bucket).unwrap()
+            .with_mcc(|render: &mut render::SRender, em: &entity_model::SBucket, entities: &SEntityBucket| {
+                if let Some(e) = editmode_ctxt.editing_entity() {
+                    let loc = entities.get_entity_location(e);
+                    let model_handle = em.handle_for_entity(e).unwrap();
+                    let model = em.get_model(model_handle);
+
+                    let mut joint_locs = SMemVec::new(sa, 128, 0).unwrap();
+
+                    if let Some(bind_joints) = render.mesh_loader().get_mesh_bind_joints(model.mesh) {
+                        if let Some(model_skinning) = entities.get_model_skinning(e) {
+                            for (ji, joint) in bind_joints.as_ref().iter().enumerate() {
+                                let mut local_to_root = model_skinning.cur_joints_to_parents[ji];
+                                let mut next_idx_opt = joint.parent_idx;
+                                while let Some(next_idx) = next_idx_opt {
+                                    local_to_root = STransform::mul_transform(&bind_joints[next_idx].local_to_parent, &local_to_root);
+                                    next_idx_opt = bind_joints[next_idx].parent_idx;
+                                }
+
+                                let local_to_world = STransform::mul_transform(&loc, &local_to_root);
+                                joint_locs.push(local_to_world);
+                            }
+                        }
+                    }
+
+                    for joint_loc in joint_locs.as_ref() {
+                        let end = joint_loc.t + glm::quat_rotate_vec3(&joint_loc.r, &Vec3::new(0.0, 1.0, 0.0));
+                        render.temp().draw_line(&joint_loc.t, &end, &Vec4::new(0.0, 1.0, 0.0, 1.0), true, None);
+                    }
+                }
+            });
+    });
+}
+*/

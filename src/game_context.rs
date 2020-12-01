@@ -21,6 +21,7 @@ pub struct SFrameContext<'ui> {
     pub window_height: u32,
 
     pub imgui_ui: Option<imgui::Ui<'ui>>, // -- goes away partway through the frame
+    pub imgui_draw_data: Option<&'ui imgui::DrawData>, // -- created partway through the frame
     pub imgui_want_capture_mouse: bool,
 
     pub data_bucket: SDataBucket,
@@ -62,6 +63,7 @@ impl SGameContext {
             window_height: window.height(),
 
             imgui_ui: Some(imgui_ctxt.frame()),
+            imgui_draw_data: None,
             imgui_want_capture_mouse,
 
             data_bucket: SDataBucket::new(32, allocator),
@@ -70,5 +72,12 @@ impl SGameContext {
 
     pub fn end_frame(&mut self, frame_context: SFrameContext) {
         self.last_frame_start_time_micro_s = frame_context.start_time_micro_s;
+    }
+}
+
+impl<'ui> SFrameContext<'ui> {
+    pub fn finalize_ui(&mut self) {
+        let imgui_draw_data = self.imgui_ui.take().expect("this is where we take it").render();
+        self.imgui_draw_data = Some(imgui_draw_data);
     }
 }

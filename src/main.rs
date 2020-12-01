@@ -68,8 +68,11 @@ fn update_frame(game_context: &SGameContext, frame_context: &mut SFrameContext) 
     let edit_mode_input = editmode::update_create_input_for_frame(game_context, frame_context);
     frame_context.data_bucket.add(edit_mode_input);
     editmode::update_edit_mode(game_context, frame_context);
+
+    // -- debug updates
     debug_ui::update_debug_main_menu(game_context, frame_context);
     debug_ui::update_debug_entity_menu(game_context, frame_context);
+    debug_ui::update_draw_entity_bvh(game_context, frame_context);
 
     Ok(())
 }
@@ -151,27 +154,6 @@ fn main_d3d12() -> Result<(), &'static str> {
         let mut frame_context = game_context.start_frame(&winapi, &window, &mut imgui_ctxt, &frame_linear_allocator.as_ref());
 
         update_frame(&game_context, &mut frame_context)?;
-
-        // -- draw selected object's BVH heirarchy
-        STACK_ALLOCATOR.with(|sa| {
-            game_context.data_bucket.get::<render::SRender>()
-                .and::<entity_model::SBucket>()
-                .and::<bvh::STree<entity::SEntityHandle>>()
-                .and::<game_mode::SGameMode>()
-                .with_mccc(|render, em, bvh, game_mode| {
-                    if game_mode.draw_selected_bvh {
-                        if let Some(e) = game_mode.edit_mode_ctxt.editing_entity() {
-                            let model_handle = em.handle_for_entity(e).unwrap();
-
-                            let mut aabbs = SMemVec::new(&sa.as_ref(), 32, 0).unwrap();
-                            bvh.get_bvh_heirarchy_for_entry(em.get_bvh_entry(model_handle).unwrap(), &mut aabbs);
-                            for aabb in aabbs.as_slice() {
-                                render.temp().draw_aabb(aabb, &Vec4::new(1.0, 0.0, 0.0, 1.0), true);
-                            }
-                        }
-                    }
-                });
-            });
 
         // -- draw selected object colliding/not with rotating_entity
         STACK_ALLOCATOR.with(|sa| {

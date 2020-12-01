@@ -111,6 +111,8 @@ pub struct SInput {
     pub numbers_down: [bool; 10], // number keys 0-9 pressed
     pub numbers_edge: [EInputEdge; 10],
 
+    pub mouse_cursor_pos_screen: [u32; 2],
+    pub mouse_cursor_pos_window: [i32; 2],
     pub mouse_dx: i32,
     pub mouse_dy: i32,
 }
@@ -265,6 +267,8 @@ impl SInput {
             numbers_down: [false; 10],
             numbers_edge: [EInputEdge::Unchanged; 10],
 
+            mouse_cursor_pos_screen: [0; 2],
+            mouse_cursor_pos_window: [0, 2],
             mouse_dx: 0,
             mouse_dy: 0,
         }

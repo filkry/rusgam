@@ -61,9 +61,11 @@ use utils::{STransform};
 //use model::{SModel, SMeshLoader, STextureLoader};
 
 
-fn update_frame(game_context: &SGameContext, frame_context: &SFrameContext) -> Result<(), &'static str> {
+fn update_frame(game_context: &SGameContext, frame_context: &mut SFrameContext) -> Result<(), &'static str> {
     game_mode::update_toggle_mode(game_context);
     camera::update_debug_camera(game_context, frame_context);
+    let edit_mode_input = editmode::update_create_input_for_frame(game_context, frame_context);
+    frame_context.data_bucket.add(edit_mode_input);
 
     Ok(())
 }
@@ -74,6 +76,7 @@ fn main_d3d12() -> Result<(), &'static str> {
     let winapi = rustywindows::SWinAPI::create();
 
     let mut imgui_ctxt = imgui::Context::create();
+
     input::setup_imgui_key_map(imgui_ctxt.io_mut());
 
     let mut render = render::SRender::new(&winapi, &mut imgui_ctxt)?;
@@ -87,6 +90,7 @@ fn main_d3d12() -> Result<(), &'static str> {
     let windowclass = windowclass_result.unwrap();
 
     let mut window = render.create_window(&windowclass, "rusgam", 1600, 900)?;
+    imgui_ctxt.io_mut().display_size = [window.width() as f32, window.height() as f32];
 
     window.init_render_target_views(render.device())?;
     window.show();
@@ -140,23 +144,9 @@ fn main_d3d12() -> Result<(), &'static str> {
             allocate::SLinearAllocator::new(frame_linear_allocator_helper.as_ref(), 120 * 1024 * 1024, 8)?,
         );
 
-        let mut frame_context = game_context.start_frame(&winapi, &frame_linear_allocator.as_ref());
+        let mut frame_context = game_context.start_frame(&winapi, &window, &imgui_ctxt, &frame_linear_allocator.as_ref());
 
-        update_frame(&game_context, &frame_context)?;
-
-        {
-            let edit_mode_input = game_context.data_bucket.get_renderer()
-                .and::<camera::SDebugFPCamera>()
-                .with_cc(|render, camera| {
-                    editmode::SEditModeInput::new_for_frame(&window, &winapi, &camera, &render, &imgui_ctxt)
-                });
-            frame_context.data_bucket.add(edit_mode_input);
-        }
-
-        game_context.data_bucket.get::<input::SInput>().with_mut(|input| {
-            input.mouse_dx = 0;
-            input.mouse_dy = 0;
-        });
+        update_frame(&game_context, &mut frame_context)?;
 
         let view_matrix = game_context.data_bucket.get::<camera::SDebugFPCamera>()
             .with(|camera| {
@@ -181,9 +171,6 @@ fn main_d3d12() -> Result<(), &'static str> {
             });
 
         // -- update IMGUI
-        let io = imgui_ctxt.io_mut();
-        io.display_size = [window.width() as f32, window.height() as f32];
-
         let imgui_ui = imgui_ctxt.frame();
         game_context.data_bucket.get::<game_mode::SGameMode>()
             .and::<gjk::SGJKDebug>()
@@ -387,11 +374,14 @@ fn main_d3d12() -> Result<(), &'static str> {
 
         game_context.data_bucket.get::<input::SInput>()
             .with_mut(|input| {
+                input.mouse_dx = 0;
+                input.mouse_dy = 0;
+
+                input.mouse_cursor_pos_screen = winapi.rawwinapi().get_cursor_pos();
+                input.mouse_cursor_pos_window = window.mouse_pos(&winapi.rawwinapi());
+
                 let io = imgui_ctxt.io_mut(); // for filling out io state
-                frame_context.data_bucket.get::<editmode::SEditModeInput>()
-                    .with(|editmode_input| {
-                        io.mouse_pos = [editmode_input.mouse_window_pos[0] as f32, editmode_input.mouse_window_pos[1] as f32];
-                    });
+                io.mouse_pos = [input.mouse_cursor_pos_window[0] as f32, input.mouse_cursor_pos_window[1] as f32];
 
                 let mut input_handler = input.frame(io);
                 loop {
@@ -440,6 +430,10 @@ fn main_d3d12() -> Result<(), &'static str> {
                         },
                     }
                 }
+
+                // -- display size might have changed
+                io.display_size = [window.width() as f32, window.height() as f32];
+                input.mouse_cursor_pos_window = window.mouse_pos(&winapi.rawwinapi());
             });
 
         game_context.end_frame(frame_context);

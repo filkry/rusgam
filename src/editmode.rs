@@ -2,15 +2,12 @@ use allocate::{STACK_ALLOCATOR, SMemVec};
 use bvh;
 use camera;
 use databucket;
-use game_context::SGameContext;
+use game_context::{SGameContext, SFrameContext};
 use entity::{SEntityBucket, SEntityHandle};
 use glm::{Vec3, Vec4};
-use imgui;
 use input;
 use model;
-use niced3d12 as n12;
 use render;
-use rustywindows;
 use utils;
 use utils::{STransform};
 
@@ -65,22 +62,23 @@ pub enum EEditMode {
 
 impl SEditModeInput {
     pub fn new_for_frame(
-        window: &n12::SD3D12Window,
-        winapi: &rustywindows::SWinAPI,
+        window_width: u32,
+        window_height: u32,
         camera: &camera::SDebugFPCamera,
+        input: &input::SInput,
         render: &render::SRender,
-        imgui: &imgui::Context,
+        imgui_want_capture_mouse: bool,
     ) -> Self {
         Self {
-            window_width: window.width(),
-            window_height: window.height(),
-            mouse_window_pos: window.mouse_pos(&winapi.rawwinapi()),
+            window_width,
+            window_height,
+            mouse_window_pos: input.mouse_cursor_pos_window,
             camera_pos_world: camera.pos_world,
             camera_forward: camera.forward_world(),
             world_to_view_matrix: camera.world_to_view_matrix(),
             fovy: render.fovy(),
             znear: render.znear(),
-            imgui_want_capture_mouse: imgui.io().want_capture_mouse,
+            imgui_want_capture_mouse,
         }
     }
 }
@@ -690,4 +688,18 @@ pub fn pos_on_screen_space_line_to_world(
     closest_pos_world_space.xyz()
 }
 
-
+pub fn update_create_input_for_frame(game_context: &SGameContext, frame_context: &SFrameContext) -> SEditModeInput {
+    game_context.data_bucket.get_renderer()
+        .and::<camera::SDebugFPCamera>()
+        .and::<input::SInput>()
+        .with_ccc(|render, camera, input| {
+            SEditModeInput::new_for_frame(
+                frame_context.window_width,
+                frame_context.window_height,
+                camera,
+                input,
+                render,
+                frame_context.imgui_want_capture_mouse,
+            )
+        })
+}

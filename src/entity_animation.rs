@@ -2,6 +2,7 @@ use allocate::{SMemVec, SAllocatorRef};
 use animation::{SAnimHandle, SAnimationLoader, update_joints};
 use entity::{SEntityHandle};
 use entity_model;
+use game_context::{SGameContext, SFrameContext};
 use model::{SModelSkinning, SMeshLoader};
 
 struct SPlayingAnimation {
@@ -101,4 +102,12 @@ impl SBucket {
         let handle_opt = self.handle_for_entity(entity);
         handle_opt.map(|handle| self.get_skinning(handle).expect("handle valid"))
     }
+}
+
+pub fn update_animation(game_context: &SGameContext, frame_context: &SFrameContext) {
+    game_context.data_bucket.get::<SBucket>()
+        .and::<SAnimationLoader>()
+        .with_mc(|e_animation, anim_loader| {
+            e_animation.update_joints(anim_loader, frame_context.total_time_s);
+        });
 }

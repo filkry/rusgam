@@ -68,6 +68,7 @@ fn update_frame(game_context: &SGameContext, frame_context: &mut SFrameContext) 
     frame_context.data_bucket.add(edit_mode_input);
     editmode::update_edit_mode(game_context, frame_context);
 
+    entity_animation::update_animation(game_context, frame_context);
     update_entity_bvh_entries(game_context, frame_context);
 
     // -- debug updates
@@ -188,13 +189,6 @@ fn main_d3d12() -> Result<(), &'static str> {
         let mut frame_context = game_context.start_frame(&winapi, &window, &mut imgui_ctxt, &frame_linear_allocator.as_ref());
 
         update_frame(&game_context, &mut frame_context)?;
-
-        // -- update animation
-        game_context.data_bucket.get::<entity_animation::SBucket>()
-            .and::<animation::SAnimationLoader>()
-            .with_mc(|e_animation, anim_loader| {
-                e_animation.update_joints(anim_loader, frame_context.total_time_s);
-            });
 
         // -- draw skeleton of selected entity
         /*

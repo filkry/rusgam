@@ -66,6 +66,7 @@ fn update_frame(game_context: &SGameContext, frame_context: &mut SFrameContext) 
     camera::update_debug_camera(game_context, frame_context);
     let edit_mode_input = editmode::update_create_input_for_frame(game_context, frame_context);
     frame_context.data_bucket.add(edit_mode_input);
+    editmode::update_edit_mode(game_context, frame_context);
 
     Ok(())
 }
@@ -147,18 +148,6 @@ fn main_d3d12() -> Result<(), &'static str> {
         let mut frame_context = game_context.start_frame(&winapi, &window, &imgui_ctxt, &frame_linear_allocator.as_ref());
 
         update_frame(&game_context, &mut frame_context)?;
-
-        // update edit mode
-        game_context.data_bucket.get::<game_mode::SGameMode>()
-            .and::<input::SInput>()
-            .with_mc(|game_mode, input| {
-                frame_context.data_bucket.get::<editmode::SEditModeInput>()
-                    .with(|editmode_input| {
-                        if game_mode.mode == game_mode::EMode::Edit {
-                            game_mode.edit_mode = game_mode.edit_mode.update(&game_context, &mut game_mode.edit_mode_ctxt, &editmode_input, &input, &game_context.data_bucket);
-                        }
-                    });
-            });
 
         // -- update IMGUI
         let imgui_ui = imgui_ctxt.frame();

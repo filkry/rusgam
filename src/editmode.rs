@@ -3,6 +3,7 @@ use bvh;
 use camera;
 use databucket;
 use game_context::{SGameContext, SFrameContext};
+use game_mode;
 use entity::{SEntityBucket, SEntityHandle};
 use glm::{Vec3, Vec4};
 use input;
@@ -702,4 +703,17 @@ pub fn update_create_input_for_frame(game_context: &SGameContext, frame_context:
                 frame_context.imgui_want_capture_mouse,
             )
         })
+}
+
+pub fn update_edit_mode(game_context: &SGameContext, frame_context: &SFrameContext) {
+    game_context.data_bucket.get::<game_mode::SGameMode>()
+        .and::<input::SInput>()
+        .with_mc(|game_mode, input| {
+            frame_context.data_bucket.get::<SEditModeInput>()
+                .with(|editmode_input| {
+                    if game_mode.mode == game_mode::EMode::Edit {
+                        game_mode.edit_mode = game_mode.edit_mode.update(&game_context, &mut game_mode.edit_mode_ctxt, &editmode_input, &input, &game_context.data_bucket);
+                    }
+                });
+        });
 }

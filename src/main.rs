@@ -148,16 +148,6 @@ fn main_d3d12() -> Result<(), &'static str> {
 
         update_frame(&game_context, &mut frame_context)?;
 
-        let view_matrix = game_context.data_bucket.get::<camera::SDebugFPCamera>()
-            .with(|camera| {
-                camera.world_to_view_matrix()
-            });
-
-        //println!("View: {}", view_matrix);
-        //println!("Perspective: {}", perspective_matrix);
-
-        //println!("Frame time: {}us", _dtms);
-
         // update edit mode
         game_context.data_bucket.get::<game_mode::SGameMode>()
             .and::<input::SInput>()
@@ -357,7 +347,10 @@ fn main_d3d12() -> Result<(), &'static str> {
             .and::<SEntityBucket>()
             .and::<entity_animation::SBucket>()
             .and::<entity_model::SBucket>()
-            .with_mmmc(|render, entities, entity_animation, entity_model| {
+            .and::<camera::SDebugFPCamera>()
+            .with_mmmcc(|render, entities, entity_animation, entity_model, camera| {
+                let view_matrix = camera.world_to_view_matrix();
+
                 let render_result = render.render_frame(&mut window, &view_matrix, entities, entity_animation, entity_model, Some(&imgui_draw_data));
                 match render_result {
                     Ok(_) => {},

@@ -1,4 +1,6 @@
 
++ look for uses of SYSTEMALLOCATOR and switch as many as possible to take a passed allocator
++ make a Sync version of SDataBucket
 + move Pools out of collections mod.rs
 + move SMemVec from allocate to collections
 + Port SPool to use SMemVec backing rather than Vec

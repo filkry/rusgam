@@ -129,14 +129,15 @@ fn main_d3d12() -> Result<(), &'static str> {
             ea.play_animation(handle, anim_loader, render.mesh_loader(), asset_file_path, 0.0);
         });
 
-    assert!(false, "This can just be another linear allocator which is used to allocate the frame one");
-    let mut frame_linear_mem = SYSTEM_ALLOCATOR().alloc(128 * 1024 * 1024, 8)?;
+    let frame_linear_allocator_helper = SAllocator::new(
+        allocate::SLinearAllocator::new(SYSTEM_ALLOCATOR(), 128 * 1024 * 1024, 8)?,
+    );
 
     // -- update loop
     while !game_context.data_bucket.get::<input::SInput>().with(|input| input.q_down) {
 
         let frame_linear_allocator = SAllocator::new(
-            allocate::SLinearAllocator::new(outer_allocator)?,
+            allocate::SLinearAllocator::new(frame_linear_allocator_helper.as_ref(), 120 * 1024 * 1024, 8)?,
         );
 
         let mut frame_context = game_context.start_frame(&winapi, &frame_linear_allocator.as_ref());
@@ -442,6 +443,9 @@ fn main_d3d12() -> Result<(), &'static str> {
             });
 
         game_context.end_frame(frame_context);
+
+        drop(frame_linear_allocator);
+        frame_linear_allocator_helper.reset();
 
         // -- increase frame time for testing
         //std::thread::sleep(std::time::Duration::from_millis(111));

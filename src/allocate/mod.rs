@@ -18,13 +18,6 @@ pub fn SYSTEM_ALLOCATOR() -> SAllocatorRef {
 }
 
 thread_local! {
-    /*
-    pub static TEMP_ALLOCATOR : RefCell<SGenAllocator<SLinearAllocator<'static>>> =
-        RefCell::new(
-            SGenAllocator::new(
-                SLinearAllocator::new(&SYSTEM_ALLOCATOR, 4 * 1024 * 1024, 8).unwrap()));
-    */
-
     pub static STACK_ALLOCATOR : SAllocator =
         SAllocator::new(SStackAllocator::new(SYSTEM_ALLOCATOR(), 4 * 1024 * 1024, 8).unwrap());
 }
@@ -61,7 +54,7 @@ pub trait TMemAllocator {
     fn free(&self, existing_allocation: SMem) -> Result<(), &'static str>;
     unsafe fn free_unsafe(&self, existing_allocation: &mut SMem) -> Result<(), &'static str>;
 
-    unsafe fn reset(&self);
+    fn reset(&self);
 }
 
 impl SAllocator {
@@ -84,6 +77,17 @@ impl SAllocator {
             },
             EAllocator::MemAllocator(mem_allocator) => SAllocatorRef {
                 allocator: EAllocatorRef::MemAllocator(Rc::downgrade(mem_allocator)),
+            }
+        }
+    }
+
+    pub fn reset(&self) {
+        match &self.allocator {
+            EAllocator::System => {
+                // -- do nothing
+            },
+            EAllocator::MemAllocator(mem_allocator) => {
+                mem_allocator.reset()
             }
         }
     }
@@ -125,6 +129,8 @@ impl SAllocatorRef {
         Ok(())
     }
 }
+
+// -- $$$FRK(TODO): break allocators out in to their own files
 
 pub struct SSystemAllocator {}
 
@@ -177,13 +183,20 @@ impl TMemAllocator for SSystemAllocator {
         unsafe { self.free_unsafe(&mut existing_allocation) }
     }
 
-    unsafe fn reset(&self) {}
+    fn reset(&self) {}
+}
+
+struct SLinearAllocatorAllocHeader {
+    magic_number: u64,
+    size: usize,
+    freed: bool,
 }
 
 struct SLinearAllocatorData {
     raw: SMem,
     cur_offset: usize,
     allow_realloc: bool,
+    held_allocations: usize,
 }
 
 pub struct SLinearAllocator {
@@ -201,9 +214,14 @@ impl SLinearAllocator {
                 raw: parent.alloc(size, align)?,
                 cur_offset: 0,
                 allow_realloc: false,
+                held_allocations: 0,
             }),
         })
     }
+}
+
+impl SLinearAllocator {
+    const HEADER_MAGIC_NUM : u64 = 0xf67d1a6399bb2139;
 }
 
 impl TMemAllocator for SLinearAllocator {
@@ -214,19 +232,26 @@ impl TMemAllocator for SLinearAllocator {
             panic!("Currently don't support different alignments.");
         }
 
-        panic!("Refcount");
-        panic!("Should put a struct at the start of the memory which track the allocation.");
-
         let aligned_offset = align_up(data.cur_offset, align);
+        let aligned_header_size = align_up(size_of::<SLinearAllocatorAllocHeader>(), align);
         let aligned_size = align_up(size, align);
 
-        if (aligned_offset + aligned_size) > data.raw.size {
+        if (aligned_offset + aligned_header_size + aligned_size) > data.raw.size {
             return Err("Out of memory");
         }
 
-        let result = unsafe { data.raw.data.add(aligned_offset) };
+        let header = unsafe { data.raw.data.add(aligned_offset) as *mut SLinearAllocatorAllocHeader};
+        let result = unsafe { data.raw.data.add(aligned_offset + aligned_header_size) };
 
-        data.cur_offset = aligned_offset + aligned_size;
+        unsafe {
+            (*header).magic_number = Self::HEADER_MAGIC_NUM;
+            (*header).size = aligned_size;
+            (*header).freed = false;
+        }
+
+        data.cur_offset = aligned_offset + aligned_header_size + aligned_size;
+
+        data.held_allocations += 1;
 
         Ok((result, aligned_size))
     }
@@ -241,18 +266,34 @@ impl TMemAllocator for SLinearAllocator {
         Err("Does not allow realloc.")
     }
 
-    unsafe fn free_unsafe(&self, _existing_allocation: &mut SMem) -> Result<(), &'static str> {
-        panic!("Should free the allocation, verify with embedded record, and modify refcount");
-        Ok(())
-    }
-
-    fn free(&self, mut _existing_allocation: SMem) -> Result<(), &'static str> {
-        panic!("Should free the allocation, verify with embedded record, and modify refcount");
-        Ok(())
-    }
-
-    unsafe fn reset(&self) {
+    unsafe fn free_unsafe(&self, existing_allocation: &mut SMem) -> Result<(), &'static str> {
         let mut data = self.data.borrow_mut();
+
+        let aligned_header_size = align_up(
+            size_of::<SLinearAllocatorAllocHeader>(),
+            existing_allocation.alignment,
+        );
+
+        let header = existing_allocation.data.sub(aligned_header_size) as *mut SLinearAllocatorAllocHeader;
+        assert!((*header).magic_number == Self::HEADER_MAGIC_NUM);
+        assert!((*header).size == existing_allocation.size);
+        assert!((*header).freed == false);
+
+        (*header).freed = true;
+
+        assert!(data.held_allocations > 0);
+        data.held_allocations -= 1;
+
+        Ok(())
+    }
+
+    fn free(&self, mut existing_allocation: SMem) -> Result<(), &'static str> {
+        unsafe { self.free_unsafe(&mut existing_allocation) }
+    }
+
+    fn reset(&self) {
+        let mut data = self.data.borrow_mut();
+        assert!(data.held_allocations == 0);
 
         data.cur_offset = 0;
     }
@@ -260,6 +301,8 @@ impl TMemAllocator for SLinearAllocator {
 
 impl Drop for SLinearAllocator {
     fn drop(&mut self) {
+        let data = self.data.borrow();
+        assert!(data.held_allocations == 0);
     }
 }
 
@@ -334,7 +377,7 @@ impl TMemAllocator for SStackAllocator {
         unsafe { self.free_unsafe(&mut existing_allocation) }
     }
 
-    unsafe fn reset(&self) {
+    fn reset(&self) {
         panic!("Stack allocator does not handle reset!");
     }
 }
@@ -495,20 +538,6 @@ impl<T> SMemVec<T> {
         Ok(result)
     }
 
-    /*
-    pub fn new_genned<A: TMemAllocator>(
-        allocator: &'a SGenAllocator<A>,
-        initial_capacity: usize,
-        grow_capacity: usize,
-    ) -> Result<SGenAllocation<'a, Self, A>, &'static str> {
-        Ok(SGenAllocation {
-            raw: Self::new(&allocator.raw, initial_capacity, grow_capacity)?,
-            generation: allocator.generation(),
-            temp_allocator: allocator,
-        })
-    }
-    */
-
     unsafe fn data(&self) -> *const T {
         self.mem.data as *const T
     }
@@ -665,94 +694,6 @@ impl std::io::Write for SMemVec<u8> {
     }
 }
 
-/*
-// -- this generation'd allocation wrapping is still unsafe because the generation could
-// -- change while we're looking at the data - we don't guard every touch of the memory
-pub struct SGenAllocator<A: TMemAllocator> {
-    raw: A,
-    generation: RefCell<u32>,
-}
-
-impl<A: TMemAllocator> SGenAllocator<A> {
-    pub fn new(raw: A) -> Self {
-        Self {
-            raw: raw,
-            generation: RefCell::new(0),
-        }
-    }
-
-    pub fn generation(&self) -> u32 {
-        *self.generation.borrow()
-    }
-
-    pub unsafe fn reset(&self) {
-        *self.generation.borrow_mut() += 1;
-        self.raw.reset();
-    }
-}
-
-pub struct SGenAllocation<'a, T, A: TMemAllocator> {
-    raw: T,
-    generation: u32,
-    temp_allocator: &'a SGenAllocator<A>,
-}
-
-impl<'a, T, A: TMemAllocator> SGenAllocation<'a, T, A> {
-    pub fn valid(&self) -> bool {
-        self.generation == self.temp_allocator.generation()
-    }
-
-    pub unsafe fn unwrap(&self) -> &T {
-        if !self.valid() {
-            panic!("Kept a GenAllocation around after reset!");
-        }
-
-        &self.raw
-    }
-
-    pub unsafe fn unwrap_mut(&mut self) -> &mut T {
-        if !self.valid() {
-            panic!("Kept a GenAllocation around after reset!");
-        }
-
-        &mut self.raw
-    }
-}
-*/
-
-/*
-impl<'a, 'b, T> IntoIterator for &'a SMemVec<'b, T> {
-    type Item = &'a T;
-    type IntoIter = std::slice::Iter<'a, T>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter()
-    }
-}
-
-impl<'a, 'b, T> IntoIterator for &'a mut SMemVec<'b, T> {
-    type Item = &'a mut T;
-    type IntoIter = std::slice::IterMut<'a, T>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter_mut()
-    }
-}
-*/
-
-/* NOTES
-
-I would really like to support some sort of temporary allocator that is reset at a frame, with
-guarded access, but I don't think that's possible to do in a way that creates a generic allocation
-result without one of:
-a. unsafety
-b. huge performance overhead
-
-Maybe I can wrap allocations from it in some sort of TempAlloc struct?
-
-I NEED TO WRITE BOTH VERSIONS FIRST, then find commonalities
-*/
-
 #[test]
 fn test_basic() {
     let allocator = SYSTEM_ALLOCATOR();
@@ -852,55 +793,26 @@ fn test_drop() {
     assert_eq!(*refcount.borrow().deref(), 0 as i64);
 }
 
-/*
 #[test]
-fn test_genned() {
-    let sys_allocator = SSystemAllocator {};
-    let lin_allocator = SLinearAllocator::new(&sys_allocator, 1024, 8).unwrap();
-    let gen_allocator = SGenAllocator::new(lin_allocator);
+fn test_linear_allocator() {
+    let linear_allocator = SAllocator::new(SLinearAllocator::new(SYSTEM_ALLOCATOR(), 1024, 8).unwrap());
 
-    let mut vec = SMemVec::<u32>::new_genned(&gen_allocator, 5, 0).unwrap();
-    {
-        let internal = unsafe { vec.unwrap() };
-        assert_eq!(internal.len(), 0);
-        assert_eq!(internal.capacity(), 5);
-    }
+    let mut vec = SMemVec::<u32>::new(&linear_allocator.as_ref(), 5, 0).unwrap();
+    assert_eq!(vec.len(), 0);
+    assert_eq!(vec.capacity(), 5);
 
-    {
-        let internal = unsafe { vec.unwrap_mut() };
+    vec.push(33);
+    assert_eq!(vec[0], 33);
+    assert_eq!(vec.len(), 1);
 
-        internal.push(33);
-        assert_eq!(internal[0], 33);
-        assert_eq!(internal.len(), 1);
-    }
+    let mut vec2 = SMemVec::<u32>::new(&linear_allocator.as_ref(), 15, 0).unwrap();
+    assert_eq!(vec2.len(), 0);
+    assert_eq!(vec2.capacity(), 15);
+
+    vec2.push(333);
+    assert_eq!(vec2[0], 333);
+    assert_eq!(vec2.len(), 1);
 }
-
-#[test]
-#[should_panic]
-fn test_genned_should_panic() {
-    let sys_allocator = SSystemAllocator {};
-    let lin_allocator = SLinearAllocator::new(&sys_allocator, 1024, 8).unwrap();
-    let gen_allocator = SGenAllocator::new(lin_allocator);
-
-    let mut vec = SMemVec::<u32>::new_genned(&gen_allocator, 5, 0).unwrap();
-    {
-        let internal = unsafe { vec.unwrap() };
-        assert_eq!(internal.len(), 0);
-        assert_eq!(internal.capacity(), 5);
-    }
-
-    unsafe { gen_allocator.reset() };
-
-    {
-        let internal = unsafe { vec.unwrap_mut() };
-
-        internal.push(21);
-        assert_eq!(internal[0], 33);
-        assert_eq!(internal[1], 21);
-        assert_eq!(internal.len(), 2);
-    }
-}
-*/
 
 #[test]
 fn test_stack_allocator() {

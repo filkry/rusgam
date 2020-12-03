@@ -1,5 +1,6 @@
-use allocate::{SMemVec, SAllocatorRef};
+use allocate::{SAllocatorRef};
 use animation::{SAnimHandle, SAnimationLoader, update_joints};
+use collections::{SVec};
 use entity::{SEntityHandle};
 use entity_model;
 use game_context::{SGameContext, SFrameContext};
@@ -19,14 +20,14 @@ pub struct SEntityAnimation {
 }
 
 pub struct SBucket {
-    pub instances: SMemVec<SEntityAnimation>,
+    pub instances: SVec<SEntityAnimation>,
 }
 pub type SHandle = usize;
 
 impl SBucket {
     pub fn new(allocator: &SAllocatorRef, max_entries: usize) -> Result<Self, &'static str> {
         Ok(Self {
-            instances: SMemVec::new(allocator, max_entries, 0)?,
+            instances: SVec::new(allocator, max_entries, 0)?,
         })
     }
 
@@ -125,7 +126,7 @@ pub fn debug_draw_skeleton(game_context: &SGameContext, frame_context: &SFrameCo
                     let model_handle = em.handle_for_entity(e).unwrap();
                     let model = em.get_model(model_handle);
 
-                    let mut joint_locs = SMemVec::new(sa, 128, 0).unwrap();
+                    let mut joint_locs = SVec::new(sa, 128, 0).unwrap();
 
                     if let Some(bind_joints) = render.mesh_loader().get_mesh_bind_joints(model.mesh) {
                         if let Some(model_skinning) = entities.get_model_skinning(e) {

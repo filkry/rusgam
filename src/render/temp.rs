@@ -8,7 +8,8 @@ use glm::{Vec3, Vec4, Mat4};
 
 use niced3d12 as n12;
 use typeyd3d12 as t12;
-use allocate::{SMemVec, STACK_ALLOCATOR, SYSTEM_ALLOCATOR};
+use allocate::{STACK_ALLOCATOR, SYSTEM_ALLOCATOR};
+use collections::{SVec};
 use model::{SModel, SMeshLoader, STextureLoader, SMeshHandle};
 use super::shaderbindings;
 use utils::{STransform, SAABB};
@@ -111,7 +112,7 @@ pub struct SRenderTemp {
     _point_vert_byte_code: t12::SShaderBytecode,
     _point_pixel_byte_code: t12::SShaderBytecode,
 
-    points: SMemVec::<SPoint>,
+    points: SVec::<SPoint>,
     point_vertex_buffer_intermediate_resource: [Option<n12::SResource>; 2],
     point_vertex_buffer_resource: [Option<n12::SResource>; 2],
     point_vertex_buffer_view: [Option<t12::SVertexBufferView>; 2],
@@ -123,7 +124,7 @@ pub struct SRenderTemp {
     _line_vert_byte_code: t12::SShaderBytecode,
     _line_pixel_byte_code: t12::SShaderBytecode,
 
-    lines: SMemVec::<SLine>,
+    lines: SVec::<SLine>,
     line_vertex_buffer_intermediate_resource: [Option<n12::SResource>; 2],
     line_vertex_buffer_resource: [Option<n12::SResource>; 2],
     line_vertex_buffer_view: [Option<t12::SVertexBufferView>; 2],
@@ -135,7 +136,7 @@ pub struct SRenderTemp {
     _instance_mesh_vert_byte_code: t12::SShaderBytecode,
     _instance_mesh_pixel_byte_code: t12::SShaderBytecode,
 
-    spheres: SMemVec::<SSphere>,
+    spheres: SVec::<SSphere>,
     sphere_mesh: SMeshHandle,
     sphere_instance_buffer_intermediate_resource: [Option<n12::SResource>; 2],
     sphere_instance_buffer_resource: [Option<n12::SResource>; 2],
@@ -149,7 +150,7 @@ pub struct SRenderTemp {
     _mesh_vert_byte_code: t12::SShaderBytecode,
     _mesh_pixel_byte_code: t12::SShaderBytecode,
 
-    models: SMemVec::<STempModel>,
+    models: SVec::<STempModel>,
 
     next_token: u64,
 }
@@ -532,7 +533,7 @@ impl SRenderTemp {
             point_vp_root_param_idx,
             _point_vert_byte_code: point_vert_byte_code,
             _point_pixel_byte_code: point_pixel_byte_code,
-            points: SMemVec::new(&allocator, 1024, 0)?,
+            points: SVec::new(&allocator, 1024, 0)?,
             point_vertex_buffer_intermediate_resource: [None, None],
             point_vertex_buffer_resource: [None, None],
             point_vertex_buffer_view: [None, None],
@@ -542,7 +543,7 @@ impl SRenderTemp {
             line_vp_root_param_idx,
             _line_vert_byte_code: line_vert_byte_code,
             _line_pixel_byte_code: line_pixel_byte_code,
-            lines: SMemVec::new(&allocator, 1024, 0)?,
+            lines: SVec::new(&allocator, 1024, 0)?,
             line_vertex_buffer_intermediate_resource: [None, None],
             line_vertex_buffer_resource: [None, None],
             line_vertex_buffer_view: [None, None],
@@ -553,7 +554,7 @@ impl SRenderTemp {
             _instance_mesh_vert_byte_code: instance_mesh_vert_byte_code,
             _instance_mesh_pixel_byte_code: instance_mesh_pixel_byte_code,
 
-            spheres: SMemVec::new(&allocator, 1024, 0)?,
+            spheres: SVec::new(&allocator, 1024, 0)?,
             sphere_mesh,
             sphere_instance_buffer_intermediate_resource: [None, None],
             sphere_instance_buffer_resource: [None, None],
@@ -566,7 +567,7 @@ impl SRenderTemp {
             _mesh_vert_byte_code: mesh_vert_byte_code,
             _mesh_pixel_byte_code: mesh_pixel_byte_code,
 
-            models: SMemVec::new(&allocator, 1024, 0)?,
+            models: SVec::new(&allocator, 1024, 0)?,
 
             next_token: 1,
         })
@@ -746,7 +747,7 @@ impl super::SRender {
         let points_to_draw = STACK_ALLOCATOR.with(|sa| -> Result<bool, &'static str> {
             let tr = &mut self.render_temp;
 
-            let mut vertex_buffer_data = SMemVec::new(
+            let mut vertex_buffer_data = SVec::new(
                 &sa.as_ref(),
                 tr.points.len(),
                 0,
@@ -903,7 +904,7 @@ impl super::SRender {
         let lines_to_draw = STACK_ALLOCATOR.with(|sa| -> Result<bool, &'static str> {
             let tr = &mut self.render_temp;
 
-            let mut vertex_buffer_data = SMemVec::new(
+            let mut vertex_buffer_data = SVec::new(
                 &sa.as_ref(),
                 tr.lines.len() * 2,
                 0,
@@ -1060,7 +1061,7 @@ impl super::SRender {
         let sphere_count = STACK_ALLOCATOR.with(|sa| -> Result<usize, &'static str> {
             let tr = &mut self.render_temp;
 
-            let mut instance_buffer_data = SMemVec::new(
+            let mut instance_buffer_data = SVec::new(
                 &sa.as_ref(),
                 tr.spheres.len(),
                 0,

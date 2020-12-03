@@ -3,7 +3,8 @@ use std::cell::{RefCell};
 use std::ops::{Deref, DerefMut};
 use std::rc::{Rc, Weak};
 
-use allocate::{SMemVec, SAllocatorRef};
+use allocate::{SAllocatorRef};
+use collections::{SVec};
 
 use animation;
 use camera;
@@ -49,7 +50,7 @@ pub struct SDataRef<T> {
 }
 
 pub struct SDataBucket {
-    entries: SMemVec<SData>,
+    entries: SVec<SData>,
 }
 
 impl SData {
@@ -76,7 +77,7 @@ impl SData {
 impl SDataBucket {
     pub fn new(max_entries: usize, allocator: &SAllocatorRef) -> Self {
         Self {
-            entries: SMemVec::new(allocator, max_entries, 0).unwrap(),
+            entries: SVec::new(allocator, max_entries, 0).unwrap(),
         }
     }
 

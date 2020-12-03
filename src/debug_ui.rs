@@ -1,5 +1,6 @@
-use allocate::{SMemVec, STACK_ALLOCATOR};
+use allocate::{STACK_ALLOCATOR};
 use bvh;
+use collections::{SVec};
 use entity;
 use entity_model;
 use game_context::{SGameContext, SFrameContext};
@@ -81,7 +82,7 @@ pub fn update_draw_entity_bvh(game_context: &SGameContext, _frame_context: &SFra
                     if let Some(e) = game_mode.edit_mode_ctxt.editing_entity() {
                         let model_handle = em.handle_for_entity(e).unwrap();
 
-                        let mut aabbs = SMemVec::new(&sa.as_ref(), 32, 0).unwrap();
+                        let mut aabbs = SVec::new(&sa.as_ref(), 32, 0).unwrap();
                         bvh.get_bvh_heirarchy_for_entry(em.get_bvh_entry(model_handle).unwrap(), &mut aabbs);
                         for aabb in aabbs.as_slice() {
                             render.temp().draw_aabb(aabb, &Vec4::new(1.0, 0.0, 0.0, 1.0), true);
@@ -110,7 +111,7 @@ pub fn update_debug_draw_entity_colliding() {
                         let model = em.get_model(e_model_handle);
                         let mesh_local_vs = render.mesh_loader().get_mesh_local_vertices(model.mesh);
 
-                        let mut world_verts = SMemVec::new(&sa.as_ref(), mesh_local_vs.len(), 0).unwrap();
+                        let mut world_verts = SVec::new(&sa.as_ref(), mesh_local_vs.len(), 0).unwrap();
 
                         for v in mesh_local_vs.as_slice() {
                             world_verts.push(loc.mul_point(&v));
@@ -124,7 +125,7 @@ pub fn update_debug_draw_entity_colliding() {
                         let loc = entities.get_entity_location(rotating_entity);
                         let mesh_local_vs = render.mesh_loader().get_mesh_local_vertices(model.mesh);
 
-                        let mut world_verts = SMemVec::new(&sa.as_ref(), mesh_local_vs.len(), 0).unwrap();
+                        let mut world_verts = SVec::new(&sa.as_ref(), mesh_local_vs.len(), 0).unwrap();
 
                         for v in mesh_local_vs.as_slice() {
                             world_verts.push(loc.mul_point(&v));

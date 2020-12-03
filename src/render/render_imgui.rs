@@ -7,7 +7,8 @@ use arrayvec::{ArrayVec};
 use imgui;
 use glm::{Mat4};
 
-use allocate::{SMemVec, SYSTEM_ALLOCATOR};
+use allocate::{SYSTEM_ALLOCATOR};
+use collections::{SVec};
 use model::{STextureLoader, STextureHandle};
 use niced3d12 as n12;
 use typeyd3d12 as t12;
@@ -35,12 +36,12 @@ pub(super) struct SRenderImgui {
     texture_descriptor_table_param_idx: usize,
     _vert_byte_code: t12::SShaderBytecode,
     _pixel_byte_code: t12::SShaderBytecode,
-    vert_buffer_resources: [SMemVec::<n12::SResource>; 2],
-    int_vert_buffer_resources: [SMemVec::<n12::SResource>; 2],
-    vert_buffer_views: [SMemVec::<t12::SVertexBufferView>; 2],
-    index_buffer_resources: [SMemVec::<n12::SResource>; 2],
-    int_index_buffer_resources: [SMemVec::<n12::SResource>; 2],
-    index_buffer_views: [SMemVec::<t12::SIndexBufferView>; 2],
+    vert_buffer_resources: [SVec::<n12::SResource>; 2],
+    int_vert_buffer_resources: [SVec::<n12::SResource>; 2],
+    vert_buffer_views: [SVec::<t12::SVertexBufferView>; 2],
+    index_buffer_resources: [SVec::<n12::SResource>; 2],
+    int_index_buffer_resources: [SVec::<n12::SResource>; 2],
+    index_buffer_views: [SVec::<t12::SIndexBufferView>; 2],
 }
 
 impl SRenderImgui {
@@ -207,24 +208,24 @@ impl SRenderImgui {
         let allocator = SYSTEM_ALLOCATOR();
 
         let vert_buffer_resources = [
-            SMemVec::new(&allocator, 128, 0)?,
-            SMemVec::new(&allocator, 128, 0)?,
+            SVec::new(&allocator, 128, 0)?,
+            SVec::new(&allocator, 128, 0)?,
         ];
         let int_vert_buffer_resources = [
-            SMemVec::new(&allocator, 128, 0)?,
-            SMemVec::new(&allocator, 128, 0)?,
+            SVec::new(&allocator, 128, 0)?,
+            SVec::new(&allocator, 128, 0)?,
         ];
-        let vert_buffer_views = [SMemVec::new(&allocator, 128, 0)?,
-            SMemVec::new(&allocator, 128, 0)?,
+        let vert_buffer_views = [SVec::new(&allocator, 128, 0)?,
+            SVec::new(&allocator, 128, 0)?,
         ];
-        let index_buffer_resources = [SMemVec::new(&allocator, 128, 0)?,
-            SMemVec::new(&allocator, 128, 0)?,
+        let index_buffer_resources = [SVec::new(&allocator, 128, 0)?,
+            SVec::new(&allocator, 128, 0)?,
         ];
-        let int_index_buffer_resources = [SMemVec::new(&allocator, 128, 0)?,
-            SMemVec::new(&allocator, 128, 0)?,
+        let int_index_buffer_resources = [SVec::new(&allocator, 128, 0)?,
+            SVec::new(&allocator, 128, 0)?,
         ];
-        let index_buffer_views = [SMemVec::new(&allocator, 128, 0)?,
-            SMemVec::new(&allocator, 128, 0)?,
+        let index_buffer_views = [SVec::new(&allocator, 128, 0)?,
+            SVec::new(&allocator, 128, 0)?,
         ];
 
         Ok(Self {

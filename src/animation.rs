@@ -1,5 +1,5 @@
-use allocate::{SAllocatorRef, SMemVec};
-use collections::{SStoragePool, SPoolHandle};
+use allocate::{SAllocatorRef};
+use collections::{SStoragePool, SPoolHandle, SVec};
 use glm::{Vec3, Quat};
 use model::{SMeshSkinning};
 use utils;
@@ -7,26 +7,26 @@ use utils::{STransform, lerp, unlerp_f32, gltf_accessor_slice, clamp};
 
 pub struct SAnimation {
     pub duration: f32,
-    channels: SMemVec<EChannel>,
-    bound_node_to_joint_map: SMemVec<Option<usize>>,
+    channels: SVec<EChannel>,
+    bound_node_to_joint_map: SVec<Option<usize>>,
 }
 
 struct STranslationChannel {
     node: usize,
-    sample_times: SMemVec<f32>,
-    sample_values: SMemVec<Vec3>,
+    sample_times: SVec<f32>,
+    sample_values: SVec<Vec3>,
 }
 
 struct SRotationChannel {
     node: usize,
-    sample_times: SMemVec<f32>,
-    sample_values: SMemVec<Quat>,
+    sample_times: SVec<f32>,
+    sample_values: SVec<Quat>,
 }
 
 struct SScaleChannel {
     node: usize,
-    sample_times: SMemVec<f32>,
-    sample_values: SMemVec<f32>,
+    sample_times: SVec<f32>,
+    sample_values: SVec<f32>,
 }
 
 #[allow(dead_code)]
@@ -98,7 +98,7 @@ impl SScaleChannel {
     }
 }
 
-pub fn update_joints(animation: &SAnimation, anim_time: f32, output_joints: &mut SMemVec<STransform>) {
+pub fn update_joints(animation: &SAnimation, anim_time: f32, output_joints: &mut SVec<STransform>) {
     for channel in animation.channels.as_ref() {
         let joint_idx = animation.bound_node_to_joint_map[channel.node()].expect("binding was bad!");
 
@@ -138,10 +138,10 @@ impl SAnimation {
         assert!(gltf_data.animations().len() == 1, "Can't handle multi-animation gltf currently");
         let animation = gltf_data.animations().nth(0).unwrap();
 
-        let mut bound_node_to_joint_map = SMemVec::<Option<usize>>::new(&allocator, gltf_data.nodes().len(), 0)?;
+        let mut bound_node_to_joint_map = SVec::<Option<usize>>::new(&allocator, gltf_data.nodes().len(), 0)?;
         bound_node_to_joint_map.push_all_default();
 
-        let mut channels = SMemVec::<EChannel>::new(&allocator, animation.channels().count(), 0)?;
+        let mut channels = SVec::<EChannel>::new(&allocator, animation.channels().count(), 0)?;
 
         let mut duration = 0.0;
 
@@ -165,7 +165,7 @@ impl SAnimation {
                 gltf::accessor::Dimensions::Scalar,
                 &buffer_bytes,
             );
-            let sample_times = SMemVec::new_copy_slice(&allocator, sample_times_bin)?;
+            let sample_times = SVec::new_copy_slice(&allocator, sample_times_bin)?;
 
             duration = f32::max(duration, *sample_times.last().unwrap());
 
@@ -183,7 +183,7 @@ impl SAnimation {
                         STranslationChannel{
                             node: target_node_idx,
                             sample_times,
-                            sample_values: SMemVec::new_copy_slice(&allocator, sample_values_bin)?,
+                            sample_values: SVec::new_copy_slice(&allocator, sample_values_bin)?,
                         }
                     ));
                 },
@@ -208,7 +208,7 @@ impl SAnimation {
                         SRotationChannel{
                             node: target_node_idx,
                             sample_times,
-                            sample_values: SMemVec::new_copy_slice(&allocator, sample_values_bin)?,
+                            sample_values: SVec::new_copy_slice(&allocator, sample_values_bin)?,
                         }
                     ));
                 },
@@ -229,7 +229,7 @@ impl SAnimation {
                         SScaleChannel{
                             node: target_node_idx,
                             sample_times,
-                            sample_values: SMemVec::new_copy_slice(allocator, sample_values_bin)?,
+                            sample_values: SVec::new_copy_slice(allocator, sample_values_bin)?,
                         }
                     ));
                 },*/

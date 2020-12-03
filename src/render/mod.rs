@@ -12,7 +12,8 @@ use glm::{Vec3, Mat4};
 
 use niced3d12 as n12;
 use typeyd3d12 as t12;
-use allocate::{SMemVec, STACK_ALLOCATOR};
+use allocate::{STACK_ALLOCATOR};
+use collections::{SVec};
 use databucket::{SDataBucket};
 use entity::{SEntityBucket, SEntityHandle};
 use entity_animation;
@@ -120,15 +121,15 @@ pub fn compile_shaders_if_changed() {
         let mut needs_build = false;
 
         STACK_ALLOCATOR.with(|sa| {
-            let mut shader_src_path_string = SMemVec::<u8>::new(&sa.as_ref(), 256, 0).unwrap();
+            let mut shader_src_path_string = SVec::<u8>::new(&sa.as_ref(), 256, 0).unwrap();
             write!(&mut shader_src_path_string, "shaders/{}.hlsl", shader_name).unwrap();
             let shader_src_path = std::path::Path::new(shader_src_path_string.as_str());
 
-            let mut built_shader_path_string = SMemVec::<u8>::new(&sa.as_ref(), 256, 0).unwrap();
+            let mut built_shader_path_string = SVec::<u8>::new(&sa.as_ref(), 256, 0).unwrap();
             write!(&mut built_shader_path_string, "shaders_built/{}.cso", shader_name).unwrap();
             let built_shader_path = std::path::Path::new(built_shader_path_string.as_str());
 
-            let mut build_metadata_path_string = SMemVec::<u8>::new(&sa.as_ref(), 256, 0).unwrap();
+            let mut build_metadata_path_string = SVec::<u8>::new(&sa.as_ref(), 256, 0).unwrap();
             write!(&mut build_metadata_path_string, "shaders_built/{}.shader_build_metadata", shader_name).unwrap();
             let build_metadata_path = std::path::Path::new(build_metadata_path_string.as_str());
 

@@ -4,8 +4,42 @@ use entity;
 use entity_model;
 use game_context::{SGameContext, SFrameContext};
 use game_mode;
-use glm::{Vec4};
+use glm::{Vec3, Vec4};
 use render;
+
+// $$$FRK(TODO): move all this into the debug_ui.rs update
+pub fn update_debug_entity_menu(game_context: &SGameContext, frame_context: &SFrameContext) {
+    use imgui::*;
+
+    game_context.data_bucket.get::<entity::SEntityBucket>()
+        .and::<game_mode::SGameMode>()
+        .with_mc(|entity, game_mode| {
+            if game_mode.edit_mode_ctxt.editing_entity().is_none() {
+                return;
+            }
+            let e = game_mode.edit_mode_ctxt.editing_entity().expect("checked above");
+
+            let imgui_ui = frame_context.imgui_ui.as_ref().expect("shouldn't have rendered ui yet");
+
+            Window::new(im_str!("Selected entity"))
+                .size([300.0, 300.0], Condition::FirstUseEver)
+                .build(imgui_ui, || {
+                    if let Some (n) = entity.get_entity_debug_name(e) {
+                        imgui_ui.text(im_str!("debug_name: {}", n));
+                    }
+
+                    imgui_ui.text(im_str!("index: {}, generation: {}", e.index(), e.generation()));
+                    imgui_ui.separator();
+                    let mut pos = {
+                        let t = entity.get_entity_location(e).t;
+                        [t.x, t.y, t.z]
+                    };
+                    if DragFloat3::new(imgui_ui, im_str!("Position"), &mut pos).speed(0.1).build() {
+                        entity.set_position(&game_context, e, Vec3::new(pos[0], pos[1], pos[2]));
+                    }
+                });
+        });
+}
 
 pub fn update_debug_main_menu(game_context: &SGameContext, frame_context: &SFrameContext) {
     game_context.data_bucket.get::<game_mode::SGameMode>()
@@ -32,19 +66,6 @@ pub fn update_debug_main_menu(game_context: &SGameContext, frame_context: &SFram
 
                     //gjk_debug.imgui_menu(&imgui_ui, &game_context.data_bucket, game_mode.edit_mode_ctxt.editing_entity(), Some(rotating_entity));
                 });
-            }
-        });
-}
-
-pub fn update_debug_entity_menu(game_context: &SGameContext, frame_context: &SFrameContext) {
-    game_context.data_bucket.get::<game_mode::SGameMode>()
-        .and::<entity::SEntityBucket>()
-        .with_mm(|game_mode, entities| {
-            let imgui_ui = frame_context.imgui_ui.as_ref().expect("this should happen before imgui render");
-            if let game_mode::EMode::Edit = game_mode.mode {
-                if let Some(e) = game_mode.edit_mode_ctxt.editing_entity() {
-                    entities.show_imgui_window(e, &imgui_ui);
-                }
             }
         });
 }

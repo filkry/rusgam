@@ -34,9 +34,6 @@ impl TDataBucketMember for editmode::SEditModeInput {}
 impl TDataBucketMember for entity_animation::SBucket {}
 impl TDataBucketMember for entity_model::SBucket {}
 
-// -- $$$FRK(TODO): originally I thought I might want to keep SDataRefs around, but maybe not?
-// -- If I don't, then this can become Box<RefCell> and the usage syntax can become cleaner (no
-// -- SDataRef::with, ::with_mut lambda shenanigans)
 struct SData {
     type_id: std::any::TypeId,
     data: Rc<dyn std::any::Any>, // $$$FRK(TODO): write Rc+Weak that can go in my own allocators

@@ -6,7 +6,6 @@ pub struct SEntity {
     debug_name: Option<&'static str>,
     pub location: STransform,
     pub location_update_frame: u64,
-    //identity_aabb: Option<SAABB>, // $$$FRK(TODO): ONLY putting this in here right now to avoid moving the renderer!
 }
 
 #[allow(dead_code)]
@@ -41,6 +40,10 @@ impl SEntityBucket {
         self.entities.get_mut(entity).expect("invalid entity").debug_name = Some(debug_name);
     }
 
+    pub fn get_entity_debug_name(&self, entity: SEntityHandle) -> &Option<&'static str> {
+        &self.entities.get(entity).expect("invalid entity").debug_name
+    }
+
     pub fn get_entity_location(&self, entity: SEntityHandle) -> STransform {
         self.entities.get(entity).expect("invalid entity").location
     }
@@ -55,6 +58,12 @@ impl SEntityBucket {
         entity.location_update_frame = gc.cur_frame;
     }
 
+    pub fn set_position(&mut self, gc: &super::SGameContext, entity: SEntityHandle, position: glm::Vec3) {
+        let mut loc = self.get_entity_location(entity);
+        loc.t = position;
+        self.set_location(gc, entity, loc);
+    }
+
     #[allow(dead_code)]
     pub fn entities(&self) -> &SStoragePool<SEntity, u16, u16> {
         &self.entities
@@ -65,28 +74,4 @@ impl SEntityBucket {
         &mut self.entities
     }
 
-    // $$$FRK(TODO): move all this into the debug_ui.rs update
-    pub fn show_imgui_window(&mut self, entity: SEntityHandle, imgui_ui: &imgui::Ui) {
-        use imgui::*;
-
-        Window::new(im_str!("Selected entity"))
-            .size([300.0, 300.0], Condition::FirstUseEver)
-            .build(&imgui_ui, || {
-                if let Some(n) = self.entities.get(entity).expect("invalid entity").debug_name {
-                    imgui_ui.text(im_str!("debug_name: {}", n));
-                }
-                imgui_ui.text(im_str!("index: {}, generation: {}", entity.index(), entity.generation()));
-                imgui_ui.separator();
-                let mut pos = {
-                    let entity = self.entities.get(entity).expect("invalid entity");
-                    [entity.location.t.x, entity.location.t.y, entity.location.t.z]
-                };
-                if DragFloat3::new(imgui_ui, im_str!("Position"), &mut pos).speed(0.1).build() {
-                    let entity = self.entities.get_mut(entity).expect("invalid entity");
-                    entity.location.t.x = pos[0];
-                    entity.location.t.y = pos[1];
-                    entity.location.t.z = pos[2];
-                }
-            });
-    }
 }

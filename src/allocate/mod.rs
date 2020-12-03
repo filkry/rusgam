@@ -4,13 +4,10 @@
 use std::mem::size_of;
 use std::rc::{Rc, Weak};
 
-pub mod memqueue;
 pub mod system_allocator;
 pub mod linear_allocator;
 pub mod stack_allocator;
 
-// -- $$$FRK(TODO): move queue into collections
-pub use self::memqueue::*;
 pub use self::system_allocator::*;
 pub use self::linear_allocator::*;
 pub use self::stack_allocator::*;

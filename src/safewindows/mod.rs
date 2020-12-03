@@ -1,5 +1,4 @@
 #![allow(dead_code)]
-
 use std::{cmp, fmt, mem, ptr};
 use std::convert::TryFrom;
 

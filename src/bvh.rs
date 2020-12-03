@@ -1,5 +1,5 @@
-use allocate::{STACK_ALLOCATOR, SMemQueue};
-use collections::{SPoolHandle, SPool, SVec};
+use allocate::{STACK_ALLOCATOR};
+use collections::{SPoolHandle, SPool, SVec, SQueue};
 use safewindows;
 use utils::{SAABB, SRay, ray_intersects_aabb};
 
@@ -115,7 +115,7 @@ impl<TOwner: Clone> STree<TOwner> {
         }
 
         STACK_ALLOCATOR.with(|sa| -> SNodeHandle {
-            let mut search_queue = SMemQueue::<SSearch>::new(&sa.as_ref(), self.nodes.used()).expect("blew stack allocator");
+            let mut search_queue = SQueue::<SSearch>::new(&sa.as_ref(), self.nodes.used()).expect("blew stack allocator");
             break_assert!(self.root.valid());
             let mut best = self.root;
             let mut best_cost = self.union(query_node, best).surface_area();
@@ -368,7 +368,7 @@ impl<TOwner: Clone> STree<TOwner> {
 
     fn tree_valid(&self) -> bool {
         STACK_ALLOCATOR.with(|sa| -> bool {
-            let mut search_queue = SMemQueue::<SNodeHandle>::new(&sa.as_ref(), self.nodes.used()).unwrap();
+            let mut search_queue = SQueue::<SNodeHandle>::new(&sa.as_ref(), self.nodes.used()).unwrap();
             let mut child_count = SVec::<u16>::new(&sa.as_ref(), self.nodes.max() as usize, 0).unwrap();
             for _ in 0..self.nodes.max() {
                 child_count.push(0);

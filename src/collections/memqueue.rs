@@ -1,8 +1,8 @@
-use safewindows;
+use std::mem::size_of;
 
-use super::*;
+use allocate::{SMem, SAllocatorRef};
 
-pub struct SMemQueue<T> {
+pub struct SQueue<T> {
     mem: SMem,
     len: usize,
     capacity: usize,
@@ -12,7 +12,7 @@ pub struct SMemQueue<T> {
     phantom: std::marker::PhantomData<T>,
 }
 
-impl<'a, T> SMemQueue<T> {
+impl<'a, T> SQueue<T> {
     pub fn new(
         allocator: &SAllocatorRef,
         capacity: usize,
@@ -29,8 +29,8 @@ impl<'a, T> SMemQueue<T> {
         })
     }
 
-    fn data(&self) -> *mut T {
-        self.mem.data as *mut T
+    unsafe fn data(&self) -> *mut T {
+        self.mem.data() as *mut T
     }
 
     pub fn len(&self) -> usize {
@@ -55,7 +55,7 @@ impl<'a, T> SMemQueue<T> {
 
     pub fn push_back(&mut self, mut value: T) {
         if self.len == self.capacity {
-            break_assert!(false); // -- out of space
+            assert!(false, "out of space");
             return;
         }
 
@@ -106,7 +106,7 @@ impl<'a, T> SMemQueue<T> {
 fn test_basic() {
     let allocator = SYSTEM_ALLOCATOR();
 
-    let mut q = SMemQueue::<u32>::new(&allocator, 5).unwrap();
+    let mut q = SQueue::<u32>::new(&allocator, 5).unwrap();
     assert_eq!(q.len(), 0);
     assert_eq!(q.capacity(), 5);
 
@@ -142,16 +142,16 @@ fn test_basic() {
 fn test_ring() {
     let allocator = SYSTEM_ALLOCATOR();
 
-    let mut q = SMemQueue::<u32>::new(&allocator, 3).unwrap();
+    let mut q = SQueue::<u32>::new(&allocator, 3).unwrap();
     assert_eq!(q.len(), 0);
     assert_eq!(q.capacity(), 3);
 
-    let push_test = |q: &mut SMemQueue<u32>, i: u32, expected_len: usize| {
+    let push_test = |q: &mut SQueue<u32>, i: u32, expected_len: usize| {
         q.push_back(i);
         assert_eq!(q.len(), expected_len);
     };
 
-    let pop_test = |q: &mut SMemQueue<u32>, expected_i: u32, expected_len: usize| {
+    let pop_test = |q: &mut SQueue<u32>, expected_i: u32, expected_len: usize| {
         let val = q.pop_front();
         assert!(val.is_some());
         assert_eq!(val.unwrap(), expected_i);

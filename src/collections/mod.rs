@@ -3,9 +3,11 @@
 use std::collections::VecDeque;
 //use std::cell::{RefCell, Ref, RefMut};
 
+pub mod memqueue;
 pub mod freelistallocator;
 pub mod vec;
 
+pub use self::memqueue::{SQueue};
 pub use self::vec::{SVec};
 
 pub trait TIndexGen : PartialEq + PartialOrd + Copy + std::ops::Add + std::ops::AddAssign {

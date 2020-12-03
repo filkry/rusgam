@@ -244,9 +244,11 @@ impl<T> DerefMut for SMemT<T> {
 
 #[test]
 fn test_basic() {
+    use collections::{SVec};
+
     let allocator = SYSTEM_ALLOCATOR();
 
-    let mut vec = SMemVec::<u32>::new(&allocator, 5, 0).unwrap();
+    let mut vec = SVec::<u32>::new(&allocator, 5, 0).unwrap();
     assert_eq!(vec.len(), 0);
     assert_eq!(vec.capacity(), 5);
 
@@ -268,9 +270,11 @@ fn test_basic() {
 
 #[test]
 fn test_multiple_allocations() {
+    use collections::{SVec};
+
     let allocator = SYSTEM_ALLOCATOR();
 
-    let mut vec = SMemVec::<u32>::new(&allocator, 5, 0).unwrap();
+    let mut vec = SVec::<u32>::new(&allocator, 5, 0).unwrap();
     assert_eq!(vec.len(), 0);
     assert_eq!(vec.capacity(), 5);
 
@@ -278,7 +282,7 @@ fn test_multiple_allocations() {
     assert_eq!(vec[0], 33);
     assert_eq!(vec.len(), 1);
 
-    let mut vec2 = SMemVec::<u32>::new(&allocator, 15, 0).unwrap();
+    let mut vec2 = SVec::<u32>::new(&allocator, 15, 0).unwrap();
     assert_eq!(vec2.len(), 0);
     assert_eq!(vec2.capacity(), 15);
 
@@ -289,9 +293,11 @@ fn test_multiple_allocations() {
 
 #[test]
 fn test_iter() {
+    use collections::{SVec};
+
     let allocator = SYSTEM_ALLOCATOR();
 
-    let mut vec = SMemVec::<u32>::new(&allocator, 5, 0).unwrap();
+    let mut vec = SVec::<u32>::new(&allocator, 5, 0).unwrap();
     vec.push(0);
     vec.push(1);
     vec.push(2);
@@ -305,6 +311,10 @@ fn test_iter() {
 
 #[test]
 fn test_drop() {
+    use std::cell::{RefCell};
+    use collections::{SVec};
+    use std::ops::{Deref, DerefMut};
+
     let allocator = SYSTEM_ALLOCATOR();
     let refcount = RefCell::<i64>::new(0);
 
@@ -328,7 +338,7 @@ fn test_drop() {
         }
     }
 
-    let mut vec = SMemVec::<SRefCounter>::new(&allocator, 5, 0).unwrap();
+    let mut vec = SVec::<SRefCounter>::new(&allocator, 5, 0).unwrap();
 
     vec.push(SRefCounter::new(&refcount));
     vec.push(SRefCounter::new(&refcount));
@@ -343,9 +353,11 @@ fn test_drop() {
 
 #[test]
 fn test_linear_allocator() {
+    use collections::{SVec};
+
     let linear_allocator = SAllocator::new(SLinearAllocator::new(SYSTEM_ALLOCATOR(), 1024, 8).unwrap());
 
-    let mut vec = SMemVec::<u32>::new(&linear_allocator.as_ref(), 5, 0).unwrap();
+    let mut vec = SVec::<u32>::new(&linear_allocator.as_ref(), 5, 0).unwrap();
     assert_eq!(vec.len(), 0);
     assert_eq!(vec.capacity(), 5);
 
@@ -353,7 +365,7 @@ fn test_linear_allocator() {
     assert_eq!(vec[0], 33);
     assert_eq!(vec.len(), 1);
 
-    let mut vec2 = SMemVec::<u32>::new(&linear_allocator.as_ref(), 15, 0).unwrap();
+    let mut vec2 = SVec::<u32>::new(&linear_allocator.as_ref(), 15, 0).unwrap();
     assert_eq!(vec2.len(), 0);
     assert_eq!(vec2.capacity(), 15);
 
@@ -364,9 +376,11 @@ fn test_linear_allocator() {
 
 #[test]
 fn test_stack_allocator() {
+    use collections::{SVec};
+
     let stack_allocator = SAllocator::new(SStackAllocator::new(SYSTEM_ALLOCATOR(), 1024, 8).unwrap());
 
-    let mut vec = SMemVec::<u32>::new(&stack_allocator.as_ref(), 5, 0).unwrap();
+    let mut vec = SVec::<u32>::new(&stack_allocator.as_ref(), 5, 0).unwrap();
     assert_eq!(vec.len(), 0);
     assert_eq!(vec.capacity(), 5);
 
@@ -374,7 +388,7 @@ fn test_stack_allocator() {
     assert_eq!(vec[0], 33);
     assert_eq!(vec.len(), 1);
 
-    let mut vec2 = SMemVec::<u32>::new(&stack_allocator.as_ref(), 15, 0).unwrap();
+    let mut vec2 = SVec::<u32>::new(&stack_allocator.as_ref(), 15, 0).unwrap();
     assert_eq!(vec2.len(), 0);
     assert_eq!(vec2.capacity(), 15);
 
@@ -385,9 +399,11 @@ fn test_stack_allocator() {
 
 #[test]
 fn test_slice() {
+    use collections::{SVec};
+
     let allocator = SYSTEM_ALLOCATOR();
 
-    let mut vec = SMemVec::<u32>::new(&allocator, 5, 0).unwrap();
+    let mut vec = SVec::<u32>::new(&allocator, 5, 0).unwrap();
     vec.push(33);
     vec.push(333);
 

@@ -104,6 +104,8 @@ impl<'a, T> SQueue<T> {
 
 #[test]
 fn test_basic() {
+    use allocate::{SYSTEM_ALLOCATOR};
+
     let allocator = SYSTEM_ALLOCATOR();
 
     let mut q = SQueue::<u32>::new(&allocator, 5).unwrap();
@@ -140,6 +142,8 @@ fn test_basic() {
 
 #[test]
 fn test_ring() {
+    use allocate::{SYSTEM_ALLOCATOR};
+
     let allocator = SYSTEM_ALLOCATOR();
 
     let mut q = SQueue::<u32>::new(&allocator, 3).unwrap();

@@ -1,4 +1,4 @@
-use allocate::{SYSTEM_ALLOCATOR, SAllocatorRef};
+use allocate::{SYSTEM_ALLOCATOR, SAllocator};
 use databucket::{SDataBucket};
 use rustywindows;
 use niced3d12 as n12;
@@ -27,6 +27,7 @@ pub struct SFrameContext<'ui> {
     pub imgui_want_capture_mouse: bool,
 
     pub data_bucket: SDataBucket,
+    pub linear_allocator: SAllocator,
 }
 
 impl SGameContext {
@@ -44,7 +45,7 @@ impl SGameContext {
         &mut self,
         winapi: &rustywindows::SWinAPI,
         imgui_ctxt: &'ui mut imgui::Context,
-        allocator: &SAllocatorRef
+        allocator: SAllocator
     ) -> SFrameContext<'ui> {
         let start_time_micro_s = winapi.curtimemicroseconds();
         let dt_micro_s = start_time_micro_s - self.last_frame_start_time_micro_s;
@@ -68,7 +69,8 @@ impl SGameContext {
             imgui_draw_data: None,
             imgui_want_capture_mouse,
 
-            data_bucket: SDataBucket::new(32, allocator),
+            data_bucket: SDataBucket::new(32, &allocator.as_ref()),
+            linear_allocator: allocator,
         }
     }
 

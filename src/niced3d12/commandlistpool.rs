@@ -67,8 +67,8 @@ impl SCommandListPool {
 
         Ok(Self {
             queue: queue,
-            allocators: SPool::<SCommandAllocator, u16, u64>::create_from_vec(0, num_allocators, allocators),
-            lists: SPool::<SCommandListPoolList, u16, u64>::create_from_vec(1, num_lists, lists),
+            allocators: SPool::<SCommandAllocator, u16, u64>::create_from_vec(num_allocators, allocators),
+            lists: SPool::<SCommandListPoolList, u16, u64>::create_from_vec(num_lists, lists),
             activefence: device.create_fence(winapi)?,
             activeallocators: Vec::<SCommandListPoolActiveAllocator>::with_capacity(
                 num_allocators as usize,

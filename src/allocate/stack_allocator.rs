@@ -28,7 +28,6 @@ impl SStackAllocator {
     }
 }
 
-// -- $$$FRK(TODO): allocators should check if they own the mem when they free!
 impl TMemAllocator for SStackAllocator {
     fn alloc(&self, size: usize, align: usize) -> Result<(*mut u8, usize), &'static str> {
         let mut data = self.data.borrow_mut();

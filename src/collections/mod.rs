@@ -93,7 +93,6 @@ impl<I: TIndexGen, G: TIndexGen> Default for SPoolHandle<I, G> {
 // -- container of Ts, all of which must be initialized at all times. Meant for re-usable slots
 // -- that don't need to be re-initialized
 pub struct SPool<T, I: TIndexGen, G: TIndexGen> {
-    // -- $$$FRK(TODO): make this into a string, only in debug builds?
     buffer: Vec<T>,
     generations: Vec<G>,
     max: I,
@@ -101,8 +100,7 @@ pub struct SPool<T, I: TIndexGen, G: TIndexGen> {
 }
 
 impl<T, I: TIndexGen, G: TIndexGen> SPool<T, I, G> {
-    // -- $$$FRK(TODO): I'd like to make these IDs either really smart, or just random
-    pub fn create<F>(_id: u64, max: I, init_func: F) -> Self
+    pub fn create<F>(max: I, init_func: F) -> Self
     where
         F: Fn() -> T,
     {
@@ -123,7 +121,7 @@ impl<T, I: TIndexGen, G: TIndexGen> SPool<T, I, G> {
         result
     }
 
-    pub fn create_from_vec(_id: u64, max: I, contents: Vec<T>) -> Self {
+    pub fn create_from_vec(max: I, contents: Vec<T>) -> Self {
         let mut result = Self {
             buffer: contents,
             generations: Vec::with_capacity(max.to_usize()),
@@ -254,14 +252,14 @@ impl<T: Clone, I: TIndexGen, G: TIndexGen> SPool<T, I, G> {
 }
 
 impl<T: Default, I: TIndexGen, G: TIndexGen> SPool<T, I, G> {
-    pub fn create_default(id: u64, max: I) -> Self {
-        Self::create(id, max, Default::default)
+    pub fn create_default(max: I) -> Self {
+        Self::create(max, Default::default)
     }
 }
 
 // -- pool of storage for Ts. not every entry may be valid, and musn't always be initialized
 pub struct SStoragePool<T, I: TIndexGen, G: TIndexGen> {
-    pool: SPool<Option<T>, I, G>, // -- $$$FRK(TODO): this could be unitialized mem that we use unsafety to construct/destruct in
+    pool: SPool<Option<T>, I, G>,
 }
 
 pub struct SStoragePoolIterator<'a, T, I: TIndexGen, G: TIndexGen> {
@@ -270,9 +268,9 @@ pub struct SStoragePoolIterator<'a, T, I: TIndexGen, G: TIndexGen> {
 }
 
 impl<T, I: TIndexGen, G: TIndexGen> SStoragePool<T, I, G> {
-    pub fn create(id: u64, max: I) -> Self {
+    pub fn create(max: I) -> Self {
         Self {
-            pool: SPool::<Option<T>, I, G>::create_default(id, max),
+            pool: SPool::<Option<T>, I, G>::create_default(max),
         }
     }
 
@@ -374,29 +372,3 @@ impl<'a, T, I: TIndexGen, G: TIndexGen> IntoIterator for &'a SStoragePool<T, I, 
         }
     }
 }
-
-// -- $$$FRK(TODO): rewrite for new pool
-/*
-#[cfg(test)]
-mod tests {
-    use super::*; // imports the names from the non-test mod scope
-
-    #[test]
-    fn test_pool_basic() {
-        let mut p: SPool<u64> = Default::default();
-        p.setup(10);
-
-        let ahandle = p.pushval(234).unwrap();
-        let bhandle = p.pushval(023913).unwrap();
-
-        assert_eq!(*p.get(bhandle).unwrap(), 023913);
-        assert_eq!(*p.get(ahandle).unwrap(), 234);
-
-        *p.getmut(ahandle).unwrap() = 432;
-        *p.getmut(bhandle).unwrap() = 9293231;
-
-        assert_eq!(*p.get(bhandle).unwrap(), 9293231);
-        assert_eq!(*p.get(ahandle).unwrap(), 432);
-    }
-}
-*/

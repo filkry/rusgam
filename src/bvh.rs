@@ -167,7 +167,7 @@ impl<TOwner: Clone> STree<TOwner> {
 
     pub fn new() -> Self {
         Self {
-            nodes: SPool::create_default(0, 1024),
+            nodes: SPool::create_default(1024),
             root: SNodeHandle::default(),
         }
     }

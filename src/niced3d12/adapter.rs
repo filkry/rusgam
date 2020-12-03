@@ -10,7 +10,6 @@ impl SAdapter {
     }
 
     pub fn create_device(&mut self) -> Result<SDevice, &'static str> {
-        // -- $$$FRK(TODO): remove unwraps? Assert instead? Manual unwrap that asserts!
         let device = unsafe { self.raw.d3d12createdevice()? };
 
         // -- $$$FRK(TODO): debug only

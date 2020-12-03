@@ -143,7 +143,7 @@ fn main_d3d12() -> Result<(), &'static str> {
 
     let mut game_context = SGameContext::new(&winapi, window);
 
-    game_context.data_bucket.add(SEntityBucket::new(67485, 16));
+    game_context.data_bucket.add(SEntityBucket::new(16));
     game_context.data_bucket.add(SAnimationLoader::new(SYSTEM_ALLOCATOR(), 64));
     game_context.data_bucket.add(game_mode::SGameMode::new(&mut render));
     game_context.data_bucket.add(render);

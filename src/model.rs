@@ -125,7 +125,6 @@ impl SMeshLoader {
         copy_command_queue: Weak<RefCell<n12::SCommandQueue>>,
         direct_command_queue: Weak<RefCell<n12::SCommandQueue>>,
         cbv_srv_uav_heap: Weak<n12::SDescriptorAllocator>,
-        pool_id: u64,
         max_mesh_count: u16,
     ) -> Result<Self, &'static str> {
         Ok(Self {
@@ -133,7 +132,7 @@ impl SMeshLoader {
             copy_command_list_pool: n12::SCommandListPool::create(device.upgrade().expect("bad device").deref(), copy_command_queue, &winapi.rawwinapi(), 1, 2)?,
             direct_command_list_pool: n12::SCommandListPool::create(device.upgrade().expect("bad device").deref(), direct_command_queue, &winapi.rawwinapi(), 1, 2)?,
             cbv_srv_uav_heap,
-            mesh_pool: SStoragePool::create(pool_id, max_mesh_count),
+            mesh_pool: SStoragePool::create(max_mesh_count),
         })
     }
 
@@ -756,7 +755,6 @@ impl STextureLoader {
         copy_command_queue: Weak<RefCell<n12::SCommandQueue>>,
         direct_command_queue: Weak<RefCell<n12::SCommandQueue>>,
         cbv_srv_uav_heap: Weak<n12::SDescriptorAllocator>,
-        pool_id: u64,
         max_texture_count: u16,
     ) -> Result<Self, &'static str> {
         Ok(Self {
@@ -765,7 +763,7 @@ impl STextureLoader {
             direct_command_list_pool: n12::SCommandListPool::create(device.upgrade().expect("dropped device").deref(), direct_command_queue, &winapi.rawwinapi(), 1, 10)?,
             cbv_srv_uav_heap,
 
-            texture_pool: SStoragePool::create(pool_id, max_texture_count),
+            texture_pool: SStoragePool::create(max_texture_count),
         })
     }
 

@@ -249,7 +249,7 @@ impl SAnimationLoader {
     pub fn new(allocator: SAllocatorRef, max_anim_count: usize) -> Self {
         Self{
             allocator,
-            animation_pool: SStoragePool::create(34892308423, max_anim_count as u16),
+            animation_pool: SStoragePool::create(max_anim_count as u16),
         }
     }
 

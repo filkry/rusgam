@@ -26,9 +26,9 @@ impl SEntity {
 }
 
 impl SEntityBucket {
-    pub fn new(poolid: u64, max_entities: u16) -> Self {
+    pub fn new(max_entities: u16) -> Self {
         Self {
-            entities: SStoragePool::create(poolid, max_entities),
+            entities: SStoragePool::create(max_entities),
         }
     }
 

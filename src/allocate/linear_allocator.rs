@@ -86,6 +86,8 @@ impl TMemAllocator for SLinearAllocator {
     }
 
     unsafe fn free_unsafe(&self, existing_allocation: &mut SMem) -> Result<(), &'static str> {
+        // -- $$$FRK(TODO): check we own the memory before freeing
+
         let mut data = self.data.borrow_mut();
 
         let aligned_header_size = align_up(

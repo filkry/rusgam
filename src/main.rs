@@ -109,7 +109,8 @@ pub fn update_entity_bvh_entries(game_context: &SGameContext, _frame_context: &S
                     bvh.update_entry(bvh_entry, &transformed_aabb);
                 }
                 else {
-                    let new_bvh_handle = bvh.insert(entity_handle, &transformed_aabb, None);
+                    let new_bvh_handle = bvh.insert(entity_handle, &transformed_aabb, None)
+                        .expect("out of BVH pool space");
                     entity_model.set_bvh_entry(model_handle, new_bvh_handle);
                 }
             }

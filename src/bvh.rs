@@ -277,11 +277,11 @@ impl<TOwner: Clone> STree<TOwner> {
         }
     }
 
-    pub fn insert(&mut self, owner: TOwner, bounds: &SAABB, fixed_handle: Option<SNodeHandle>) -> SNodeHandle {
+    pub fn insert(&mut self, owner: TOwner, bounds: &SAABB, fixed_handle: Option<SNodeHandle>) -> Result<SNodeHandle, &'static str> {
         let first : bool = self.nodes.used() == 0;
         let leaf_handle = match fixed_handle {
             Some(h) => h,
-            None => self.nodes.alloc().unwrap(),
+            None => self.nodes.alloc()?,
         };
 
         // -- initialize node
@@ -296,7 +296,7 @@ impl<TOwner: Clone> STree<TOwner> {
 
         if first {
             self.root = leaf_handle;
-            return leaf_handle;
+            return Ok(leaf_handle);
         }
 
         // -- Step 1: find the best sibling for the new leaf
@@ -355,7 +355,7 @@ impl<TOwner: Clone> STree<TOwner> {
 
         self.tree_valid();
 
-        leaf_handle
+        Ok(leaf_handle)
     }
 
     pub fn get_bvh_heirarchy_for_entry(&self, entry: SNodeHandle, output: &mut SMemVec<SAABB>) {
@@ -485,15 +485,15 @@ impl<TOwner: Clone> STree<TOwner> {
     pub fn update_entry(&mut self, entry: SNodeHandle, bounds: &SAABB) {
         let owner = self.owner(entry);
         self.remove(entry.clone(), false);
-        self.insert(owner, bounds, Some(entry));
+        self.insert(owner, bounds, Some(entry)).expect("allocation should never fail since we kept our handle");
     }
 
     pub fn remove(&mut self, target_entry: SNodeHandle, free_entry: bool) {
         let mut handle_to_delete = target_entry;
 
         while handle_to_delete.valid() {
-            let parent_handle = self.nodes.get(handle_to_delete).unwrap().parent();
-            let parent_parent_handle = self.nodes.get(parent_handle).unwrap().parent();
+            let parent_handle = self.nodes.get(handle_to_delete).expect("produced bad handle").parent();
+            let parent_parent_handle = self.nodes.get(parent_handle).expect("produced bad handle").parent();
 
             let mut other_child_handle = SNodeHandle::default();
             {
@@ -513,7 +513,7 @@ impl<TOwner: Clone> STree<TOwner> {
                     break_assert!(false);
                 }
             }
-            *self.nodes.get_mut(handle_to_delete).unwrap() = ENode::Free;
+            *self.nodes.get_mut(handle_to_delete).expect("produced bad handle") = ENode::Free;
 
             if handle_to_delete != target_entry || free_entry {
                 self.nodes.free(handle_to_delete);
@@ -535,33 +535,33 @@ impl<TOwner: Clone> STree<TOwner> {
                     else {
                         break_assert!(false);
                     }
-                    *self.nodes.get_mut(parent_handle).unwrap() = ENode::Free;
+                    *self.nodes.get_mut(parent_handle).expect("produced bad handle") = ENode::Free;
                     self.nodes.free(parent_handle);
 
-                    self.nodes.get_mut(other_child_handle).unwrap().set_parent(parent_parent_handle);
+                    self.nodes.get_mut(other_child_handle).expect("produced bad handle").set_parent(parent_parent_handle);
 
                     // -- recompute AABBs up the tree
                     let mut recompute_handle = parent_parent_handle;
                     while recompute_handle.valid() {
                         self.update_bounds_from_children(recompute_handle);
-                        recompute_handle = self.nodes.get(recompute_handle).unwrap().parent();
+                        recompute_handle = self.nodes.get(recompute_handle).expect("produced bad handle").parent();
                     }
                 }
                 else {
                     // -- parent was root, now other_child is the root
                     break_assert!(self.root == parent_handle);
-                    *self.nodes.get_mut(parent_handle).unwrap() = ENode::Free;
+                    *self.nodes.get_mut(parent_handle).expect("produced bad handle") = ENode::Free;
                     self.nodes.free(parent_handle);
                     self.root = other_child_handle;
 
-                    self.nodes.get_mut(other_child_handle).unwrap().clear_parent();
+                    self.nodes.get_mut(other_child_handle).expect("produced bad handle").clear_parent();
                 }
 
                 handle_to_delete.invalidate();
             }
             else {
                 // -- recursively delete the parent, since it's an internal node with no children
-                if let ENode::Internal(int) = self.nodes.get(parent_handle).unwrap() {
+                if let ENode::Internal(int) = self.nodes.get(parent_handle).expect("produced bad handle") {
                     break_assert!(int.child1.valid() && int.child2.valid())
                 }
                 else {

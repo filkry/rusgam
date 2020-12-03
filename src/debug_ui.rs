@@ -7,7 +7,6 @@ use game_mode;
 use glm::{Vec3, Vec4};
 use render;
 
-// $$$FRK(TODO): move all this into the debug_ui.rs update
 pub fn update_debug_entity_menu(game_context: &SGameContext, frame_context: &SFrameContext) {
     use imgui::*;
 

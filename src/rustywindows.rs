@@ -25,8 +25,7 @@ impl SWinAPI {
 
     pub fn create() -> SWinAPI {
         SWinAPI {
-            // -- $$$FRK(TODO): not very rusty
-            wapi: safewindows::initwinapi().unwrap(),
+            wapi: safewindows::initwinapi().expect("if this fails I have big problems"),
             frequency: unsafe {
                 safewindows::SWinAPI::queryperformancefrequencycounter() / 1_000_000
             },
@@ -105,7 +104,8 @@ impl DerefMut for SWindow {
 }
 
 pub struct SWindowProc {
-    // -- $$$FRK(TODO) allocations
+    // -- $$$FRK(NOTE) This goes to the system allocator, but once we hit our normal stride of
+    // -- messages I don't think it's a huge deal anymore, so fuck it
     pendingmsgs: std::collections::VecDeque<safewindows::EMsgType>,
 }
 

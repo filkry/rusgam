@@ -36,7 +36,7 @@ impl TDataBucketMember for entity_model::SBucket {}
 
 struct SData {
     type_id: std::any::TypeId,
-    data: Rc<dyn std::any::Any>, // $$$FRK(TODO): write Rc+Weak that can go in my own allocators
+    data: Rc<dyn std::any::Any>,
 }
 
 pub struct SDataRefBuilder<'bucket, T> {

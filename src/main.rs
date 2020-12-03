@@ -89,7 +89,6 @@ pub fn update_entity_bvh_entries(game_context: &SGameContext, _frame_context: &S
         .and::<SEntityBucket>()
         .and::<render::SRender>()
         .with_mmcc(|bvh, entity_model, entities, render| {
-            // -- $$$FRK(TODO): only update dirty
             for i in 0..entity_model.models.len() {
                 let model_handle : entity_model::SHandle = i;
 

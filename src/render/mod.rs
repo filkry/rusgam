@@ -6,6 +6,7 @@ use std::ops::{Deref, DerefMut};
 
 // -- crate includes
 use arrayvec::{ArrayVec};
+use camera;
 use serde::{Serialize, Deserialize};
 use glm::{Vec3, Mat4};
 
@@ -16,6 +17,7 @@ use databucket::{SDataBucket};
 use entity::{SEntityBucket, SEntityHandle};
 use entity_animation;
 use entity_model;
+use game_context::{SGameContext, SFrameContext};
 use model::{SModel, SMeshLoader, STextureLoader};
 use safewindows;
 use rustywindows;
@@ -719,4 +721,22 @@ pub fn cast_ray_against_entity_model(data_bucket: &SDataBucket, ray: &SRay, enti
     result
 }
 
+pub fn update_render_frame(game_context: &SGameContext, frame_context: &SFrameContext) {
+    game_context.data_bucket.get::<SRender>()
+        .and::<SEntityBucket>()
+        .and::<entity_animation::SBucket>()
+        .and::<entity_model::SBucket>()
+        .and::<camera::SDebugFPCamera>()
+        .with_mmmcc(|render, entities, entity_animation, entity_model, camera| {
+            let view_matrix = camera.world_to_view_matrix();
 
+            let render_result = render.render_frame(&game_context.window, &view_matrix, entities, entity_animation, entity_model, frame_context.imgui_draw_data);
+            match render_result {
+                Ok(_) => {},
+                Err(e) => {
+                    println!("ERROR: render failed with error '{}'", e);
+                    panic!();
+                },
+            }
+        });
+}

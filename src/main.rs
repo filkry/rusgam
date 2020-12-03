@@ -76,6 +76,8 @@ fn update_frame(game_context: &SGameContext, frame_context: &mut SFrameContext) 
     debug_ui::update_debug_entity_menu(game_context, frame_context);
     debug_ui::update_draw_entity_bvh(game_context, frame_context);
 
+    render::update_render_frame(game_context, frame_context);
+
     frame_context.finalize_ui();
 
     Ok(())
@@ -191,26 +193,6 @@ fn main_d3d12() -> Result<(), &'static str> {
         let mut frame_context = game_context.start_frame(&winapi, &mut imgui_ctxt, &frame_linear_allocator.as_ref());
 
         update_frame(&game_context, &mut frame_context)?;
-
-        // -- render frame
-
-        game_context.data_bucket.get::<render::SRender>()
-            .and::<SEntityBucket>()
-            .and::<entity_animation::SBucket>()
-            .and::<entity_model::SBucket>()
-            .and::<camera::SDebugFPCamera>()
-            .with_mmmcc(|render, entities, entity_animation, entity_model, camera| {
-                let view_matrix = camera.world_to_view_matrix();
-
-                let render_result = render.render_frame(&game_context.window, &view_matrix, entities, entity_animation, entity_model, frame_context.imgui_draw_data);
-                match render_result {
-                    Ok(_) => {},
-                    Err(e) => {
-                        println!("ERROR: render failed with error '{}'", e);
-                        panic!();
-                    },
-                }
-            });
 
         // -- flip swap chain
         game_context.data_bucket.get::<render::SRender>()

@@ -350,7 +350,7 @@ impl super::SRender {
         Ok(())
     }
 
-    pub fn render_imgui(&mut self, window: &mut n12::SD3D12Window, draw_data: &imgui::DrawData) -> Result<(), &'static str> {
+    pub fn render_imgui(&mut self, window: &n12::SD3D12Window, draw_data: &imgui::DrawData) -> Result<(), &'static str> {
         let ri = &mut self.render_imgui;
 
         let backbufferidx = window.currentbackbufferindex();

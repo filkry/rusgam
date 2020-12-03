@@ -453,7 +453,7 @@ impl SRender {
 
     pub fn render_frame(
         &mut self,
-        window: &mut n12::SD3D12Window,
+        window: &n12::SD3D12Window,
         view_matrix: &Mat4,
         entities: &mut SEntityBucket,
         entity_animation: &mut entity_animation::SBucket,
@@ -519,7 +519,6 @@ impl SRender {
         if let Some(idd) = imgui_draw_data {
             self.render_imgui(window, idd)?;
         }
-        self.present(window)?;
 
         self.render_temp.clear_tables_without_tokens();
 
@@ -566,7 +565,7 @@ impl SRender {
 
     pub fn render_world(
         &mut self,
-        window: &mut n12::SD3D12Window,
+        window: &n12::SD3D12Window,
         view_matrix: &Mat4,
         entities: &SEntityBucket,
         entity_animation: &entity_animation::SBucket,

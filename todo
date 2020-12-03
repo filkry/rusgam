@@ -1,4 +1,5 @@
 
++ make my own Rc/Weak for my allocators
 + shadow rendering doesn't reflect animation
 + look for uses of SYSTEMALLOCATOR and switch as many as possible to take a passed allocator
 + make a Sync version of SDataBucket

@@ -202,7 +202,7 @@ fn main_d3d12() -> Result<(), &'static str> {
             .with_mmmcc(|render, entities, entity_animation, entity_model, camera| {
                 let view_matrix = camera.world_to_view_matrix();
 
-                let render_result = render.render_frame(&mut window, &view_matrix, entities, entity_animation, entity_model, frame_context.imgui_draw_data);
+                let render_result = render.render_frame(&window, &view_matrix, entities, entity_animation, entity_model, frame_context.imgui_draw_data);
                 match render_result {
                     Ok(_) => {},
                     Err(e) => {
@@ -211,6 +211,12 @@ fn main_d3d12() -> Result<(), &'static str> {
                     },
                 }
             });
+
+        // -- flip swap chain
+        game_context.data_bucket.get::<render::SRender>()
+            .with_mut(|render| {
+                render.present(&mut window)
+            })?;
 
         game_context.end_frame(frame_context);
         game_context.cur_frame += 1;

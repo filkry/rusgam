@@ -691,7 +691,7 @@ impl SRenderTemp {
 }
 
 impl super::SRender {
-    pub fn render_temp_in_world(&mut self, window: &mut n12::SD3D12Window, view_matrix: &Mat4) -> Result<(), &'static str> {
+    pub fn render_temp_in_world(&mut self, window: &n12::SD3D12Window, view_matrix: &Mat4) -> Result<(), &'static str> {
         self.render_temp_points(window, view_matrix, true)?;
         self.render_temp_lines(window, view_matrix, true)?;
         self.render_temp_spheres(window, view_matrix, true)?;
@@ -700,7 +700,7 @@ impl super::SRender {
         Ok(())
     }
 
-    pub fn render_temp_over_world(&mut self, window: &mut n12::SD3D12Window, view_matrix: &Mat4) -> Result<(), &'static str> {
+    pub fn render_temp_over_world(&mut self, window: &n12::SD3D12Window, view_matrix: &Mat4) -> Result<(), &'static str> {
         self.render_temp_points(window, view_matrix, false)?;
         self.render_temp_lines(window, view_matrix, false)?;
         self.render_temp_spheres(window, view_matrix, false)?;
@@ -709,7 +709,7 @@ impl super::SRender {
         Ok(())
     }
 
-    pub fn render_temp_points(&mut self, window: &mut n12::SD3D12Window, view_matrix: &Mat4, in_world: bool) -> Result<(), &'static str> {
+    pub fn render_temp_points(&mut self, window: &n12::SD3D12Window, view_matrix: &Mat4, in_world: bool) -> Result<(), &'static str> {
         let back_buffer_idx = window.currentbackbufferindex();
 
         // A very basic test
@@ -864,7 +864,7 @@ impl super::SRender {
     }
 
 
-    pub fn render_temp_lines(&mut self, window: &mut n12::SD3D12Window, view_matrix: &Mat4, in_world: bool) -> Result<(), &'static str> {
+    pub fn render_temp_lines(&mut self, window: &n12::SD3D12Window, view_matrix: &Mat4, in_world: bool) -> Result<(), &'static str> {
         let back_buffer_idx = window.currentbackbufferindex();
 
         // A very basic test
@@ -1023,7 +1023,7 @@ impl super::SRender {
         Ok(())
     }
 
-    pub fn render_temp_spheres(&mut self, window: &mut n12::SD3D12Window, view_matrix: &Mat4, in_world: bool) -> Result<(), &'static str> {
+    pub fn render_temp_spheres(&mut self, window: &n12::SD3D12Window, view_matrix: &Mat4, in_world: bool) -> Result<(), &'static str> {
         let back_buffer_idx = window.currentbackbufferindex();
 
         // A very basic test
@@ -1183,7 +1183,7 @@ impl super::SRender {
         Ok(())
     }
 
-    pub fn render_temp_models(&mut self, window: &mut n12::SD3D12Window, view_matrix: &Mat4, in_world: bool) -> Result<(), &'static str> {
+    pub fn render_temp_models(&mut self, window: &n12::SD3D12Window, view_matrix: &Mat4, in_world: bool) -> Result<(), &'static str> {
         if self.render_temp.models.len() == 0 {
             return Ok(());
         }

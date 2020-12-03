@@ -139,7 +139,7 @@ fn main_d3d12() -> Result<(), &'static str> {
     window.init_render_target_views(render.device())?;
     window.show();
 
-    let mut game_context = SGameContext::new(&winapi);
+    let mut game_context = SGameContext::new(&winapi, window);
 
     game_context.data_bucket.add(SEntityBucket::new(67485, 16));
     game_context.data_bucket.add(SAnimationLoader::new(SYSTEM_ALLOCATOR(), 64));
@@ -188,7 +188,7 @@ fn main_d3d12() -> Result<(), &'static str> {
             allocate::SLinearAllocator::new(frame_linear_allocator_helper.as_ref(), 120 * 1024 * 1024, 8)?,
         );
 
-        let mut frame_context = game_context.start_frame(&winapi, &window, &mut imgui_ctxt, &frame_linear_allocator.as_ref());
+        let mut frame_context = game_context.start_frame(&winapi, &mut imgui_ctxt, &frame_linear_allocator.as_ref());
 
         update_frame(&game_context, &mut frame_context)?;
 
@@ -202,7 +202,7 @@ fn main_d3d12() -> Result<(), &'static str> {
             .with_mmmcc(|render, entities, entity_animation, entity_model, camera| {
                 let view_matrix = camera.world_to_view_matrix();
 
-                let render_result = render.render_frame(&window, &view_matrix, entities, entity_animation, entity_model, frame_context.imgui_draw_data);
+                let render_result = render.render_frame(&game_context.window, &view_matrix, entities, entity_animation, entity_model, frame_context.imgui_draw_data);
                 match render_result {
                     Ok(_) => {},
                     Err(e) => {
@@ -214,8 +214,9 @@ fn main_d3d12() -> Result<(), &'static str> {
 
         // -- flip swap chain
         game_context.data_bucket.get::<render::SRender>()
+            .build()
             .with_mut(|render| {
-                render.present(&mut window)
+                render.present(&mut game_context.window)
             })?;
 
         game_context.end_frame(frame_context);
@@ -224,25 +225,26 @@ fn main_d3d12() -> Result<(), &'static str> {
         // -- $$$FRK(TODO): framerate is uncapped
 
         game_context.data_bucket.get::<input::SInput>()
+            .build()
             .with_mut(|input| {
                 input.mouse_dx = 0;
                 input.mouse_dy = 0;
 
                 input.mouse_cursor_pos_screen = winapi.rawwinapi().get_cursor_pos();
-                input.mouse_cursor_pos_window = window.mouse_pos(&winapi.rawwinapi());
+                input.mouse_cursor_pos_window = game_context.window.mouse_pos(&winapi.rawwinapi());
 
                 let io = imgui_ctxt.io_mut(); // for filling out io state
                 io.mouse_pos = [input.mouse_cursor_pos_window[0] as f32, input.mouse_cursor_pos_window[1] as f32];
 
                 let mut input_handler = input.frame(io);
                 loop {
-                    let msg = window.pollmessage();
+                    let msg = game_context.window.pollmessage();
                     match msg {
                         None => break,
                         Some(m) => match m {
                             safewindows::EMsgType::Paint => {
                                 //println!("Paint!");
-                                window.dummyrepaint();
+                                game_context.window.dummyrepaint();
                             }
                             safewindows::EMsgType::KeyDown { key } => {
                                 input_handler.handle_key_down_up(key, true);
@@ -269,12 +271,12 @@ fn main_d3d12() -> Result<(), &'static str> {
                             },
                             safewindows::EMsgType::Size => {
                                 //println!("Size");
-                                let rect: safewindows::SRect = window.raw().getclientrect().unwrap();
+                                let rect: safewindows::SRect = game_context.window.raw().getclientrect().unwrap();
                                 let newwidth = rect.right - rect.left;
                                 let newheight = rect.bottom - rect.top;
 
-                                game_context.data_bucket.get_renderer().with_mut(|render: &mut render::SRender| {
-                                    render.resize_window(&mut window, newwidth, newheight)
+                                game_context.data_bucket.get_renderer().build().with_mut(|render: &mut render::SRender| {
+                                    render.resize_window(&mut game_context.window, newwidth, newheight)
                                 }).unwrap();
                             }
                             safewindows::EMsgType::Invalid => (),
@@ -283,8 +285,8 @@ fn main_d3d12() -> Result<(), &'static str> {
                 }
 
                 // -- display size might have changed
-                io.display_size = [window.width() as f32, window.height() as f32];
-                input.mouse_cursor_pos_window = window.mouse_pos(&winapi.rawwinapi());
+                io.display_size = [game_context.window.width() as f32, game_context.window.height() as f32];
+                input.mouse_cursor_pos_window = game_context.window.mouse_pos(&winapi.rawwinapi());
             });
 
         drop(frame_linear_allocator);

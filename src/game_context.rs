@@ -4,6 +4,8 @@ use rustywindows;
 use niced3d12 as n12;
 
 pub struct SGameContext {
+    pub window: n12::SD3D12Window,
+
     pub cur_frame: u64,
     pub start_time_micro_s: i64,
     pub last_frame_start_time_micro_s: i64,
@@ -28,8 +30,9 @@ pub struct SFrameContext<'ui> {
 }
 
 impl SGameContext {
-    pub fn new(winapi: &rustywindows::SWinAPI) -> Self {
+    pub fn new(winapi: &rustywindows::SWinAPI, window: n12::SD3D12Window) -> Self {
         Self{
+            window,
             cur_frame: 0,
             start_time_micro_s: winapi.curtimemicroseconds(),
             last_frame_start_time_micro_s: winapi.curtimemicroseconds(),
@@ -40,7 +43,6 @@ impl SGameContext {
     pub fn start_frame<'ui>(
         &mut self,
         winapi: &rustywindows::SWinAPI,
-        window: &n12::SD3D12Window,
         imgui_ctxt: &'ui mut imgui::Context,
         allocator: &SAllocatorRef
     ) -> SFrameContext<'ui> {
@@ -59,8 +61,8 @@ impl SGameContext {
             dt_s,
             total_time_s,
 
-            window_width: window.width(),
-            window_height: window.height(),
+            window_width: self.window.width(),
+            window_height: self.window.height(),
 
             imgui_ui: Some(imgui_ctxt.frame()),
             imgui_draw_data: None,

@@ -42,8 +42,12 @@ struct SData {
     data: Rc<dyn std::any::Any>, // $$$FRK(TODO): write Rc+Weak that can go in my own allocators
 }
 
-pub struct SDataRef<'bucket, T> {
+pub struct SDataRefBuilder<'bucket, T> {
     bucket: &'bucket SDataBucket,
+    result: SDataRef<T>,
+}
+
+pub struct SDataRef<T> {
     data: Weak<RefCell<T>>,
 }
 
@@ -93,33 +97,49 @@ impl SDataBucket {
         None
     }
 
-    pub fn get<T: TDataBucketMember>(&self) -> SDataRef<T> {
+    pub fn get<T: TDataBucketMember>(&self) -> SDataRefBuilder<T> {
         let entry = self.get_entry::<T>().expect("invalid entry");
-        SDataRef::new(self, entry)
+        SDataRefBuilder::new(self, entry)
     }
 
-    pub fn get_entities(&self) -> SDataRef<entity::SEntityBucket> {
+    pub fn get_entities(&self) -> SDataRefBuilder<entity::SEntityBucket> {
         self.get::<entity::SEntityBucket>()
     }
 
-    pub fn get_renderer(&self) -> SDataRef<render::SRender> {
+    pub fn get_renderer(&self) -> SDataRefBuilder<render::SRender> {
         self.get::<render::SRender>()
     }
 }
 
-impl<'bucket, T: TDataBucketMember> SDataRef<'bucket, T> {
+impl<'bucket, T: TDataBucketMember> SDataRefBuilder<'bucket, T> {
     fn new(bucket: &'bucket SDataBucket, data: &SData) -> Self {
         Self{
             bucket,
-            data: data.get_weak(),
+            result: SDataRef{
+                data: data.get_weak(),
+            },
         }
     }
 
-    pub fn and<T1: TDataBucketMember>(self) -> SMultiRef2<'bucket, T, T1> {
+    pub fn and<T1: TDataBucketMember>(self) -> SMultiRefBuilder2<'bucket, T, T1> {
         let d1 = self.bucket.get_entry::<T1>().expect("invalid entry");
-        SMultiRef2::new_from_1(self, d1)
+        SMultiRefBuilder2::new_from_1(self, d1)
     }
 
+    pub fn build(self) -> SDataRef<T> {
+        self.result
+    }
+}
+
+impl<'bucket, T0> Deref for SDataRefBuilder<'bucket, T0> {
+    type Target = SDataRef<T0>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.result
+    }
+}
+
+impl<T: TDataBucketMember> SDataRef<T> {
     pub fn with<F, R>(&self, mut function: F) -> R where
     F: FnMut(&T) -> R
     {
@@ -140,23 +160,38 @@ impl<'bucket, T: TDataBucketMember> SDataRef<'bucket, T> {
 // -- ugly helpers
 
 #[allow(dead_code)]
-pub struct SMultiRef2<'bucket, T0, T1> {
+pub struct SMultiRefBuilder2<'bucket, T0, T1> {
     bucket: &'bucket SDataBucket,
+    result: SMultiRef2<T0, T1>,
+}
+
+#[allow(dead_code)]
+pub struct SMultiRef2<T0, T1> {
     d0: Weak<RefCell<T0>>,
     d1: Weak<RefCell<T1>>,
 }
 
 #[allow(dead_code)]
-pub struct SMultiRef3<'bucket, T0, T1, T2> {
+pub struct SMultiRefBuilder3<'bucket, T0, T1, T2> {
     bucket: &'bucket SDataBucket,
+    result: SMultiRef3<T0, T1, T2>,
+}
+
+#[allow(dead_code)]
+pub struct SMultiRef3<T0, T1, T2> {
     d0: Weak<RefCell<T0>>,
     d1: Weak<RefCell<T1>>,
     d2: Weak<RefCell<T2>>,
 }
 
 #[allow(dead_code)]
-pub struct SMultiRef4<'bucket, T0, T1, T2, T3> {
+pub struct SMultiRefBuilder4<'bucket, T0, T1, T2, T3> {
     bucket: &'bucket SDataBucket,
+    result: SMultiRef4<T0, T1, T2, T3>,
+}
+
+#[allow(dead_code)]
+pub struct SMultiRef4<T0, T1, T2, T3> {
     d0: Weak<RefCell<T0>>,
     d1: Weak<RefCell<T1>>,
     d2: Weak<RefCell<T2>>,
@@ -164,8 +199,13 @@ pub struct SMultiRef4<'bucket, T0, T1, T2, T3> {
 }
 
 #[allow(dead_code)]
-pub struct SMultiRef5<'bucket, T0, T1, T2, T3, T4> {
+pub struct SMultiRefBuilder5<'bucket, T0, T1, T2, T3, T4> {
     bucket: &'bucket SDataBucket,
+    result: SMultiRef5<T0, T1, T2, T3, T4>,
+}
+
+#[allow(dead_code)]
+pub struct SMultiRef5<T0, T1, T2, T3, T4> {
     d0: Weak<RefCell<T0>>,
     d1: Weak<RefCell<T1>>,
     d2: Weak<RefCell<T2>>,
@@ -174,20 +214,37 @@ pub struct SMultiRef5<'bucket, T0, T1, T2, T3, T4> {
 }
 
 #[allow(dead_code)]
-impl<'bucket, T0, T1: TDataBucketMember> SMultiRef2<'bucket, T0, T1> {
-    fn new_from_1(prev: SDataRef<'bucket, T0>, last: &SData) -> Self {
+impl<'bucket, T0, T1: TDataBucketMember> SMultiRefBuilder2<'bucket, T0, T1> {
+    fn new_from_1(prev: SDataRefBuilder<'bucket, T0>, last: &SData) -> Self {
         Self{
             bucket: prev.bucket,
-            d0: prev.data,
-            d1: last.get_weak(),
+            result: SMultiRef2::<T0, T1> {
+                d0: prev.result.data,
+                d1: last.get_weak(),
+            },
         }
     }
 
-    pub fn and<T2: TDataBucketMember>(self) -> SMultiRef3<'bucket, T0, T1, T2> {
+    pub fn and<T2: TDataBucketMember>(self) -> SMultiRefBuilder3<'bucket, T0, T1, T2> {
         let last = self.bucket.get_entry::<T2>().expect("invalid entry");
-        SMultiRef3::new_from_2(self, last)
+        SMultiRefBuilder3::new_from_2(self, last)
     }
 
+    pub fn build(self) -> SMultiRef2<T0, T1> {
+        self.result
+    }
+}
+
+impl<'bucket, T0, T1> Deref for SMultiRefBuilder2<'bucket, T0, T1> {
+    type Target = SMultiRef2<T0, T1>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.result
+    }
+}
+
+#[allow(dead_code)]
+impl<T0, T1: TDataBucketMember> SMultiRef2<T0, T1> {
     pub fn with_cc<Fun, Ret>(&self, mut function: Fun) -> Ret where
     Fun: FnMut(&T0, &T1) -> Ret
     {
@@ -222,22 +279,38 @@ impl<'bucket, T0, T1: TDataBucketMember> SMultiRef2<'bucket, T0, T1> {
     }
 }
 
-#[allow(dead_code)]
-impl<'bucket, T0, T1, T2: TDataBucketMember> SMultiRef3<'bucket, T0, T1, T2> {
-    fn new_from_2(prev: SMultiRef2<'bucket, T0, T1>, last: &SData) -> Self {
+impl<'bucket, T0, T1, T2: TDataBucketMember> SMultiRefBuilder3<'bucket, T0, T1, T2> {
+    fn new_from_2(prev: SMultiRefBuilder2<'bucket, T0, T1>, last: &SData) -> Self {
         Self{
             bucket: prev.bucket,
-            d0: prev.d0,
-            d1: prev.d1,
-            d2: last.get_weak(),
+            result: SMultiRef3::<T0, T1, T2> {
+                d0: prev.result.d0,
+                d1: prev.result.d1,
+                d2: last.get_weak(),
+            },
         }
     }
 
-    pub fn and<T3: TDataBucketMember>(self) -> SMultiRef4<'bucket, T0, T1, T2, T3> {
+    pub fn and<T3: TDataBucketMember>(self) -> SMultiRefBuilder4<'bucket, T0, T1, T2, T3> {
         let last = self.bucket.get_entry::<T3>().expect("invalid entry");
-        SMultiRef4::new_from_3(self, last)
+        SMultiRefBuilder4::new_from_3(self, last)
     }
 
+    pub fn build(self) -> SMultiRef3<T0, T1, T2> {
+        self.result
+    }
+}
+
+impl<'bucket, T0, T1, T2> Deref for SMultiRefBuilder3<'bucket, T0, T1, T2> {
+    type Target = SMultiRef3<T0, T1, T2>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.result
+    }
+}
+
+#[allow(dead_code)]
+impl<T0, T1, T2: TDataBucketMember> SMultiRef3<T0, T1, T2> {
     pub fn with_ccc<Fun, Ret>(&self, mut function: Fun) -> Ret where
     Fun: FnMut(&T0, &T1, &T2) -> Ret
     {
@@ -291,23 +364,39 @@ impl<'bucket, T0, T1, T2: TDataBucketMember> SMultiRef3<'bucket, T0, T1, T2> {
     }
 }
 
-#[allow(dead_code)]
-impl<'bucket, T0, T1, T2, T3: TDataBucketMember> SMultiRef4<'bucket, T0, T1, T2, T3> {
-    fn new_from_3(prev: SMultiRef3<'bucket, T0, T1, T2>, last: &SData) -> Self {
+impl<'bucket, T0, T1, T2, T3: TDataBucketMember> SMultiRefBuilder4<'bucket, T0, T1, T2, T3> {
+    fn new_from_3(prev: SMultiRefBuilder3<'bucket, T0, T1, T2>, last: &SData) -> Self {
         Self{
             bucket: prev.bucket,
-            d0: prev.d0,
-            d1: prev.d1,
-            d2: prev.d2,
-            d3: last.get_weak(),
+            result: SMultiRef4::<T0, T1, T2, T3> {
+                d0: prev.result.d0,
+                d1: prev.result.d1,
+                d2: prev.result.d2,
+                d3: last.get_weak(),
+            },
         }
     }
 
-    pub fn and<T4: TDataBucketMember>(self) -> SMultiRef5<'bucket, T0, T1, T2, T3, T4> {
+    pub fn and<T4: TDataBucketMember>(self) -> SMultiRefBuilder5<'bucket, T0, T1, T2, T3, T4> {
         let last = self.bucket.get_entry::<T4>().expect("invalid entry");
-        SMultiRef5::new_from_4(self, last)
+        SMultiRefBuilder5::new_from_4(self, last)
     }
 
+    pub fn build(self) -> SMultiRef4<T0, T1, T2, T3> {
+        self.result
+    }
+}
+
+impl<'bucket, T0, T1, T2, T3> Deref for SMultiRefBuilder4<'bucket, T0, T1, T2, T3> {
+    type Target = SMultiRef4<T0, T1, T2, T3>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.result
+    }
+}
+
+#[allow(dead_code)]
+impl<T0, T1, T2, T3: TDataBucketMember> SMultiRef4<T0, T1, T2, T3> {
     pub fn with_cccc<Fun, Ret>(&self, mut function: Fun) -> Ret where
     Fun: FnMut(&T0, &T1, &T2, &T3) -> Ret
     {
@@ -384,19 +473,35 @@ impl<'bucket, T0, T1, T2, T3: TDataBucketMember> SMultiRef4<'bucket, T0, T1, T2,
     }
 }
 
-#[allow(dead_code)]
-impl<'bucket, T0, T1, T2, T3, T4: TDataBucketMember> SMultiRef5<'bucket, T0, T1, T2, T3, T4> {
-    fn new_from_4(prev: SMultiRef4<'bucket, T0, T1, T2, T3>, last: &SData) -> Self {
+impl<'bucket, T0, T1, T2, T3, T4: TDataBucketMember> SMultiRefBuilder5<'bucket, T0, T1, T2, T3, T4> {
+    fn new_from_4(prev: SMultiRefBuilder4<'bucket, T0, T1, T2, T3>, last: &SData) -> Self {
         Self{
             bucket: prev.bucket,
-            d0: prev.d0,
-            d1: prev.d1,
-            d2: prev.d2,
-            d3: prev.d3,
-            d4: last.get_weak(),
+            result: SMultiRef5::<T0, T1, T2, T3, T4> {
+                d0: prev.result.d0,
+                d1: prev.result.d1,
+                d2: prev.result.d2,
+                d3: prev.result.d3,
+                d4: last.get_weak(),
+            },
         }
     }
 
+    pub fn build(self) -> SMultiRef5<T0, T1, T2, T3, T4> {
+        self.result
+    }
+}
+
+impl<'bucket, T0, T1, T2, T3, T4> Deref for SMultiRefBuilder5<'bucket, T0, T1, T2, T3, T4> {
+    type Target = SMultiRef5<T0, T1, T2, T3, T4>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.result
+    }
+}
+
+#[allow(dead_code)]
+impl<T0, T1, T2, T3, T4: TDataBucketMember> SMultiRef5<T0, T1, T2, T3, T4> {
     pub fn with_mmccc<Fun, Ret>(&self, mut function: Fun) -> Ret where
     Fun: FnMut(&mut T0, &mut T1, &T2, &T3, &T4) -> Ret
     {

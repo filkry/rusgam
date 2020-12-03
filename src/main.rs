@@ -76,9 +76,9 @@ fn update_frame(game_context: &SGameContext, frame_context: &mut SFrameContext) 
     debug_ui::update_debug_entity_menu(game_context, frame_context);
     debug_ui::update_draw_entity_bvh(game_context, frame_context);
 
-    render::update_render_frame(game_context, frame_context);
-
     frame_context.finalize_ui();
+
+    render::update_render_frame(game_context, frame_context);
 
     Ok(())
 }

@@ -135,7 +135,7 @@ impl<TOwner: Clone> STree<TOwner> {
                     best_cost = total_cost;
                 }
 
-                if let ENode::Internal(internal) = self.nodes.get(cur_search.node_handle).unwrap() {
+                if let ENode::Internal(internal) = self.nodes.get(cur_search.node_handle).expect("search should never hit invalid handle") {
                     let cur_node_sa = internal.bounds.surface_area();
                     let new_inherited_cost = direct_cost - cur_node_sa;
                     let children_inherited_cost = new_inherited_cost + cur_search.inherited_cost;
@@ -178,7 +178,7 @@ impl<TOwner: Clone> STree<TOwner> {
 
     fn update_bounds_from_children(&mut self, node_handle: SNodeHandle) {
         let (child1, child2) = {
-            if let ENode::Internal(internal) = self.nodes.get(node_handle).unwrap() {
+            if let ENode::Internal(internal) = self.nodes.get(node_handle).expect("pass valid handles") {
                 (internal.child1, internal.child2)
             }
             else {
@@ -187,19 +187,16 @@ impl<TOwner: Clone> STree<TOwner> {
             }
         };
 
-        break_assert!(child1.valid());
-        break_assert!(child2.valid());
-
         let new_bounds = SAABB::union(
-            &self.nodes.get(child1).unwrap().bounds(),
-            &self.nodes.get(child2).unwrap().bounds(),
+            &self.nodes.get(child1).expect("node has invalid children").bounds(),
+            &self.nodes.get(child2).expect("node has invalid children").bounds(),
         );
 
-        self.nodes.get_mut(node_handle).unwrap().set_bounds(&new_bounds);
+        self.nodes.get_mut(node_handle).expect("pass valid handles").set_bounds(&new_bounds);
     }
 
     fn replace_child_without_updating_bounds(&mut self, parent: SNodeHandle, original_child: SNodeHandle, new_child: SNodeHandle) {
-        if let ENode::Internal(internal) = self.nodes.get_mut(parent).unwrap() {
+        if let ENode::Internal(internal) = self.nodes.get_mut(parent).expect("pass valid handles") {
             if internal.child1 == original_child {
                 internal.child1 = new_child;
             }
@@ -216,23 +213,27 @@ impl<TOwner: Clone> STree<TOwner> {
     }
 
     fn swap_nodes_without_updating_bounds(&mut self, node_a: SNodeHandle, node_b: SNodeHandle) {
-        let node_a_original_parent = self.nodes.get(node_a).unwrap().parent();
-        let node_b_original_parent = self.nodes.get(node_b).unwrap().parent();
+        let node_a_original_parent = self.nodes.get(node_a).expect("pass valid handles").parent();
+        let node_b_original_parent = self.nodes.get(node_b).expect("pass valid handles").parent();
 
-        self.nodes.get_mut(node_a).unwrap().set_parent(node_b_original_parent);
+        self.nodes.get_mut(node_a).expect("expected above").set_parent(node_b_original_parent);
         self.replace_child_without_updating_bounds(node_b_original_parent, node_b, node_a);
 
-        self.nodes.get_mut(node_b).unwrap().set_parent(node_a_original_parent);
+        self.nodes.get_mut(node_b).expect("expected above").set_parent(node_a_original_parent);
         self.replace_child_without_updating_bounds(node_a_original_parent, node_a, node_b);
     }
 
     fn rotate_children_grandchildren(&mut self, node_handle: SNodeHandle) {
-        let mut best_swap_child : Option<SNodeHandle> = None;
-        let mut best_swap_other_child : Option<SNodeHandle> = None;
-        let mut best_swap_grandchild : Option<SNodeHandle> = None;
-        let mut best_sa_diff : Option<f32> = None;
+        #[derive(Clone, Copy)]
+        struct SSwap {
+            child: SNodeHandle,
+            other_child: SNodeHandle,
+            grandchild: SNodeHandle,
+            sa_diff: f32,
+        }
+        let mut best_swap : Option<SSwap> = None;
 
-        if let ENode::Internal(internal) = self.nodes.get(node_handle).unwrap() {
+        if let ENode::Internal(internal) = self.nodes.get(node_handle).expect("pass valid handle") {
             let mut test_grandchild = |
                 swap_child : SNodeHandle,
                 other_child : SNodeHandle,
@@ -241,23 +242,25 @@ impl<TOwner: Clone> STree<TOwner> {
                 other_grandchild : SNodeHandle,
             | {
                 let possible_bounds = SAABB::union(
-                    &self.nodes.get(swap_child).unwrap().bounds(),
-                    &self.nodes.get(other_grandchild).unwrap().bounds(),
+                    &self.nodes.get(swap_child).expect("somehow bad handle").bounds(),
+                    &self.nodes.get(other_grandchild).expect("somehow bad handle").bounds(),
                 );
                 let possible_sa = possible_bounds.surface_area();
                 let sa_diff = swap_child_cur_sa - possible_sa;
-                if (sa_diff > 0.0) && (best_sa_diff.is_none() || best_sa_diff.unwrap() < sa_diff) {
-                    best_swap_child = Some(swap_child);
-                    best_swap_other_child = Some(other_child);
-                    best_swap_grandchild = Some(swap_grandchild);
-                    best_sa_diff = Some(sa_diff);
+                if (sa_diff > 0.0) && (best_swap.is_none() || best_swap.expect("checked here").sa_diff < sa_diff) {
+                    best_swap = Some(SSwap{
+                        child: swap_child,
+                        other_child: other_child,
+                        grandchild: swap_grandchild,
+                        sa_diff: sa_diff,
+                    });
                 }
             };
 
             let mut test_child = |swap_child : SNodeHandle, other_child: SNodeHandle| {
-                let cur_bounds = self.nodes.get(other_child).unwrap().bounds();
+                let cur_bounds = self.nodes.get(other_child).expect("pass valid handle").bounds();
                 let cur_sa = cur_bounds.surface_area();
-                if let ENode::Internal(other_child_internal) = self.nodes.get(other_child).unwrap() {
+                if let ENode::Internal(other_child_internal) = self.nodes.get(other_child).expect("pass valid handle") {
                     test_grandchild(swap_child, other_child, cur_sa, other_child_internal.child1, other_child_internal.child2);
                     test_grandchild(swap_child, other_child, cur_sa, other_child_internal.child2, other_child_internal.child1);
                 }
@@ -268,9 +271,9 @@ impl<TOwner: Clone> STree<TOwner> {
             test_child(internal.child2, internal.child1);
         }
 
-        if best_sa_diff.is_some() {
-            self.swap_nodes_without_updating_bounds(best_swap_child.unwrap(), best_swap_grandchild.unwrap());
-            self.update_bounds_from_children(best_swap_other_child.unwrap());
+        if let Some(best_swap_int) = &best_swap {
+            self.swap_nodes_without_updating_bounds(best_swap_int.child, best_swap_int.grandchild);
+            self.update_bounds_from_children(best_swap_int.other_child);
         }
     }
 

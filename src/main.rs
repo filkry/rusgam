@@ -189,11 +189,8 @@ fn main_d3d12() -> Result<(), &'static str> {
         let frame_linear_allocator = SAllocator::new(
             allocate::SLinearAllocator::new(frame_linear_allocator_helper.as_ref(), 120 * 1024 * 1024, 8)?,
         );
-        let mut frame_context = game_context.start_frame(
-            &winapi,
-            &mut imgui_ctxt,
-            frame_linear_allocator,
-        );
+
+        let mut frame_context = game_context.start_frame(&winapi, &mut imgui_ctxt, &frame_linear_allocator.as_ref());
 
         update_frame(&game_context, &mut frame_context)?;
 
@@ -274,6 +271,7 @@ fn main_d3d12() -> Result<(), &'static str> {
                 input.mouse_cursor_pos_window = game_context.window.mouse_pos(&winapi.rawwinapi());
             });
 
+        drop(frame_linear_allocator);
         frame_linear_allocator_helper.reset();
 
         // -- increase frame time for testing

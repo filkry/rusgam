@@ -78,9 +78,6 @@ fn update_frame(game_context: &SGameContext, frame_context: &mut SFrameContext) 
 
     frame_context.finalize_ui();
 
-    // -- render
-    render::update_render(game_context, frame_context);
-
     Ok(())
 }
 
@@ -195,10 +192,24 @@ fn main_d3d12() -> Result<(), &'static str> {
 
         update_frame(&game_context, &mut frame_context)?;
 
-        // -- present swapchain
+        // -- render frame
+
         game_context.data_bucket.get::<render::SRender>()
-            .with_mut(|render| {
-                render.present(&mut window);
+            .and::<SEntityBucket>()
+            .and::<entity_animation::SBucket>()
+            .and::<entity_model::SBucket>()
+            .and::<camera::SDebugFPCamera>()
+            .with_mmmcc(|render, entities, entity_animation, entity_model, camera| {
+                let view_matrix = camera.world_to_view_matrix();
+
+                let render_result = render.render_frame(&mut window, &view_matrix, entities, entity_animation, entity_model, frame_context.imgui_draw_data);
+                match render_result {
+                    Ok(_) => {},
+                    Err(e) => {
+                        println!("ERROR: render failed with error '{}'", e);
+                        panic!();
+                    },
+                }
             });
 
         game_context.end_frame(frame_context);

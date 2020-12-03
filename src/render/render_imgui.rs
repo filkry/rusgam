@@ -255,14 +255,10 @@ impl SRenderImgui {
 }
 
 impl super::SRender {
-    pub fn setup_imgui_draw_data_resources(
-        &mut self,
-        render_frame_context: &super::SRenderFrameContext,
-        draw_data: &imgui::DrawData
-    ) -> Result<(), &'static str> {
+    pub fn setup_imgui_draw_data_resources(&mut self, window: &n12::SD3D12Window, draw_data: &imgui::DrawData) -> Result<(), &'static str> {
         let ri = &mut self.render_imgui;
 
-        let backbufferidx = render_frame_context.current_back_buffer_index;
+        let backbufferidx = window.currentbackbufferindex();
         ri.vert_buffer_resources[backbufferidx].clear();
         ri.int_vert_buffer_resources[backbufferidx].clear();
         ri.vert_buffer_views[backbufferidx].clear();
@@ -354,7 +350,7 @@ impl super::SRender {
         Ok(())
     }
 
-    pub fn render_imgui(&mut self, window: &n12::SD3D12Window, draw_data: &imgui::DrawData) -> Result<(), &'static str> {
+    pub fn render_imgui(&mut self, window: &mut n12::SD3D12Window, draw_data: &imgui::DrawData) -> Result<(), &'static str> {
         let ri = &mut self.render_imgui;
 
         let backbufferidx = window.currentbackbufferindex();

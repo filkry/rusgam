@@ -44,14 +44,13 @@ impl<TOwner: Clone> ENode<TOwner> {
         }
     }
 
-    pub fn bounds(&self) -> Option<&SAABB> {
+    pub fn bounds(&self) -> &SAABB {
         match self {
             Self::Free => {
-                break_assert!(false);
-                None
+                panic!("trying to get bounds of freed node");
             },
-            Self::Leaf(leaf) => Some(&leaf.bounds),
-            Self::Internal(internal) => Some(&internal.bounds),
+            Self::Leaf(leaf) => &leaf.bounds,
+            Self::Internal(internal) => &internal.bounds,
         }
     }
 
@@ -102,14 +101,9 @@ impl<TOwner: Clone> Default for ENode<TOwner> {
 
 impl<TOwner: Clone> STree<TOwner> {
     fn union(&self, a: SNodeHandle, b: SNodeHandle) -> SAABB {
-        let a_aabb = self.nodes.get(a).unwrap().bounds();
-        let b_aabb = self.nodes.get(b).unwrap().bounds();
-        match (a_aabb, b_aabb) {
-            (Some(a_aabb_int), Some(b_aabb_int)) => SAABB::union(a_aabb_int, b_aabb_int),
-            (Some(a_aabb_int), None) => a_aabb_int.clone(),
-            (None, Some(b_aabb_int)) => b_aabb_int.clone(),
-            (None, None) => SAABB::zero(),
-        }
+        let a_aabb = self.nodes.get(a).expect("pass valid handles").bounds();
+        let b_aabb = self.nodes.get(b).expect("pass valid handles").bounds();
+        SAABB::union(a_aabb, b_aabb)
     }
 
     fn find_best_sibling(&self, query_node: SNodeHandle) -> SNodeHandle {
@@ -121,16 +115,17 @@ impl<TOwner: Clone> STree<TOwner> {
         }
 
         STACK_ALLOCATOR.with(|sa| -> SNodeHandle {
-            let mut search_queue = SMemQueue::<SSearch>::new(&sa.as_ref(), self.nodes.used()).unwrap();
+            let mut search_queue = SMemQueue::<SSearch>::new(&sa.as_ref(), self.nodes.used()).expect("blew stack allocator");
             break_assert!(self.root.valid());
             let mut best = self.root;
             let mut best_cost = self.union(query_node, best).surface_area();
             search_queue.push_back(SSearch{
                 node_handle: best,
-                inherited_cost: best_cost - self.nodes.get(best).unwrap().bounds().unwrap().surface_area(),
+                inherited_cost: best_cost - self.nodes.get(best).expect("best must always be valid").bounds().surface_area(),
             });
 
-            let query_node_sa = self.nodes.get(query_node).unwrap().bounds().unwrap().surface_area();
+            let query_node_sa = self.nodes.get(query_node)
+                .expect("query node must always be valid").bounds().surface_area();
 
             while let Some(cur_search) = search_queue.pop_front() {
                 let direct_cost = self.union(query_node, cur_search.node_handle).surface_area();
@@ -196,8 +191,8 @@ impl<TOwner: Clone> STree<TOwner> {
         break_assert!(child2.valid());
 
         let new_bounds = SAABB::union(
-            &self.nodes.get(child1).unwrap().bounds().unwrap(),
-            &self.nodes.get(child2).unwrap().bounds().unwrap(),
+            &self.nodes.get(child1).unwrap().bounds(),
+            &self.nodes.get(child2).unwrap().bounds(),
         );
 
         self.nodes.get_mut(node_handle).unwrap().set_bounds(&new_bounds);
@@ -246,8 +241,8 @@ impl<TOwner: Clone> STree<TOwner> {
                 other_grandchild : SNodeHandle,
             | {
                 let possible_bounds = SAABB::union(
-                    &self.nodes.get(swap_child).unwrap().bounds().unwrap(),
-                    &self.nodes.get(other_grandchild).unwrap().bounds().unwrap(),
+                    &self.nodes.get(swap_child).unwrap().bounds(),
+                    &self.nodes.get(other_grandchild).unwrap().bounds(),
                 );
                 let possible_sa = possible_bounds.surface_area();
                 let sa_diff = swap_child_cur_sa - possible_sa;
@@ -260,7 +255,7 @@ impl<TOwner: Clone> STree<TOwner> {
             };
 
             let mut test_child = |swap_child : SNodeHandle, other_child: SNodeHandle| {
-                let cur_bounds = self.nodes.get(other_child).unwrap().bounds().unwrap();
+                let cur_bounds = self.nodes.get(other_child).unwrap().bounds();
                 let cur_sa = cur_bounds.surface_area();
                 if let ENode::Internal(other_child_internal) = self.nodes.get(other_child).unwrap() {
                     test_grandchild(swap_child, other_child, cur_sa, other_child_internal.child1, other_child_internal.child2);
@@ -310,7 +305,7 @@ impl<TOwner: Clone> STree<TOwner> {
         let new_parent_handle = self.nodes.alloc().unwrap();
         {
             let new_bounds = SAABB::union(
-                self.nodes.get(sibling_handle).unwrap().bounds().unwrap(),
+                self.nodes.get(sibling_handle).unwrap().bounds(),
                 bounds,
             );
             let new_parent = self.nodes.get_mut(new_parent_handle).unwrap();
@@ -363,7 +358,7 @@ impl<TOwner: Clone> STree<TOwner> {
     pub fn get_bvh_heirarchy_for_entry(&self, entry: SNodeHandle, output: &mut SMemVec<SAABB>) {
         let mut cur_handle = entry;
         while cur_handle.valid() {
-            output.push(self.nodes.get(cur_handle).unwrap().bounds().unwrap().clone());
+            output.push(self.nodes.get(cur_handle).unwrap().bounds().clone());
             cur_handle = self.nodes.get(cur_handle).unwrap().parent();
         }
     }
@@ -462,8 +457,8 @@ impl<TOwner: Clone> STree<TOwner> {
                     }
 
                     // -- aabb must be tight around child aabbs
-                    let child1_aabb = self.nodes.get(internal.child1).unwrap().bounds().unwrap();
-                    let child2_aabb = self.nodes.get(internal.child2).unwrap().bounds().unwrap();
+                    let child1_aabb = self.nodes.get(internal.child1).unwrap().bounds();
+                    let child2_aabb = self.nodes.get(internal.child2).unwrap().bounds();
                     let unified_aabb = SAABB::union(child1_aabb, child2_aabb);
 
                     if !(internal.bounds == unified_aabb) {
@@ -499,7 +494,7 @@ impl<TOwner: Clone> STree<TOwner> {
 
             let mut other_child_handle = SNodeHandle::default();
             {
-                let parent = self.nodes.get_mut(parent_handle).unwrap(); // $$$FRK(TODO): change to unchecked when more confident
+                let parent = self.nodes.get_mut(parent_handle).expect("should never have invalid parent");
                 if let ENode::Internal(int) = parent {
                     if int.child1 == handle_to_delete {
                         int.child1.invalidate();
@@ -524,7 +519,7 @@ impl<TOwner: Clone> STree<TOwner> {
             if other_child_handle.valid() {
                 if parent_parent_handle.valid() {
                     // -- patch other_child in to replace parent in parent_parent
-                    let parent_parent = self.nodes.get_mut(parent_parent_handle).unwrap(); // $$$FRK(TODO): change to unchecked when more confident
+                    let parent_parent = self.nodes.get_mut(parent_parent_handle).expect("should never have invalid parent");
                     if let ENode::Internal(int) = parent_parent {
                         if int.child1 == parent_handle {
                             int.child1 = other_child_handle;
@@ -671,7 +666,7 @@ impl<TOwner: Clone> STree<TOwner> {
 
             while let Some(cur_handle) = to_search.pop() {
                 let node = self.nodes.get(cur_handle).unwrap();
-                let aabb = &node.bounds().unwrap();
+                let aabb = &node.bounds();
 
                 if let Some(t) = ray_intersects_aabb(&ray, aabb) {
                     if let ENode::Internal(internal) = node {

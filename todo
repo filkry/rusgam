@@ -1,4 +1,6 @@
 
++ break render update into a beginrender() and an endrender() that consumes an intermediate struct and submits stuff, with updates in between
++ expunge all winapi references from niced3d12, only go through typey
 + check minimum D3D levels for features we use
 + consider moving SStoragePool from using Option<T> to something like maybeuninit
 + move the "buffer" for debug rendering into it's own data bucket thing, then have renderer use it

@@ -83,7 +83,6 @@ impl SD3D12Window {
         Ok(())
     }
 
-    // -- $$$FRK(TODO): need to think about this, non-mut seems wrong (as does just handing out a pointer in general)
     pub fn currentbackbuffer(&self) -> &super::SResource {
         &self.swapchain.backbuffers[self.curbuffer]
     }

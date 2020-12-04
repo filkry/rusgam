@@ -13,6 +13,7 @@ use collections::{SVec};
 use model::{SModel, SMeshLoader, STextureLoader, SMeshHandle};
 use super::shaderbindings;
 use utils::{STransform, SAABB};
+use super::{SRenderContext};
 
 #[allow(unused_variables)]
 #[allow(unused_mut)]
@@ -682,27 +683,25 @@ impl SRenderTemp {
 }
 
 impl super::SRender {
-    pub fn render_temp_in_world(&mut self, window: &n12::SD3D12Window, view_matrix: &Mat4) -> Result<(), &'static str> {
-        self.render_temp_points(window, view_matrix, true)?;
-        self.render_temp_lines(window, view_matrix, true)?;
-        self.render_temp_spheres(window, view_matrix, true)?;
-        self.render_temp_models(window, view_matrix, true)?;
+    pub fn render_temp_in_world(&mut self, window: &n12::SD3D12Window, context: &SRenderContext) -> Result<(), &'static str> {
+        self.render_temp_points(window, context, true)?;
+        self.render_temp_lines(window, context, true)?;
+        self.render_temp_spheres(window, context, true)?;
+        self.render_temp_models(window, context, true)?;
 
         Ok(())
     }
 
-    pub fn render_temp_over_world(&mut self, window: &n12::SD3D12Window, view_matrix: &Mat4) -> Result<(), &'static str> {
-        self.render_temp_points(window, view_matrix, false)?;
-        self.render_temp_lines(window, view_matrix, false)?;
-        self.render_temp_spheres(window, view_matrix, false)?;
-        self.render_temp_models(window, view_matrix, false)?;
+    pub fn render_temp_over_world(&mut self, window: &n12::SD3D12Window, context: &SRenderContext) -> Result<(), &'static str> {
+        self.render_temp_points(window, context, false)?;
+        self.render_temp_lines(window, context, false)?;
+        self.render_temp_spheres(window, context, false)?;
+        self.render_temp_models(window, context, false)?;
 
         Ok(())
     }
 
-    pub fn render_temp_points(&mut self, window: &n12::SD3D12Window, view_matrix: &Mat4, in_world: bool) -> Result<(), &'static str> {
-        let back_buffer_idx = window.currentbackbufferindex();
-
+    pub fn render_temp_points(&mut self, window: &n12::SD3D12Window, context: &SRenderContext, in_world: bool) -> Result<(), &'static str> {
         // A very basic test
         /*
         self.temp().draw_point(
@@ -779,11 +778,11 @@ impl super::SRender {
                 fence_val,
             )?;
 
-            tr.point_vertex_buffer_intermediate_resource[back_buffer_idx] =
+            tr.point_vertex_buffer_intermediate_resource[context.current_back_buffer_index] =
                 Some(vert_buffer_resource.intermediateresource.raw);
-            tr.point_vertex_buffer_resource[back_buffer_idx] =
+            tr.point_vertex_buffer_resource[context.current_back_buffer_index] =
                 Some(vert_buffer_resource.destinationresource.raw);
-            tr.point_vertex_buffer_view[back_buffer_idx] = Some(vertex_buffer_view);
+            tr.point_vertex_buffer_view[context.current_back_buffer_index] = Some(vertex_buffer_view);
 
             Ok(true)
         })?;
@@ -823,14 +822,14 @@ impl super::SRender {
             //SMat44::new_perspective(aspect, fovy, znear, zfar)
             glm::perspective_lh_zo(aspect, self.fovy(), self.znear(), zfar)
         };
-        let view_perspective = perspective_matrix * view_matrix;
+        let view_perspective = perspective_matrix * context.view_matrix;
 
         list.set_graphics_root_32_bit_constants(self.render_temp.point_vp_root_param_idx,
                                                 &view_perspective, 0);
 
         // -- set up input assembler
         list.ia_set_primitive_topology(t12::EPrimitiveTopology::PointList);
-        let vert_buffer_view = self.render_temp.point_vertex_buffer_view[back_buffer_idx].
+        let vert_buffer_view = self.render_temp.point_vertex_buffer_view[context.current_back_buffer_index].
             as_ref().expect("should have generated resource earlier in this function");
         list.ia_set_vertex_buffers(0, &[vert_buffer_view]);
 
@@ -848,14 +847,14 @@ impl super::SRender {
 
         // -- execute on the queue
         drop(list);
-        assert_eq!(window.currentbackbufferindex(), back_buffer_idx);
+        assert_eq!(window.currentbackbufferindex(), context.current_back_buffer_index);
         self.direct_command_pool.execute_and_free_list(&mut handle)?;
 
         Ok(())
     }
 
 
-    pub fn render_temp_lines(&mut self, window: &n12::SD3D12Window, view_matrix: &Mat4, in_world: bool) -> Result<(), &'static str> {
+    pub fn render_temp_lines(&mut self, window: &n12::SD3D12Window, context: &SRenderContext, in_world: bool) -> Result<(), &'static str> {
         let back_buffer_idx = window.currentbackbufferindex();
 
         // A very basic test
@@ -982,7 +981,7 @@ impl super::SRender {
             //SMat44::new_perspective(aspect, fovy, znear, zfar)
             glm::perspective_lh_zo(aspect, self.fovy(), self.znear(), zfar)
         };
-        let view_perspective = perspective_matrix * view_matrix;
+        let view_perspective = perspective_matrix * context.view_matrix;
 
         list.set_graphics_root_32_bit_constants(self.render_temp.line_vp_root_param_idx,
                                                 &view_perspective, 0);
@@ -1014,7 +1013,7 @@ impl super::SRender {
         Ok(())
     }
 
-    pub fn render_temp_spheres(&mut self, window: &n12::SD3D12Window, view_matrix: &Mat4, in_world: bool) -> Result<(), &'static str> {
+    pub fn render_temp_spheres(&mut self, window: &n12::SD3D12Window, context: &SRenderContext, in_world: bool) -> Result<(), &'static str> {
         let back_buffer_idx = window.currentbackbufferindex();
 
         // A very basic test
@@ -1136,7 +1135,7 @@ impl super::SRender {
             //SMat44::new_perspective(aspect, fovy, znear, zfar)
             glm::perspective_lh_zo(aspect, self.fovy(), self.znear(), zfar)
         };
-        let view_perspective = perspective_matrix * view_matrix;
+        let view_perspective = perspective_matrix * context.view_matrix;
 
         list.set_graphics_root_32_bit_constants(self.render_temp.instance_mesh_vp_root_param_idx,
                                                 &view_perspective, 0);
@@ -1175,7 +1174,7 @@ impl super::SRender {
     }
 
     // -- $$$FRK(TODO): nothing in here should require access to the window
-    pub fn render_temp_models(&mut self, window: &n12::SD3D12Window, view_matrix: &Mat4, in_world: bool) -> Result<(), &'static str> {
+    pub fn render_temp_models(&mut self, window: &n12::SD3D12Window, context: &SRenderContext, in_world: bool) -> Result<(), &'static str> {
         if self.render_temp.models.len() == 0 {
             return Ok(());
         }
@@ -1213,7 +1212,7 @@ impl super::SRender {
             //SMat44::new_perspective(aspect, fovy, znear, zfar)
             glm::perspective_lh_zo(aspect, self.fovy(), self.znear(), zfar)
         };
-        let view_projection = perspective_matrix * view_matrix;
+        let view_projection = perspective_matrix * context.view_matrix;
 
         list.ia_set_primitive_topology(t12::EPrimitiveTopology::TriangleList);
 

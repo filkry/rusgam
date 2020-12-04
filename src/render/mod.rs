@@ -52,6 +52,11 @@ struct SBuiltShaderMetadata {
     src_write_time: std::time::SystemTime,
 }
 
+pub struct SRenderContext {
+    current_back_buffer_index: usize,
+    view_matrix: Mat4,
+}
+
 pub struct SRender {
     factory: n12::SFactory,
     _adapter: n12::SAdapter, // -- maybe don't need to keep
@@ -145,7 +150,7 @@ pub fn compile_shaders_if_changed(d3d_debug: bool) {
                     src_file.metadata().unwrap().modified().unwrap()
                 };
 
-                // -- $$$FRK(TODO): can I read into a custom buffer to not allocate from system heap?
+                // -- $$$FRK(FUTURE WORK): can I read into a custom buffer to not allocate from system heap?
                 let build_shader_metadata_json_str = std::fs::read_to_string(build_metadata_path).unwrap();
                 let build_shader_metadata : SBuiltShaderMetadata = serde_json::from_str(build_shader_metadata_json_str.as_str()).unwrap();
 
@@ -483,7 +488,6 @@ impl SRender {
             let mut list = self.direct_command_pool.get_list(&handle)?;
 
             // -- transition to render target
-            // -- $$$FRK(TODO): could make a model where you call beginrender() to get a render state that will transition the resource on create and drop
             list.transition_resource(
                 backbuffer,
                 t12::EResourceStates::Present,
@@ -507,13 +511,18 @@ impl SRender {
             self.setup_imgui_draw_data_resources(window, idd)?;
         }
 
+        let context = SRenderContext{
+            current_back_buffer_index: window.currentbackbufferindex(),
+            view_matrix: view_matrix.clone(),
+        };
+
         // -- update skinned buffers
         self.compute_skinning(entity_animation, entity_model)?;
 
         // -- $$$FRK(TODO): should initialize the shadow map depth buffer to empty, so we still get light if we don't render maps
         self.render_shadow_maps(entities, entity_model)?;
         self.render_world(window, view_matrix, entities, entity_animation, entity_model)?;
-        self.render_temp_in_world(window, view_matrix)?;
+        self.render_temp_in_world(window, &context)?;
 
         // -- clear depth buffer again
         {
@@ -524,7 +533,7 @@ impl SRender {
             self.direct_command_pool.execute_and_free_list(&mut handle)?;
         }
 
-        self.render_temp_over_world(window, view_matrix)?;
+        self.render_temp_over_world(window, &context)?;
         if let Some(idd) = imgui_draw_data {
             self.render_imgui(window, idd)?;
         }

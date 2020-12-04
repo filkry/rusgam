@@ -267,7 +267,6 @@ impl super::SRender {
 
         for draw_list in draw_data.draw_lists() {
             let (vertbufferresource, vertexbufferview, indexbufferresource, indexbufferview) = {
-                // -- $$$FRK(TODO): we should be able to update the data in the resource, rather than creating a new one?
                 let mut vertbufferresource = {
                     let vertbufferflags = t12::SResourceFlags::from(t12::EResourceFlags::ENone);
                     copy_command_list.update_buffer_resource(

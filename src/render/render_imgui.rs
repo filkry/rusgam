@@ -67,14 +67,12 @@ impl SRenderImgui {
         drop(fonts);
 
         let orthomat_root_parameter = t12::SRootParameter {
-            type_: t12::ERootParameterType::E32BitConstants,
-            type_data: t12::ERootParameterTypeData::Constants {
-                constants: t12::SRootConstants {
+            type_: t12::ERootParameterType::E32BitConstants(
+                t12::SRootConstants {
                     shader_register: 0,
                     register_space: 0,
                     num_32_bit_values: (size_of::<Mat4>() * 3 / 4) as u32,
-                },
-            },
+                }),
             shader_visibility: t12::EShaderVisibility::Vertex,
         };
 
@@ -93,10 +91,7 @@ impl SRenderImgui {
                 .push(descriptor_range);
 
             t12::SRootParameter {
-                type_: t12::ERootParameterType::DescriptorTable,
-                type_data: t12::ERootParameterTypeData::DescriptorTable {
-                    table: root_descriptor_table,
-                },
+                type_: t12::ERootParameterType::DescriptorTable(root_descriptor_table),
                 shader_visibility: t12::EShaderVisibility::Pixel,
             }
         };

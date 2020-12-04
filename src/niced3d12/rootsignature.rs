@@ -53,13 +53,11 @@ impl SRootParameter {
 
     pub fn new_srv_descriptor(register: u32, space: u32, visibility: t12::EShaderVisibility) -> Self {
         let raw = t12::SRootParameter {
-            type_: t12::ERootParameterType::SRV,
-            type_data: t12::ERootParameterTypeData::Descriptor {
-                descriptor: t12::SRootDescriptor {
+            type_: t12::ERootParameterType::SRV(
+                t12::SRootDescriptor {
                     shader_register: register,
                     register_space: space,
-                },
-            },
+                }),
             shader_visibility: visibility,
         };
         Self {
@@ -69,13 +67,11 @@ impl SRootParameter {
 
     pub fn new_uav_descriptor(register: u32, space: u32, visibility: t12::EShaderVisibility) -> Self {
         let raw = t12::SRootParameter {
-            type_: t12::ERootParameterType::UAV,
-            type_data: t12::ERootParameterTypeData::Descriptor {
-                descriptor: t12::SRootDescriptor {
+            type_: t12::ERootParameterType::UAV(
+                t12::SRootDescriptor {
                     shader_register: register,
                     register_space: space,
-                },
-            },
+                }),
             shader_visibility: visibility,
         };
         Self {

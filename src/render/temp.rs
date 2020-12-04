@@ -187,14 +187,12 @@ impl SRenderTemp {
         };
 
         let vp_root_parameter = t12::SRootParameter {
-            type_: t12::ERootParameterType::E32BitConstants,
-            type_data: t12::ERootParameterTypeData::Constants {
-                constants: t12::SRootConstants {
+            type_: t12::ERootParameterType::E32BitConstants(
+                t12::SRootConstants {
                     shader_register: 0,
                     register_space: 0,
                     num_32_bit_values: (size_of::<Mat4>() / size_of::<f32>()) as u32,
-                },
-            },
+                }),
             shader_visibility: t12::EShaderVisibility::Vertex,
         };
 
@@ -273,14 +271,12 @@ impl SRenderTemp {
         };
 
         let vp_root_parameter = t12::SRootParameter {
-            type_: t12::ERootParameterType::E32BitConstants,
-            type_data: t12::ERootParameterTypeData::Constants {
-                constants: t12::SRootConstants {
+            type_: t12::ERootParameterType::E32BitConstants(
+                t12::SRootConstants {
                     shader_register: 0,
                     register_space: 0,
                     num_32_bit_values: (size_of::<Mat4>() / size_of::<f32>()) as u32,
-                },
-            },
+                }),
             shader_visibility: t12::EShaderVisibility::Vertex,
         };
 
@@ -359,14 +355,12 @@ impl SRenderTemp {
         };
 
         let vp_root_parameter = t12::SRootParameter {
-            type_: t12::ERootParameterType::E32BitConstants,
-            type_data: t12::ERootParameterTypeData::Constants {
-                constants: t12::SRootConstants {
+            type_: t12::ERootParameterType::E32BitConstants(
+                t12::SRootConstants {
                     shader_register: 0,
                     register_space: 0,
                     num_32_bit_values: (size_of::<Mat4>() / size_of::<f32>()) as u32,
-                },
-            },
+                }),
             shader_visibility: t12::EShaderVisibility::Vertex,
         };
 
@@ -469,25 +463,21 @@ impl SRenderTemp {
         };
 
         let mvp_root_parameter = t12::SRootParameter {
-            type_: t12::ERootParameterType::E32BitConstants,
-            type_data: t12::ERootParameterTypeData::Constants {
-                constants: t12::SRootConstants {
+            type_: t12::ERootParameterType::E32BitConstants(
+                t12::SRootConstants {
                     shader_register: 0,
                     register_space: 0,
                     num_32_bit_values: (size_of::<Mat4>() / size_of::<f32>()) as u32,
-                },
-            },
+                }),
             shader_visibility: t12::EShaderVisibility::Vertex,
         };
         let color_root_parameter = t12::SRootParameter {
-            type_: t12::ERootParameterType::E32BitConstants,
-            type_data: t12::ERootParameterTypeData::Constants {
-                constants: t12::SRootConstants {
+            type_: t12::ERootParameterType::E32BitConstants(
+                t12::SRootConstants {
                     shader_register: 1,
                     register_space: 0,
                     num_32_bit_values: (size_of::<Vec4>() / size_of::<f32>()) as u32,
-                },
-            },
+                }),
             shader_visibility: t12::EShaderVisibility::Pixel,
         };
 

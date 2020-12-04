@@ -70,14 +70,12 @@ impl SModelViewProjection {
 
     pub fn root_parameter(shader_register: usize, register_space: usize) -> t12::SRootParameter {
         t12::SRootParameter {
-            type_: t12::ERootParameterType::E32BitConstants,
-            type_data: t12::ERootParameterTypeData::Constants {
-                constants: t12::SRootConstants {
+            type_: t12::ERootParameterType::E32BitConstants(
+                t12::SRootConstants {
                     shader_register: shader_register as u32,
                     register_space: register_space as u32,
                     num_32_bit_values: (size_of::<SModelViewProjection>() / size_of::<f32>()) as u32,
-                },
-            },
+                }),
             shader_visibility: t12::EShaderVisibility::Vertex,
         }
     }

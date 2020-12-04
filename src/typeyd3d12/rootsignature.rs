@@ -195,34 +195,27 @@ impl SRootDescriptor {
 }
 
 pub enum ERootParameterType {
-    DescriptorTable,
-    E32BitConstants,
-    CBV,
-    SRV,
-    UAV,
+    DescriptorTable(SRootDescriptorTable),
+    E32BitConstants(SRootConstants),
+    CBV(SRootDescriptor),
+    SRV(SRootDescriptor),
+    UAV(SRootDescriptor),
 }
 
 impl ERootParameterType {
     pub fn d3dtype(&self) -> D3D12_ROOT_PARAMETER_TYPE {
         match self {
-            Self::DescriptorTable => D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
-            Self::E32BitConstants => D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS,
-            Self::CBV => D3D12_ROOT_PARAMETER_TYPE_CBV,
-            Self::SRV => D3D12_ROOT_PARAMETER_TYPE_SRV,
-            Self::UAV => D3D12_ROOT_PARAMETER_TYPE_UAV,
+            Self::DescriptorTable(..) => D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
+            Self::E32BitConstants(..) => D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS,
+            Self::CBV(..) => D3D12_ROOT_PARAMETER_TYPE_CBV,
+            Self::SRV(..) => D3D12_ROOT_PARAMETER_TYPE_SRV,
+            Self::UAV(..) => D3D12_ROOT_PARAMETER_TYPE_UAV,
         }
     }
 }
 
-pub enum ERootParameterTypeData {
-    Constants { constants: SRootConstants },
-    DescriptorTable { table: SRootDescriptorTable },
-    Descriptor { descriptor: SRootDescriptor },
-}
-
 pub struct SRootParameter {
     pub type_: ERootParameterType,
-    pub type_data: ERootParameterTypeData,
     pub shader_visibility: EShaderVisibility,
 }
 
@@ -231,14 +224,20 @@ impl SRootParameter {
         unsafe {
             let mut result = mem::MaybeUninit::<D3D12_ROOT_PARAMETER>::zeroed();
             (*result.as_mut_ptr()).ParameterType = self.type_.d3dtype();
-            match &mut self.type_data {
-                ERootParameterTypeData::Constants { constants } => {
+            match &mut self.type_ {
+                ERootParameterType::E32BitConstants ( constants ) => {
                     *(*result.as_mut_ptr()).u.Constants_mut() = constants.d3dtype();
                 }
-                ERootParameterTypeData::DescriptorTable { table } => {
+                ERootParameterType::DescriptorTable ( table ) => {
                     *(*result.as_mut_ptr()).u.DescriptorTable_mut() = table.d3dtype();
                 }
-                ERootParameterTypeData::Descriptor { descriptor } => {
+                ERootParameterType::CBV ( descriptor ) => {
+                    *(*result.as_mut_ptr()).u.Descriptor_mut() = descriptor.d3dtype();
+                }
+                ERootParameterType::SRV ( descriptor ) => {
+                    *(*result.as_mut_ptr()).u.Descriptor_mut() = descriptor.d3dtype();
+                }
+                ERootParameterType::UAV ( descriptor ) => {
                     *(*result.as_mut_ptr()).u.Descriptor_mut() = descriptor.d3dtype();
                 }
             }

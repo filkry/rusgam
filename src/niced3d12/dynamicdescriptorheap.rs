@@ -70,23 +70,16 @@ impl SDynamicDescriptorHeap {
 
         let mut current_offset = 0;
         for (i, parameter) in root_signature.desc().parameters.iter().enumerate() {
-            if let t12::ERootParameterType::DescriptorTable = parameter.type_ {
-                if let t12::ERootParameterTypeData::DescriptorTable { ref table } =
-                    parameter.type_data
-                {
-                    assert!(table.descriptor_ranges.len() == 1); // for simplicity for now
-                    let range = &table.descriptor_ranges[0];
+            if let t12::ERootParameterType::DescriptorTable(table) = &parameter.type_ {
+                assert!(table.descriptor_ranges.len() == 1); // for simplicity for now
+                let range = &table.descriptor_ranges[0];
 
-                    let cache = &mut self.descriptor_table_caches[i];
-                    cache.num_descriptors = range.num_descriptors as usize;
-                    cache.base_cached_cpu_descriptor = current_offset;
-                    cache.in_root_signature = true;
+                let cache = &mut self.descriptor_table_caches[i];
+                cache.num_descriptors = range.num_descriptors as usize;
+                cache.base_cached_cpu_descriptor = current_offset;
+                cache.in_root_signature = true;
 
-                    current_offset += cache.num_descriptors;
-                } else {
-                    // -- $$$FRK(TODO): pair these two enums in typey
-                    assert!(false);
-                }
+                current_offset += cache.num_descriptors;
             }
         }
     }

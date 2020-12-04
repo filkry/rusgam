@@ -1,4 +1,5 @@
 
++ check minimum D3D levels for features we use
 + consider moving SStoragePool from using Option<T> to something like maybeuninit
 + move the "buffer" for debug rendering into it's own data bucket thing, then have renderer use it
 + make my own Rc/Weak for my allocators

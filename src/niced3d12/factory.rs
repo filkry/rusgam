@@ -4,7 +4,6 @@ pub struct SFactory {
     raw: t12::SFactory,
 }
 
-// -- $$FRK(TODO): almost every function in here should be unsafe
 impl SFactory {
     pub fn create() -> Result<Self, &'static str> {
         Ok(Self {
@@ -22,11 +21,10 @@ impl SFactory {
             if let None = adapter1opt {
                 continue;
             }
-            let adapter1 = adapter1opt.expect("$$$FRK(TODO)");
+            let adapter1 = adapter1opt.expect("Couldn't get a graphics adapter");
 
             let adapterdesc = adapter1.getdesc();
 
-            // -- $$$FRK(TODO): get rid of this d3d constant
             if adapterdesc.Flags & winapi::shared::dxgi::DXGI_ADAPTER_FLAG_SOFTWARE > 0 {
                 continue;
             }
@@ -48,8 +46,8 @@ impl SFactory {
         }
 
         if maxdedicatedmem > 0 {
-            let adapter1 = self.raw.enumadapters(bestadapter).expect("$$$FRK(TODO)");
-            let adapter4 = adapter1.castadapter4().expect("$$$FRK(TODO)");
+            let adapter1 = self.raw.enumadapters(bestadapter).expect("couldn't get graphics adapter");
+            let adapter4 = adapter1.castadapter4().expect("system does not support D3D API level providing Adapter4");
 
             return Ok(SAdapter::new_from_raw(adapter4));
         }

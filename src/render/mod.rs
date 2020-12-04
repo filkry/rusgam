@@ -548,7 +548,7 @@ impl SRender {
         // -- $$$FRK(TODO): should initialize the shadow map depth buffer to empty, so we still get light if we don't render maps
         self.render_shadow_maps(entities, entity_model)?;
         self.render_world(window, &context, entities, entity_animation, entity_model)?;
-        self.render_temp_in_world(window, &context)?;
+        self.render_temp_in_world(&context)?;
 
         // -- clear depth buffer again
         {
@@ -559,7 +559,7 @@ impl SRender {
             self.direct_command_pool.execute_and_free_list(&mut handle)?;
         }
 
-        self.render_temp_over_world(window, &context)?;
+        self.render_temp_over_world(&context)?;
         if let Some(idd) = imgui_draw_data {
             self.render_imgui(window, idd)?;
         }

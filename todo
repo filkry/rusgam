@@ -1,4 +1,8 @@
 
++ streamline shaders
+    + move render::temp.rs to use shaderbindings like my main rendering pipeline
++ performance metrics overlay
++ replace the arrays in render::temp.rs with flexible vecs, and wait on fences to clear old data rather than explicitly using back buffer index
 + break render update into a beginrender() and an endrender() that consumes an intermediate struct and submits stuff, with updates in between
 + expunge all winapi references from niced3d12, only go through typey
 + check minimum D3D levels for features we use

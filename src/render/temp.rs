@@ -683,25 +683,25 @@ impl SRenderTemp {
 }
 
 impl super::SRender {
-    pub fn render_temp_in_world(&mut self, window: &n12::SD3D12Window, context: &SRenderContext) -> Result<(), &'static str> {
-        self.render_temp_points(window, context, true)?;
-        self.render_temp_lines(window, context, true)?;
-        self.render_temp_spheres(window, context, true)?;
-        self.render_temp_models(window, context, true)?;
+    pub fn render_temp_in_world(&mut self, context: &SRenderContext) -> Result<(), &'static str> {
+        self.render_temp_points(context, true)?;
+        self.render_temp_lines(context, true)?;
+        self.render_temp_spheres(context, true)?;
+        self.render_temp_models(context, true)?;
 
         Ok(())
     }
 
-    pub fn render_temp_over_world(&mut self, window: &n12::SD3D12Window, context: &SRenderContext) -> Result<(), &'static str> {
-        self.render_temp_points(window, context, false)?;
-        self.render_temp_lines(window, context, false)?;
-        self.render_temp_spheres(window, context, false)?;
-        self.render_temp_models(window, context, false)?;
+    pub fn render_temp_over_world(&mut self, context: &SRenderContext) -> Result<(), &'static str> {
+        self.render_temp_points(context, false)?;
+        self.render_temp_lines(context, false)?;
+        self.render_temp_spheres(context, false)?;
+        self.render_temp_models(context, false)?;
 
         Ok(())
     }
 
-    pub fn render_temp_points(&mut self, window: &n12::SD3D12Window, context: &SRenderContext, in_world: bool) -> Result<(), &'static str> {
+    pub fn render_temp_points(&mut self, context: &SRenderContext, in_world: bool) -> Result<(), &'static str> {
         // A very basic test
         /*
         self.temp().draw_point(
@@ -829,16 +829,13 @@ impl super::SRender {
 
         // -- execute on the queue
         drop(list);
-        assert_eq!(window.currentbackbufferindex(), context.current_back_buffer_index);
         self.direct_command_pool.execute_and_free_list(&mut handle)?;
 
         Ok(())
     }
 
 
-    pub fn render_temp_lines(&mut self, window: &n12::SD3D12Window, context: &SRenderContext, in_world: bool) -> Result<(), &'static str> {
-        let back_buffer_idx = window.currentbackbufferindex();
-
+    pub fn render_temp_lines(&mut self, context: &SRenderContext, in_world: bool) -> Result<(), &'static str> {
         // A very basic test
         /*
         self.render_temp.lines.push(SLine{
@@ -919,11 +916,11 @@ impl super::SRender {
                 fence_val,
             )?;
 
-            tr.line_vertex_buffer_intermediate_resource[back_buffer_idx] =
+            tr.line_vertex_buffer_intermediate_resource[context.current_back_buffer_index] =
                 Some(vert_buffer_resource.intermediateresource.raw);
-            tr.line_vertex_buffer_resource[back_buffer_idx] =
+            tr.line_vertex_buffer_resource[context.current_back_buffer_index] =
                 Some(vert_buffer_resource.destinationresource.raw);
-            tr.line_vertex_buffer_view[back_buffer_idx] = Some(vertex_buffer_view);
+            tr.line_vertex_buffer_view[context.current_back_buffer_index] = Some(vertex_buffer_view);
 
             Ok(true)
         })?;
@@ -952,7 +949,7 @@ impl super::SRender {
 
         // -- set up input assembler
         list.ia_set_primitive_topology(t12::EPrimitiveTopology::LineList);
-        let vert_buffer_view = self.render_temp.line_vertex_buffer_view[back_buffer_idx].
+        let vert_buffer_view = self.render_temp.line_vertex_buffer_view[context.current_back_buffer_index].
             as_ref().expect("should have generated resource earlier in this function");
         list.ia_set_vertex_buffers(0, &[vert_buffer_view]);
 
@@ -971,15 +968,12 @@ impl super::SRender {
 
         // -- execute on the queue
         drop(list);
-        assert_eq!(window.currentbackbufferindex(), back_buffer_idx);
         self.direct_command_pool.execute_and_free_list(&mut handle)?;
 
         Ok(())
     }
 
-    pub fn render_temp_spheres(&mut self, window: &n12::SD3D12Window, context: &SRenderContext, in_world: bool) -> Result<(), &'static str> {
-        let back_buffer_idx = window.currentbackbufferindex();
-
+    pub fn render_temp_spheres(&mut self, context: &SRenderContext, in_world: bool) -> Result<(), &'static str> {
         // A very basic test
         /*
         self.temp().draw_sphere(&Vec3::new(-1.0, 4.0, 0.0), 0.2, &Vec4::new(1.0, 0.0, 0.0, 0.5), false, None);
@@ -1055,11 +1049,11 @@ impl super::SRender {
                 fence_val,
             )?;
 
-            tr.sphere_instance_buffer_intermediate_resource[back_buffer_idx] =
+            tr.sphere_instance_buffer_intermediate_resource[context.current_back_buffer_index] =
                 Some(instance_buffer_resource.intermediateresource.raw);
-            tr.sphere_instance_buffer_resource[back_buffer_idx] =
+            tr.sphere_instance_buffer_resource[context.current_back_buffer_index] =
                 Some(instance_buffer_resource.destinationresource.raw);
-            tr.sphere_instance_buffer_view[back_buffer_idx] = Some(instance_buffer_view);
+            tr.sphere_instance_buffer_view[context.current_back_buffer_index] = Some(instance_buffer_view);
 
             Ok(instance_buffer_data.len())
         })?;
@@ -1092,7 +1086,7 @@ impl super::SRender {
         let local_normals_vbv = self.mesh_loader.local_normals_vbv(self.render_temp.sphere_mesh);
         let uvs_vbv = self.mesh_loader.uvs_vbv(self.render_temp.sphere_mesh);
         let indices_ibv = self.mesh_loader.indices_ibv(self.render_temp.sphere_mesh);
-        let instance_buffer_view = self.render_temp.sphere_instance_buffer_view[back_buffer_idx].
+        let instance_buffer_view = self.render_temp.sphere_instance_buffer_view[context.current_back_buffer_index].
             as_ref().expect("should have generated resource earlier in this function");
 
         list.ia_set_vertex_buffers(0, &[local_verts_vbv, local_normals_vbv, uvs_vbv, &instance_buffer_view]);
@@ -1113,19 +1107,16 @@ impl super::SRender {
 
         // -- execute on the queue
         drop(list);
-        assert_eq!(window.currentbackbufferindex(), back_buffer_idx);
         self.direct_command_pool.execute_and_free_list(&mut handle)?;
 
         Ok(())
     }
 
     // -- $$$FRK(TODO): nothing in here should require access to the window
-    pub fn render_temp_models(&mut self, window: &n12::SD3D12Window, context: &SRenderContext, in_world: bool) -> Result<(), &'static str> {
+    pub fn render_temp_models(&mut self, context: &SRenderContext, in_world: bool) -> Result<(), &'static str> {
         if self.render_temp.models.len() == 0 {
             return Ok(());
         }
-
-        let back_buffer_idx = window.currentbackbufferindex();
 
         // -- set up pipeline and render models
         let mut handle = self.direct_command_pool.alloc_list()?;
@@ -1176,7 +1167,6 @@ impl super::SRender {
 
         // -- execute on the queue
         drop(list);
-        assert_eq!(window.currentbackbufferindex(), back_buffer_idx);
         self.direct_command_pool.execute_and_free_list(&mut handle)?;
 
         Ok(())

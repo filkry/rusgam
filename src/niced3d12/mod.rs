@@ -8,7 +8,6 @@ mod commandqueue;
 mod descriptor;
 pub mod descriptorallocator;
 mod device;
-mod dynamicdescriptorheap;
 mod factory;
 mod fence;
 mod linearuploadbuffer;

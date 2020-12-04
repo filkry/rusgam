@@ -15,7 +15,7 @@ pub struct SDescriptorAllocatorAllocation {
 }
 
 impl SDescriptorAllocatorAllocation {
-    // -- $$$FRK(TODO): maybe this should work like the thread-local storage in rust, where you
+    // -- $$$FRK(FUTURE WORK): maybe this should work like the thread-local storage in rust, where you
     // -- have to pass a function, and a reference can't escape the scope of that function?
     pub fn cpu_descriptor(&self, idx: usize) -> t12::SCPUDescriptorHandle {
         self.allocation.as_ref().unwrap().validate();

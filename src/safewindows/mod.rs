@@ -588,6 +588,7 @@ pub fn msgtype(msg: UINT, wparam: WPARAM, lparam: LPARAM) -> EMsgType {
 
             unsafe {
 
+                #[allow(const_item_mutation)]
                 let result = GetRawInputData(
                     lparam as HRAWINPUT,
                     RID_INPUT,

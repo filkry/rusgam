@@ -1,5 +1,6 @@
 use super::*;
 
+
 pub struct SDevice {
     raw: t12::SDevice,
 }
@@ -54,7 +55,8 @@ impl SDevice {
         render_target_resource: &SResource,
         dest_descriptor: &t12::SCPUDescriptorHandle,
     ) -> Result<(), &'static str> {
-        // -- $$$FRK(TODO): assert on resource metadata
+        assert!(std::matches!(render_target_resource.metadata, EResourceMetadata::SwapChainResource));
+
         self.raw
             .createrendertargetview(&render_target_resource.raw, dest_descriptor);
         Ok(())
@@ -66,7 +68,8 @@ impl SDevice {
         desc: &t12::SDepthStencilViewDesc,
         dest_descriptor: t12::SCPUDescriptorHandle,
     ) -> Result<(), &'static str> {
-        // -- $$$FRK(TODO): assert on resource metadata
+        assert!(std::matches!(depth_texture_resource.metadata, EResourceMetadata::Texture2DResource));
+
         self.raw
             .create_depth_stencil_view(&depth_texture_resource.raw, desc, dest_descriptor);
         Ok(())
@@ -94,7 +97,6 @@ impl SDevice {
         desc: &t12::SShaderResourceViewDesc,
         dest_descriptor: t12::SCPUDescriptorHandle,
     ) -> Result<(), &'static str> {
-        // -- $$$FRK(TODO): assert on resource metadata
         self.raw
             .create_shader_resource_view(&resource.raw, desc, dest_descriptor);
         Ok(())
@@ -106,7 +108,6 @@ impl SDevice {
         desc: &t12::SUnorderedAccessViewDesc,
         dest_descriptor: t12::SCPUDescriptorHandle,
     ) -> Result<(), &'static str> {
-        // -- $$$FRK(TODO): assert on resource metadata
         self.raw
             .create_unordered_access_view(&resource.raw, desc, dest_descriptor);
         Ok(())

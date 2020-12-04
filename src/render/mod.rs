@@ -52,9 +52,14 @@ struct SBuiltShaderMetadata {
     src_write_time: std::time::SystemTime,
 }
 
+#[allow(dead_code)]
 pub struct SRenderContext {
+    // -- these are all for the main view camera
     current_back_buffer_index: usize,
+    render_target_view: t12::SCPUDescriptorHandle,
     view_matrix: Mat4,
+    projection_matrix: Mat4,
+    view_projection_matrix: Mat4,
     viewport: t12::SViewport,
 }
 
@@ -512,9 +517,20 @@ impl SRender {
             self.setup_imgui_draw_data_resources(window, idd)?;
         }
 
+        // -- reminder: D3D clip space is (-1, 1) x, (-1, 1) y, (0, 1) znear-zfar
+        let perspective_matrix: Mat4 = {
+            let aspect = (window.width() as f32) / (window.height() as f32);
+            let zfar = 100.0;
+
+            //SMat44::new_perspective(aspect, fovy, znear, zfar)
+            glm::perspective_lh_zo(aspect, self.fovy(), self.znear(), zfar)
+        };
+
         let context = SRenderContext{
             current_back_buffer_index: window.currentbackbufferindex(),
             view_matrix: view_matrix.clone(),
+            projection_matrix: perspective_matrix,
+            view_projection_matrix: perspective_matrix * view_matrix,
             viewport: t12::SViewport::new(
                 0.0,
                 0.0,
@@ -523,6 +539,7 @@ impl SRender {
                 None,
                 None,
             ),
+            render_target_view: window.currentrendertargetdescriptor()?,
         };
 
         // -- update skinned buffers
@@ -598,15 +615,6 @@ impl SRender {
         entity_animation: &entity_animation::SBucket,
         entity_model: &entity_model::SBucket,
     ) -> Result<(), &'static str> {
-        // -- reminder: D3D clip space is (-1, 1) x, (-1, 1) y, (0, 1) znear-zfar
-        let perspective_matrix: Mat4 = {
-            let aspect = (window.width() as f32) / (window.height() as f32);
-            let zfar = 100.0;
-
-            //SMat44::new_perspective(aspect, fovy, znear, zfar)
-            glm::perspective_lh_zo(aspect, self.fovy(), self.znear(), zfar)
-        };
-
         // -- render
         {
             let backbufferidx = window.currentbackbufferindex();
@@ -636,8 +644,6 @@ impl SRender {
                     list.set_descriptor_heaps(&[rh]);
                 });
 
-                let view_perspective = perspective_matrix * context.view_matrix;
-
                 for model_handle in 0..entity_model.models.len() {
                     let entity_handle = entity_model.get_entity(model_handle);
                     let model = entity_model.get_model(model_handle);
@@ -656,7 +662,7 @@ impl SRender {
                     self.vertex_hlsl.set_graphics_roots(
                         &self.vertex_hlsl_bind,
                         &mut list,
-                        &shaderbindings::SModelViewProjection::new(&view_perspective, &entities.get_entity_location(entity_handle)),
+                        &shaderbindings::SModelViewProjection::new(&context.view_projection_matrix, &entities.get_entity_location(entity_handle)),
                     );
                     self.vertex_hlsl.set_vertex_buffers(
                         &mut list,

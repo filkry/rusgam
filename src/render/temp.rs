@@ -803,21 +803,11 @@ impl super::SRender {
         list.rs_set_viewports(&[&context.viewport]);
 
         // -- setup the output merger
-        let render_target_view = window.currentrendertargetdescriptor()?;
         let depth_texture_view = self.depth_texture_view.as_ref().expect("no depth texture").cpu_descriptor(0);
-        list.om_set_render_targets(&[&render_target_view], false, &depth_texture_view);
-
-        let perspective_matrix: Mat4 = {
-            let aspect = (window.width() as f32) / (window.height() as f32);
-            let zfar = 100.0;
-
-            //SMat44::new_perspective(aspect, fovy, znear, zfar)
-            glm::perspective_lh_zo(aspect, self.fovy(), self.znear(), zfar)
-        };
-        let view_perspective = perspective_matrix * context.view_matrix;
+        list.om_set_render_targets(&[&context.render_target_view], false, &depth_texture_view);
 
         list.set_graphics_root_32_bit_constants(self.render_temp.point_vp_root_param_idx,
-                                                &view_perspective, 0);
+                                                &context.view_projection_matrix, 0);
 
         // -- set up input assembler
         list.ia_set_primitive_topology(t12::EPrimitiveTopology::PointList);
@@ -954,21 +944,11 @@ impl super::SRender {
         list.rs_set_viewports(&[&context.viewport]);
 
         // -- setup the output merger
-        let render_target_view = window.currentrendertargetdescriptor()?;
         let depth_texture_view = self.depth_texture_view.as_ref().expect("no depth texture").cpu_descriptor(0);
-        list.om_set_render_targets(&[&render_target_view], false, &depth_texture_view);
-
-        let perspective_matrix: Mat4 = {
-            let aspect = (window.width() as f32) / (window.height() as f32);
-            let zfar = 100.0;
-
-            //SMat44::new_perspective(aspect, fovy, znear, zfar)
-            glm::perspective_lh_zo(aspect, self.fovy(), self.znear(), zfar)
-        };
-        let view_perspective = perspective_matrix * context.view_matrix;
+        list.om_set_render_targets(&[&context.render_target_view], false, &depth_texture_view);
 
         list.set_graphics_root_32_bit_constants(self.render_temp.line_vp_root_param_idx,
-                                                &view_perspective, 0);
+                                                &context.view_projection_matrix, 0);
 
         // -- set up input assembler
         list.ia_set_primitive_topology(t12::EPrimitiveTopology::LineList);
@@ -1100,21 +1080,11 @@ impl super::SRender {
         list.rs_set_viewports(&[&context.viewport]);
 
         // -- setup the output merger
-        let render_target_view = window.currentrendertargetdescriptor()?;
         let depth_texture_view = self.depth_texture_view.as_ref().expect("no depth texture").cpu_descriptor(0);
-        list.om_set_render_targets(&[&render_target_view], false, &depth_texture_view);
-
-        let perspective_matrix: Mat4 = {
-            let aspect = (window.width() as f32) / (window.height() as f32);
-            let zfar = 100.0;
-
-            //SMat44::new_perspective(aspect, fovy, znear, zfar)
-            glm::perspective_lh_zo(aspect, self.fovy(), self.znear(), zfar)
-        };
-        let view_perspective = perspective_matrix * context.view_matrix;
+        list.om_set_render_targets(&[&context.render_target_view], false, &depth_texture_view);
 
         list.set_graphics_root_32_bit_constants(self.render_temp.instance_mesh_vp_root_param_idx,
-                                                &view_perspective, 0);
+                                                &context.view_projection_matrix, 0);
 
         // -- set up input assembler
         list.ia_set_primitive_topology(t12::EPrimitiveTopology::TriangleList);
@@ -1169,18 +1139,8 @@ impl super::SRender {
         list.rs_set_viewports(&[&context.viewport]);
 
         // -- setup the output merger
-        let render_target_view = window.currentrendertargetdescriptor()?;
         let depth_texture_view = self.depth_texture_view.as_ref().expect("no depth texture").cpu_descriptor(0);
-        list.om_set_render_targets(&[&render_target_view], false, &depth_texture_view);
-
-        let perspective_matrix: Mat4 = {
-            let aspect = (window.width() as f32) / (window.height() as f32);
-            let zfar = 100.0;
-
-            //SMat44::new_perspective(aspect, fovy, znear, zfar)
-            glm::perspective_lh_zo(aspect, self.fovy(), self.znear(), zfar)
-        };
-        let view_projection = perspective_matrix * context.view_matrix;
+        list.om_set_render_targets(&[&context.render_target_view], false, &depth_texture_view);
 
         list.ia_set_primitive_topology(t12::EPrimitiveTopology::TriangleList);
 
@@ -1198,7 +1158,7 @@ impl super::SRender {
             if model.over_world != over_world { continue; }
 
             let model_matrix = model.location.as_mat4();
-            let mvp = view_projection * model_matrix;
+            let mvp = context.view_projection_matrix * model_matrix;
 
             list.set_graphics_root_32_bit_constants(self.render_temp.mesh_mvp_root_param_idx,
                                                     &mvp, 0);

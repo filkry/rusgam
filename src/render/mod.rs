@@ -98,7 +98,7 @@ pub struct SRender {
     render_temp: SRenderTemp,
 }
 
-pub fn compile_shaders_if_changed() {
+pub fn compile_shaders_if_changed(d3d_debug: bool) {
     let shaders = [
         ("vertex", "vs_6_0"),
         ("pixel", "ps_6_0"),
@@ -163,11 +163,15 @@ pub fn compile_shaders_if_changed() {
                 command.arg("-E").arg("main") // -- entry point
                        .arg("-T").arg(type_) // -- type
                        .arg(shader_src_path)
+                       .arg("-WX") // -- treat warnings as errors
+                       .arg("-Fo").arg(built_shader_path); // -- output object file
+
+                if d3d_debug {
+                    command
                        .arg("-Od") // -- optimization level debug
                        .arg("-Zi") // -- enable debug information
-                       .arg("-WX") // -- treat warnings as errors
-                       .arg("-Qembed_debug") // -- embed PDB in shader container (must be used with Zi)
-                       .arg("-Fo").arg(built_shader_path); // -- output object file
+                       .arg("-Qembed_debug"); // -- embed PDB in shader container (must be used with Zi)
+                }
 
                 println!("   commmand: \"{:?}\"", command);
 
@@ -193,14 +197,16 @@ pub fn compile_shaders_if_changed() {
 }
 
 impl SRender {
-    pub fn new(winapi: &rustywindows::SWinAPI, imgui_ctxt: &mut imgui::Context) -> Result<Self, &'static str> {
+    pub fn new(winapi: &rustywindows::SWinAPI, imgui_ctxt: &mut imgui::Context, d3d_debug: bool) -> Result<Self, &'static str> {
         // -- initialize debug
-        let debuginterface = t12::SDebugInterface::new()?;
-        debuginterface.enabledebuglayer();
+        if d3d_debug {
+            let debuginterface = t12::SDebugInterface::new()?;
+            debuginterface.enabledebuglayer();
+        }
 
         let mut factory = n12::SFactory::create()?;
         let mut adapter = factory.create_best_adapter()?;
-        let device = Rc::new(adapter.create_device()?);
+        let device = Rc::new(adapter.create_device(d3d_debug)?);
 
         // -- set up command queues
         let direct_command_queue = Rc::new(RefCell::new(

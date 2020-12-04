@@ -116,8 +116,8 @@ pub fn update_entity_bvh_entries(game_context: &SGameContext, _frame_context: &S
         });
 }
 
-fn main_d3d12() -> Result<(), &'static str> {
-    render::compile_shaders_if_changed();
+fn main_d3d12(d3d_debug: bool) -> Result<(), &'static str> {
+    render::compile_shaders_if_changed(d3d_debug);
 
     let winapi = rustywindows::SWinAPI::create();
 
@@ -125,7 +125,7 @@ fn main_d3d12() -> Result<(), &'static str> {
 
     input::setup_imgui_key_map(imgui_ctxt.io_mut());
 
-    let mut render = render::SRender::new(&winapi, &mut imgui_ctxt)?;
+    let mut render = render::SRender::new(&winapi, &mut imgui_ctxt, d3d_debug)?;
 
     // -- setup window
     let windowclass_result = winapi.rawwinapi().registerclassex("rusgam");
@@ -293,17 +293,21 @@ fn main_d3d12() -> Result<(), &'static str> {
     Ok(())
 }
 
-fn debug_test() {}
-
 fn main() {
+    let mut d3d_debug = false;
+    let args : Vec::<String> = std::env::args().collect();
+    for arg in args {
+        if arg.trim() == "d3d-debug" {
+            d3d_debug = true;
+        }
+    }
+
     use std::panic;
     panic::set_hook(Box::new(|_| {
         safewindows::break_if_debugging();
     }));
 
-    debug_test();
-
-    let result = main_d3d12();
+    let result = main_d3d12(d3d_debug);
     if let Err(e) = result {
         println!("Aborted with error: {:?}", e);
     }

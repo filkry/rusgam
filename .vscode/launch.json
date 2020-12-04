@@ -10,7 +10,7 @@
             "type": "cppvsdbg",
             "request": "launch",
             "program": "target/debug/rusgam.exe",
-            "args": [],
+            "args": ["d3d-debug"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [{

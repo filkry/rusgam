@@ -1112,7 +1112,6 @@ impl super::SRender {
         Ok(())
     }
 
-    // -- $$$FRK(TODO): nothing in here should require access to the window
     pub fn render_temp_models(&mut self, context: &SRenderContext, in_world: bool) -> Result<(), &'static str> {
         if self.render_temp.models.len() == 0 {
             return Ok(());

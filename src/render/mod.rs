@@ -481,6 +481,7 @@ impl SRender {
         imgui_draw_data: Option<&imgui::DrawData>,
     ) -> Result<(), &'static str> {
         let back_buffer_idx = window.currentbackbufferindex();
+        assert!(back_buffer_idx == window.swapchain.current_backbuffer_index());
 
         // -- wait for buffer to be available
         self.direct_command_queue.borrow()
@@ -547,7 +548,7 @@ impl SRender {
 
         // -- $$$FRK(TODO): should initialize the shadow map depth buffer to empty, so we still get light if we don't render maps
         self.render_shadow_maps(entities, entity_model)?;
-        self.render_world(window, &context, entities, entity_animation, entity_model)?;
+        self.render_world(&context, entities, entity_animation, entity_model)?;
         self.render_temp_in_world(&context)?;
 
         // -- clear depth buffer again
@@ -565,6 +566,8 @@ impl SRender {
         }
 
         self.render_temp.clear_tables_without_tokens();
+
+        assert_eq!(window.currentbackbufferindex(), back_buffer_idx);
 
         Ok(())
     }
@@ -609,7 +612,6 @@ impl SRender {
 
     pub fn render_world(
         &mut self,
-        window: &n12::SD3D12Window,
         context: &SRenderContext,
         entities: &SEntityBucket,
         entity_animation: &entity_animation::SBucket,
@@ -617,15 +619,11 @@ impl SRender {
     ) -> Result<(), &'static str> {
         // -- render
         {
-            let backbufferidx = window.currentbackbufferindex();
-            assert!(backbufferidx == window.swapchain.current_backbuffer_index());
-
             let mut handle = self.direct_command_pool.alloc_list()?;
 
             {
                 let mut list = self.direct_command_pool.get_list(&handle)?;
 
-                let render_target_view = window.currentrendertargetdescriptor()?;
                 let depth_texture_view = self.depth_texture_view.as_ref().expect("no depth texture").cpu_descriptor(0);
 
                 // -- set up pipeline
@@ -638,7 +636,7 @@ impl SRender {
                 list.rs_set_scissor_rects(t12::SScissorRects::create(&[&self.scissorrect]));
 
                 // -- setup the output merger
-                list.om_set_render_targets(&[&render_target_view], false, &depth_texture_view);
+                list.om_set_render_targets(&[&context.render_target_view], false, &depth_texture_view);
 
                 self.cbv_srv_uav_heap.with_raw_heap(|rh| {
                     list.set_descriptor_heaps(&[rh]);
@@ -683,7 +681,6 @@ impl SRender {
             }
 
             // -- execute on the queue
-            assert_eq!(window.currentbackbufferindex(), backbufferidx);
             self.direct_command_pool.execute_and_free_list(&mut handle)?;
 
             Ok(())

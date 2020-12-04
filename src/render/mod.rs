@@ -55,6 +55,7 @@ struct SBuiltShaderMetadata {
 pub struct SRenderContext {
     current_back_buffer_index: usize,
     view_matrix: Mat4,
+    viewport: t12::SViewport,
 }
 
 pub struct SRender {
@@ -514,6 +515,14 @@ impl SRender {
         let context = SRenderContext{
             current_back_buffer_index: window.currentbackbufferindex(),
             view_matrix: view_matrix.clone(),
+            viewport: t12::SViewport::new(
+                0.0,
+                0.0,
+                window.width() as f32,
+                window.height() as f32,
+                None,
+                None,
+            ),
         };
 
         // -- update skinned buffers
@@ -521,7 +530,7 @@ impl SRender {
 
         // -- $$$FRK(TODO): should initialize the shadow map depth buffer to empty, so we still get light if we don't render maps
         self.render_shadow_maps(entities, entity_model)?;
-        self.render_world(window, view_matrix, entities, entity_animation, entity_model)?;
+        self.render_world(window, &context, entities, entity_animation, entity_model)?;
         self.render_temp_in_world(window, &context)?;
 
         // -- clear depth buffer again
@@ -584,20 +593,11 @@ impl SRender {
     pub fn render_world(
         &mut self,
         window: &n12::SD3D12Window,
-        view_matrix: &Mat4,
+        context: &SRenderContext,
         entities: &SEntityBucket,
         entity_animation: &entity_animation::SBucket,
         entity_model: &entity_model::SBucket,
     ) -> Result<(), &'static str> {
-        let viewport = t12::SViewport::new(
-            0.0,
-            0.0,
-            window.width() as f32,
-            window.height() as f32,
-            None,
-            None,
-        );
-
         // -- reminder: D3D clip space is (-1, 1) x, (-1, 1) y, (0, 1) znear-zfar
         let perspective_matrix: Mat4 = {
             let aspect = (window.width() as f32) / (window.height() as f32);
@@ -626,7 +626,7 @@ impl SRender {
                 list.set_graphics_root_signature(&self.root_signature.raw());
 
                 // -- setup rasterizer state
-                list.rs_set_viewports(&[&viewport]);
+                list.rs_set_viewports(&[&context.viewport]);
                 list.rs_set_scissor_rects(t12::SScissorRects::create(&[&self.scissorrect]));
 
                 // -- setup the output merger
@@ -636,7 +636,7 @@ impl SRender {
                     list.set_descriptor_heaps(&[rh]);
                 });
 
-                let view_perspective = perspective_matrix * view_matrix;
+                let view_perspective = perspective_matrix * context.view_matrix;
 
                 for model_handle in 0..entity_model.models.len() {
                     let entity_handle = entity_model.get_entity(model_handle);

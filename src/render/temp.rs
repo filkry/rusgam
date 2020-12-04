@@ -800,15 +800,7 @@ impl super::SRender {
         list.set_graphics_root_signature(&self.render_temp.point_root_signature.raw());
 
         // -- setup rasterizer state
-        let viewport = t12::SViewport::new(
-            0.0,
-            0.0,
-            window.width() as f32,
-            window.height() as f32,
-            None,
-            None,
-        );
-        list.rs_set_viewports(&[&viewport]);
+        list.rs_set_viewports(&[&context.viewport]);
 
         // -- setup the output merger
         let render_target_view = window.currentrendertargetdescriptor()?;
@@ -959,15 +951,7 @@ impl super::SRender {
         list.set_graphics_root_signature(&self.render_temp.line_root_signature.raw());
 
         // -- setup rasterizer state
-        let viewport = t12::SViewport::new(
-            0.0,
-            0.0,
-            window.width() as f32,
-            window.height() as f32,
-            None,
-            None,
-        );
-        list.rs_set_viewports(&[&viewport]);
+        list.rs_set_viewports(&[&context.viewport]);
 
         // -- setup the output merger
         let render_target_view = window.currentrendertargetdescriptor()?;
@@ -1113,15 +1097,7 @@ impl super::SRender {
         list.set_graphics_root_signature(&self.render_temp.instance_mesh_root_signature.raw());
 
         // -- setup rasterizer state
-        let viewport = t12::SViewport::new(
-            0.0,
-            0.0,
-            window.width() as f32,
-            window.height() as f32,
-            None,
-            None,
-        );
-        list.rs_set_viewports(&[&viewport]);
+        list.rs_set_viewports(&[&context.viewport]);
 
         // -- setup the output merger
         let render_target_view = window.currentrendertargetdescriptor()?;
@@ -1190,15 +1166,7 @@ impl super::SRender {
         list.set_graphics_root_signature(&self.render_temp.mesh_root_signature.raw());
 
         // -- setup rasterizer state
-        let viewport = t12::SViewport::new(
-            0.0,
-            0.0,
-            window.width() as f32,
-            window.height() as f32,
-            None,
-            None,
-        );
-        list.rs_set_viewports(&[&viewport]);
+        list.rs_set_viewports(&[&context.viewport]);
 
         // -- setup the output merger
         let render_target_view = window.currentrendertargetdescriptor()?;

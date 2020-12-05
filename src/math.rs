@@ -340,10 +340,10 @@ impl std::ops::IndexMut<usize> for Vec4 {
 impl Quat {
     pub fn new(x: f32, y: f32, z: f32, w: f32) -> Self {
         Self{
+            w,
             x,
             y,
             z,
-            w,
         }
     }
 
@@ -598,11 +598,22 @@ pub fn validate_glm_compatibility() {
         }
     }
 
+    // -- Vec4
+    {
+        assert!(size_of::<Vec4>() == size_of::<glm::Vec4>());
+        let my_vec = Vec4::new(123.45, 8236.11111, 329.0, -923.9);
+        let glm_vec = glm::Vec4::new(123.45, 8236.11111, 329.0, -923.9);
+        let my_vec_as_glm_vec = &my_vec as *const Vec4 as *const glm::Vec4;
+        unsafe {
+            assert!(*my_vec_as_glm_vec == glm_vec);
+        }
+    }
+
     // -- Quat
     {
         assert!(size_of::<Quat>() == size_of::<glm::Quat>());
         let my_quat = Quat::new(123.45, 8236.11111, 329.0, 99999.0);
-        let glm_quat = glm::Quat::new(123.45, 8236.11111, 329.0, 99999.0);
+        let glm_quat = glm::make_quat(&[123.45, 8236.11111, 329.0, 99999.0]);
         let my_quat_as_glm_quat = &my_quat as *const Quat as *const glm::Quat;
         unsafe {
             assert!(*my_quat_as_glm_quat == glm_quat);

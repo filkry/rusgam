@@ -52,7 +52,8 @@ impl Vec3 {
     }
 
     pub fn is_normalized(&self) -> bool {
-        panic!("Not implemented");
+        const EPSILON : f32 = 0.000001;
+        (self.sqmag() - 1.0).abs() < EPSILON
     }
 
     pub fn sqmag(&self) -> f32 {
@@ -347,7 +348,7 @@ impl Quat {
     }
 
     pub fn new_identity() -> Self {
-        panic!("not implemented");
+        Self::new(0.0, 0.0, 0.0, 1.0)
     }
 
     pub fn new_angle_axis(angle: f32, axis: &Vec3) -> Self {
@@ -375,7 +376,11 @@ impl Quat {
     }
 
     pub fn inverse(&self) -> Self {
-        panic!("not implemented");
+        let self_glm_t = self as *const Quat as *const glm::Quat;
+        unsafe {
+            let glm_res = glm::quat_inverse(self_glm_t.as_ref().expect(""));
+            std::mem::transmute::<glm::Quat, Quat>(glm_res)
+        }
     }
 
     pub fn slerp(a: &Self, b: &Self, t: f32) -> Self {
@@ -481,7 +486,12 @@ impl Mat4 {
     }
 
     pub fn inverse(&self) -> Self {
-        panic!("Not implemented");
+        // -- $$$FRK(TODO): there is a fast affine inverse we could use, and our matrices should always(?) be affine
+        let self_glm_t = self as *const Mat4 as *const glm::Mat4;
+        unsafe {
+            let glm_res = glm::inverse(self_glm_t.as_ref().expect(""));
+            std::mem::transmute::<glm::Mat4, Mat4>(glm_res)
+        }
     }
 
     pub fn row(&self, index: usize) -> Vec4 {
@@ -492,13 +502,22 @@ impl Mat4 {
             self[3][index],
         )
     }
+
+    pub fn mul(lhs: &Self, rhs: &Self) -> Self {
+        let lhs_glm_t = lhs as *const Mat4 as *const glm::Mat4;
+        let rhs_glm_t = rhs as *const Mat4 as *const glm::Mat4;
+        unsafe {
+            let glm_res = *lhs_glm_t * *rhs_glm_t;
+            std::mem::transmute::<glm::Mat4, Mat4>(glm_res)
+        }
+    }
 }
 
 impl std::ops::Mul<Mat4> for Mat4 {
     type Output = Self;
 
     fn mul(self, rhs: Self) -> Self::Output {
-        panic!("Not implemented");
+        Mat4::mul(&self, &rhs)
     }
 }
 
@@ -506,7 +525,7 @@ impl std::ops::Mul<&Mat4> for Mat4 {
     type Output = Self;
 
     fn mul(self, rhs: &Mat4) -> Self::Output {
-        panic!("Not implemented");
+        Mat4::mul(&self, rhs)
     }
 }
 
@@ -514,7 +533,7 @@ impl std::ops::Mul<Mat4> for &Mat4 {
     type Output = Mat4;
 
     fn mul(self, rhs: Mat4) -> Self::Output {
-        panic!("Not implemented");
+        Mat4::mul(self, &rhs)
     }
 }
 
@@ -522,7 +541,7 @@ impl std::ops::Mul<&Mat4> for &Mat4 {
     type Output = Mat4;
 
     fn mul(self, rhs: &Mat4) -> Self::Output {
-        panic!("Not implemented");
+        Mat4::mul(self, rhs)
     }
 }
 
@@ -530,7 +549,12 @@ impl std::ops::Mul<Vec4> for Mat4 {
     type Output = Vec4;
 
     fn mul(self, rhs: Vec4) -> Self::Output {
-        panic!("Not implemented");
+        let self_glm_t = &self as *const Mat4 as *const glm::Mat4;
+        let rhs_glm_t = &rhs as *const Vec4 as *const glm::Vec4;
+        unsafe {
+            let glm_res = *self_glm_t * *rhs_glm_t;
+            std::mem::transmute::<glm::Vec4, Vec4>(glm_res)
+        }
     }
 }
 

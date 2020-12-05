@@ -43,13 +43,17 @@ impl SCommandQueue {
         self.commandlisttype
     }
 
-    pub fn execute_command_list(
+    pub fn execute_command_lists(
         &self, // -- verified thread safe in docs
-        list: &mut SCommandList,
+        lists: &mut [&mut SCommandList],
     ) -> Result<(), &'static str> {
         unsafe {
-            list.raw().close()?;
-            self.raw.executecommandlist(&list.raw())
+            let mut raw_lists = ArrayVec::<[&mut t12::SCommandList; 12]>::new();
+            for list in lists {
+                list.raw().close()?;
+                raw_lists.push(list.raw_mut());
+            }
+            self.raw.execute_command_lists(raw_lists.as_ref())
         };
         Ok(())
     }

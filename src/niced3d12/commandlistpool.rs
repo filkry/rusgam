@@ -125,7 +125,7 @@ impl SCommandListPool {
         let allocator = {
             let list = self.lists.get_mut(handle.handle)?;
             assert!(list.list.borrow().get_type() == queue.borrow().type_());
-            queue.borrow().execute_command_list(list.list.borrow_mut().deref_mut())?;
+            queue.borrow().execute_command_lists(&mut [list.list.borrow_mut().deref_mut()])?;
 
             assert!(list.allocator.valid());
             list.allocator

@@ -76,13 +76,13 @@ impl SCommandList {
         descriptor: SCPUDescriptorHandle,
         colour: &[f32; 4],
     ) {
-        // -- $$$FRK(TODO): support third/fourth parameter
+        // -- $$$FRK(FUTURE WORK): support third/fourth parameter
         self.commandlist
             .ClearRenderTargetView(*descriptor.raw(), colour, 0, ptr::null());
     }
 
     pub unsafe fn clear_depth_stencil_view(&self, descriptor: SCPUDescriptorHandle, depth: f32) {
-        // -- $$$FRK(TODO): support ClearFlags/Stencil/NumRects/pRects
+        // -- $$$FRK(FUTURE WORK): support ClearFlags/Stencil/NumRects/pRects
         self.commandlist.ClearDepthStencilView(
             *descriptor.raw(),
             D3D12_CLEAR_FLAG_DEPTH,

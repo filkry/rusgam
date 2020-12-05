@@ -16,6 +16,10 @@ impl SCommandList {
         &self.raw
     }
 
+    pub fn raw_mut(&mut self) -> &mut t12::SCommandList {
+        &mut self.raw
+    }
+
     // -- by default, unsafe blocks are here because we are guaranteeing exclusive access to
     // -- the CommandList via the &mut self reference
 

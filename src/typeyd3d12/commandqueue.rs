@@ -1,3 +1,5 @@
+use arrayvec::{ArrayVec};
+
 use super::*;
 
 pub struct SCommandQueueDesc {
@@ -30,7 +32,6 @@ impl SCommandQueue {
         }
     }
 
-    // -- $$$FRK(TODO): revisit this after I understand how I'm going to be using this fence
     pub fn signal(&self, fence: &SFence, val: u64) -> Result<u64, &'static str> {
         let hn = unsafe { self.queue.Signal(fence.raw().as_raw(), val) };
 
@@ -40,9 +41,14 @@ impl SCommandQueue {
     }
 
     // -- $$$FRK(TODO): support listS
-    pub unsafe fn executecommandlist(&self, list: &SCommandList) {
+    pub unsafe fn execute_command_lists(&self, lists: &[&mut SCommandList]) {
+        let mut raw_lists = ArrayVec::<[*mut ID3D12CommandList; 12]>::new();
+        for list in lists {
+            raw_lists.push(list.raw().as_raw() as *mut ID3D12CommandList);
+        }
+
         self.queue
-            .ExecuteCommandLists(1, &(list.raw().as_raw() as *mut ID3D12CommandList));
+            .ExecuteCommandLists(raw_lists.len() as u32, raw_lists.as_mut_ptr());
     }
 
     pub fn wait(&self, fence: &SFence, value: u64) -> Result<(), &'static str> {

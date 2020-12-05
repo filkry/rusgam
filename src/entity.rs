@@ -1,3 +1,4 @@
+use math::{Vec3};
 use utils::{STransform};
 use collections::{SStoragePool, SPoolHandle};
 
@@ -58,7 +59,7 @@ impl SEntityBucket {
         entity.location_update_frame = gc.cur_frame;
     }
 
-    pub fn set_position(&mut self, gc: &super::SGameContext, entity: SEntityHandle, position: glm::Vec3) {
+    pub fn set_position(&mut self, gc: &super::SGameContext, entity: SEntityHandle, position: Vec3) {
         let mut loc = self.get_entity_location(entity);
         loc.t = position;
         self.set_location(gc, entity, loc);

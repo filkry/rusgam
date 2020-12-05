@@ -1,5 +1,5 @@
 // crate imports
-use glm::{Vec3};
+use math::{Vec3};
 
 use entity::{SEntityBucket, SEntityHandle};
 use databucket::{SDataBucket};
@@ -24,7 +24,7 @@ fn support_mapping(pts: &[Vec3], dir: &Vec3) -> usize {
     let mut max_idx : usize = 0;
 
     for (idx, cand_p) in pts.iter().enumerate() {
-        let dist = glm::dot(cand_p, dir);
+        let dist = Vec3::dot(cand_p, dir);
         if dist > max_dist {
             max_dist = dist;
             max_idx = idx;
@@ -175,8 +175,8 @@ impl S2Simplex {
         let ab = self.b - self.a;
         let ao = -self.a;
 
-        if glm::dot(&ab, &ao) > 0.0 {
-            let origin_dir_perp_ab = glm::cross(&glm::cross(&ab, &ao), &ab);
+        if Vec3::dot(&ab, &ao) > 0.0 {
+            let origin_dir_perp_ab = Vec3::cross(&Vec3::cross(&ab, &ao), &ab);
             return update_simplex_result2(&self.a, &self.b, origin_dir_perp_ab);
         }
         else {
@@ -205,38 +205,38 @@ impl S3Simplex {
         let ao = -self.a;
 
         // -- If we are in A vorinoi
-        if (glm::dot(&ao, &ab) <= 0.0) && (glm::dot(&ao, &ac) <= 0.0) {
+        if (Vec3::dot(&ao, &ab) <= 0.0) && (Vec3::dot(&ao, &ac) <= 0.0) {
             return update_simplex_result1(&self.a, ao);
         }
         // -- A eliminated, AB, AC, ABC, -ABC remain
 
-        let abc_perp = glm::cross(&ab, &ac);
+        let abc_perp = Vec3::cross(&ab, &ac);
 
         // -- ap must be counter-clockwise on the triangle defining abc_perp
         fn check_edge(a: &Vec3, ao: &Vec3, p: &Vec3, ap: &Vec3, abc_perp: &Vec3) -> bool {
             // -- inequalities from Real-time collision detection
-            let ineq1 = glm::dot(&ao, &ap) >= 0.0;
-            let ineq2 = glm::dot(&-p, &(a - p)) >= 0.0;
-            let ineq3 = glm::dot(ao, &glm::cross(&ap, &abc_perp)) >= 0.0;
+            let ineq1 = Vec3::dot(&ao, &ap) >= 0.0;
+            let ineq2 = Vec3::dot(&-p, &(a - p)) >= 0.0;
+            let ineq3 = Vec3::dot(ao, &Vec3::cross(&ap, &abc_perp)) >= 0.0;
             return ineq1 && ineq2 && ineq3;
         }
 
         // -- check AB
         if check_edge(&self.a, &ao, &self.b, &ab, &abc_perp) {
-            let ab_perp_to_origin = glm::cross(&glm::cross(&ab, &ao), &ab);
+            let ab_perp_to_origin = Vec3::cross(&Vec3::cross(&ab, &ao), &ab);
             return update_simplex_result2(&self.a, &self.b, ab_perp_to_origin);
         }
 
         // -- check AC
         // -- negate the normal because AC is clockwise on a counter-clockwise ABC
         if check_edge(&self.a, &ao, &self.c, &ac, &-abc_perp) {
-            let ac_perp_to_origin = glm::cross(&glm::cross(&ac, &ao), &ac);
+            let ac_perp_to_origin = Vec3::cross(&Vec3::cross(&ac, &ao), &ac);
             return update_simplex_result2(&self.a, &self.c, ac_perp_to_origin);
         }
         // -- AB, AC eliminated, ABC, -ABC remain
 
         // -- need to determine if we are above ABC or below
-        if glm::dot(&abc_perp, &ao) > 0.0 {
+        if Vec3::dot(&abc_perp, &ao) > 0.0 {
             // -- above
             return update_simplex_result3(&self.a, &self.b, &self.c, abc_perp);
         }
@@ -266,28 +266,28 @@ impl S4Simplex {
         // -- A, AB, AC, AD, ABC, ABD, ACD
 
         // -- verifying triangle winding
-        //break_assert!(glm::dot(&(self.a - self.b), &glm::cross(&(self.c - self.b), &(self.d - self.b))) > 0.0);
+        //break_assert!(dot(&(self.a - self.b), &cross(&(self.c - self.b), &(self.d - self.b))) > 0.0);
 
         let ab = self.b - self.a;
         let ac = self.c - self.a;
         let ad = self.d - self.a;
         let ao = -self.a;
 
-        let abc_perp = glm::cross(&ab, &ac);
-        let abd_perp = glm::cross(&ad, &ab);
-        let acd_perp = glm::cross(&ac, &ad);
+        let abc_perp = Vec3::cross(&ab, &ac);
+        let abd_perp = Vec3::cross(&ad, &ab);
+        let acd_perp = Vec3::cross(&ac, &ad);
 
         // -- check containment
-        let inside_abc = glm::dot(&abc_perp, &ao) <= 0.0;
-        let inside_abd = glm::dot(&abd_perp, &ao) <= 0.0;
-        let inside_acd = glm::dot(&acd_perp, &ao) <= 0.0;
+        let inside_abc = Vec3::dot(&abc_perp, &ao) <= 0.0;
+        let inside_abd = Vec3::dot(&abd_perp, &ao) <= 0.0;
+        let inside_acd = Vec3::dot(&acd_perp, &ao) <= 0.0;
 
         if inside_abc && inside_abd && inside_acd {
             return EGJKStepResult::Intersection;
         }
 
         // -- If we are in A vorinoi
-        if (glm::dot(&ao, &ab) <= 0.0) && (glm::dot(&ao, &ac) <= 0.0) && (glm::dot(&ao, &ad) <= 0.0) {
+        if (Vec3::dot(&ao, &ab) <= 0.0) && (Vec3::dot(&ao, &ac) <= 0.0) && (Vec3::dot(&ao, &ad) <= 0.0) {
             return update_simplex_result1(&self.a, ao);
         }
         // -- A eliminated, AB, AC, AD, ABC, ABD, ACD remain
@@ -296,28 +296,28 @@ impl S4Simplex {
         // -- on the clockwise_triangle
         fn check_edge(a: &Vec3, ao: &Vec3, p: &Vec3, ap: &Vec3, counter_clockwise_triangle_perp: &Vec3, clockwise_triangle_perp: &Vec3) -> bool {
             // -- inequalities from Real-time collision detection
-            let ineq1 = glm::dot(ao, ap) >= 0.0;
-            let ineq2 = glm::dot(&-p, &(a - p)) >= 0.0;
-            let ineq3 = glm::dot(&ao, &glm::cross(&ap, &counter_clockwise_triangle_perp)) >= 0.0;
-            let ineq4 = glm::dot(&ao, &glm::cross(&clockwise_triangle_perp, &ap)) >= 0.0;
+            let ineq1 = Vec3::dot(ao, ap) >= 0.0;
+            let ineq2 = Vec3::dot(&-p, &(a - p)) >= 0.0;
+            let ineq3 = Vec3::dot(&ao, &Vec3::cross(&ap, &counter_clockwise_triangle_perp)) >= 0.0;
+            let ineq4 = Vec3::dot(&ao, &Vec3::cross(&clockwise_triangle_perp, &ap)) >= 0.0;
             return ineq1 && ineq2 && ineq3 && ineq4;
         }
 
         // -- check AB
         if check_edge(&self.a, &ao, &self.b, &ab, &abc_perp, &abd_perp) {
-            let ab_perp_to_origin = glm::cross(&glm::cross(&ab, &ao), &ab);
+            let ab_perp_to_origin = Vec3::cross(&Vec3::cross(&ab, &ao), &ab);
             return update_simplex_result2(&self.a, &self.b, ab_perp_to_origin);
         }
 
         // -- check AC
         if check_edge(&self.a, &ao, &self.c, &ac, &acd_perp, &abc_perp) {
-            let ac_perp_to_origin = glm::cross(&glm::cross(&ac, &ao), &ac);
+            let ac_perp_to_origin = Vec3::cross(&Vec3::cross(&ac, &ao), &ac);
             return update_simplex_result2(&self.a, &self.c, ac_perp_to_origin);
         }
 
         // -- check AD
         if check_edge(&self.a, &ao, &self.d, &ad, &abd_perp, &acd_perp) {
-            let ad_perp_to_origin = glm::cross(&glm::cross(&ad, &ao), &ad);
+            let ad_perp_to_origin = Vec3::cross(&Vec3::cross(&ad, &ao), &ad);
             return update_simplex_result2(&self.a, &self.d, ad_perp_to_origin);
         }
 
@@ -325,7 +325,7 @@ impl S4Simplex {
 
         fn check_face(a: &Vec3, ao: &Vec3, non_face_p: &Vec3, face_perp: &Vec3) -> bool {
             // -- inequalities from Real-time collision detection
-            return (glm::dot(ao, face_perp) * glm::dot(&(non_face_p - a), face_perp)) < 0.0;
+            return (Vec3::dot(ao, face_perp) * Vec3::dot(&(non_face_p - a), face_perp)) < 0.0;
         }
 
         // -- check ABC
@@ -347,13 +347,13 @@ impl S4Simplex {
         // -- $$$FRK(TODO): return an Err here, then use the debugger to see what's happening
         // -- in more detail
         // -- numerical issues, return any face the point is on the correct side of
-        if glm::dot(&abc_perp, &ao) > 0.0 {
+        if Vec3::dot(&abc_perp, &ao) > 0.0 {
             return update_simplex_result3(&self.a, &self.b, &self.c, abc_perp);
         }
-        else if glm::dot(&abd_perp, &ao) > 0.0 {
+        else if Vec3::dot(&abd_perp, &ao) > 0.0 {
             return update_simplex_result3(&self.a, &self.b, &self.d, abd_perp);
         }
-        else if glm::dot(&acd_perp, &ao) > 0.0 {
+        else if Vec3::dot(&acd_perp, &ao) > 0.0 {
             return update_simplex_result3(&self.a, &self.c, &self.d, acd_perp);
         }
 
@@ -363,7 +363,7 @@ impl S4Simplex {
 
 pub fn step_gjk(pts_a: &[Vec3], pts_b: &[Vec3], mut simplex: ESimplex, dir: &Vec3) -> EGJKStepResult {
     let a = minkowski_support_mapping(pts_a, pts_b, &dir);
-    if glm::dot(&a.pos, &dir) < 0.0 {
+    if Vec3::dot(&a.pos, &dir) < 0.0 {
         return EGJKStepResult::NoIntersection;
     }
 
@@ -502,7 +502,7 @@ impl SGJKDebug {
                     if let EGJKStepResult::NewSimplexAndDir(simplex, dir) = gjk_step_result {
                         let mut new_simplex = simplex.clone();
                         let a = minkowski_support_mapping(&self.pts_a, &self.pts_b, &dir);
-                        if glm::dot(&a.pos, &dir) < 0.0 {
+                        if Vec3::dot(&a.pos, &dir) < 0.0 {
                             Some(EGJKDebugStep::NoIntersection)
                         }
                         else {
@@ -527,7 +527,7 @@ impl SGJKDebug {
     }
 
     pub fn render_cur_step(&self, ctxt: &SDataBucket) {
-        use glm::{Vec4};
+        use math::{Vec4};
 
         ctxt.get_renderer().with_mut(|render: &mut SRender| {
 
@@ -615,9 +615,9 @@ impl SGJKDebug {
                         let ab = internal.b - internal.a;
                         let ac = internal.c - internal.a;
                         let ad = internal.d - internal.a;
-                        let abc_perp = glm::cross(&ab, &ac);
-                        let abd_perp = glm::cross(&ad, &ab);
-                        let acd_perp = glm::cross(&ac, &ad);
+                        let abc_perp = Vec3::cross(&ab, &ac);
+                        let abd_perp = Vec3::cross(&ad, &ab);
+                        let acd_perp = Vec3::cross(&ac, &ad);
                         let abc_centroid = (internal.a + internal.b + internal.c) / 3.0;
                         let abd_centroid = (internal.a + internal.b + internal.d) / 3.0;
                         let acd_centroid = (internal.a + internal.c + internal.d) / 3.0;

@@ -3,7 +3,7 @@
 //use std::ops::{Add, Sub, Mul};
 
 use safewindows;
-use glm::{Vec3, Vec4, Quat, Mat4};
+use math::{Vec3, Vec4, Quat, Mat4};
 use gltf;
 use std::collections::hash_map::{DefaultHasher};
 use std::hash::{Hash, Hasher};
@@ -60,15 +60,15 @@ impl SAABB {
 
     pub fn zero() -> Self {
         Self {
-            min: glm::zero(),
-            max: glm::zero(),
+            min: Vec3::zero(),
+            max: Vec3::zero(),
         }
     }
 
     pub fn union(a: &Self, b: &Self) -> Self {
         Self{
-            min: glm::min2(&a.min, &b.min),
-            max: glm::max2(&a.max, &b.max),
+            min: Vec3::min(&a.min, &b.min),
+            max: Vec3::max(&a.max, &b.max),
         }
     }
 
@@ -98,8 +98,8 @@ impl SAABB {
     }
 
     pub fn expand(&mut self, p: &Vec3) {
-        self.min = glm::min2(&self.min, p);
-        self.max = glm::max2(&self.max, p);
+        self.min = Vec3::min(&self.min, p);
+        self.max = Vec3::max(&self.max, p);
     }
 }
 
@@ -140,10 +140,10 @@ pub fn unlerp_f32(start: f32, end: f32, cur: f32) -> f32 {
 
 pub fn closest_point_on_line(line_p0: &Vec3, line_p1: &Vec3, p: &Vec3) -> (Vec3, f32) {
     let line_dir = line_p1 - line_p0;
-    let line_len = glm::l2_norm(&(line_p1 - line_p0));
+    let line_len = (line_p1 - line_p0).mag();
     let line_dir_norm = line_dir / line_len;
 
-    let dist_along : f32 = glm::dot(&(p - line_p0), &line_dir_norm);
+    let dist_along : f32 = Vec3::dot(&(p - line_p0), &line_dir_norm);
 
     let closest_pt = line_p0 + dist_along * line_dir_norm;
     (closest_pt, dist_along / line_len)
@@ -239,8 +239,8 @@ pub fn ray_intersects_triangle(
     let edge1 = t1p - t0p;
     let edge2 = t2p - t0p;
 
-    let h = glm::cross(&ray_dir, &edge2);
-    let a = glm::dot(&edge1, &h);
+    let h = Vec3::cross(&ray_dir, &edge2);
+    let a = Vec3::dot(&edge1, &h);
 
     if a > -EPSILON && a < EPSILON {
         return None; // parallel
@@ -248,18 +248,18 @@ pub fn ray_intersects_triangle(
 
     let f = 1.0 / a;
     let s = ray_origin - t0p;
-    let u = f * glm::dot(&s, &h);
+    let u = f * Vec3::dot(&s, &h);
     if u < 0.0 || u > 1.0 {
         return None;
     }
 
-    let q = glm::cross(&s, &edge1);
-    let v = f * glm::dot(&ray_dir, &q);
+    let q = Vec3::cross(&s, &edge1);
+    let v = f * Vec3::dot(&ray_dir, &q);
     if v < 0.0 || (u + v) > 1.0 {
         return None;
     }
 
-    let t = f * glm::dot(&edge2, &q);
+    let t = f * Vec3::dot(&edge2, &q);
     if t > 0.0 {
         return Some(t); // t may be >1.0
     }
@@ -277,16 +277,14 @@ impl SPlane {
 }
 
 pub fn ray_plane_intersection(ray: &SRay, plane: &SPlane) -> Option<(Vec3, f32)> {
-    use glm::dot;
-
-    let denom = dot(&ray.dir, &plane.normal);
+    let denom = Vec3::dot(&ray.dir, &plane.normal);
 
     const EPSILON: f32 = 0.000_000_1;
     if denom.abs() < EPSILON {
         return None;
     }
 
-    let num = dot(&plane.p, &plane.normal) - dot(&ray.origin, &plane.normal);
+    let num = Vec3::dot(&plane.p, &plane.normal) - Vec3::dot(&ray.origin, &plane.normal);
     let t = num / denom;
 
     Some((ray.origin + t * ray.dir, t))
@@ -312,8 +310,8 @@ pub fn fovx(fovy: f32, width: u32, height: u32) -> f32 {
 impl Default for STransform {
     fn default() -> Self {
         Self {
-            t: Vec3::new(0.0, 0.0, 0.0),
-            r: glm::quat_identity(),
+            t: Vec3::zero(),
+            r: Quat::new_identity(),
             s: 1.0,
         }
     }
@@ -342,10 +340,10 @@ impl STransform {
 
     pub fn inverse(&self) -> Self {
         break_assert!(self.s == 1.0); // didn't figure this out for non-1.0 scales yet
-        let r_inverse = glm::quat_inverse(&self.r);
+        let r_inverse = self.r.inverse();
 
         Self {
-            t: glm::quat_rotate_vec3(&r_inverse, &(-self.t)),
+            t: Quat::rotate_vec3(&r_inverse, &(-self.t)),
             r: r_inverse,
             s: 1.0,
         }
@@ -359,7 +357,7 @@ impl STransform {
 
         // resulting transform is as though applying first, then second
         Self {
-            t: second.t + glm::quat_rotate_vec3(&second.r, &first.t),
+            t: second.t + Quat::rotate_vec3(&second.r, &first.t),
             r: second.r * first.r,
             s: 1.0,
         }
@@ -369,19 +367,19 @@ impl STransform {
         // -- $$$FRK(TODO): could easily derivce the components of the matrix and
         // -- construct directly rather than multiplying
 
-        let scale = glm::scaling(&Vec3::new(self.s, self.s, self.s));
-        let rotation = glm::quat_to_mat4(&self.r);
-        let translation = glm::translation(&self.t);
+        let scale = Mat4::new_uniform_scale(self.s);
+        let rotation = Mat4::new_rotation(&self.r);
+        let translation = Mat4::new_translation(&self.t);
 
         return translation * rotation * scale;
     }
 
     pub fn mul_point(&self, point: &Vec3) -> Vec3 {
-        return self.t + glm::quat_rotate_vec3(&self.r, &(self.s * point));
+        return self.t + Quat::rotate_vec3(&self.r, &(self.s * point));
     }
 
     pub fn mul_vec(&self, point: &Vec3) -> Vec3 {
-        return glm::quat_rotate_vec3(&self.r, &(self.s * point));
+        return Quat::rotate_vec3(&self.r, &(self.s * point));
     }
 }
 

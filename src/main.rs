@@ -1,5 +1,5 @@
 extern crate arrayvec;
-extern crate nalgebra_glm as glm;
+//extern crate nalgebra_glm as glm;
 extern crate tinytga;
 extern crate tobj;
 extern crate winapi;
@@ -28,6 +28,7 @@ mod game_context;
 mod game_mode;
 mod gjk;
 mod input;
+mod math;
 mod niced3d12;
 mod rustywindows;
 mod typeyd3d12;
@@ -53,6 +54,7 @@ use animation::{SAnimationLoader};
 use allocate::{SYSTEM_ALLOCATOR, SAllocator};
 use entity::{SEntityBucket};
 use game_context::{SGameContext, SFrameContext};
+use math::{Vec3, Vec4};
 use niced3d12 as n12;
 use typeyd3d12 as t12;
 //use allocate::{SMemVec, STACK_ALLOCATOR};
@@ -150,25 +152,25 @@ fn main_d3d12(d3d_debug: bool) -> Result<(), &'static str> {
     game_context.data_bucket.add(entity_model::SBucket::new(&SYSTEM_ALLOCATOR(), 1024)?);
     game_context.data_bucket.add(entity_animation::SBucket::new(&SYSTEM_ALLOCATOR(), 1024)?);
     game_context.data_bucket.add(bvh::STree::new());
-    game_context.data_bucket.add(camera::SDebugFPCamera::new(glm::Vec3::new(0.0, 0.0, -10.0)));
+    game_context.data_bucket.add(camera::SDebugFPCamera::new(Vec3::new(0.0, 0.0, -10.0)));
     game_context.data_bucket.add(input::SInput::new());
     game_context.data_bucket.add(gjk::SGJKDebug::new(&game_context.data_bucket));
 
     entitytypes::testtexturedcubeentity::create(
         &game_context, Some("tst_rotating"),
-        STransform::new_translation(&glm::Vec3::new(0.0, 0.0, 0.0)))?;
+        STransform::new_translation(&Vec3::new(0.0, 0.0, 0.0)))?;
     entitytypes::testtexturedcubeentity::create(
         &game_context, Some("tst_textured_cube"),
-        STransform::new_translation(&glm::Vec3::new(3.0, 0.0, 0.0)))?;
+        STransform::new_translation(&Vec3::new(3.0, 0.0, 0.0)))?;
     entitytypes::flatshadedcubeentity::create(
-        &game_context, Some("tst_coloured_cube"), Some(glm::Vec4::new(1.0, 0.0, 0.0, 0.9)),
-        STransform::new_translation(&glm::Vec3::new(0.0, 2.0, 0.0)))?;
+        &game_context, Some("tst_coloured_cube"), Some(Vec4::new(1.0, 0.0, 0.0, 0.9)),
+        STransform::new_translation(&Vec3::new(0.0, 2.0, 0.0)))?;
     entitytypes::testopenroomentity::create(
         &game_context, Some("tst_room"),
-        STransform::new_translation(&glm::Vec3::new(0.0, -2.0, 0.0)))?;
+        STransform::new_translation(&Vec3::new(0.0, -2.0, 0.0)))?;
     let skinned_entity = entitytypes::tstskinnedentity::create(
-        &game_context, Some("tst_skinned_entity"), Some(glm::Vec4::new(1.0, 1.0, 1.0, 1.0)),
-        STransform::new_translation(&glm::Vec3::new(-3.0, 2.0, 0.0)))?;
+        &game_context, Some("tst_skinned_entity"), Some(Vec4::new(1.0, 1.0, 1.0, 1.0)),
+        STransform::new_translation(&Vec3::new(-3.0, 2.0, 0.0)))?;
 
     game_context.data_bucket.get::<entity_animation::SBucket>()
         .and::<animation::SAnimationLoader>()

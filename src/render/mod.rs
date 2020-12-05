@@ -8,7 +8,7 @@ use std::ops::{Deref, DerefMut};
 use arrayvec::{ArrayVec};
 use camera;
 use serde::{Serialize, Deserialize};
-use glm::{Vec3, Mat4};
+use math::{Vec3, Mat4};
 
 use niced3d12 as n12;
 use typeyd3d12 as t12;
@@ -524,7 +524,7 @@ impl SRender {
             let zfar = 100.0;
 
             //SMat44::new_perspective(aspect, fovy, znear, zfar)
-            glm::perspective_lh_zo(aspect, self.fovy(), self.znear(), zfar)
+            Mat4::new_perspective(aspect, self.fovy(), self.znear(), zfar)
         };
 
         let context = SRenderContext{

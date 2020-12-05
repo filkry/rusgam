@@ -1,15 +1,14 @@
-extern crate nalgebra_glm as glm;
-
 use entity::*;
 use entity_model;
 use game_context::{SGameContext};
+use math::{Vec4};
 use render;
 use utils::{STransform};
 
 pub fn create(
     gc: &SGameContext,
     debug_name: Option<&'static str>,
-    diffuse_colour: Option<glm::Vec4>,
+    diffuse_colour: Option<Vec4>,
     starting_location: STransform,
 ) -> Result<SEntityHandle, &'static str> {
 

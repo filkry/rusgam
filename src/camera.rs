@@ -1,4 +1,4 @@
-use glm::{Vec3, Mat4};
+use math::{Vec3, Mat4, Quat};
 
 use game_context::{SGameContext, SFrameContext};
 use game_mode;
@@ -27,12 +27,12 @@ impl SDebugFPCamera {
     }
 
     pub fn forward_world(&self) -> Vec3 {
-        let rotate_x = glm::quat_angle_axis(self.x_angle, &Self::right_local());
-        let rotate_y = glm::quat_angle_axis(self.y_angle, &Self::up_world());
+        let rotate_x = Quat::new_angle_axis(self.x_angle, &Self::right_local());
+        let rotate_y = Quat::new_angle_axis(self.y_angle, &Self::up_world());
 
         let rotate = rotate_y * rotate_x;
 
-        let forward_world = glm::quat_rotate_vec3(&rotate, &Self::forward_local());
+        let forward_world = Quat::rotate_vec3(&rotate, &Self::forward_local());
         return forward_world;
     }
 
@@ -45,28 +45,31 @@ impl SDebugFPCamera {
     }
 
     pub fn update_from_input(&mut self, input: &input::SInput, dts: f32, can_rotate_camera: bool) {
-        let forward_world = glm::rotate_y_vec3(&Self::forward_local(), self.y_angle);
-        let right_world = glm::rotate_y_vec3(&Self::right_local(), self.y_angle);
+        let forward_world = Self::forward_local().rotate_y(self.y_angle);
+        let right_world = Self::right_local().rotate_y(self.y_angle);
 
         const SPEED: f32 = 5.0;
 
+        let speed_dt = SPEED * dts;
+        let neg_speed_dt = -SPEED * dts;
+
         if input.w_down {
-            self.pos_world = self.pos_world + forward_world * SPEED * dts;
+            self.pos_world = self.pos_world + speed_dt * forward_world;
         }
         if input.s_down {
-            self.pos_world = self.pos_world + forward_world * -SPEED * dts;
+            self.pos_world = self.pos_world + neg_speed_dt * forward_world;
         }
         if input.a_down {
-            self.pos_world = self.pos_world + right_world * -SPEED * dts;
+            self.pos_world = self.pos_world + neg_speed_dt * right_world;
         }
         if input.d_down {
-            self.pos_world = self.pos_world + right_world * SPEED * dts;
+            self.pos_world = self.pos_world + speed_dt * right_world;
         }
         if input.space_down {
-            self.pos_world = self.pos_world + Self::up_world() * SPEED * dts;
+            self.pos_world = self.pos_world + speed_dt * Self::up_world();
         }
         if input.c_down {
-            self.pos_world = self.pos_world + Self::up_world() * -SPEED * dts;
+            self.pos_world = self.pos_world + neg_speed_dt * Self::up_world();
         }
 
         if can_rotate_camera {
@@ -85,7 +88,7 @@ impl SDebugFPCamera {
     }
 
     pub fn world_to_view_matrix(&self) -> Mat4 {
-        glm::look_at_lh(&self.pos_world, &(self.pos_world + self.forward_world()), &Self::up_world())
+        Mat4::new_look_at(&self.pos_world, &(self.pos_world + self.forward_world()), &Self::up_world())
     }
 }
 

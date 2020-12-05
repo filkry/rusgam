@@ -5,7 +5,7 @@ use std::ops::{Deref};
 // -- crate includes
 use arrayvec::{ArrayVec};
 use imgui;
-use glm::{Mat4};
+use math::{Mat4};
 
 use allocate::{SYSTEM_ALLOCATOR};
 use collections::{SVec};
@@ -387,7 +387,7 @@ impl super::SRender {
             let bottom = draw_data.display_pos[1] + draw_data.display_size[1];
             let top = draw_data.display_pos[1];
 
-            glm::ortho_lh_zo(left, right, bottom, top, znear, zfar)
+            Mat4::new_orthographic(left, right, bottom, top, znear, zfar)
         };
 
         list.set_graphics_root_32_bit_constants(ri.orthomat_root_param_idx, &ortho_matrix, 0);

@@ -9,7 +9,7 @@ use t12;
 use super::shaderbindings;
 use utils;
 
-use glm::{Vec3, Mat4};
+use math::{Vec3, Mat4};
 
 #[allow(unused_variables)]
 #[allow(unused_mut)]
@@ -154,7 +154,7 @@ impl SShadowMappingPipeline {
             let zfar = 100.0;
 
             //SMat44::new_perspective(aspect, fovy, znear, zfar)
-            glm::perspective_lh_zo(aspect, fovy, znear, zfar)
+            Mat4::new_perspective(aspect, fovy, znear, zfar)
         };
 
         //println!("{:?}", perspective_matrix);
@@ -215,7 +215,7 @@ impl SShadowMappingPipeline {
                 }
             };
 
-            let view_matrix = glm::look_at_lh(&light_pos_world, &(light_pos_world + dir), &up);
+            let view_matrix = Mat4::new_look_at(&light_pos_world, &(light_pos_world + dir), &up);
 
             let view_perspective = perspective_matrix * view_matrix;
 

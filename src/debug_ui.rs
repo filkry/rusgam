@@ -5,7 +5,7 @@ use entity;
 use entity_model;
 use game_context::{SGameContext, SFrameContext};
 use game_mode;
-use glm::{Vec3, Vec4};
+use math::{Vec3, Vec4};
 use render;
 
 pub fn update_debug_entity_menu(game_context: &SGameContext, frame_context: &SFrameContext) {

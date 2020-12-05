@@ -6,7 +6,7 @@ use databucket;
 use game_context::{SGameContext, SFrameContext};
 use game_mode;
 use entity::{SEntityBucket, SEntityHandle};
-use glm::{Vec3, Vec4};
+use math::{Vec3, Vec4, Quat, Mat4};
 use input;
 use model;
 use render;
@@ -19,7 +19,7 @@ pub struct SEditModeInput {
     pub mouse_window_pos: [i32; 2],
     pub camera_pos_world: Vec3,
     pub camera_forward: Vec3,
-    pub world_to_view_matrix: glm::Mat4,
+    pub world_to_view_matrix: Mat4,
     pub fovy: f32,
     pub znear: f32,
 
@@ -38,7 +38,7 @@ pub struct SEditModeTranslationDragging {
 pub struct SEditModeRotationDragging {
     entity: SEntityHandle,
     axis: usize,
-    start_ori: glm::Quat,
+    start_ori: Quat,
     start_entity_to_cursor : Vec3,
 }
 
@@ -102,8 +102,8 @@ impl SEditModeContext {
             STransform::default(),
             STransform::default(),
         ];
-        translation_widget_transforms[0].r = glm::quat_angle_axis(utils::PI / 2.0, &Vec3::new(0.0, 1.0, 0.0));
-        translation_widget_transforms[1].r = glm::quat_angle_axis(-utils::PI / 2.0, &Vec3::new(1.0, 0.0, 0.0));
+        translation_widget_transforms[0].r = Quat::new_angle_axis(utils::PI / 2.0, &Vec3::new(0.0, 1.0, 0.0));
+        translation_widget_transforms[1].r = Quat::new_angle_axis(-utils::PI / 2.0, &Vec3::new(1.0, 0.0, 0.0));
 
         // -- set up rotation widget
         let mut rotation_widgets = [
@@ -120,8 +120,8 @@ impl SEditModeContext {
             STransform::default(),
             STransform::default(),
         ];
-        rotation_widget_transforms[0].r = glm::quat_angle_axis(utils::PI / 2.0, &Vec3::new(0.0, 0.0, 1.0));
-        rotation_widget_transforms[2].r = glm::quat_angle_axis(utils::PI / 2.0, &Vec3::new(1.0, 0.0, 0.0));
+        rotation_widget_transforms[0].r = Quat::new_angle_axis(utils::PI / 2.0, &Vec3::new(0.0, 0.0, 1.0));
+        rotation_widget_transforms[2].r = Quat::new_angle_axis(utils::PI / 2.0, &Vec3::new(1.0, 0.0, 0.0));
 
         Ok(Self {
             editing_entity: None,
@@ -216,7 +216,7 @@ impl EEditMode {
 
                 let e_loc = entities.get_entity_location(e);
 
-                let mut plane_normal : Vec3 = glm::zero();
+                let mut plane_normal = Vec3::zero();
                 plane_normal[axis] = 1.0;
                 let plane = utils::SPlane::new(&e_loc.t, &plane_normal);
                 let cursor_ray_world = cursor_ray_world(&editmode_input);
@@ -370,13 +370,13 @@ impl SEditModeTranslationDragging {
             return EEditMode::Translation;
         }
         else {
-            let mut line_dir : Vec3 = glm::zero();
+            let mut line_dir = Vec3::zero();
             line_dir[self.axis] = 1.0;
 
             let line_p0 = self.start_pos + -line_dir;
             let line_p1 = self.start_pos + line_dir;
 
-            let mut render_color : Vec4 = glm::zero();
+            let mut render_color : Vec4 = Vec4::zero();
             render_color[self.axis] = 1.0;
             render_color.w = 1.0;
             render.temp().draw_line(
@@ -408,7 +408,7 @@ impl SEditModeTranslationDragging {
 }
 
 impl SEditModeRotationDragging {
-    pub fn new(entity: SEntityHandle, axis: usize, start_ori: glm::Quat, start_entity_to_cursor: Vec3) -> Self {
+    pub fn new(entity: SEntityHandle, axis: usize, start_ori: Quat, start_entity_to_cursor: Vec3) -> Self {
         Self{
             entity,
             axis,
@@ -431,7 +431,7 @@ impl SEditModeRotationDragging {
         else {
             let e_loc = entities.get_entity_location(self.entity);
 
-            let mut plane_normal : Vec3 = glm::zero();
+            let mut plane_normal : Vec3 = Vec3::zero();
             plane_normal[self.axis] = 1.0;
             let plane = utils::SPlane::new(&e_loc.t, &plane_normal);
 
@@ -439,8 +439,8 @@ impl SEditModeRotationDragging {
             if let Some((cursor_pos_world, _)) = utils::ray_plane_intersection(&cursor_ray_world, &plane) {
                 let entity_to_cursor = cursor_pos_world - e_loc.t;
 
-                let rotation = glm::quat_rotation(&self.start_entity_to_cursor,
-                                                  &entity_to_cursor);
+                let rotation = Quat::new_from_orig_to_dest(&self.start_entity_to_cursor,
+                                                           &entity_to_cursor);
 
                 let new_entity_ori = rotation * self.start_ori;
 
@@ -449,7 +449,7 @@ impl SEditModeRotationDragging {
 
                 entities.set_location(gc, self.entity, new_e_loc);
 
-                let mut render_color : Vec4 = glm::zero();
+                let mut render_color : Vec4 = Vec4::zero();
                 render_color[self.axis] = 1.0;
                 render_color.w = 1.0;
                 render.temp().draw_line(
@@ -483,9 +483,9 @@ pub fn scale_to_fixed_screen_size(
     let fovx = utils::fovx(editmode_input.fovy, editmode_input.window_width, editmode_input.window_height);
 
     let to_fixed = transform.t - editmode_input.camera_pos_world;
-    let dist = glm::length(&to_fixed);
+    let dist = to_fixed.mag();
 
-    let angle_from_forward = glm::angle(&to_fixed, &editmode_input.camera_forward);
+    let angle_from_forward = Vec3::angle_between(&to_fixed, &editmode_input.camera_forward);
     let proj_dist = editmode_input.znear / (angle_from_forward).cos();
 
     // -- the whole idea of this code is to build a ratio of the similar
@@ -528,7 +528,7 @@ pub fn cursor_ray_world(
     //println!("to_z_near_camera_space: {:?}", to_z_near_camera_space);
 
     let world_to_view = editmode_input.world_to_view_matrix;
-    let view_to_world = glm::inverse(&world_to_view);
+    let view_to_world = world_to_view.inverse();
 
     let to_z_near_world_space = view_to_world * utils::vec3_to_homogenous(&to_z_near_camera_space, 0.0);
 
@@ -546,14 +546,13 @@ pub fn world_pos_to_screen_pos(
         let aspect = (editmode_input.window_width as f32) / (editmode_input.window_height as f32);
         let zfar = 100.0;
 
-        //SMat44::new_perspective(aspect, fovy, znear, zfar)
-        glm::perspective_lh_zo(aspect, editmode_input.fovy, editmode_input.znear, zfar)
+        Mat4::new_perspective(aspect, editmode_input.fovy, editmode_input.znear, zfar)
     };
 
     let view_perspective_matrix = perspective_matrix * editmode_input.world_to_view_matrix;
 
     let pos_clip_space = view_perspective_matrix * Vec4::new(world_pos.x, world_pos.y, world_pos.z, 1.0);
-    let pos_ndc = pos_clip_space / pos_clip_space.w;
+    let pos_ndc = (1.0 / pos_clip_space.w) * pos_clip_space;
 
     let width_f32 = editmode_input.window_width as f32;
     let height_f32 = editmode_input.window_height as f32;
@@ -587,8 +586,7 @@ pub fn pos_on_screen_space_line_to_world(
         let aspect = (editmode_input.window_width as f32) / (editmode_input.window_height as f32);
         let zfar = 100.0;
 
-        //SMat44::new_perspective(aspect, fovy, znear, zfar)
-        glm::perspective_lh_zo(aspect, editmode_input.fovy, editmode_input.znear, zfar)
+        Mat4::new_perspective(aspect, editmode_input.fovy, editmode_input.znear, zfar)
     };
 
     let view_perspective_matrix = perspective_matrix * editmode_input.world_to_view_matrix;
@@ -600,8 +598,8 @@ pub fn pos_on_screen_space_line_to_world(
 
     let line_p0_w = line_p0_clip_space.w;
     let line_p1_w = line_p1_clip_space.w;
-    line_p0_clip_space /= line_p0_w;
-    line_p1_clip_space /= line_p1_w;
+    line_p0_clip_space *= 1.0 / line_p0_w;
+    line_p1_clip_space *= 1.0 / line_p1_w;
 
     //println!("Line p0 clip space NORM: {:?}", line_p0_clip_space);
     //println!("Line p1 clip space NORM: {:?}", line_p1_clip_space);
@@ -662,15 +660,15 @@ pub fn pos_on_screen_space_line_to_world(
     let d_vec4 = Vec4::new(d.x, d.y, d.z, 0.0);
     let line_p0_vec4 = Vec4::new(world_line_p0.x, world_line_p0.y, world_line_p0.z, 1.0);
 
-    let row_0 = glm::row(&view_perspective_matrix, 0);
-    let row_1 = glm::row(&view_perspective_matrix, 1);
-    let row_3 = glm::row(&view_perspective_matrix, 3);
-    let row_0_dot_p0 = glm::dot(&row_0, &line_p0_vec4);
-    let row_1_dot_p0 = glm::dot(&row_1, &line_p0_vec4);
-    let row_3_dot_p0 = glm::dot(&row_3, &line_p0_vec4);
-    let row_0_dot_d = glm::dot(&row_0, &d_vec4);
-    let row_1_dot_d = glm::dot(&row_1, &d_vec4);
-    let row_3_dot_d = glm::dot(&row_3, &d_vec4);
+    let row_0 = view_perspective_matrix.row(0);
+    let row_1 = view_perspective_matrix.row(1);
+    let row_3 = view_perspective_matrix.row(3);
+    let row_0_dot_p0 = Vec4::dot(&row_0, &line_p0_vec4);
+    let row_1_dot_p0 = Vec4::dot(&row_1, &line_p0_vec4);
+    let row_3_dot_p0 = Vec4::dot(&row_3, &line_p0_vec4);
+    let row_0_dot_d = Vec4::dot(&row_0, &d_vec4);
+    let row_1_dot_d = Vec4::dot(&row_1, &d_vec4);
+    let row_3_dot_d = Vec4::dot(&row_3, &d_vec4);
 
     let t = {
         if line_screen_space.x.abs() > line_screen_space.y.abs() {

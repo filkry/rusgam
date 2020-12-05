@@ -4,7 +4,7 @@ use std::mem::{size_of};
 
 // -- crate includes
 use arrayvec::{ArrayVec};
-use glm::{Vec3, Vec4, Mat4};
+use math::{Vec3, Vec4, Mat4};
 
 use niced3d12 as n12;
 use typeyd3d12 as t12;

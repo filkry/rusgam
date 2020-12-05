@@ -1,5 +1,3 @@
-extern crate nalgebra_glm as glm;
-
 use entity::*;
 use entity_model;
 use game_context::{SGameContext};

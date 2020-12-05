@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::ops::{Deref, DerefMut};
 use std::rc::Weak;
 
-use glm::{Vec4, Vec3, Vec2, Mat4};
+use math::{Vec4, Vec3, Vec2, Mat4, Quat};
 use arrayvec::{ArrayString};
 use gltf;
 
@@ -384,8 +384,8 @@ impl SMeshLoader {
                     let (trans, rot, scale) = joint_node.transform().decomposed();
                     assert!(scale[0] == scale[1]  && scale[0] == scale[2]);
                     let transform = STransform::new(
-                        &glm::vec3(trans[0], trans[1], trans[2]),
-                        &glm::quat(rot[0], rot[1], rot[2], rot[3]),
+                        &Vec3::new(trans[0], trans[1], trans[2]),
+                        &Quat::new(rot[0], rot[1], rot[2], rot[3]),
                         scale[0],
                     );
 
@@ -941,7 +941,7 @@ impl SModel {
         assert_eq!(models.len(), 1);
 
         let mesh = mesh_loader.get_or_create_mesh_obj(obj_file, &models[0].mesh);
-        let mut diffuse_colour : Vec4 = glm::zero();
+        let mut diffuse_colour : Vec4 = Vec4::zero();
         let mut diffuse_texture : Option<STextureHandle> = None;
 
         if materials.len() > 0 {

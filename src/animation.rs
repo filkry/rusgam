@@ -1,6 +1,6 @@
 use allocate::{SAllocatorRef};
 use collections::{SStoragePool, SPoolHandle, SVec};
-use glm::{Vec3, Quat};
+use math::{Vec3, Quat};
 use model::{SMeshSkinning};
 use utils;
 use utils::{STransform, lerp, unlerp_f32, gltf_accessor_slice, clamp};
@@ -80,14 +80,14 @@ fn find_segment_and_segment_t(time: f32, sample_times: &[f32]) -> (usize, f32) {
 impl STranslationChannel {
     pub fn sample(&self, time: f32) -> Vec3 {
         let (i, segment_t) = find_segment_and_segment_t(time, &self.sample_times);
-        glm::lerp(&self.sample_values[i], &self.sample_values[i + 1], segment_t)
+        Vec3::lerp(&self.sample_values[i], &self.sample_values[i + 1], segment_t)
     }
 }
 
 impl SRotationChannel {
     pub fn sample(&self, time: f32) -> Quat {
         let (i, segment_t) = find_segment_and_segment_t(time, &self.sample_times);
-        glm::quat_slerp(&self.sample_values[i], &self.sample_values[i + 1], segment_t)
+        Quat::slerp(&self.sample_values[i], &self.sample_values[i + 1], segment_t)
     }
 }
 

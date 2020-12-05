@@ -353,7 +353,7 @@ impl EBlendOp {
     }
 }
 
-// -- $$$FRK(TODO): consider making this an enum that doesn't allow blend and logic enabled at same time
+// -- $$$FRK(FUTURE WORK): consider making this an enum that doesn't allow blend and logic enabled at same time
 pub struct SRenderTargetBlendDesc {
     pub blend_enable: bool,
     pub logic_op_enable: bool,

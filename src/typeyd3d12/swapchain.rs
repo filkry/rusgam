@@ -246,7 +246,6 @@ impl SSwapChain {
         }
     }
 
-    // -- $$$FRK(TODO): support correct params
     pub fn resizebuffers(
         &self,
         buffercount: u32,

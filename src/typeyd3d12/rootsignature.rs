@@ -49,6 +49,8 @@ pub struct SRootSignature {
     pub raw: ComPtr<ID3D12RootSignature>,
 }
 
+// -- $$$FRK(TODO): This struct should take references to slices for parameters/static_samplers,
+// -- and we also need a better solution to this recurring d3dtype problem
 pub struct SRootSignatureDesc {
     pub parameters: Vec<SRootParameter>,
     pub static_samplers: Vec<SStaticSamplerDesc>,
@@ -62,8 +64,8 @@ pub struct SRootSignatureDesc {
 impl SRootSignatureDesc {
     pub fn new(flags: SRootSignatureFlags) -> Self {
         Self {
-            parameters: Vec::new(),      // $$$FRK(TODO): allocations
-            static_samplers: Vec::new(), // $$$FRK(TODO): allocations
+            parameters: Vec::new(),
+            static_samplers: Vec::new(),
             flags: flags,
             d3d_parameters: Vec::new(),
             d3d_static_samplers: Vec::new(),

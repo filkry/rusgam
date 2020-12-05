@@ -55,7 +55,7 @@ pub struct SResourceDesc {
     raw: D3D12_RESOURCE_DESC,
 }
 
-// -- $$$FRK(TODO): does not follow the philosophy of this file for creating rustic types for each
+// -- $$$FRK(FUTURE WORK): does not follow the philosophy of this file for creating rustic types for each
 // -- D3D type. Furthermore, the helper methods belong in niced3d12
 impl SResourceDesc {
     pub unsafe fn raw(&self) -> &D3D12_RESOURCE_DESC {

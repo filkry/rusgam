@@ -303,7 +303,7 @@ impl ESRV {
 pub struct SShaderResourceViewDesc {
     pub format: EDXGIFormat,
     pub view: ESRV, // combines view_dimension with the underlying data
-                    //shader_4_component_mapping: u32, $$$FRK(TODO): only support default currently
+    //shader_4_component_mapping: u32, $$$FRK(FUTURE WORK): only support default currently
 }
 
 impl SShaderResourceViewDesc {

@@ -154,7 +154,6 @@ impl TryFrom<DWORD> for ERIMType {
     }
 }
 
-// -- $$$FRK(TODO): only implemented types I care about so far
 #[derive(Copy, Clone)]
 pub struct SRawInputHeader {
     type_: ERIMType,

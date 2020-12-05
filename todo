@@ -1,4 +1,6 @@
 
++ bindless
++ create an err format that that can have printf results
 + streamline shaders
     + move render::temp.rs to use shaderbindings like my main rendering pipeline
 + performance metrics overlay

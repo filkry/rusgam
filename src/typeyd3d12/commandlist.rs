@@ -1,3 +1,5 @@
+use arrayvec::{ArrayVec};
+
 use super::*;
 
 #[derive(Copy, Clone, PartialEq)]
@@ -14,7 +16,7 @@ pub enum ECommandListType {
 impl ECommandListType {
     pub fn d3dtype(&self) -> D3D12_COMMAND_LIST_TYPE {
         match self {
-            ECommandListType::Invalid => D3D12_COMMAND_LIST_TYPE_DIRECT, // $$$FRK(TODO): obviously wrong, this needs to return an option I guess
+            ECommandListType::Invalid => panic!("Trying to use invalid CommandListType"),
             ECommandListType::Direct => D3D12_COMMAND_LIST_TYPE_DIRECT,
             ECommandListType::Bundle => D3D12_COMMAND_LIST_TYPE_BUNDLE,
             ECommandListType::Compute => D3D12_COMMAND_LIST_TYPE_COMPUTE,
@@ -60,11 +62,13 @@ impl SCommandList {
         Ok(())
     }
 
-    pub unsafe fn resourcebarrier(&self, numbarriers: u32, barriers: &[SBarrier]) {
-        // -- $$$FRK(TODO): need to figure out how to make a c array from the rust slice
-        // -- w/o a heap allocation...
-        assert!(numbarriers == 1);
-        self.commandlist.ResourceBarrier(1, &(barriers[0].barrier));
+    pub unsafe fn resourcebarrier(&self, barriers: &[SBarrier]) {
+        let mut raw_barriers = ArrayVec::<[D3D12_RESOURCE_BARRIER; 10]>::new();
+        for barrier in barriers {
+            raw_barriers.push(barrier.barrier);
+        }
+
+        self.commandlist.ResourceBarrier(1, raw_barriers.as_ptr());
     }
 
     pub unsafe fn clearrendertargetview(

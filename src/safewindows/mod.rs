@@ -2,7 +2,6 @@
 use std::{cmp, fmt, mem, ptr};
 use std::convert::TryFrom;
 
-// -- $$$FRK(TODO): I feel very slightly guilty about all these wildcard uses
 use winapi::shared::basetsd::*;
 use winapi::shared::minwindef::*;
 use winapi::shared::ntdef;
@@ -48,8 +47,6 @@ where
     }
 }
 
-// -- $$$FRK(TODO): need to decide what I'm doing with errors re: HRESULT and DWORD errcodes -
-// maybe a union?
 pub struct SErr {
     errcode: DWORD,
 }
@@ -284,7 +281,6 @@ impl SWindow {
             let mut raw_msg = mem::MaybeUninit::<winapi::um::winuser::MSG>::zeroed();
 
             self.setwindowproc(windowproc);
-            // -- $$$FRK(TODO): this can take a lot more options, but we're hardcoding for now
             let foundmessage = winapi::um::winuser::PeekMessageW(
                 raw_msg.as_mut_ptr(),
                 self.window,
@@ -365,8 +361,6 @@ pub trait TWindowProc {
 }
 
 impl<'windows> SWindowClass<'windows> {
-    // -- $$$FRK(TODO): right now this assumes a ton of defaults, we should pass those in
-    // -- and move defaults to rustywindows
     pub fn createwindow(&self, title: &str, width: u32, height: u32) -> Result<SWindow, SErr> {
         unsafe {
             let windowstyle: DWORD = WS_OVERLAPPEDWINDOW;

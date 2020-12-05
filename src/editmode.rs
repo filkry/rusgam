@@ -685,7 +685,7 @@ pub fn pos_on_screen_space_line_to_world(
 
     let closest_pos_world_space = world_line_p0 + t * d;
 
-    closest_pos_world_space.xyz()
+    closest_pos_world_space
 }
 
 pub fn update_create_input_for_frame(game_context: &SGameContext, frame_context: &SFrameContext) -> SEditModeInput {

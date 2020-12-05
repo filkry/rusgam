@@ -141,7 +141,7 @@ pub fn unlerp_f32(start: f32, end: f32, cur: f32) -> f32 {
 pub fn closest_point_on_line(line_p0: &Vec3, line_p1: &Vec3, p: &Vec3) -> (Vec3, f32) {
     let line_dir = line_p1 - line_p0;
     let line_len = (line_p1 - line_p0).mag();
-    let line_dir_norm = line_dir / line_len;
+    let line_dir_norm = (1.0 / line_len) * line_dir;
 
     let dist_along : f32 = Vec3::dot(&(p - line_p0), &line_dir_norm);
 

@@ -618,9 +618,9 @@ impl SGJKDebug {
                         let abc_perp = Vec3::cross(&ab, &ac);
                         let abd_perp = Vec3::cross(&ad, &ab);
                         let acd_perp = Vec3::cross(&ac, &ad);
-                        let abc_centroid = (internal.a + internal.b + internal.c) / 3.0;
-                        let abd_centroid = (internal.a + internal.b + internal.d) / 3.0;
-                        let acd_centroid = (internal.a + internal.c + internal.d) / 3.0;
+                        let abc_centroid = (1.0 / 3.0) * (internal.a + internal.b + internal.c);
+                        let abd_centroid = (1.0 / 3.0) * (internal.a + internal.b + internal.d);
+                        let acd_centroid = (1.0 / 3.0) * (internal.a + internal.c + internal.d);
                         render.temp().draw_line(&(abc_centroid + offset), &(abc_centroid + offset + abc_perp), &normal_color, false, tok);
                         render.temp().draw_line(&(abd_centroid + offset), &(abd_centroid + offset + abd_perp), &normal_color, false, tok);
                         render.temp().draw_line(&(acd_centroid + offset), &(acd_centroid + offset + acd_perp), &normal_color, false, tok);

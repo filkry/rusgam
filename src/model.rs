@@ -673,9 +673,10 @@ impl SMeshLoader {
             if let Some(t) = utils::ray_intersects_triangle(
                 &ray_origin,
                 &ray_dir,
-                &v0_ray_space_pos.xyz(),
-                &v1_ray_space_pos.xyz(),
-                &v2_ray_space_pos.xyz()) {
+                &v0_ray_space_pos,
+                &v1_ray_space_pos,
+                &v2_ray_space_pos,
+            ) {
 
                 if let Some(cur_min_t) = min_t {
                     if t < cur_min_t {

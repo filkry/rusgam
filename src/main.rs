@@ -296,6 +296,8 @@ fn main_d3d12(d3d_debug: bool) -> Result<(), &'static str> {
 }
 
 fn main() {
+    math::validate_glm_compatibility();
+
     let mut d3d_debug = false;
     let args : Vec::<String> = std::env::args().collect();
     for arg in args {

@@ -1,5 +1,6 @@
 use super::*;
 
+use arrayvec::{ArrayVec};
 use std::mem::{size_of};
 
 #[repr(C)]
@@ -173,5 +174,20 @@ impl SPipelineStateStreamDepthStencilFormat {
             type_: t12::EPipelineStateSubobjectType::DepthStencilFormat.d3dtype(),
             value: format.d3dtype(),
         }
+    }
+}
+
+impl t12::SInputLayoutDesc {
+    pub fn create(input_element_descs: &[t12::SInputElementDesc]) -> Self {
+        let mut result = Self {
+            input_element_descs: ArrayVec::new(),
+            d3d_input_element_descs: ArrayVec::new(),
+        };
+
+        result
+            .input_element_descs
+            .try_extend_from_slice(input_element_descs)
+            .unwrap();
+        result
     }
 }

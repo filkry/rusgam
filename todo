@@ -1,4 +1,6 @@
 
++ implement Deref() in most/all niced3d12 classes, and in doing so replace a lot of boilerplate fns
++ implement FromIterator for SVec so I can use collect()
 + bindless
 + create an err format that that can have printf results
 + streamline shaders

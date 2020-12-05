@@ -153,7 +153,6 @@ impl SViewport {
     }
 }
 
-// -- $$$FRK(TODO): should just be D3DRECT
 pub type SRect = safewindows::SRect;
 
 impl SRect {
@@ -279,7 +278,7 @@ impl EComparisonFunc {
     }
 }
 
-// -- $$$FRK(TODO): unsupported:
+// -- $$$FRK(FUTURE WORK): unsupported:
 // --    + pDefines
 // --    + pInclude
 // --    + flags2
@@ -289,7 +288,7 @@ pub fn d3dcompilefromfile(
     target: &str,
     flags1: SCompile,
 ) -> Result<SBlob, &'static str> {
-    // -- $$$FRK(TODO): allocations :(
+    // -- $$$FRK(FUTURE WORK): allocations here, but for now it's not a performance bottleneck
     let mut fileparam: Vec<u16> = file.encode_utf16().collect();
     fileparam.push('\0' as u16);
 
@@ -317,7 +316,7 @@ pub fn d3dcompilefromfile(
     };
 
     returnerrifwinerror!(hr, "failed to compile shader");
-    // -- $$$FRK(TODO): use error messages blob
+    // -- $$$FRK(FUTURE WORK): use error messages blob
 
     Ok(SBlob {
         raw: unsafe { ComPtr::from_raw(rawcodeblob) },

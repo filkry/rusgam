@@ -181,7 +181,6 @@ pub struct SDescriptorRange {
     pub offset_in_descriptors_from_table_start: EDescriptorRangeOffset,
 }
 
-// $$$FRK(TODO): consider switching to D3D12_DESCRIPTOR_RANGE1
 impl SDescriptorRange {
     pub fn d3dtype(&self) -> D3D12_DESCRIPTOR_RANGE {
         D3D12_DESCRIPTOR_RANGE {

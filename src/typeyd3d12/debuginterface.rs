@@ -85,7 +85,7 @@ impl SDXGIDebugInterface {
     }
 
     pub fn report_live_objects(&self) {
-        // -- $$$FRK(TODO): support parameters?
+        // -- $$$FRK(FUTURE WORK): support parameters?
         unsafe {
             self.debuginterface.ReportLiveObjects(
                 winapi::um::dxgidebug::DXGI_DEBUG_ALL,

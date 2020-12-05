@@ -89,26 +89,12 @@ impl SPipelineState {
 }
 
 pub struct SInputLayoutDesc {
-    input_element_descs: ArrayVec<[SInputElementDesc; 16]>,
+    pub input_element_descs: ArrayVec<[SInputElementDesc; 16]>,
 
-    d3d_input_element_descs: ArrayVec<[D3D12_INPUT_ELEMENT_DESC; 16]>,
+    pub d3d_input_element_descs: ArrayVec<[D3D12_INPUT_ELEMENT_DESC; 16]>,
 }
 
 impl SInputLayoutDesc {
-    // -- $$$FRK(TODO): This probably belongs in niced3d12
-    pub fn create(input_element_descs: &[SInputElementDesc]) -> Self {
-        let mut result = Self {
-            input_element_descs: ArrayVec::new(),
-            d3d_input_element_descs: ArrayVec::new(),
-        };
-
-        result
-            .input_element_descs
-            .try_extend_from_slice(input_element_descs)
-            .unwrap();
-        result
-    }
-
     pub unsafe fn generate_d3dtype(&mut self) {
         self.d3d_input_element_descs.clear();
 

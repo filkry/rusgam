@@ -37,7 +37,7 @@ impl SDevice {
         &self,
         type_: ECommandListType,
     ) -> Result<SCommandQueue, &'static str> {
-        // -- $$$FRK(TODO): pass priority, flags, nodemask
+        // -- $$$FRK(FUTURE WORK): pass priority, flags, nodemask
         let desc = D3D12_COMMAND_QUEUE_DESC {
             Type: type_.d3dtype(),
             Priority: D3D12_COMMAND_QUEUE_PRIORITY_NORMAL as i32,
@@ -89,7 +89,7 @@ impl SDevice {
         }
     }
 
-    // -- $$$FRK(TODO): allow pDesc parameter
+    // -- $$$FRK(FUTURE WORK): allow pDesc parameter
     pub fn createrendertargetview(
         &self,
         resource: &SResource,
@@ -224,7 +224,6 @@ impl SDevice {
         Ok(unsafe { SCommandList::new_from_raw(ComPtr::from_raw(rawcl)) })
     }
 
-    // -- $$$FRK(TODO): think about mutable refs for lots of fns here and in safewindows
     pub fn createfence(&self) -> Result<SFence, &'static str> {
         let mut rawf: *mut ID3D12Fence = ptr::null_mut();
         let hn = unsafe {
@@ -242,7 +241,7 @@ impl SDevice {
         Ok(unsafe { SFence::new_from_raw(ComPtr::from_raw(rawf)) })
     }
 
-    // -- $$$FRK(TODO): support nodeMask parameter
+    // -- $$$FRK(FUTURE WORK): support nodeMask parameter
     pub fn create_root_signature(
         &self,
         blob_with_root_signature: &SBlob,

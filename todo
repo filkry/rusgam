@@ -1,4 +1,5 @@
 
++ move freelistallocator to allocate
 + implement Deref() in most/all niced3d12 classes, and in doing so replace a lot of boilerplate fns
 + implement FromIterator for SVec so I can use collect()
 + bindless
@@ -14,11 +15,12 @@
 + move the "buffer" for debug rendering into it's own data bucket thing, then have renderer use it
 + make my own Rc/Weak for my allocators
 + shadow rendering doesn't reflect animation
++ support multiple lights in rendering pipeline, as well as global illumination of some kind (could just be fixed per scene)
 + look for uses of SYSTEMALLOCATOR and switch as many as possible to take a passed allocator
 + make a Sync version of SDataBucket
 + move Pools out of collections mod.rs
 + Port SPool to use SMemVec backing rather than Vec
-+ some stuff in model.rs should move into render
++ break up model.rs into different files, move some/all of them into render
 + look for everywhere we wait on a fence and consider what it would take to actually synchronize w/o huge perf overhead
 + search for unwrap() calls and clean up
 + try out clippy and formatting code Rustically

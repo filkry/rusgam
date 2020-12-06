@@ -176,6 +176,10 @@ impl<TOwner: Clone> STree<TOwner> {
         self.nodes.get(node_handle).expect("invalid entry").owner().expect("asked for owner of non-leaf!")
     }
 
+    pub fn purge_owners(&mut self, owners: &[TOwner]) {
+        panic!("Not implemented");
+    }
+
     fn update_bounds_from_children(&mut self, node_handle: SNodeHandle) {
         let (child1, child2) = {
             if let ENode::Internal(internal) = self.nodes.get(node_handle).expect("pass valid handles") {

@@ -14,7 +14,7 @@ pub struct SEntry {
 #[derive(Debug, Copy, Clone)]
 pub struct SHashedStr {
     uid: u64,
-    _debug_ptr: *const str,
+    pub _debug_ptr: *const str,
 }
 
 pub struct SDB {

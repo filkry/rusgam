@@ -28,6 +28,7 @@ mod game_context;
 mod game_mode;
 mod gjk;
 mod input;
+mod level;
 mod math;
 mod niced3d12;
 mod rustywindows;

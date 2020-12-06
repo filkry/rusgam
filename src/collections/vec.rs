@@ -1,6 +1,8 @@
 use std::mem::size_of;
 use std::ops::{Deref, DerefMut, Index, IndexMut};
 
+//use serde::ser::{Serialize, Serializer, SerializeSeq};
+
 use allocate::{SMem, SAllocatorRef};
 
 pub struct SVec<T> {
@@ -226,4 +228,34 @@ impl std::io::Write for SVec<u8> {
     }
 }
 
+/*
+impl<T> Serialize for SVec<T>
+where
+    T: Serialize,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut seq = serializer.serialize_seq(Some(self.len()))?;
+        for e in self.as_ref() {
+            seq.serialize_element(e)?;
+        }
+        seq.end()
+    }
+}
 
+impl<'de, T> Deserialize<'de> for SVec<T>
+where
+    T: Deserialize<'de>,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        T: Deserializer<'de>,
+    {
+        // Instantiate our Visitor and ask the Deserializer to drive
+        // it over the input data, resulting in an instance of MyMap.
+        deserializer.deserialize_seq(SVecVisitor::new())
+    }
+}
+*/

@@ -1,11 +1,12 @@
 use allocate::{SYSTEM_ALLOCATOR};
+use collections::{SStoragePool, SPoolHandle};
 use math::{Vec3};
 use utils::{STransform};
-use collections::{SStoragePool, SPoolHandle};
+use string_db::{SHashedStr, hash_str};
 
 #[allow(dead_code)]
 pub struct SEntity {
-    debug_name: Option<&'static str>,
+    debug_name: Option<SHashedStr>,
     pub location: STransform,
     pub location_update_frame: u64,
 }
@@ -38,11 +39,11 @@ impl SEntityBucket {
         self.entities.insert_val(SEntity::new())
     }
 
-    pub fn set_entity_debug_name(&mut self, entity: SEntityHandle, debug_name: &'static str) {
-        self.entities.get_mut(entity).expect("invalid entity").debug_name = Some(debug_name);
+    pub fn set_entity_debug_name(&mut self, entity: SEntityHandle, debug_name: &str) {
+        self.entities.get_mut(entity).expect("invalid entity").debug_name = Some(hash_str(debug_name));
     }
 
-    pub fn get_entity_debug_name(&self, entity: SEntityHandle) -> &Option<&'static str> {
+    pub fn get_entity_debug_name(&self, entity: SEntityHandle) -> &Option<SHashedStr> {
         &self.entities.get(entity).expect("invalid entity").debug_name
     }
 

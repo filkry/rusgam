@@ -21,7 +21,9 @@ use render;
 pub trait TDataBucketMember : std::any::Any {
 }
 
-impl TDataBucketMember for bvh::STree<entity::SEntityHandle> {}
+pub type SEntityBVH = bvh::STree<entity::SEntityHandle>;
+
+impl TDataBucketMember for SEntityBVH {}
 impl TDataBucketMember for entity::SEntityBucket {}
 impl TDataBucketMember for render::SRender {}
 impl TDataBucketMember for animation::SAnimationLoader {}

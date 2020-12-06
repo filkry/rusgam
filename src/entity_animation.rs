@@ -51,6 +51,10 @@ impl SBucket {
         Ok(self.instances.len() - 1)
     }
 
+    pub fn purge_entities(&mut self, entities: &[SEntityHandle]) {
+        panic!("Not implemented");
+    }
+
     pub fn play_animation(
         &mut self,
         handle: SHandle,

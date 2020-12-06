@@ -1,23 +1,25 @@
+use serde::{Serialize, Deserialize};
+
 // -- I still don't want to implement my own types, but I'm tired of how gnarly glm types look
 // -- in the debugger. So I'm going to try creating memory-layout-equivalent types, and unsafely
 // -- casting to glm types in my operations
 extern crate nalgebra_glm as glm;
 use utils;
 
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct Vec2{
     pub x: f32,
     pub y: f32,
 }
 
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct Vec3{
     pub x: f32,
     pub y: f32,
     pub z: f32,
 }
 
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct Vec4{
     pub x: f32,
     pub y: f32,
@@ -25,7 +27,7 @@ pub struct Vec4{
     pub w: f32,
 }
 
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct Quat{
     pub x: f32,
     pub y: f32,

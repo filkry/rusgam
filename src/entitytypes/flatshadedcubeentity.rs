@@ -1,3 +1,5 @@
+use serde::{Serialize, Deserialize};
+
 use entity::*;
 use entity_model;
 use game_context::{SGameContext};
@@ -5,9 +7,20 @@ use math::{Vec4};
 use render;
 use utils::{STransform};
 
+#[derive(Serialize, Deserialize)]
+pub struct SInit {
+    debug_name: Option<String>,
+    diffuse_colour: Option<Vec4>,
+    starting_location: STransform,
+}
+
+pub fn create_from_init(gc: &SGameContext, init: &SInit) -> Result<SEntityHandle, &'static str> {
+    create(gc, init.debug_name.as_deref(), init.diffuse_colour, init.starting_location)
+}
+
 pub fn create(
     gc: &SGameContext,
-    debug_name: Option<&'static str>,
+    debug_name: Option<&str>,
     diffuse_colour: Option<Vec4>,
     starting_location: STransform,
 ) -> Result<SEntityHandle, &'static str> {

@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 //use std::ops::{Add, Sub, Mul};
+use serde::{Serialize, Deserialize};
 
 use safewindows;
 use math::{Vec3, Vec4, Quat, Mat4};
@@ -8,7 +9,7 @@ use gltf;
 
 pub static PI : f32 = 3.14159265358979;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct STransform {
     pub t: Vec3,
     pub r: Quat,

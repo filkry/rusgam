@@ -31,6 +31,7 @@ mod input;
 mod math;
 mod niced3d12;
 mod rustywindows;
+mod string_db;
 mod typeyd3d12;
 mod utils;
 mod enumflags;

@@ -2,7 +2,7 @@ use allocate::{SAllocatorRef};
 use collections::{SStoragePool, SPoolHandle, SVec};
 use math::{Vec3, Quat};
 use model::{SMeshSkinning};
-use utils;
+use string_db::{hash_str, SHashedStr};
 use utils::{STransform, lerp, unlerp_f32, gltf_accessor_slice, clamp};
 
 pub struct SAnimation {
@@ -53,7 +53,7 @@ impl EChannel {
 }
 
 pub struct SAnimLoaderEntry {
-    uid: u64,
+    uid: SHashedStr,
     animation: SAnimation,
 }
 
@@ -253,7 +253,7 @@ impl SAnimationLoader {
         }
     }
 
-    fn find_anim_by_uid(&self, uid: u64) -> Option<SAnimHandle> {
+    fn find_anim_by_uid(&self, uid: SHashedStr) -> Option<SAnimHandle> {
         for i in 0..self.animation_pool.used() {
             if let Some(anim) = &self.animation_pool.get_by_index(i as u16).unwrap() {
                 if anim.uid == uid {
@@ -273,8 +273,8 @@ impl SAnimationLoader {
         assert!(asset_file_path.contains("assets/"));
         assert!(asset_file_path.contains(".gltf"));
 
-        let uid = utils::hash_str(asset_file_path);
-        if let Some(result) = self.find_anim_by_uid(uid) {
+        let uid = hash_str(asset_file_path);
+        if let Some(result) = self.find_anim_by_uid(uid.clone()) {
             return Ok(result);
         }
 

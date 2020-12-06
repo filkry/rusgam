@@ -15,8 +15,9 @@ use collections::{SStoragePool, SVec};
 use safewindows;
 use render::shaderbindings;
 use rustywindows;
+use string_db::{hash_str, SHashedStr};
 use utils;
-use utils::{STransform, gltf_accessor_slice, SHashedStr, hash_str};
+use utils::{STransform, gltf_accessor_slice};
 
 #[derive(Debug)]
 pub struct SJoint {
@@ -36,7 +37,7 @@ pub struct SMeshSkinning {
 
 #[allow(dead_code)]
 pub struct SMesh {
-    uid: u64,
+    uid: SHashedStr,
 
     local_verts: SVec<Vec3>,
     local_normals: SVec<Vec3>,
@@ -64,7 +65,7 @@ pub struct SMesh {
 }
 
 pub struct STexture {
-    uid: Option<u64>, // if the texture is unique, it will have no ID
+    uid: Option<SHashedStr>, // if the texture is unique, it will have no ID
 
     #[allow(dead_code)] // maybe unnecessary?
     //pub(super) srv_heap: &'a n12::descriptorallocator::SDescriptorAllocator,
@@ -772,7 +773,7 @@ impl STextureLoader {
         self.texture_pool.clear();
     }
 
-    pub fn create_texture_rgba32_from_resource(&mut self, uid: Option<u64>, texture_resource: Option<n12::SResource>) -> Result<STextureHandle, &'static str> {
+    pub fn create_texture_rgba32_from_resource(&mut self, uid: Option<SHashedStr>, texture_resource: Option<n12::SResource>) -> Result<STextureHandle, &'static str> {
         // -- transition texture to PixelShaderResource
         {
             let mut handle = self.direct_command_list_pool.alloc_list()?;
@@ -912,7 +913,7 @@ impl STextureLoader {
 
 impl SMeshSkinning {
     pub fn joint_index_by_name(&self, name: &str) -> Option<usize> {
-        let hashed_name = utils::hash_str(name);
+        let hashed_name = hash_str(name);
         for (ji, joint) in self.bind_joints.as_ref().iter().enumerate() {
             if joint.name == hashed_name {
                 return Some(ji);

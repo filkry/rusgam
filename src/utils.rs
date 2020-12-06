@@ -5,8 +5,6 @@
 use safewindows;
 use math::{Vec3, Vec4, Quat, Mat4};
 use gltf;
-use std::collections::hash_map::{DefaultHasher};
-use std::hash::{Hash, Hasher};
 
 pub static PI : f32 = 3.14159265358979;
 
@@ -33,13 +31,6 @@ pub struct SPlane {
 pub struct SAABB {
     pub min: Vec3,
     pub max: Vec3,
-}
-
-pub type SHashedStr = u64;
-pub fn hash_str(s: &str) -> SHashedStr {
-    let mut hasher = DefaultHasher::new();
-    s.hash(&mut hasher);
-    hasher.finish()
 }
 
 impl SAABB {

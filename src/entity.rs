@@ -1,3 +1,4 @@
+use allocate::{SYSTEM_ALLOCATOR};
 use math::{Vec3};
 use utils::{STransform};
 use collections::{SStoragePool, SPoolHandle};
@@ -29,7 +30,7 @@ impl SEntity {
 impl SEntityBucket {
     pub fn new(max_entities: u16) -> Self {
         Self {
-            entities: SStoragePool::create(max_entities),
+            entities: SStoragePool::create(&SYSTEM_ALLOCATOR(), max_entities),
         }
     }
 

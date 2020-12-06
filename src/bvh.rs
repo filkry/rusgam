@@ -1,4 +1,4 @@
-use allocate::{STACK_ALLOCATOR};
+use allocate::{STACK_ALLOCATOR, SYSTEM_ALLOCATOR};
 use collections::{SPoolHandle, SPool, SVec, SQueue};
 use safewindows;
 use utils::{SAABB, SRay, ray_intersects_aabb};
@@ -167,7 +167,7 @@ impl<TOwner: Clone> STree<TOwner> {
 
     pub fn new() -> Self {
         Self {
-            nodes: SPool::create_default(1024),
+            nodes: SPool::create_default(&SYSTEM_ALLOCATOR(), 1024),
             root: SNodeHandle::default(),
         }
     }

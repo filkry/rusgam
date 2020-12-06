@@ -1,5 +1,8 @@
 use std::collections::VecDeque;
 
+use allocate::{SAllocatorRef};
+use collections::{SVec};
+
 pub trait TIndexGen : PartialEq + PartialOrd + Copy + std::ops::Add + std::ops::AddAssign {
     const MAX: Self;
     const ZERO: Self;
@@ -19,8 +22,8 @@ where I: TIndexGen, G: TIndexGen
 // -- container of Ts, all of which must be initialized at all times. Meant for re-usable slots
 // -- that don't need to be re-initialized
 pub struct SPool<T, I: TIndexGen, G: TIndexGen> {
-    buffer: Vec<T>,
-    generations: Vec<G>,
+    buffer: SVec<T>,
+    generations: SVec<G>,
     max: I,
     freelist: VecDeque<I>,
 }
@@ -94,13 +97,13 @@ impl TIndexGen for u64 {
 }
 
 impl<T, I: TIndexGen, G: TIndexGen> SPool<T, I, G> {
-    pub fn create<F>(max: I, init_func: F) -> Self
+    pub fn create<F>(allocator: &SAllocatorRef, max: I, init_func: F) -> Self
     where
         F: Fn() -> T,
     {
         let mut result = Self {
-            buffer: Vec::with_capacity(max.to_usize()),
-            generations: Vec::with_capacity(max.to_usize()),
+            buffer: SVec::new(allocator, max.to_usize(), 0).expect("failed to allocate SVec"),
+            generations: SVec::new(allocator, max.to_usize(), 0).expect("failed to allocate SVec"),
             max: max,
             freelist: VecDeque::new(),
         };
@@ -115,10 +118,10 @@ impl<T, I: TIndexGen, G: TIndexGen> SPool<T, I, G> {
         result
     }
 
-    pub fn create_from_vec(max: I, contents: Vec<T>) -> Self {
+    pub fn create_from_vec(allocator: &SAllocatorRef, max: I, contents: SVec<T>) -> Self {
         let mut result = Self {
             buffer: contents,
-            generations: Vec::with_capacity(max.to_usize()),
+            generations: SVec::new(allocator, max.to_usize(), 0).expect("failed to allocate SVec"),
             max: max,
             freelist: VecDeque::new(),
         };
@@ -226,10 +229,10 @@ impl<T, I: TIndexGen, G: TIndexGen> SPool<T, I, G> {
 }
 
 impl<T: Clone, I: TIndexGen, G: TIndexGen> SPool<T, I, G> {
-    pub fn create_from_val(_id: u64, max: I, default_val: T) -> Self {
+    pub fn create_from_val(allocator: &SAllocatorRef, max: I, default_val: T) -> Self {
         let mut result = Self {
-            buffer: Vec::new(),
-            generations: Vec::new(),
+            buffer: SVec::new(allocator, max.to_usize(), 0).expect("failed to allocate vec"),
+            generations: SVec::new(allocator, max.to_usize(), 0).expect("failed to allocate vec"),
             max: max,
             freelist: VecDeque::new(),
         };
@@ -246,7 +249,7 @@ impl<T: Clone, I: TIndexGen, G: TIndexGen> SPool<T, I, G> {
 }
 
 impl<T: Default, I: TIndexGen, G: TIndexGen> SPool<T, I, G> {
-    pub fn create_default(max: I) -> Self {
-        Self::create(max, Default::default)
+    pub fn create_default(allocator: &SAllocatorRef, max: I) -> Self {
+        Self::create(allocator, max, Default::default)
     }
 }

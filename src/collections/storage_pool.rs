@@ -1,3 +1,5 @@
+use allocate::{SAllocatorRef};
+
 use super::pool::{TIndexGen, SPool, SPoolHandle};
 
 // -- pool of storage for Ts. not every entry may be valid, and musn't always be initialized
@@ -11,9 +13,9 @@ pub struct SStoragePoolIterator<'a, T, I: TIndexGen, G: TIndexGen> {
 }
 
 impl<T, I: TIndexGen, G: TIndexGen> SStoragePool<T, I, G> {
-    pub fn create(max: I) -> Self {
+    pub fn create(allocator: &SAllocatorRef, max: I) -> Self {
         Self {
-            pool: SPool::<Option<T>, I, G>::create_default(max),
+            pool: SPool::<Option<T>, I, G>::create_default(allocator, max),
         }
     }
 

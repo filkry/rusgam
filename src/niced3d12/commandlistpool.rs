@@ -4,8 +4,9 @@ use std::ops::{DerefMut};
 
 //use safewindows::{break_err};
 
+use allocate::{SYSTEM_ALLOCATOR};
 use collections;
-use collections::{SPool};
+use collections::{SPool, SVec};
 use safewindows;
 
 use super::{SCommandList, SCommandAllocator, SCommandQueue, SFence, SDevice};
@@ -48,8 +49,8 @@ impl SCommandListPool {
 
         let type_ = queue.upgrade().expect("queue dropped before list pool").borrow().type_();
 
-        let mut allocators = Vec::new();
-        let mut lists = Vec::new();
+        let mut allocators = SVec::new(&SYSTEM_ALLOCATOR(), num_allocators as usize, 0).expect("failed to allocate vec for commandlistpool");
+        let mut lists = SVec::new(&SYSTEM_ALLOCATOR(), num_lists as usize, 0).expect("failed to allocate vec for commandlistpool");
 
         for _ in 0..num_allocators {
             allocators.push(device.create_command_allocator(type_)?);
@@ -67,8 +68,8 @@ impl SCommandListPool {
 
         Ok(Self {
             queue: queue,
-            allocators: SPool::<SCommandAllocator, u16, u64>::create_from_vec(num_allocators, allocators),
-            lists: SPool::<SCommandListPoolList, u16, u64>::create_from_vec(num_lists, lists),
+            allocators: SPool::<SCommandAllocator, u16, u64>::create_from_vec(&SYSTEM_ALLOCATOR(), num_allocators, allocators),
+            lists: SPool::<SCommandListPoolList, u16, u64>::create_from_vec(&SYSTEM_ALLOCATOR(), num_lists, lists),
             activefence: device.create_fence(winapi)?,
             activeallocators: Vec::<SCommandListPoolActiveAllocator>::with_capacity(
                 num_allocators as usize,

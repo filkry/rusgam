@@ -130,13 +130,32 @@ impl<T> SVec<T> {
 
         result
     }
+
+    pub fn resize_with<F>(&mut self, new_len: usize, mut f: F)
+    where
+        F: FnMut() -> T,
+    {
+        while self.len() > new_len {
+            self.pop();
+        }
+        while self.len() < new_len {
+            self.push(f());
+        }
+    }
 }
 
 impl<T: Clone> SVec<T> {
-    pub fn push_all(&mut self, val: T) {
-        while self.remaining_capacity() > 0 {
-            self.push(val.clone());
+    pub fn resize(&mut self, new_len: usize, value: T) {
+        while self.len() > new_len {
+            self.pop();
         }
+        while self.len() < new_len {
+            self.push(value.clone());
+        }
+    }
+
+    pub fn push_all(&mut self, val: T) {
+        self.resize(self.capacity(), val);
     }
 }
 

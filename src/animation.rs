@@ -247,9 +247,11 @@ impl SAnimation {
 
 impl SAnimationLoader {
     pub fn new(allocator: SAllocatorRef, max_anim_count: usize) -> Self {
+        let animation_pool = SStoragePool::create(&allocator, max_anim_count as u16);
+
         Self{
             allocator,
-            animation_pool: SStoragePool::create(max_anim_count as u16),
+            animation_pool,
         }
     }
 

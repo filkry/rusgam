@@ -133,7 +133,7 @@ impl SMeshLoader {
             copy_command_list_pool: n12::SCommandListPool::create(device.upgrade().expect("bad device").deref(), copy_command_queue, &winapi.rawwinapi(), 1, 2)?,
             direct_command_list_pool: n12::SCommandListPool::create(device.upgrade().expect("bad device").deref(), direct_command_queue, &winapi.rawwinapi(), 1, 2)?,
             cbv_srv_uav_heap,
-            mesh_pool: SStoragePool::create(max_mesh_count),
+            mesh_pool: SStoragePool::create(&SYSTEM_ALLOCATOR(), max_mesh_count),
         })
     }
 
@@ -765,7 +765,7 @@ impl STextureLoader {
             direct_command_list_pool: n12::SCommandListPool::create(device.upgrade().expect("dropped device").deref(), direct_command_queue, &winapi.rawwinapi(), 1, 10)?,
             cbv_srv_uav_heap,
 
-            texture_pool: SStoragePool::create(max_texture_count),
+            texture_pool: SStoragePool::create(&SYSTEM_ALLOCATOR(), max_texture_count),
         })
     }
 

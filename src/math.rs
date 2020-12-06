@@ -70,7 +70,7 @@ impl Vec3 {
 
     pub fn cross(a: &Self, b: &Self) -> Self {
         let x = a.y * b.z - a.z * b.y;
-        let y = a.x * b.z - a.z * b.x;
+        let y = a.z * b.x - a.x * b.z;
         let z = a.x * b.y - a.y * b.x;
         Self::new(x, y, z)
     }
@@ -595,6 +595,15 @@ pub fn validate_glm_compatibility() {
         let my_vec_as_glm_vec = &my_vec as *const Vec3 as *const glm::Vec3;
         unsafe {
             assert!(*my_vec_as_glm_vec == glm_vec);
+        }
+
+        let my_vec2 = Vec3::new(1.0, 2.0, 3.0);
+        let glm_vec2 = glm::Vec3::new(1.0, 2.0, 3.0);
+        let my_cross_result = Vec3::cross(&my_vec, &my_vec2);
+        let my_cross_result_as_glm_vec = &my_cross_result as *const Vec3 as *const glm::Vec3;
+        let glm_cross_result = glm::cross(&glm_vec, &glm_vec2);
+        unsafe {
+            assert!(*my_cross_result_as_glm_vec == glm_cross_result);
         }
     }
 

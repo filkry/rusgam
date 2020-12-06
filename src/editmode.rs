@@ -248,14 +248,14 @@ impl EEditMode {
 
         drop(self);
 
-        let cursor_ray = cursor_ray_world(&em_input);
-
         // -- cast ray to select entity for edit mode
         ctxt.clicked_entity = None;
         if input.left_mouse_edge.down() && !em_input.imgui_want_capture_mouse && !mode.eats_mouse() {
             data_bucket.get::<bvh::STree<SEntityHandle>>().with(|bvh: &bvh::STree<SEntityHandle>| {
 
                 STACK_ALLOCATOR.with(|sa| {
+                    let cursor_ray = cursor_ray_world(&em_input);
+
                     let mut bvh_results = SVec::<(f32, SEntityHandle)>::new(&sa.as_ref(), 256, 0).unwrap();
                     bvh.cast_ray(&cursor_ray, &mut bvh_results);
 

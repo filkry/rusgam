@@ -20,7 +20,6 @@ pub struct SHashedStr {
 pub struct SDB {
     allocator: SAllocatorRef,
     entries: HashMap::<u64, SEntry>, // $$$FRK(TODO): need own hashmap
-                                     // $$$FRK(TODO): default hasher is NON DETERMINISTIC ACROSS threads!
 }
 
 pub struct SThreadDB {

@@ -1,4 +1,4 @@
-use allocate::{STACK_ALLOCATOR};
+use allocate::{STACK_ALLOCATOR, SYSTEM_ALLOCATOR};
 use bvh;
 use camera;
 use collections::{SVec};
@@ -8,6 +8,7 @@ use game_mode;
 use entity::{SEntityBucket, SEntityHandle};
 use math::{Vec3, Vec4, Quat, Mat4};
 use input;
+use level;
 use model;
 use render;
 use utils;
@@ -42,7 +43,15 @@ pub struct SEditModeRotationDragging {
     start_entity_to_cursor : Vec3,
 }
 
+pub struct SEditingLevel {
+    file_path: String,
+    level_init: level::SInit,
+    level: level::SLevel,
+}
+
 pub struct SEditModeContext {
+    editing_level: Option<SEditingLevel>,
+
     editing_entity: Option<SEntityHandle>,
     translation_widgets: [model::SModel; 3],
     translation_widget_transforms: [STransform; 3],
@@ -51,6 +60,9 @@ pub struct SEditModeContext {
 
     clicked_entity: Option<SEntityHandle>,
     can_select_clicked_entity: bool,
+
+    // -- imgui persistent storage
+    imgui_level_name: imgui::ImString,
 }
 
 #[derive(PartialEq, Clone)]
@@ -124,6 +136,8 @@ impl SEditModeContext {
         rotation_widget_transforms[2].r = Quat::new_angle_axis(utils::PI / 2.0, &Vec3::new(1.0, 0.0, 0.0));
 
         Ok(Self {
+            editing_level: None,
+
             editing_entity: None,
             translation_widgets,
             translation_widget_transforms,
@@ -132,6 +146,8 @@ impl SEditModeContext {
 
             clicked_entity: None,
             can_select_clicked_entity: false,
+
+            imgui_level_name: imgui::ImString::with_capacity(128),
         })
     }
 
@@ -713,6 +729,45 @@ pub fn update_edit_mode(game_context: &SGameContext, frame_context: &SFrameConte
                     if game_mode.mode == game_mode::EMode::Edit {
                         game_mode.edit_mode = game_mode.edit_mode.update(&game_context, &mut game_mode.edit_mode_ctxt, &editmode_input, &input, &game_context.data_bucket);
                     }
+                });
+        });
+}
+
+pub fn update_edit_mode_level_editor_ui(game_context: &SGameContext, frame_context: &SFrameContext) {
+    use imgui::*;
+
+    let ui = frame_context.imgui_ui.as_ref().expect("shouldn't have rendered ui yet");
+
+    game_context.data_bucket.get::<game_mode::SGameMode>()
+        .with_mut(|game_mode| {
+            Window::new(im_str!("Level edit"))
+                .size([200.0, 200.0], Condition::FirstUseEver)
+                .build(ui, || {
+                    if let Some(level) = &game_mode.edit_mode_ctxt.editing_level {
+                        ui.text(im_str!("Editing level: {}", level.file_path));
+                    }
+                    else {
+                        ui.text(im_str!("No level open"));
+                    }
+
+                    if ui.button(im_str!("New level"), [0.0, 0.0]) {
+                        ui.open_popup(im_str!("New level name"));
+                    }
+                    ui.popup_modal(im_str!("New level name"))
+                        .build(|| {
+                            ui.input_text(im_str!("Name"), &mut game_mode.edit_mode_ctxt.imgui_level_name).build();
+                            if ui.button(im_str!("OK"), [0.0, 0.0]) {
+                                println!("{:?}", game_mode.edit_mode_ctxt.imgui_level_name);
+                                let level_init = level::SInit::new();
+                                let level = level::SLevel::new(&SYSTEM_ALLOCATOR(), game_context, &level_init).unwrap();
+                                game_mode.edit_mode_ctxt.editing_level = Some(SEditingLevel {
+                                    file_path: String::from(format!("assets/{}.level", game_mode.edit_mode_ctxt.imgui_level_name.to_str())),
+                                    level_init,
+                                    level,
+                                });
+                                ui.close_current_popup();
+                            }
+                        });
                 });
         });
 }

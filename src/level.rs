@@ -10,12 +10,20 @@ use entitytypes::{EEntityInit};
 use game_context::{SGameContext};
 
 #[derive(Serialize, Deserialize)]
-struct SInit {
+pub struct SInit {
     entities: Vec<EEntityInit>, // $$$FRK(TODO): write what I need to make SVec serde compatible - difficulty is where does the allocator live?
 }
 
-struct SLevel {
+pub struct SLevel {
     owned_entities: SVec<SEntityHandle>,
+}
+
+impl SInit {
+    pub fn new() -> Self {
+        Self {
+            entities: Vec::new(),
+        }
+    }
 }
 
 impl SLevel {

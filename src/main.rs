@@ -70,6 +70,7 @@ fn update_frame(game_context: &SGameContext, frame_context: &mut SFrameContext) 
 
     let edit_mode_input = editmode::update_create_input_for_frame(game_context, frame_context);
     frame_context.data_bucket.add(edit_mode_input);
+    editmode::update_edit_mode_level_editor_ui(game_context, frame_context);
     editmode::update_edit_mode(game_context, frame_context);
 
     entity_animation::update_animation(game_context, frame_context);

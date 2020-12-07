@@ -763,8 +763,10 @@ pub fn update_edit_mode_level_editor_ui(game_context: &SGameContext, frame_conte
             Window::new(im_str!("Level edit"))
                 .size([200.0, 200.0], Condition::FirstUseEver)
                 .build(ui, || {
+                    let mut is_level = false;
                     if let Some(level) = &game_mode.edit_mode_ctxt.editing_level {
                         ui.text(im_str!("Editing level: {}", level.file_path));
+                        is_level = true;
                     }
                     else {
                         ui.text(im_str!("No level open"));
@@ -788,6 +790,13 @@ pub fn update_edit_mode_level_editor_ui(game_context: &SGameContext, frame_conte
                                 ui.close_current_popup();
                             }
                         });
+
+                    if is_level {
+                        if ui.button(im_str!("Close level"), [0.0, 0.0]) {
+                            game_mode.edit_mode_ctxt.editing_level.as_mut().expect("checked is_level").level.destroy(game_context);
+                            game_mode.edit_mode_ctxt.editing_level = None;
+                        }
+                    }
                 });
         });
 }

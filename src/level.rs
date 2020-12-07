@@ -11,7 +11,7 @@ use game_context::{SGameContext};
 
 #[derive(Serialize, Deserialize)]
 pub struct SInit {
-    entities: Vec<EEntityInit>, // $$$FRK(TODO): write what I need to make SVec serde compatible - difficulty is where does the allocator live?
+    entity_inits: Vec<EEntityInit>, // $$$FRK(TODO): write what I need to make SVec serde compatible - difficulty is where does the allocator live?
 }
 
 pub struct SLevel {
@@ -21,15 +21,26 @@ pub struct SLevel {
 impl SInit {
     pub fn new() -> Self {
         Self {
-            entities: Vec::new(),
+            entity_inits: Vec::new(),
+        }
+    }
+
+    pub fn new_from_entities(game_context: &SGameContext, entities: &[SEntityHandle]) -> Self {
+        let mut entity_inits = Vec::with_capacity(entities.len());
+        for entity in entities {
+            entity_inits.push(EEntityInit::new_from_entity(game_context, entity.clone()));
+        }
+
+        Self {
+            entity_inits,
         }
     }
 }
 
 impl SLevel {
     pub fn new(allocator: &SAllocatorRef, game_context: &SGameContext, init: &SInit) -> Result<Self, &'static str> {
-        let mut owned_entities = SVec::<SEntityHandle>::new(allocator, init.entities.len(), 0)?;
-        for e_init in &init.entities {
+        let mut owned_entities = SVec::<SEntityHandle>::new(allocator, init.entity_inits.len(), 0)?;
+        for e_init in &init.entity_inits {
             let e = e_init.init(game_context)?;
             owned_entities.push(e);
         }

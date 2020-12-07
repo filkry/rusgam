@@ -2,6 +2,7 @@ use serde::{Serialize, Deserialize};
 
 use entity::*;
 use entity_model;
+use entitytypes::{EEntityType};
 use game_context::{SGameContext};
 use math::{Vec4};
 use render;
@@ -29,7 +30,7 @@ pub fn create(
         .and::<render::SRender>()
         .and::<entity_model::SBucket>()
         .with_mmm(|entities, render, em| {
-            let ent = entities.create_entity()?;
+            let ent = entities.create_entity(EEntityType::FlatShadedCube)?;
 
             let mut model = render.new_model_from_gltf("assets/test_untextured_flat_colour_cube.gltf", 1.0, true)?;
             if let Some(c) = diffuse_colour {
@@ -45,4 +46,28 @@ pub fn create(
 
             Ok(ent)
         })
+}
+
+impl SInit {
+    pub fn new_from_entity(gc: &SGameContext, entity: SEntityHandle) -> Self {
+        gc.data_bucket.get::<SEntityBucket>()
+            .and::<entity_model::SBucket>()
+            .with_cc(|entities, em| {
+                assert_eq!(entities.get_entity_type(entity), EEntityType::FlatShadedCube);
+
+                let debug_name = entities.get_entity_debug_name(entity).map(|n| {
+                    let name_raw_str = unsafe{ n._debug_ptr.as_ref().unwrap() };
+                    String::from(name_raw_str)
+                });
+                let m_handle = em.handle_for_entity(entity).expect("somehow model wasn't created");
+                let diffuse_colour = Some(em.get_model(m_handle).diffuse_colour);
+                let starting_location = entities.get_entity_location(entity);
+
+                Self{
+                    debug_name,
+                    diffuse_colour,
+                    starting_location,
+                }
+            })
+    }
 }

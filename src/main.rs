@@ -260,6 +260,13 @@ fn main_d3d12(d3d_debug: bool) -> Result<(), &'static str> {
         render.flush()
     })?;
 
+    // -- shutdown level
+    game_context.data_bucket.get::<game_mode::SGameMode>()
+        .build()
+        .with_mut(|game_mode| {
+            game_mode.edit_mode_ctxt.close_level(&game_context);
+        });
+
     // -- find out what we leaked
     //drop(render);
     //let debug_interface = t12::SDXGIDebugInterface::new()?;

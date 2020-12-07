@@ -32,7 +32,25 @@ impl SBucket {
     }
 
     pub fn purge_entities(&mut self, entities: &[SEntityHandle]) {
-        panic!("Not implemented");
+        let mut i = 0;
+        while i < self.owners.len() {
+            let mut purge = false;
+            for entity in entities {
+                if *entity == self.owners[i] {
+                    purge = true;
+                    break;
+                }
+            }
+
+            if purge {
+                self.owners.swap_remove(i);
+                self.models.swap_remove(i);
+                self.bvh_entries.swap_remove(i);
+            }
+            else {
+                i = i + 1;
+            }
+        }
     }
 
     pub fn handle_for_entity(&self, entity: SEntityHandle) -> Option<SHandle> {

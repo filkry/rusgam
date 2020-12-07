@@ -1,4 +1,5 @@
 
++ refcount in mesh/texture/etcloader to get rid of unused assets
 + move freelistallocator to allocate
 + implement Deref() in most/all niced3d12 classes, and in doing so replace a lot of boilerplate fns
 + implement FromIterator for SVec so I can use collect()

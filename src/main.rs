@@ -43,26 +43,15 @@ mod entitytypes;
 mod win;
 
 // -- std includes
-//use std::cell::RefCell;
-//use std::mem::size_of;
-//use std::io::Write;
-//use std::rc::Rc;
-//use std::ops::{Deref, DerefMut};
 
 // -- crate includes
-//use arrayvec::{ArrayVec};
-//use serde::{Serialize, Deserialize};
 use animation::{SAnimationLoader};
 use allocate::{SYSTEM_ALLOCATOR, SAllocator};
 use entity::{SEntityBucket};
 use game_context::{SGameContext, SFrameContext};
-use math::{Vec3, Vec4};
+use math::{Vec3};
 use niced3d12 as n12;
 use typeyd3d12 as t12;
-//use allocate::{SMemVec, STACK_ALLOCATOR};
-use utils::{STransform};
-//use model::{SModel, SMeshLoader, STextureLoader};
-
 
 fn update_frame(game_context: &SGameContext, frame_context: &mut SFrameContext) -> Result<(), &'static str> {
     game_mode::update_toggle_mode(game_context);
@@ -159,43 +148,10 @@ fn main_d3d12(d3d_debug: bool) -> Result<(), &'static str> {
     game_context.data_bucket.add(input::SInput::new());
     game_context.data_bucket.add(gjk::SGJKDebug::new(&game_context.data_bucket));
 
-    let rotating_entity = entitytypes::testtexturedcubeentity::create(
-        &game_context, Some("tst_rotating"),
-        STransform::new_translation(&Vec3::new(0.0, 0.0, 0.0)))?;
-    let textured_cube_entity = entitytypes::testtexturedcubeentity::create(
-        &game_context, Some("tst_textured_cube"),
-        STransform::new_translation(&Vec3::new(3.0, 0.0, 0.0)))?;
-    let flat_shaded_cube_entity = entitytypes::flatshadedcubeentity::create(
-        &game_context, Some("tst_coloured_cube"), Some(Vec4::new(1.0, 0.0, 0.0, 0.9)),
-        STransform::new_translation(&Vec3::new(0.0, 2.0, 0.0)))?;
-    let open_room_entity = entitytypes::testopenroomentity::create(
-        &game_context, Some("tst_room"),
-        STransform::new_translation(&Vec3::new(0.0, -2.0, 0.0)))?;
-    let skinned_entity = entitytypes::tstskinnedentity::create(
-        &game_context, Some("tst_skinned_entity"), Some(Vec4::new(1.0, 1.0, 1.0, 1.0)),
-        STransform::new_translation(&Vec3::new(-3.0, 2.0, 0.0)))?;
-
-    {
-        use std::io::Write;
-
-        let test_level_init = level::SInit::new_from_entities(
-            &game_context,
-            &[rotating_entity.clone(), textured_cube_entity.clone(), flat_shaded_cube_entity.clone(), open_room_entity.clone(), skinned_entity.clone()],
-        );
-
-        let test_level_init_json = serde_json::to_string(&test_level_init).unwrap();
-
-        let mut test_level_file = std::fs::OpenOptions::new().create(true).write(true).open("assets/test_level.level").unwrap();
-        test_level_file.write_all(test_level_init_json.as_bytes()).unwrap();
-    }
-
-    game_context.data_bucket.get::<entity_animation::SBucket>()
-        .and::<animation::SAnimationLoader>()
-        .and::<render::SRender>()
-        .with_mmc(|ea, anim_loader, render| {
-            let handle = ea.handle_for_entity(skinned_entity).unwrap();
-            let asset_file_path = "assets/test_armature_animation.gltf";
-            ea.play_animation(handle, anim_loader, render.mesh_loader(), asset_file_path, 0.0);
+    game_context.data_bucket.get::<game_mode::SGameMode>()
+        .build()
+        .with_mut(|game_mode| {
+            game_mode.edit_mode_ctxt.open_level(&game_context, "assets/test_level.level");
         });
 
     let frame_linear_allocator_helper = SAllocator::new(

@@ -1,5 +1,6 @@
 use serde::{Serialize, Deserialize};
 
+use animation;
 use entity::*;
 use entity_model;
 use entity_animation;
@@ -31,7 +32,8 @@ pub fn create(
         .and::<render::SRender>()
         .and::<entity_model::SBucket>()
         .and::<entity_animation::SBucket>()
-        .with_mmmm(|entities, render, e_model, e_animation| {
+        .and::<animation::SAnimationLoader>()
+        .with_mmmmm(|entities, render, e_model, e_animation, anim_loader| {
             let ent = entities.create_entity(EEntityType::TestSkinnedEntity)?;
 
             let mut model = render.new_model_from_gltf("assets/test_armature.gltf", 1.0, true)?;
@@ -44,9 +46,14 @@ pub fn create(
             }
 
             let model_handle = e_model.add_instance(ent, model)?;
-            e_animation.add_instance(ent, (&e_model, model_handle), render.mesh_loader())?;
+            let anim_handle = e_animation.add_instance(ent, (&e_model, model_handle), render.mesh_loader())?;
 
             entities.set_location(game_context, ent, starting_location);
+
+            {
+                let asset_file_path = "assets/test_armature_animation.gltf";
+                e_animation.play_animation(anim_handle, anim_loader, render.mesh_loader(), asset_file_path, 0.0);
+            }
 
             Ok(ent)
         })

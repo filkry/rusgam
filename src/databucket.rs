@@ -552,4 +552,21 @@ impl<T0, T1, T2, T3, T4: TDataBucketMember> SMultiRef5<T0, T1, T2, T3, T4> {
         let data4 = rc4.borrow();
         function(data0.deref_mut(), data1.deref_mut(), data2.deref_mut(), data3.deref_mut(), data4.deref())
     }
+
+    pub fn with_mmmmm<Fun, Ret>(&self, mut function: Fun) -> Ret where
+    Fun: FnMut(&mut T0, &mut T1, &mut T2, &mut T3, &mut T4) -> Ret
+    {
+        let rc0 = self.d0.upgrade().expect("dropped data bucket before ref!");
+        let rc1 = self.d1.upgrade().expect("dropped data bucket before ref!");
+        let rc2 = self.d2.upgrade().expect("dropped data bucket before ref!");
+        let rc3 = self.d3.upgrade().expect("dropped data bucket before ref!");
+        let rc4 = self.d4.upgrade().expect("dropped data bucket before ref!");
+
+        let mut data0 = rc0.borrow_mut();
+        let mut data1 = rc1.borrow_mut();
+        let mut data2 = rc2.borrow_mut();
+        let mut data3 = rc3.borrow_mut();
+        let mut data4 = rc4.borrow_mut();
+        function(data0.deref_mut(), data1.deref_mut(), data2.deref_mut(), data3.deref_mut(), data4.deref_mut())
+    }
 }

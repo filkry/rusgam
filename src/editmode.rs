@@ -151,6 +151,18 @@ impl SEditModeContext {
         })
     }
 
+    pub fn open_level(&mut self, game_context: &SGameContext, asset_path: &str) {
+        let level_json_str = std::fs::read_to_string(asset_path).unwrap();
+        let level_init : level::SInit = serde_json::from_str(level_json_str.as_str()).unwrap();
+        let level = level::SLevel::new(&SYSTEM_ALLOCATOR(), game_context, &level_init).unwrap();
+
+        self.editing_level = Some(SEditingLevel{
+            file_path: String::from(asset_path),
+            level_init,
+            level,
+        });
+    }
+
     pub fn editing_entity(&self) -> Option<SEntityHandle> {
         self.editing_entity
     }

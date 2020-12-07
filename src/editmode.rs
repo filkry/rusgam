@@ -807,7 +807,7 @@ pub fn update_edit_mode_level_editor_ui(game_context: &SGameContext, frame_conte
                                     let file_name = path.file_name().unwrap().to_str().unwrap();
                                     let im_string = im_str!("{}", file_name);
                                     if ui.button(im_string.deref(), [0.0, 0.0]) {
-                                        println!("Load level!");
+                                        game_mode.edit_mode_ctxt.open_level(game_context, path.to_str().unwrap());
                                         ui.close_current_popup();
                                     }
                                 }

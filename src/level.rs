@@ -51,10 +51,15 @@ impl SLevel {
     }
 
     pub fn destroy(&mut self, game_context: &SGameContext) {
+        use render;
+
         game_context.data_bucket.get::<SEntityBVH>()
             .and::<entity_model::SBucket>()
             .and::<entity_animation::SBucket>()
-            .with_mmm(|bvh, e_model, e_anim| {
+            .and::<render::SRender>()
+            .with_mmmm(|bvh, e_model, e_anim, render| {
+                render.flush().unwrap();
+
                 bvh.purge_owners(self.owned_entities.as_ref());
                 e_model.purge_entities(self.owned_entities.as_ref());
                 e_anim.purge_entities(self.owned_entities.as_ref());

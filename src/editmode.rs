@@ -1,3 +1,5 @@
+use::std::ops::{Deref};
+
 use allocate::{STACK_ALLOCATOR, SYSTEM_ALLOCATOR};
 use bvh;
 use camera;
@@ -788,6 +790,27 @@ pub fn update_edit_mode_level_editor_ui(game_context: &SGameContext, frame_conte
                                     level,
                                 });
                                 ui.close_current_popup();
+                            }
+                        });
+                    if ui.button(im_str!("Open level"), [0.0, 0.0]) {
+                        ui.open_popup(im_str!("Choose level to open"));
+                    }
+                    ui.popup_modal(im_str!("Choose level to open"))
+                        .build(|| {
+                            use std::fs;
+
+                            for entry in fs::read_dir("assets/").unwrap() {
+                                let entry = entry.unwrap();
+                                let path = entry.path();
+
+                                if path.extension().unwrap() == "level" {
+                                    let file_name = path.file_name().unwrap().to_str().unwrap();
+                                    let im_string = im_str!("{}", file_name);
+                                    if ui.button(im_string.deref(), [0.0, 0.0]) {
+                                        println!("Load level!");
+                                        ui.close_current_popup();
+                                    }
+                                }
                             }
                         });
 

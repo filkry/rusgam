@@ -163,6 +163,14 @@ impl SEditModeContext {
         });
     }
 
+    pub fn close_level(&mut self, game_context: &SGameContext) {
+        if let Some(editing_level) = &mut self.editing_level {
+            editing_level.level.destroy(game_context);
+        }
+
+        self.editing_level = None;
+    }
+
     pub fn editing_entity(&self) -> Option<SEntityHandle> {
         self.editing_entity
     }

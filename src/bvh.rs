@@ -6,7 +6,7 @@ use utils::{SAABB, SRay, ray_intersects_aabb};
 pub type SNodeHandle = SPoolHandle<u16, u16>;
 
 #[derive(Clone)]
-struct SLeafNode<TOwner: Clone> {
+struct SLeafNode<TOwner: Clone + PartialEq> {
     bounds: SAABB,
     parent: SNodeHandle,
     owner: TOwner,
@@ -21,18 +21,18 @@ struct SInternalNode {
 }
 
 #[derive(Clone)]
-enum ENode<TOwner: Clone> {
+enum ENode<TOwner: Clone + PartialEq> {
     Free,
     Leaf(SLeafNode<TOwner>),
     Internal(SInternalNode),
 }
 
-pub struct STree<TOwner: Clone> {
+pub struct STree<TOwner: Clone + PartialEq> {
     nodes: SPool<ENode<TOwner>, u16, u16>,
     root: SNodeHandle,
 }
 
-impl<TOwner: Clone> ENode<TOwner> {
+impl<TOwner: Clone + PartialEq> ENode<TOwner> {
     pub fn parent(&self) -> SNodeHandle {
         match self {
             Self::Free => {
@@ -93,13 +93,13 @@ impl<TOwner: Clone> ENode<TOwner> {
     }
 }
 
-impl<TOwner: Clone> Default for ENode<TOwner> {
+impl<TOwner: Clone + PartialEq> Default for ENode<TOwner> {
     fn default() -> Self {
         Self::Free
     }
 }
 
-impl<TOwner: Clone> STree<TOwner> {
+impl<TOwner: Clone + PartialEq> STree<TOwner> {
     fn union(&self, a: SNodeHandle, b: SNodeHandle) -> SAABB {
         let a_aabb = self.nodes.get(a).expect("pass valid handles").bounds();
         let b_aabb = self.nodes.get(b).expect("pass valid handles").bounds();
@@ -177,7 +177,24 @@ impl<TOwner: Clone> STree<TOwner> {
     }
 
     pub fn purge_owners(&mut self, owners: &[TOwner]) {
-        panic!("Not implemented");
+        for i in 0..self.nodes.max() {
+            let mut remove = false;
+            if let ENode::Leaf(leaf_node) = self.nodes.get_by_index(i).expect("bounded loop") {
+                // -- $$$FRK(TODO): we could build a bitfield of indicies in the entity table here,
+                // -- iterate over owners to set bits, then check against that
+                for owner in owners {
+                    if *owner == leaf_node.owner {
+                        remove = true;
+                        break;
+                    }
+                }
+            }
+
+            if remove {
+                let handle = self.nodes.handle_for_index(i).expect("bounded loop above");
+                self.remove(handle, true);
+            }
+        }
     }
 
     fn update_bounds_from_children(&mut self, node_handle: SNodeHandle) {
@@ -493,6 +510,14 @@ impl<TOwner: Clone> STree<TOwner> {
     }
 
     pub fn remove(&mut self, target_entry: SNodeHandle, free_entry: bool) {
+        // -- special case removing the root
+        if self.nodes.used() == 1 {
+            assert!(self.nodes.get(target_entry).is_ok());
+            self.nodes.free(target_entry);
+            self.root.invalidate();
+            return;
+        }
+
         let mut handle_to_delete = target_entry;
 
         while handle_to_delete.valid() {

@@ -159,21 +159,35 @@ fn main_d3d12(d3d_debug: bool) -> Result<(), &'static str> {
     game_context.data_bucket.add(input::SInput::new());
     game_context.data_bucket.add(gjk::SGJKDebug::new(&game_context.data_bucket));
 
-    entitytypes::testtexturedcubeentity::create(
+    let rotating_entity = entitytypes::testtexturedcubeentity::create(
         &game_context, Some("tst_rotating"),
         STransform::new_translation(&Vec3::new(0.0, 0.0, 0.0)))?;
-    entitytypes::testtexturedcubeentity::create(
+    let textured_cube_entity = entitytypes::testtexturedcubeentity::create(
         &game_context, Some("tst_textured_cube"),
         STransform::new_translation(&Vec3::new(3.0, 0.0, 0.0)))?;
-    entitytypes::flatshadedcubeentity::create(
+    let flat_shaded_cube_entity = entitytypes::flatshadedcubeentity::create(
         &game_context, Some("tst_coloured_cube"), Some(Vec4::new(1.0, 0.0, 0.0, 0.9)),
         STransform::new_translation(&Vec3::new(0.0, 2.0, 0.0)))?;
-    entitytypes::testopenroomentity::create(
+    let open_room_entity = entitytypes::testopenroomentity::create(
         &game_context, Some("tst_room"),
         STransform::new_translation(&Vec3::new(0.0, -2.0, 0.0)))?;
     let skinned_entity = entitytypes::tstskinnedentity::create(
         &game_context, Some("tst_skinned_entity"), Some(Vec4::new(1.0, 1.0, 1.0, 1.0)),
         STransform::new_translation(&Vec3::new(-3.0, 2.0, 0.0)))?;
+
+    {
+        use std::io::Write;
+
+        let test_level_init = level::SInit::new_from_entities(
+            &game_context,
+            &[rotating_entity.clone(), textured_cube_entity.clone(), flat_shaded_cube_entity.clone(), open_room_entity.clone(), skinned_entity.clone()],
+        );
+
+        let test_level_init_json = serde_json::to_string(&test_level_init).unwrap();
+
+        let mut test_level_file = std::fs::OpenOptions::new().create(true).write(true).open("assets/test_level.level").unwrap();
+        test_level_file.write_all(test_level_init_json.as_bytes()).unwrap();
+    }
 
     game_context.data_bucket.get::<entity_animation::SBucket>()
         .and::<animation::SAnimationLoader>()

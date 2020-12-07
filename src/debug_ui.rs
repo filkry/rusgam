@@ -24,6 +24,11 @@ pub fn update_debug_entity_menu(game_context: &SGameContext, frame_context: &SFr
             Window::new(im_str!("Selected entity"))
                 .size([300.0, 300.0], Condition::FirstUseEver)
                 .build(imgui_ui, || {
+                    if !entity.entity_valid(e) {
+                        imgui_ui.text(im_str!("INVALID entity selected"));
+                        return;
+                    }
+
                     if let Some (n) = entity.get_entity_debug_name(e) {
                         imgui_ui.text(im_str!("debug_name: {}", n._debug_ptr.as_ref().expect("")));
                     }

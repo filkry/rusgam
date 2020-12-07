@@ -3,7 +3,7 @@ use serde::{Serialize, Deserialize};
 use allocate::{SAllocatorRef};
 use collections::{SVec};
 use databucket::{SEntityBVH};
-use entity::{SEntityHandle};
+use entity::{SEntityHandle, SEntityBucket};
 use entity_animation;
 use entity_model;
 use entitytypes::{EEntityInit};
@@ -39,7 +39,7 @@ impl SInit {
 
 impl SLevel {
     pub fn new(allocator: &SAllocatorRef, game_context: &SGameContext, init: &SInit) -> Result<Self, &'static str> {
-        let mut owned_entities = SVec::<SEntityHandle>::new(allocator, init.entity_inits.len(), 0)?;
+        let mut owned_entities = SVec::<SEntityHandle>::new(allocator, init.entity_inits.len(), 0).expect("Failed to allocate memory for owned_entities table.");
         for e_init in &init.entity_inits {
             let e = e_init.init(game_context)?;
             owned_entities.push(e);
@@ -57,12 +57,14 @@ impl SLevel {
             .and::<entity_model::SBucket>()
             .and::<entity_animation::SBucket>()
             .and::<render::SRender>()
-            .with_mmmm(|bvh, e_model, e_anim, render| {
+            .and::<SEntityBucket>()
+            .with_mmmmm(|bvh, e_model, e_anim, render, entities| {
                 render.flush().unwrap();
 
                 bvh.purge_owners(self.owned_entities.as_ref());
                 e_model.purge_entities(self.owned_entities.as_ref());
                 e_anim.purge_entities(self.owned_entities.as_ref());
+                entities.purge_entities(self.owned_entities.as_ref());
             });
 
         self.owned_entities.clear();

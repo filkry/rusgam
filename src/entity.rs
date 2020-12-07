@@ -42,6 +42,16 @@ impl SEntityBucket {
         self.entities.insert_val(SEntity::new(type_))
     }
 
+    pub fn purge_entities(&mut self, entities: &[SEntityHandle]) {
+        for entity in entities {
+            self.entities.free(entity.clone());
+        }
+    }
+
+    pub fn entity_valid(&self, entity: SEntityHandle) -> bool {
+        self.entities.get(entity).is_ok()
+    }
+
     pub fn set_entity_debug_name(&mut self, entity: SEntityHandle, debug_name: &str) {
         self.entities.get_mut(entity).expect("invalid entity").debug_name = Some(hash_str(debug_name));
     }

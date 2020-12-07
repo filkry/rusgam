@@ -349,37 +349,44 @@ impl EEditMode {
 
         // -- move/scale edit widgets
         if let Some(e) = ctxt.editing_entity {
+            let mut entity_valid = false;
             data_bucket.get_entities().with(|entities: &SEntityBucket| {
-                ctxt.translation_widget_transforms[0].t = entities.get_entity_location(e).t;
-                ctxt.translation_widget_transforms[1].t = entities.get_entity_location(e).t;
-                ctxt.translation_widget_transforms[2].t = entities.get_entity_location(e).t;
-                //println!("Set translation widget: {:?}", translation_widget_transform.t);
-                scale_to_fixed_screen_size(&mut ctxt.translation_widget_transforms[0], 0.02, &em_input);
-                scale_to_fixed_screen_size(&mut ctxt.translation_widget_transforms[1], 0.02, &em_input);
-                scale_to_fixed_screen_size(&mut ctxt.translation_widget_transforms[2], 0.02, &em_input);
+                if entities.entity_valid(e) {
+                    entity_valid = true;
 
-                ctxt.rotation_widget_transforms[0].t = entities.get_entity_location(e).t;
-                ctxt.rotation_widget_transforms[1].t = entities.get_entity_location(e).t;
-                ctxt.rotation_widget_transforms[2].t = entities.get_entity_location(e).t;
-                //println!("Set translation widget: {:?}", translation_widget_transform.t);
-                scale_to_fixed_screen_size(&mut ctxt.rotation_widget_transforms[0], 0.034, &em_input);
-                scale_to_fixed_screen_size(&mut ctxt.rotation_widget_transforms[1], 0.034, &em_input);
-                scale_to_fixed_screen_size(&mut ctxt.rotation_widget_transforms[2], 0.034, &em_input);
+                    ctxt.translation_widget_transforms[0].t = entities.get_entity_location(e).t;
+                    ctxt.translation_widget_transforms[1].t = entities.get_entity_location(e).t;
+                    ctxt.translation_widget_transforms[2].t = entities.get_entity_location(e).t;
+                    //println!("Set translation widget: {:?}", translation_widget_transform.t);
+                    scale_to_fixed_screen_size(&mut ctxt.translation_widget_transforms[0], 0.02, &em_input);
+                    scale_to_fixed_screen_size(&mut ctxt.translation_widget_transforms[1], 0.02, &em_input);
+                    scale_to_fixed_screen_size(&mut ctxt.translation_widget_transforms[2], 0.02, &em_input);
+
+                    ctxt.rotation_widget_transforms[0].t = entities.get_entity_location(e).t;
+                    ctxt.rotation_widget_transforms[1].t = entities.get_entity_location(e).t;
+                    ctxt.rotation_widget_transforms[2].t = entities.get_entity_location(e).t;
+                    //println!("Set translation widget: {:?}", translation_widget_transform.t);
+                    scale_to_fixed_screen_size(&mut ctxt.rotation_widget_transforms[0], 0.034, &em_input);
+                    scale_to_fixed_screen_size(&mut ctxt.rotation_widget_transforms[1], 0.034, &em_input);
+                    scale_to_fixed_screen_size(&mut ctxt.rotation_widget_transforms[2], 0.034, &em_input);
+                }
             });
 
             // -- draw edit widgets
-            data_bucket.get_renderer().with_mut(|render: &mut render::SRender| {
-                for axis in 0..=2 {
-                    if mode.show_translation_widget(axis) {
-                            render.temp().draw_model(&ctxt.translation_widgets[axis], &ctxt.translation_widget_transforms[axis], true);
+            if entity_valid {
+                data_bucket.get_renderer().with_mut(|render: &mut render::SRender| {
+                    for axis in 0..=2 {
+                        if mode.show_translation_widget(axis) {
+                                render.temp().draw_model(&ctxt.translation_widgets[axis], &ctxt.translation_widget_transforms[axis], true);
+                        }
                     }
-                }
-                for axis in 0..=2 {
-                    if mode.show_rotation_widget(axis) {
-                        render.temp().draw_model(&ctxt.rotation_widgets[axis], &ctxt.rotation_widget_transforms[axis], true);
+                    for axis in 0..=2 {
+                        if mode.show_rotation_widget(axis) {
+                            render.temp().draw_model(&ctxt.rotation_widgets[axis], &ctxt.rotation_widget_transforms[axis], true);
+                        }
                     }
-                }
-            });
+                });
+            }
         }
 
         return mode;

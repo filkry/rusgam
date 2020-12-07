@@ -1,1 +1,111 @@
-{"entity_inits":[{"TestTexturedCube":{"debug_name":"tst_rotating","starting_location":{"t":{"x":0.0,"y":0.0,"z":0.0},"r":{"x":0.0,"y":0.0,"z":0.0,"w":1.0},"s":1.0}}},{"TestTexturedCube":{"debug_name":"tst_textured_cube","starting_location":{"t":{"x":3.0,"y":0.0,"z":0.0},"r":{"x":0.0,"y":0.0,"z":0.0,"w":1.0},"s":1.0}}},{"FlatShadedCube":{"debug_name":"tst_coloured_cube","diffuse_colour":{"x":1.0,"y":0.0,"z":0.0,"w":0.9},"starting_location":{"t":{"x":0.0,"y":2.0,"z":0.0},"r":{"x":0.0,"y":0.0,"z":0.0,"w":1.0},"s":1.0}}},{"TestOpenRoom":{"debug_name":"tst_room","starting_location":{"t":{"x":0.0,"y":-2.0,"z":0.0},"r":{"x":0.0,"y":0.0,"z":0.0,"w":1.0},"s":1.0}}},{"TestSkinnedEntity":{"debug_name":"tst_skinned_entity","diffuse_colour":{"x":1.0,"y":1.0,"z":1.0,"w":1.0},"starting_location":{"t":{"x":-3.0,"y":2.0,"z":0.0},"r":{"x":0.0,"y":0.0,"z":0.0,"w":1.0},"s":1.0}}}]}
+{
+  "entity_inits": [
+    {
+      "TestTexturedCube": {
+        "debug_name": "tst_rotating",
+        "starting_location": {
+          "t": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+          },
+          "r": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0,
+            "w": 1.0
+          },
+          "s": 1.0
+        }
+      }
+    },
+    {
+      "TestTexturedCube": {
+        "debug_name": "tst_textured_cube",
+        "starting_location": {
+          "t": {
+            "x": 3.0,
+            "y": 0.0,
+            "z": 0.0
+          },
+          "r": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0,
+            "w": 1.0
+          },
+          "s": 1.0
+        }
+      }
+    },
+    {
+      "FlatShadedCube": {
+        "debug_name": "tst_coloured_cube",
+        "diffuse_colour": {
+          "x": 1.0,
+          "y": 0.0,
+          "z": 0.0,
+          "w": 0.9
+        },
+        "starting_location": {
+          "t": {
+            "x": 0.0,
+            "y": 2.0,
+            "z": 0.0
+          },
+          "r": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0,
+            "w": 1.0
+          },
+          "s": 1.0
+        }
+      }
+    },
+    {
+      "TestOpenRoom": {
+        "debug_name": "tst_room",
+        "starting_location": {
+          "t": {
+            "x": 0.0,
+            "y": -2.0,
+            "z": 0.0
+          },
+          "r": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0,
+            "w": 1.0
+          },
+          "s": 1.0
+        }
+      }
+    },
+    {
+      "TestSkinnedEntity": {
+        "debug_name": "tst_skinned_entity",
+        "diffuse_colour": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0,
+          "w": 1.0
+        },
+        "starting_location": {
+          "t": {
+            "x": -3.0,
+            "y": 2.0,
+            "z": 0.0
+          },
+          "r": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0,
+            "w": 1.0
+          },
+          "s": 1.0
+        }
+      }
+    }
+  ]
+}

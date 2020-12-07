@@ -52,7 +52,23 @@ impl SBucket {
     }
 
     pub fn purge_entities(&mut self, entities: &[SEntityHandle]) {
-        panic!("Not implemented");
+        let mut i = 0;
+        while i < self.instances.len() {
+            let mut purge = false;
+            for entity in entities {
+                if *entity == self.instances[i].owner {
+                    purge = true;
+                    break;
+                }
+            }
+
+            if purge {
+                self.instances.swap_remove(i);
+            }
+            else {
+                i = i + 1;
+            }
+        }
     }
 
     pub fn play_animation(

@@ -1,7 +1,7 @@
 use serde::{Serialize, Deserialize};
 
-use entity::{SEntityBucket, SEntityHandle};
-use game_context::{SGameContext};
+use crate::entity::{SEntityBucket, SEntityHandle};
+use crate::game_context::{SGameContext};
 
 pub mod flatshadedcubeentity;
 pub mod testtexturedcubeentity;

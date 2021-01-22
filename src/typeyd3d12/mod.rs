@@ -27,13 +27,15 @@ mod shader;
 mod swapchain;
 mod view;
 
-use safewindows;
-use enumflags::{TEnumFlags32, SEnumFlags32};
+use crate::safewindows;
+use crate::enumflags::{TEnumFlags32, SEnumFlags32};
 
 use std::{mem, ptr};
 use std::convert::From;
 
 use arrayvec::ArrayVec;
+
+use winbindings::windows as winbind;
 
 use winapi::ctypes::c_void;
 use winapi::shared::dxgi::*;

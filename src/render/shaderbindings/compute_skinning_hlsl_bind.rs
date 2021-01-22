@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
-use niced3d12 as n12;
-use typeyd3d12 as t12;
+use crate::niced3d12 as n12;
+use crate::typeyd3d12 as t12;
 
 pub struct SComputeSkinningHLSL {
     _bytecode: t12::SShaderBytecode,

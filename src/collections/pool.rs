@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
-use allocate::{SAllocatorRef};
-use collections::{SVec};
+use crate::allocate::{SAllocatorRef};
+use crate::collections::{SVec};
 
 pub trait TIndexGen : PartialEq + PartialOrd + Copy + std::ops::Add + std::ops::AddAssign {
     const MAX: Self;

@@ -4,10 +4,10 @@ use std::ops::{DerefMut};
 
 //use safewindows::{break_err};
 
-use allocate::{SYSTEM_ALLOCATOR};
-use collections;
-use collections::{SPool, SVec};
-use safewindows;
+use crate::allocate::{SYSTEM_ALLOCATOR};
+use crate::collections;
+use crate::collections::{SPool, SVec};
+use crate::safewindows;
 
 use super::{SCommandList, SCommandAllocator, SCommandQueue, SFence, SDevice};
 

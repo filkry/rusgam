@@ -1,11 +1,11 @@
 use serde::{Serialize, Deserialize};
 
-use entity::*;
-use entity_model;
-use entitytypes::{EEntityType};
-use game_context::{SGameContext};
-use render;
-use utils::{STransform};
+use crate::entity::*;
+use crate::entity_model;
+use crate::entitytypes::{EEntityType};
+use crate::game_context::{SGameContext};
+use crate::render;
+use crate::utils::{STransform};
 
 #[derive(Serialize, Deserialize)]
 pub struct SInit {

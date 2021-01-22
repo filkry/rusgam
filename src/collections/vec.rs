@@ -3,7 +3,7 @@ use std::ops::{Deref, DerefMut, Index, IndexMut};
 
 //use serde::ser::{Serialize, Serializer, SerializeSeq};
 
-use allocate::{SMem, SAllocatorRef};
+use crate::allocate::{SMem, SAllocatorRef};
 
 pub struct SVec<T> {
     mem: SMem,

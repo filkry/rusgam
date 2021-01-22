@@ -1,5 +1,5 @@
 pub mod manager {
-    use utils::align_up;
+    use crate::utils::align_up;
 
     #[derive(Debug)]
     pub struct SAllocation {

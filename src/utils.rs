@@ -3,8 +3,8 @@
 //use std::ops::{Add, Sub, Mul};
 use serde::{Serialize, Deserialize};
 
-use safewindows;
-use math::{Vec3, Vec4, Quat, Mat4};
+use crate::safewindows;
+use crate::math::{Vec3, Vec4, Quat, Mat4};
 use gltf;
 
 pub static PI : f32 = 3.14159265358979;

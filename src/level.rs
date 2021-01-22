@@ -1,13 +1,13 @@
 use serde::{Serialize, Deserialize};
 
-use allocate::{SAllocatorRef};
-use collections::{SVec};
-use databucket::{SEntityBVH};
-use entity::{SEntityHandle, SEntityBucket};
-use entity_animation;
-use entity_model;
-use entitytypes::{EEntityInit};
-use game_context::{SGameContext};
+use crate::allocate::{SAllocatorRef};
+use crate::collections::{SVec};
+use crate::databucket::{SEntityBVH};
+use crate::entity::{SEntityHandle, SEntityBucket};
+use crate::entity_animation;
+use crate::entity_model;
+use crate::entitytypes::{EEntityInit};
+use crate::game_context::{SGameContext};
 
 #[derive(Serialize, Deserialize)]
 pub struct SInit {
@@ -51,7 +51,7 @@ impl SLevel {
     }
 
     pub fn destroy(&mut self, game_context: &SGameContext) {
-        use render;
+        use crate::render;
 
         game_context.data_bucket.get::<SEntityBVH>()
             .and::<entity_model::SBucket>()

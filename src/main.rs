@@ -1,15 +1,3 @@
-extern crate arrayvec;
-//extern crate nalgebra_glm as glm;
-extern crate tinytga;
-extern crate tobj;
-extern crate winapi;
-extern crate wio;
-extern crate bitflags;
-extern crate serde_json;
-extern crate serde;
-extern crate imgui;
-extern crate gltf;
-
 //mod math;
 #[macro_use]
 mod safewindows;

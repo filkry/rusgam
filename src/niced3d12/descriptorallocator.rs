@@ -1,6 +1,6 @@
 use super::*;
 
-use collections::freelistallocator;
+use crate::collections::freelistallocator;
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 

@@ -1,14 +1,14 @@
 use serde::{Serialize, Deserialize};
 
-use animation;
-use entity::*;
-use entity_model;
-use entity_animation;
-use entitytypes::{EEntityType};
-use game_context::{SGameContext};
-use math::{Vec4};
-use render;
-use utils::{STransform};
+use crate::animation;
+use crate::entity::*;
+use crate::entity_model;
+use crate::entity_animation;
+use crate::entitytypes::{EEntityType};
+use crate::game_context::{SGameContext};
+use crate::math::{Vec4};
+use crate::render;
+use crate::utils::{STransform};
 
 #[derive(Serialize, Deserialize)]
 pub struct SInit {

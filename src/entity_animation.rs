@@ -1,10 +1,10 @@
-use allocate::{SAllocatorRef};
-use animation::{SAnimHandle, SAnimationLoader, update_joints};
-use collections::{SVec};
-use entity::{SEntityHandle};
-use entity_model;
-use game_context::{SGameContext, SFrameContext};
-use model::{SModelSkinning, SMeshLoader};
+use crate::allocate::{SAllocatorRef};
+use crate::animation::{SAnimHandle, SAnimationLoader, update_joints};
+use crate::collections::{SVec};
+use crate::entity::{SEntityHandle};
+use crate::entity_model;
+use crate::game_context::{SGameContext, SFrameContext};
+use crate::model::{SModelSkinning, SMeshLoader};
 
 struct SPlayingAnimation {
     animation: SAnimHandle,

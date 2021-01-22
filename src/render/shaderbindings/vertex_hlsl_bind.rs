@@ -1,5 +1,5 @@
-use niced3d12 as n12;
-use typeyd3d12 as t12;
+use crate::niced3d12 as n12;
+use crate::typeyd3d12 as t12;
 use super::types;
 
 pub struct SVertexHLSL {

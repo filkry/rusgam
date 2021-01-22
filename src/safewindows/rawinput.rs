@@ -1,7 +1,7 @@
 use std::convert::{TryFrom};
 
 use super::*;
-use enumflags::{TEnumFlags32, SEnumFlags32};
+use crate::enumflags::{TEnumFlags32, SEnumFlags32};
 
 use arrayvec::ArrayVec;
 use bitflags::*;

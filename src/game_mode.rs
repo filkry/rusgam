@@ -1,7 +1,7 @@
-use editmode::{EEditMode, SEditModeContext};
-use game_context::{SGameContext};
-use input;
-use render;
+use crate::editmode::{EEditMode, SEditModeContext};
+use crate::game_context::{SGameContext};
+use crate::input;
+use crate::render;
 
 #[derive(PartialEq)]
 pub enum EMode {

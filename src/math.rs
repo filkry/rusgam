@@ -4,7 +4,7 @@ use serde::{Serialize, Deserialize};
 // -- in the debugger. So I'm going to try creating memory-layout-equivalent types, and unsafely
 // -- casting to glm types in my operations
 extern crate nalgebra_glm as glm;
-use utils;
+use crate::utils;
 
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct Vec2{

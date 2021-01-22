@@ -1,7 +1,7 @@
-use allocate::{SYSTEM_ALLOCATOR, SAllocator};
-use databucket::{SDataBucket};
-use rustywindows;
-use niced3d12 as n12;
+use crate::allocate::{SYSTEM_ALLOCATOR, SAllocator};
+use crate::databucket::{SDataBucket};
+use crate::rustywindows;
+use crate::niced3d12 as n12;
 
 pub struct SGameContext {
     pub window: n12::SD3D12Window,

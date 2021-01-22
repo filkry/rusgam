@@ -1,8 +1,8 @@
 use std::mem::{size_of};
 
-use math::{Mat4};
-use typeyd3d12 as t12;
-use utils::{STransform};
+use crate::math::{Mat4};
+use crate::typeyd3d12 as t12;
+use crate::utils::{STransform};
 
 // -- must match SVertexSkinningData in vertex_skinned.hlsl
 #[repr(C)]

@@ -1,8 +1,8 @@
-use math::{Vec3, Mat4, Quat};
+use crate::math::{Vec3, Mat4, Quat};
 
-use game_context::{SGameContext, SFrameContext};
-use game_mode;
-use input;
+use crate::game_context::{SGameContext, SFrameContext};
+use crate::game_mode;
+use crate::input;
 
 pub struct SDebugFPCamera {
     pub pos_world: Vec3,

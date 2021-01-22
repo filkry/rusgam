@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use std::collections::hash_map::{DefaultHasher};
 use std::hash::{Hash, Hasher};
 
-use allocate::{SAllocator, SAllocatorRef, SLinearAllocator, SYSTEM_ALLOCATOR};
-use collections::{SVec};
+use crate::allocate::{SAllocator, SAllocatorRef, SLinearAllocator, SYSTEM_ALLOCATOR};
+use crate::collections::{SVec};
 
 pub struct SEntry {
     _bytes: SVec<u8>,

@@ -8,11 +8,11 @@ use imgui;
 use math::{Mat4};
 use win;
 
-use allocate::{SYSTEM_ALLOCATOR};
-use collections::{SVec};
-use model::{STextureLoader, STextureHandle};
-use niced3d12 as n12;
-use typeyd3d12 as t12;
+use crate::allocate::{SYSTEM_ALLOCATOR};
+use crate::collections::{SVec};
+use crate::model::{STextureLoader, STextureHandle};
+use crate::niced3d12 as n12;
+use crate::typeyd3d12 as t12;
 
 pub(super) struct SRenderImgui {
     font_texture: STextureHandle,

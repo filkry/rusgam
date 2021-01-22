@@ -1,20 +1,20 @@
 use::std::ops::{Deref};
 
-use allocate::{STACK_ALLOCATOR, SYSTEM_ALLOCATOR};
-use bvh;
-use camera;
-use collections::{SVec};
-use databucket;
-use game_context::{SGameContext, SFrameContext};
-use game_mode;
-use entity::{SEntityBucket, SEntityHandle};
-use math::{Vec3, Vec4, Quat, Mat4};
-use input;
-use level;
-use model;
-use render;
-use utils;
-use utils::{STransform};
+use crate::allocate::{STACK_ALLOCATOR, SYSTEM_ALLOCATOR};
+use crate::bvh;
+use crate::camera;
+use crate::collections::{SVec};
+use crate::databucket;
+use crate::game_context::{SGameContext, SFrameContext};
+use crate::game_mode;
+use crate::entity::{SEntityBucket, SEntityHandle};
+use crate::math::{Vec3, Vec4, Quat, Mat4};
+use crate::input;
+use crate::level;
+use crate::model;
+use crate::render;
+use crate::utils;
+use crate::utils::{STransform};
 
 pub struct SEditModeInput {
     pub window_width: u32,

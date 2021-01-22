@@ -1,15 +1,15 @@
 //use std::ops::{Deref};
 use std::rc::{Weak};
 
-use entity;
-use entity_model;
-use model;
-use n12;
-use t12;
+use crate::entity;
+use crate::entity_model;
+use crate::model;
+use crate::n12;
+use crate::t12;
 use super::shaderbindings;
-use utils;
+use crate::utils;
 
-use math::{Vec3, Mat4};
+use crate::math::{Vec3, Mat4};
 
 pub struct SShadowMappingPipeline {
     vertex_shader: shaderbindings::SClipSpaceOnlyVertexHLSL,

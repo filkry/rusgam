@@ -6,24 +6,24 @@ use std::ops::{Deref, DerefMut};
 
 // -- crate includes
 use arrayvec::{ArrayVec};
-use camera;
-use serde::{Serialize, Deserialize};
-use math::{Vec3, Mat4};
+use crate::camera;
+use ::serde::{Serialize, Deserialize};
+use crate::math::{Vec3, Mat4};
 
-use niced3d12 as n12;
-use typeyd3d12 as t12;
-use allocate::{STACK_ALLOCATOR};
-use collections::{SVec};
-use databucket::{SDataBucket};
-use entity::{SEntityBucket, SEntityHandle};
-use entity_animation;
-use entity_model;
-use game_context::{SGameContext, SFrameContext};
-use model::{SModel, SMeshLoader, STextureLoader};
-use safewindows;
-use rustywindows;
-use utils;
-use utils::{STransform, SRay};
+use crate::niced3d12 as n12;
+use crate::typeyd3d12 as t12;
+use crate::allocate::{STACK_ALLOCATOR};
+use crate::collections::{SVec};
+use crate::databucket::{SDataBucket};
+use crate::entity::{SEntityBucket, SEntityHandle};
+use crate::entity_animation;
+use crate::entity_model;
+use crate::game_context::{SGameContext, SFrameContext};
+use crate::model::{SModel, SMeshLoader, STextureLoader};
+use crate::safewindows;
+use crate::rustywindows;
+use crate::utils;
+use crate::utils::{STransform, SRay};
 
 mod compute_skinning_pipeline;
 mod shadowmapping;

@@ -1,8 +1,8 @@
-use entity_animation;
-use entity_model;
-use model::{SMeshLoader};
-use n12;
-use t12;
+use crate::entity_animation;
+use crate::entity_model;
+use crate::model::{SMeshLoader};
+use crate::n12;
+use crate::t12;
 use super::shaderbindings;
 
 pub struct SComputeSkinningPipeline {

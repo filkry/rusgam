@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use safewindows;
+use crate::safewindows;
 
 use std::ops::{Deref, DerefMut};
 

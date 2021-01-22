@@ -1,9 +1,9 @@
 use std::mem::{size_of};
 
-use niced3d12 as n12;
-use typeyd3d12 as t12;
-use math::{Vec4};
-use model::{SModel};
+use crate::niced3d12 as n12;
+use crate::typeyd3d12 as t12;
+use crate::math::{Vec4};
+use crate::model::{SModel};
 
 // -- used to fill out shader metadata, must match STextureMetadata in pixel.hlsl
 #[repr(C)]

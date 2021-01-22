@@ -1,6 +1,6 @@
 use std::mem::size_of;
 
-use allocate::{SMem, SAllocatorRef};
+use crate::allocate::{SMem, SAllocatorRef};
 
 pub struct SQueue<T> {
     mem: SMem,

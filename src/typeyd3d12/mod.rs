@@ -28,8 +28,8 @@ mod shader;
 mod swapchain;
 mod view;
 
-use safewindows;
-use enumflags::{TEnumFlags32, SEnumFlags32, TEnumFlags, SEnumFlags};
+use crate::safewindows;
+use crate::enumflags::{TEnumFlags32, SEnumFlags32};
 
 use std::{mem, ptr};
 use std::convert::From;

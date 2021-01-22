@@ -1,8 +1,8 @@
-use allocate::{SAllocatorRef};
-use collections::{SVec};
-use entity::{SEntityHandle};
-use bvh;
-use model::SModel;
+use crate::allocate::{SAllocatorRef};
+use crate::collections::{SVec};
+use crate::entity::{SEntityHandle};
+use crate::bvh;
+use crate::model::SModel;
 
 pub struct SBucket {
     pub owners: SVec<SEntityHandle>,

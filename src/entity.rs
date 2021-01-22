@@ -1,9 +1,9 @@
-use allocate::{SYSTEM_ALLOCATOR};
-use collections::{SStoragePool, SPoolHandle};
-use entitytypes::{EEntityType};
-use math::{Vec3};
-use utils::{STransform};
-use string_db::{SHashedStr, hash_str};
+use crate::allocate::{SYSTEM_ALLOCATOR};
+use crate::collections::{SStoragePool, SPoolHandle};
+use crate::entitytypes::{EEntityType};
+use crate::math::{Vec3};
+use crate::utils::{STransform};
+use crate::string_db::{SHashedStr, hash_str};
 
 #[allow(dead_code)]
 pub struct SEntity {

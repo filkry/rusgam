@@ -1,12 +1,12 @@
-use allocate::{STACK_ALLOCATOR};
-use bvh;
-use collections::{SVec};
-use entity;
-use entity_model;
-use game_context::{SGameContext, SFrameContext};
-use game_mode;
-use math::{Vec3, Vec4};
-use render;
+use crate::allocate::{STACK_ALLOCATOR};
+use crate::bvh;
+use crate::collections::{SVec};
+use crate::entity;
+use crate::entity_model;
+use crate::game_context::{SGameContext, SFrameContext};
+use crate::game_mode;
+use crate::math::{Vec3, Vec4};
+use crate::render;
 
 pub fn update_debug_entity_menu(game_context: &SGameContext, frame_context: &SFrameContext) {
     use imgui::*;

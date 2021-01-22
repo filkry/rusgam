@@ -1,8 +1,8 @@
 use std::ops::{Deref, DerefMut};
 
-use rustywindows;
-use safewindows;
-use typeyd3d12 as t12;
+use crate::rustywindows;
+use crate::safewindows;
+use crate::typeyd3d12 as t12;
 
 pub struct SD3D12Window {
     window: rustywindows::SWindow,
@@ -58,7 +58,7 @@ impl SD3D12Window {
 
         // -- set up raw mouse input events
         {
-            use safewindows::rawinput::*;
+            use crate::safewindows::rawinput::*;
 
             let dev = SRawInputDevice {
                 usage_page: EUsagePage::Generic,

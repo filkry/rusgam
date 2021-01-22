@@ -1,11 +1,11 @@
 // crate imports
-use math::{Vec3};
+use crate::math::{Vec3};
 
-use entity::{SEntityBucket, SEntityHandle};
-use databucket::{SDataBucket};
-use render;
-use render::{SRender};
-use imgui;
+use crate::entity::{SEntityBucket, SEntityHandle};
+use crate::databucket::{SDataBucket};
+use crate::render;
+use crate::render::{SRender};
+use ::imgui;
 
 // Implementation of GJK
 // mixed from various resources:
@@ -413,7 +413,7 @@ impl SGJKDebug {
     }
 
     pub fn reset_to_entities(&mut self, ctxt: &SDataBucket, entity_1: SEntityHandle, entity_2: SEntityHandle) {
-        use entity_model;
+        use crate::entity_model;
 
         ctxt.get::<SEntityBucket>()
             .and::<render::SRender>()
@@ -527,7 +527,7 @@ impl SGJKDebug {
     }
 
     pub fn render_cur_step(&self, ctxt: &SDataBucket) {
-        use math::{Vec4};
+        use crate::math::{Vec4};
 
         ctxt.get_renderer().with_mut(|render: &mut SRender| {
 

@@ -213,9 +213,9 @@ impl SDevice {
         start_of_dst_range: t12::SCPUDescriptorHandle,
         type_: t12::EDescriptorHeapType,
     ) {
-        ::allocate::STACK_ALLOCATOR.with(|sa| {
+        crate::allocate::STACK_ALLOCATOR.with(|sa| {
             let mut src_sizes =
-                ::collections::SVec::<u32>::new(&sa.as_ref(), src_descriptors.len(), 0).unwrap();
+                crate::collections::SVec::<u32>::new(&sa.as_ref(), src_descriptors.len(), 0).unwrap();
 
             for _ in src_descriptors {
                 src_sizes.push(1);

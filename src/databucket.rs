@@ -3,20 +3,20 @@ use std::cell::{RefCell};
 use std::ops::{Deref, DerefMut};
 use std::rc::{Rc, Weak};
 
-use allocate::{SAllocatorRef};
-use collections::{SVec};
+use crate::allocate::{SAllocatorRef};
+use crate::collections::{SVec};
 
-use animation;
-use camera;
-use bvh;
-use editmode;
-use entity;
-use entity_animation;
-use entity_model;
-use gjk;
-use input;
-use game_mode;
-use render;
+use crate::animation;
+use crate::camera;
+use crate::bvh;
+use crate::editmode;
+use crate::entity;
+use crate::entity_animation;
+use crate::entity_model;
+use crate::gjk;
+use crate::input;
+use crate::game_mode;
+use crate::render;
 
 pub trait TDataBucketMember : std::any::Any {
 }

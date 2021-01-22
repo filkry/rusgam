@@ -1,4 +1,4 @@
-use safewindows;
+use crate::safewindows;
 
 #[derive(Copy, Clone, PartialEq)]
 pub enum EInputEdge {
@@ -123,8 +123,8 @@ pub struct SInputEventHandler<'a> {
 }
 
 pub fn setup_imgui_key_map(io: &mut imgui::Io) {
-    use imgui::{Key};
-    use safewindows::{EKey};
+    use ::imgui::{Key};
+    use crate::safewindows::{EKey};
 
     io.key_map[Key::Tab as usize] = EKey::Tab as u32;
     io.key_map[Key::LeftArrow as usize] = EKey::LeftArrow as u32;

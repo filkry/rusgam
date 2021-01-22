@@ -1,9 +1,9 @@
-use allocate::{SAllocatorRef};
-use collections::{SStoragePool, SPoolHandle, SVec};
-use math::{Vec3, Quat};
-use model::{SMeshSkinning};
-use string_db::{hash_str, SHashedStr};
-use utils::{STransform, lerp, unlerp_f32, gltf_accessor_slice, clamp};
+use crate::allocate::{SAllocatorRef};
+use crate::collections::{SStoragePool, SPoolHandle, SVec};
+use crate::math::{Vec3, Quat};
+use crate::model::{SMeshSkinning};
+use crate::string_db::{hash_str, SHashedStr};
+use crate::utils::{STransform, lerp, unlerp_f32, gltf_accessor_slice, clamp};
 
 pub struct SAnimation {
     pub duration: f32,

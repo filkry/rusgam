@@ -2,6 +2,7 @@
 name = "rusgam"
 version = "0.1.0"
 authors = ["Fil Krynicki <filipkrynicki@gmail.com>"]
+edition = "2018"
 
 [dependencies]
 windows = "0.19.0"

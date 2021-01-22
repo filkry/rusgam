@@ -17,9 +17,9 @@ mod rootsignature;
 mod swapchain;
 mod window;
 
-use directxgraphicssamples;
-use safewindows;
-use typeyd3d12 as t12;
+use crate::directxgraphicssamples;
+use crate::safewindows;
+use crate::typeyd3d12 as t12;
 
 use std::ops::Deref;
 use std::ptr;

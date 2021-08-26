@@ -2,8 +2,7 @@ extern crate arrayvec;
 //extern crate nalgebra_glm as glm;
 extern crate tinytga;
 extern crate tobj;
-extern crate winapi;
-extern crate wio;
+extern crate windows;
 extern crate bitflags;
 extern crate serde_json;
 extern crate serde;
@@ -41,6 +40,10 @@ mod model;
 mod render;
 
 mod entitytypes;
+
+mod winbindings {
+    windows::include_bindings!();
+}
 
 // -- std includes
 //use std::cell::RefCell;

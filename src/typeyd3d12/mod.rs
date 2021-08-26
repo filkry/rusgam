@@ -35,22 +35,6 @@ use std::convert::From;
 
 use arrayvec::ArrayVec;
 
-use winapi::ctypes::c_void;
-use winapi::shared::dxgi::*;
-use winapi::shared::dxgi1_2::*;
-use winapi::shared::dxgi1_3::*;
-use winapi::shared::dxgi1_4::*;
-use winapi::shared::dxgi1_5::*;
-use winapi::shared::dxgi1_6::*;
-use winapi::shared::minwindef::*;
-use winapi::shared::{dxgiformat, dxgitype, winerror};
-use winapi::um::d3d12::*;
-use winapi::um::d3d12sdklayers::*;
-use winapi::um::{d3dcommon, d3dcompiler, unknwnbase};
-use winapi::Interface;
-
-use wio::com::ComPtr;
-
 // -- this is copied in safewindows, does it have to be?
 trait ComPtrPtrs<T> {
     unsafe fn asunknownptr(&self) -> *mut unknwnbase::IUnknown;

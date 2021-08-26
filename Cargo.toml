@@ -4,8 +4,7 @@ version = "0.1.0"
 authors = ["Fil Krynicki <filipkrynicki@gmail.com>"]
 
 [dependencies]
-winapi = { version = "0.3.8", features = ["basetsd","d3d12", "d3d12sdklayers", "dxgidebug", "dxgiformat", "dxgitype", "dxgi1_3", "dxgi1_4", "dxgi1_6", "d3dcompiler", "errhandlingapi", "guiddef", "libloaderapi", "minwindef", "ntdef", "profileapi", "synchapi", "windef", "winerror", "winnt", "winuser", "hidusage", "debugapi", "windowsx"] }
-wio = { version = "0.2" }
+windows = "0.19.0"
 nalgebra-glm = { version = "0.5.0" }
 arrayvec = { version = "0.5.1" }
 tinytga = { version = "0.2.0" }
@@ -15,3 +14,6 @@ serde = { version = "1.0.104", features = ["derive"] }
 serde_json = { version = "1.0.44" }
 imgui = { version = "0.3.0" }
 gltf = "0.15.2"
+
+[build-dependencies]
+windows = "0.19.0"

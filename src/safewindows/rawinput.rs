@@ -6,10 +6,6 @@ use enumflags::{TEnumFlags32, SEnumFlags32};
 use arrayvec::ArrayVec;
 use bitflags::*;
 
-use winapi::shared::hidusage::*;
-use winapi::shared::ntdef::NULL;
-use winapi::um::winuser::RAWMOUSE;
-
 pub enum EUsagePage {
     Generic,
 }
@@ -55,8 +51,6 @@ impl TEnumFlags32 for ERIDEV {
     type TRawType = DWORD;
 
     fn rawtype(&self) -> Self::TRawType {
-        use winapi::um::winuser::*;
-
         match self {
             Self::AppKeys => RIDEV_APPKEYS,
             Self::CaptureMouse => RIDEV_CAPTUREMOUSE,
@@ -105,7 +99,7 @@ pub fn register_raw_input_devices(raw_input_devices: &[SRawInputDevice]) -> Resu
         }
 
         if temp.len() > 0 {
-            let result = winapi::um::winuser::RegisterRawInputDevices(
+            let result = RegisterRawInputDevices(
                 temp.as_mut_ptr(),
                 temp.len() as u32,
                 std::mem::size_of_val(&temp[0]) as u32,
@@ -115,7 +109,7 @@ pub fn register_raw_input_devices(raw_input_devices: &[SRawInputDevice]) -> Resu
                 return Ok(());
             }
             else {
-                let _err = winapi::um::errhandlingapi::GetLastError();
+                let _err = GetLastError();
                 return Err("failed to register input devices.");
             }
         }

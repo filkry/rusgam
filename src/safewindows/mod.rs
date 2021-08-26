@@ -2,16 +2,13 @@
 use std::{cmp, fmt, mem, ptr};
 use std::convert::TryFrom;
 
-use winapi::shared::basetsd::*;
-use winapi::shared::minwindef::*;
-use winapi::shared::ntdef;
-use winapi::shared::windef::*;
-use winapi::um::winnt::LONG;
-use winapi::um::winuser::*;
-use winapi::um::{errhandlingapi, libloaderapi, profileapi, synchapi, unknwnbase, winnt};
-use winapi::Interface;
-
-use wio::com::ComPtr;
+use windows;
+use winbindings::Windows::Win32;
+use winbindings::Windows::Win32::Foundation;
+use winbindings::Windows::Win32::System::Diagnostics::Debug::GetLastError;
+use winbindings::Windows::Win32::System::LibraryLoader::GetModuleHandleW;
+use winbindings::Windows::Win32::System::Performance;
+use winbindings::Windows::Win32::UI::WindowsAndMessaging;
 
 pub mod rawinput;
 
@@ -35,15 +32,15 @@ macro_rules! break_assert {
 
 // -- this is copied in safeD3D12, does it have to be?
 trait ComPtrPtrs<T> {
-    unsafe fn asunknownptr(&mut self) -> *mut unknwnbase::IUnknown;
+    unsafe fn asunknownptr(&mut self) -> *mut windows::IUnknown;
 }
 
 impl<T> ComPtrPtrs<T> for ComPtr<T>
 where
     T: Interface,
 {
-    unsafe fn asunknownptr(&mut self) -> *mut unknwnbase::IUnknown {
-        self.as_raw() as *mut unknwnbase::IUnknown
+    unsafe fn asunknownptr(&mut self) -> *mut windows::IUnknown {
+        self.as_raw() as *mut windows::IUnknown
     }
 }
 
@@ -53,7 +50,7 @@ pub struct SErr {
 
 pub unsafe fn getlasterror() -> SErr {
     SErr {
-        errcode: errhandlingapi::GetLastError(),
+        errcode: GetLastError(),
     }
 }
 
@@ -70,7 +67,7 @@ pub struct SWinAPI {
 
 pub fn initwinapi() -> Result<SWinAPI, SErr> {
     unsafe {
-        let hinstance = libloaderapi::GetModuleHandleW(ntdef::NULL as *const u16);
+        let hinstance = GetModuleHandleW(0);
         if !hinstance.is_null() {
             Ok(SWinAPI {
                 hinstance: hinstance,
@@ -90,8 +87,8 @@ pub struct SWindowClass<'windows> {
 impl<'windows> Drop for SWindowClass<'windows> {
     fn drop(&mut self) {
         unsafe {
-            winapi::um::winuser::UnregisterClassW(
-                self.windowclassname.as_ptr() as *const winnt::WCHAR,
+            WindowsAndMessaging::UnregisterClassW(
+                self.windowclassname,
                 self.winapi.hinstance,
             );
         }
@@ -113,38 +110,38 @@ unsafe extern "system" fn windowproctrampoline(
 }
 
 pub struct SEventHandle {
-    event: winnt::HANDLE,
+    event: Foundation::HANDLE,
 }
 
 impl SEventHandle {
-    pub unsafe fn raw(&self) -> winnt::HANDLE {
+    pub unsafe fn raw(&self) -> Foundation::HANDLE {
         self.event
     }
 
     pub fn waitforsingleobject(&self, duration: u64) {
-        unsafe { synchapi::WaitForSingleObject(self.raw(), duration as DWORD) };
+        unsafe { Win32::System::Threading::WaitForSingleObject(self.raw(), duration as DWORD) };
     }
 }
 
 impl SWinAPI {
     pub fn queryperformancecounter() -> i64 {
-        let mut result = mem::MaybeUninit::<winnt::LARGE_INTEGER>::zeroed();
-        let success = unsafe { profileapi::QueryPerformanceCounter(result.as_mut_ptr()) };
+        let mut result : i64 = 0;
+        let success = unsafe { Performance::QueryPerformanceCounter(&mut result) };
         if success == 0 {
             panic!("Can't query performance.");
         }
 
-        unsafe { *result.assume_init().QuadPart() }
+        result
     }
 
     pub unsafe fn queryperformancefrequencycounter() -> i64 {
-        let mut result = mem::MaybeUninit::<winnt::LARGE_INTEGER>::zeroed();
-        let success = profileapi::QueryPerformanceFrequency(result.as_mut_ptr());
+        let mut result : i64 = 0;
+        let success = Performance::QueryPerformanceFrequency(&mut result);
         if success == 0 {
             panic!("Can't query performance.");
         }
 
-        *result.assume_init().QuadPart()
+        result
     }
 
     pub fn registerclassex(&self, windowclassname: &'static str) -> Result<SWindowClass, SErr> {
@@ -156,12 +153,12 @@ impl SWinAPI {
                 cbClsExtra: 0,
                 cbWndExtra: 0,
                 hInstance: self.hinstance,
-                hIcon: LoadIconW(self.hinstance, ntdef::NULL as *const u16),
-                hCursor: LoadCursorW(ntdef::NULL as HINSTANCE, IDC_ARROW),
+                hIcon: LoadIconW(self.hinstance, 0),
+                hCursor: LoadCursorW(0, IDC_ARROW),
                 hbrBackground: (COLOR_WINDOW + 1) as HBRUSH,
-                lpszMenuName: ntdef::NULL as *const u16,
-                lpszClassName: windowclassname.as_ptr() as *const winnt::WCHAR,
-                hIconSm: ntdef::NULL as HICON,
+                lpszMenuName: 0 as *const u16,
+                lpszClassName: windowclassname,
+                hIconSm: 0 as HICON,
             };
 
             let atom = RegisterClassExW(&classdata);
@@ -178,9 +175,9 @@ impl SWinAPI {
     }
 
     pub fn createeventhandle(&self) -> Result<SEventHandle, &'static str> {
-        let event = unsafe { synchapi::CreateEventW(ptr::null_mut(), FALSE, FALSE, ptr::null()) };
+        let event = unsafe { Win32::System::Threading::CreateEventW(ptr::null_mut(), FALSE, FALSE, ptr::null()) };
 
-        if event == ntdef::NULL {
+        if event == ptr::null() {
             return Err("Couldn't create event.");
         }
 
@@ -188,11 +185,11 @@ impl SWinAPI {
     }
 
     pub fn get_cursor_pos(&self) -> [u32; 2] {
-        let mut point = winapi::shared::windef::POINT {
+        let mut point = Foundation::POINT {
             x: 0,
             y: 0,
         };
-        let success = unsafe { winapi::um::winuser::GetCursorPos(&mut point) };
+        let success = unsafe { WindowsAndMessaging::GetCursorPos(&mut point) };
         assert!(success != 0);
 
         [
@@ -210,7 +207,7 @@ pub struct SWindow {
 }
 
 pub struct SMSG {
-    msg: winapi::um::winuser::MSG,
+    msg: WindowsAndMessaging::MSG,
 }
 
 impl SWindow {
@@ -225,16 +222,16 @@ impl SWindow {
     pub fn beginpaint(&mut self) {
         unsafe {
             // -- $$$FRK(TODO): real paintstruct
-            let mut paintstruct = mem::MaybeUninit::<winapi::um::winuser::PAINTSTRUCT>::uninit();
-            winapi::um::winuser::BeginPaint(self.window, paintstruct.as_mut_ptr());
+            let mut paintstruct = mem::MaybeUninit::<Win32::Graphics::Gdi::PAINTSTRUCT>::uninit();
+            Win32::Graphics::Gdi::BeginPaint(self.window, paintstruct.as_mut_ptr());
         }
     }
 
     pub fn endpaint(&mut self) {
         unsafe {
             // -- $$$FRK(TODO): real paintstruct
-            let mut paintstruct = mem::MaybeUninit::<winapi::um::winuser::PAINTSTRUCT>::uninit();
-            winapi::um::winuser::EndPaint(self.window, paintstruct.as_mut_ptr());
+            let mut paintstruct = mem::MaybeUninit::<Win32::Graphics::Gdi::PAINTSTRUCT>::uninit();
+            Win32::Graphics::Gdi::EndPaint(self.window, paintstruct.as_mut_ptr());
         }
     }
 
@@ -278,15 +275,15 @@ impl SWindow {
                 self.registeruserdata();
             }
 
-            let mut raw_msg = mem::MaybeUninit::<winapi::um::winuser::MSG>::zeroed();
+            let mut raw_msg = mem::MaybeUninit::<WindowsAndMessaging::MSG>::zeroed();
 
             self.setwindowproc(windowproc);
-            let foundmessage = winapi::um::winuser::PeekMessageW(
+            let foundmessage = WindowsAndMessaging::PeekMessageW(
                 raw_msg.as_mut_ptr(),
                 self.window,
                 0,
                 0,
-                winapi::um::winuser::PM_REMOVE,
+                WindowsAndMessaging::PM_REMOVE,
             );
             self.clearwindowproc();
 
@@ -302,7 +299,7 @@ impl SWindow {
 
     pub fn translatemessage<'a>(&mut self, message: &mut SMSG) {
         unsafe {
-            winapi::um::winuser::TranslateMessage(&mut message.msg);
+            WindowsAndMessaging::TranslateMessage(&mut message.msg);
         }
     }
 
@@ -313,15 +310,15 @@ impl SWindow {
             }
 
             self.setwindowproc(windowproc);
-            winapi::um::winuser::DispatchMessageW(&mut message.msg);
+            WindowsAndMessaging::DispatchMessageW(&mut message.msg);
             self.clearwindowproc();
         }
     }
 
     pub fn getclientrect(&self) -> Result<SRect, &'static str> {
         unsafe {
-            let mut rect: RECT = mem::zeroed();
-            let res = winapi::um::winuser::GetClientRect(self.window, &mut rect as LPRECT);
+            let mut rect: Foundation::RECT = mem::zeroed();
+            let res = WindowsAndMessaging::GetClientRect(self.window, &mut rect as *mut Foundation::RECT);
             if res == 0 {
                 return Err("Could not get client rect.");
             }

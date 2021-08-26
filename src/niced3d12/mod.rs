@@ -26,9 +26,6 @@ use std::ops::Deref;
 use std::ptr;
 use std::rc::{Rc};
 
-use winapi::shared::minwindef::*;
-use winapi::um::d3d12sdklayers::*;
-
 pub use self::adapter::*;
 pub use self::commandallocator::*;
 pub use self::commandlist::*;

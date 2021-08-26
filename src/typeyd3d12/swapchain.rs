@@ -1,9 +1,6 @@
 use super::*;
 
 use bitflags::*;
-use winapi::shared::dxgitype::*;
-use winapi::shared::dxgi::*;
-
 use std::convert::From;
 
 pub struct SDXGISampleDesc {

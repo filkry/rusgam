@@ -1,8 +1,5 @@
 use super::*;
 
-use winapi::shared::ntdef;
-use winapi::um::dxgidebug::{IDXGIDebug};
-
 pub struct SDebugInterface {
     debuginterface: ComPtr<ID3D12Debug>,
 }

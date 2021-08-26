@@ -2,8 +2,16 @@
 	"folders":
 	[
 		{
-			"path": "../",
-            "folder_exclude_patterns": ["target", "shaders_built"]
+			"folder_exclude_patterns":
+			[
+				"target",
+				"shaders_built"
+			],
+			"path": "../"
 		}
-	]
+	],
+	"settings":
+	{
+		"rust_syntax_checking": false
+	}
 }

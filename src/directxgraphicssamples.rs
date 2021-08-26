@@ -28,35 +28,23 @@ SOFTWARE.
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 
+use std::ffi::c_void;
 use std::{mem, ptr};
 
-use winapi::ctypes::c_void;
-use winapi::shared::basetsd::{SIZE_T, UINT64};
-use winapi::shared::dxgi::*;
-use winapi::shared::dxgi1_2::*;
-use winapi::shared::dxgi1_3::*;
-use winapi::shared::dxgi1_4::*;
-use winapi::shared::dxgi1_5::*;
-use winapi::shared::dxgi1_6::*;
-use winapi::shared::minwindef::*;
-use winapi::shared::{dxgiformat, dxgitype, winerror};
-use winapi::um::d3d12::*;
-use winapi::um::d3d12sdklayers::*;
-use winapi::um::{d3dcommon, unknwnbase};
-use winapi::Interface;
+use winbindings::Windows::Win32::Graphics::Direct3D12::*;
 
 pub unsafe fn MemcpySubresource(
     dest: *const D3D12_MEMCPY_DEST,
     src: *const D3D12_SUBRESOURCE_DATA,
-    rowsizesinbytes: SIZE_T,
-    numrows: UINT,
-    numslices: UINT,
+    rowsizesinbytes: usize,
+    numrows: u32,
+    numslices: u32,
 ) {
     for z in 0isize..numslices as isize {
         let destoffset: isize = (*dest).SlicePitch as isize * z;
-        let destslice: *mut BYTE = ((*dest).pData as *mut BYTE).offset(destoffset);
+        let destslice: *mut u8 = ((*dest).pData as *mut u8).offset(destoffset);
         let srcoffset: isize = (*src).SlicePitch as isize * z;
-        let srcslice: *const BYTE = ((*src).pData as *const BYTE).offset(srcoffset);
+        let srcslice: *const u8 = ((*src).pData as *const u8).offset(srcoffset);
 
         for y in 0isize..numrows as isize {
             ptr::copy_nonoverlapping(
@@ -74,14 +62,14 @@ pub unsafe fn UpdateSubresources(
     cmdlist: *mut ID3D12GraphicsCommandList,
     destinationresource: *mut ID3D12Resource,
     intermediate: *mut ID3D12Resource,
-    firstsubresource: UINT,
-    numsubresources: UINT,
-    requiredsize: UINT64,
+    firstsubresource: u32,
+    numsubresources: u32,
+    requiredsize: u64,
     layouts: *const D3D12_PLACED_SUBRESOURCE_FOOTPRINT,
-    numrows: *const UINT,
-    rowsizesinbytes: *const UINT64,
+    numrows: *const u32,
+    rowsizesinbytes: *const u64,
     srcdata: *const D3D12_SUBRESOURCE_DATA,
-) -> UINT64 {
+) -> u64 {
     assert!(firstsubresource <= D3D12_REQ_SUBRESOURCES);
     assert!(numsubresources <= D3D12_REQ_SUBRESOURCES - firstsubresource);
 
@@ -96,7 +84,7 @@ pub unsafe fn UpdateSubresources(
         panic!("No Err here yet");
     }
 
-    let mut data: *mut BYTE = ptr::null_mut();
+    let mut data: *mut u8 = ptr::null_mut();
     let hr = (*intermediate).Map(0, ptr::null(), &mut data as *mut *mut _ as *mut *mut c_void);
     if winerror::FAILED(hr) {
         panic!("No Err here yet");
@@ -109,13 +97,13 @@ pub unsafe fn UpdateSubresources(
         let destdata = D3D12_MEMCPY_DEST {
             pData: data.offset(dataoffset) as *mut c_void,
             RowPitch: (*layout).Footprint.RowPitch as usize,
-            SlicePitch: (*layout).Footprint.RowPitch as SIZE_T
-                * *(numrows.offset(i as isize)) as SIZE_T,
+            SlicePitch: (*layout).Footprint.RowPitch as usize
+                * *(numrows.offset(i as isize)) as usize,
         };
         MemcpySubresource(
             &destdata,
             srcdata.offset(i as isize),
-            *(rowsizesinbytes.offset(i as isize)) as SIZE_T,
+            *(rowsizesinbytes.offset(i as isize)) as usize,
             *(numrows.offset(i as isize)),
             (*layout).Footprint.Depth,
         );
@@ -149,17 +137,17 @@ pub unsafe fn UpdateSubresourcesStack(
     cmdlist: *mut ID3D12GraphicsCommandList,
     destinationresource: *mut ID3D12Resource,
     intermediate: *mut ID3D12Resource,
-    intermediateoffset: UINT64,
-    firstsubresource: UINT,
-    numsubresources: UINT,
+    intermediateoffset: u64,
+    firstsubresource: u32,
+    numsubresources: u32,
     srcdata: *mut D3D12_SUBRESOURCE_DATA,
-) -> UINT64 {
+) -> u64 {
     assert!(numsubresources <= 10);
 
     let mut requiredsize: u64 = 0;
     let mut layouts: [D3D12_PLACED_SUBRESOURCE_FOOTPRINT; 10] = mem::zeroed();
-    let mut numrows: [UINT; 10] = [0; 10];
-    let mut rowsizesinbytes: [UINT64; 10] = [0; 10];
+    let mut numrows: [u32; 10] = [0; 10];
+    let mut rowsizesinbytes: [u64; 10] = [0; 10];
 
     let desc = (*destinationresource).GetDesc();
     let mut device: *mut ID3D12Device = ptr::null_mut();
@@ -215,7 +203,7 @@ impl CD3DX12_TEXTURE_COPY_LOCATION {
         result
     }
 
-    pub unsafe fn from_res_sub(res: *mut ID3D12Resource, sub: UINT) -> D3D12_TEXTURE_COPY_LOCATION {
+    pub unsafe fn from_res_sub(res: *mut ID3D12Resource, sub: u32) -> D3D12_TEXTURE_COPY_LOCATION {
         let mut result: D3D12_TEXTURE_COPY_LOCATION = mem::zeroed();
         result.pResource = res;
         result.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
@@ -227,8 +215,8 @@ impl CD3DX12_TEXTURE_COPY_LOCATION {
 
 pub unsafe fn get_required_intermediate_size(
     destination_resource: *mut ID3D12Resource,
-    first_subresource: UINT,
-    num_subresources: UINT,
+    first_subresource: u32,
+    num_subresources: u32,
 ) -> u64 {
     let desc = destination_resource.as_ref().unwrap().GetDesc();
     let mut required_size = 0;

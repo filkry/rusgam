@@ -333,12 +333,12 @@ impl SWindow {
     }
 
     pub fn screen_to_client(&self, point: &[u32; 2]) -> [i32; 2] {
-        let mut point = winapi::shared::windef::POINT {
+        let mut point = Foundation::POINT {
             x: point[0] as i32,
             y: point[1] as i32,
         };
 
-        let success = unsafe { winapi::um::winuser::ScreenToClient(self.window, &mut point) };
+        let success = unsafe { WindowsAndMessaging::ScreenToClient(self.window, &mut point) };
         assert!(success != 0);
 
         [point.x, point.y]
@@ -380,24 +380,21 @@ impl<'windows> SWindowClass<'windows> {
             let windowy = cmp::max(0, (screenheight - windowheight) / 2);
 
             //self.class as ntdef::LPCWSTR,
-            let windowclassnameparam = self.windowclassname.as_ptr() as ntdef::LPCWSTR;
-            let mut titleparam: Vec<u16> = title.encode_utf16().collect();
-            titleparam.push('\0' as u16);
             let hinstanceparam = self.winapi.hinstance;
 
-            let hwnd: HWND = CreateWindowExW(
+            let hwnd: Foundation::HWND = CreateWindowExW(
                 0,
-                windowclassnameparam,
-                titleparam.as_ptr(),
+                self.windowclassname,
+                title,
                 windowstyle,
                 windowx,
                 windowy,
                 windowwidth,
                 windowheight,
-                ntdef::NULL as HWND,
-                ntdef::NULL as HMENU,
+                0 as Foundation::HWND,
+                0 as WindowsAndMessaging::HMENU,
                 hinstanceparam,
-                ntdef::NULL,
+                ptr::null(),
             );
 
             if !hwnd.is_null() {

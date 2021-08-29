@@ -9,16 +9,16 @@ pub struct SDXGISampleDesc {
 }
 
 impl SDXGISampleDesc {
-    pub fn d3dtype(&self) -> DXGI_SAMPLE_DESC {
-        DXGI_SAMPLE_DESC {
+    pub fn d3dtype(&self) -> win::DXGI_SAMPLE_DESC {
+        win::DXGI_SAMPLE_DESC {
             Count: self.count,
             Quality: self.quality,
         }
     }
 }
 
-impl From<DXGI_SAMPLE_DESC> for SDXGISampleDesc {
-    fn from(desc: DXGI_SAMPLE_DESC) -> Self {
+impl From<win::DXGI_SAMPLE_DESC> for SDXGISampleDesc {
+    fn from(desc: win::DXGI_SAMPLE_DESC) -> Self {
         Self {
             count: desc.Count,
             quality: desc.Quality,
@@ -27,14 +27,14 @@ impl From<DXGI_SAMPLE_DESC> for SDXGISampleDesc {
 }
 
 bitflags! {
-    pub struct SDXGIUsageFlags: DXGI_USAGE {
-        const BACK_BUFFER = DXGI_USAGE_BACK_BUFFER;
-        const DISCARD_ON_PRESENT = DXGI_USAGE_DISCARD_ON_PRESENT;
-        const READ_ONLY = DXGI_USAGE_READ_ONLY;
-        const RENDER_TARGET_OUTPUT = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-        const SHADER_INPUT = DXGI_USAGE_SHADER_INPUT;
-        const SHARED = DXGI_USAGE_SHARED;
-        const UNORDERED_ACCESS = DXGI_USAGE_UNORDERED_ACCESS;
+    pub struct SDXGIUsageFlags: u32{
+        const BACK_BUFFER = win::DXGI_USAGE_BACK_BUFFER;
+        const DISCARD_ON_PRESENT = win::DXGI_USAGE_DISCARD_ON_PRESENT;
+        const READ_ONLY = win::DXGI_USAGE_READ_ONLY;
+        const RENDER_TARGET_OUTPUT = win::DXGI_USAGE_RENDER_TARGET_OUTPUT;
+        const SHADER_INPUT = win::DXGI_USAGE_SHADER_INPUT;
+        const SHARED = win::DXGI_USAGE_SHARED;
+        const UNORDERED_ACCESS = win::DXGI_USAGE_UNORDERED_ACCESS;
     }
 }
 
@@ -45,21 +45,21 @@ pub enum EDXGIScaling {
 }
 
 impl EDXGIScaling {
-    pub fn d3dtype(&self) -> DXGI_SCALING {
+    pub fn d3dtype(&self) -> win::DXGI_SCALING {
         match self {
-            Self::Stretch => DXGI_SCALING_STRETCH,
-            Self::None => DXGI_SCALING_NONE,
-            Self::AspectRatioStretch => DXGI_SCALING_ASPECT_RATIO_STRETCH,
+            Self::Stretch => win::DXGI_SCALING_STRETCH,
+            Self::None => win::DXGI_SCALING_NONE,
+            Self::AspectRatioStretch => win::DXGI_SCALING_ASPECT_RATIO_STRETCH,
         }
     }
 }
 
-impl From<DXGI_SCALING> for EDXGIScaling {
-    fn from(raw: DXGI_SCALING) -> Self {
+impl From<win::DXGI_SCALING> for EDXGIScaling {
+    fn from(raw: win::DXGI_SCALING) -> Self {
         match raw {
-            DXGI_SCALING_STRETCH => Self::Stretch,
-            DXGI_SCALING_NONE => Self::None,
-            DXGI_SCALING_ASPECT_RATIO_STRETCH => Self::AspectRatioStretch,
+            win::DXGI_SCALING_STRETCH => Self::Stretch,
+            win::DXGI_SCALING_NONE => Self::None,
+            win::DXGI_SCALING_ASPECT_RATIO_STRETCH => Self::AspectRatioStretch,
             _ => panic!("Bad data"),
         }
     }
@@ -73,23 +73,23 @@ pub enum EDXGISwapEffect {
 }
 
 impl EDXGISwapEffect {
-    pub fn d3dtype(&self) -> DXGI_SWAP_EFFECT {
+    pub fn d3dtype(&self) -> win::DXGI_SWAP_EFFECT {
         match self {
-            Self::Discard => DXGI_SWAP_EFFECT_DISCARD,
-            Self::Sequential => DXGI_SWAP_EFFECT_SEQUENTIAL,
-            Self::FlipSequential => DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL,
-            Self::FlipDiscard => DXGI_SWAP_EFFECT_FLIP_DISCARD,
+            Self::Discard => win::DXGI_SWAP_EFFECT_DISCARD,
+            Self::Sequential => win::DXGI_SWAP_EFFECT_SEQUENTIAL,
+            Self::FlipSequential => win::DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL,
+            Self::FlipDiscard => win::DXGI_SWAP_EFFECT_FLIP_DISCARD,
         }
     }
 }
 
-impl From<DXGI_SWAP_EFFECT> for EDXGISwapEffect {
-    fn from(effect: DXGI_SWAP_EFFECT) -> Self {
+impl From<win::DXGI_SWAP_EFFECT> for EDXGISwapEffect {
+    fn from(effect: win::DXGI_SWAP_EFFECT) -> Self {
         match effect {
-            DXGI_SWAP_EFFECT_DISCARD => Self::Discard,
-            DXGI_SWAP_EFFECT_SEQUENTIAL => Self::Sequential,
-            DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL => Self::FlipSequential,
-            DXGI_SWAP_EFFECT_FLIP_DISCARD => Self::FlipDiscard,
+            win::DXGI_SWAP_EFFECT_DISCARD => Self::Discard,
+            win::DXGI_SWAP_EFFECT_SEQUENTIAL => Self::Sequential,
+            win::DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL => Self::FlipSequential,
+            win::DXGI_SWAP_EFFECT_FLIP_DISCARD => Self::FlipDiscard,
             _ => panic!("Bad swap effect value"),
         }
     }
@@ -104,44 +104,44 @@ pub enum EDXGIAlphaMode {
 }
 
 impl EDXGIAlphaMode {
-    pub fn d3dtype(&self) -> DXGI_ALPHA_MODE {
+    pub fn d3dtype(&self) -> win::DXGI_ALPHA_MODE {
         match self {
-            Self::Unspecified => DXGI_ALPHA_MODE_UNSPECIFIED,
-            Self::Premultiplied => DXGI_ALPHA_MODE_PREMULTIPLIED,
-            Self::Straight => DXGI_ALPHA_MODE_STRAIGHT,
-            Self::Ignore => DXGI_ALPHA_MODE_IGNORE,
-            Self::ForceDWord => DXGI_ALPHA_MODE_FORCE_DWORD,
+            Self::Unspecified => win::DXGI_ALPHA_MODE_UNSPECIFIED,
+            Self::Premultiplied => win::DXGI_ALPHA_MODE_PREMULTIPLIED,
+            Self::Straight => win::DXGI_ALPHA_MODE_STRAIGHT,
+            Self::Ignore => win::DXGI_ALPHA_MODE_IGNORE,
+            Self::ForceDWord => win::DXGI_ALPHA_MODE_FORCE_DWORD,
         }
     }
 }
 
-impl From<DXGI_ALPHA_MODE> for EDXGIAlphaMode {
-    fn from(mode: DXGI_ALPHA_MODE) -> Self {
+impl From<win::DXGI_ALPHA_MODE> for EDXGIAlphaMode {
+    fn from(mode: win::DXGI_ALPHA_MODE) -> Self {
         match mode {
-            DXGI_ALPHA_MODE_UNSPECIFIED => Self::Unspecified,
-            DXGI_ALPHA_MODE_PREMULTIPLIED => Self::Premultiplied,
-            DXGI_ALPHA_MODE_STRAIGHT => Self::Straight,
-            DXGI_ALPHA_MODE_IGNORE => Self::Ignore,
-            DXGI_ALPHA_MODE_FORCE_DWORD => Self::ForceDWord,
+            win::DXGI_ALPHA_MODE_UNSPECIFIED => Self::Unspecified,
+            win::DXGI_ALPHA_MODE_PREMULTIPLIED => Self::Premultiplied,
+            win::DXGI_ALPHA_MODE_STRAIGHT => Self::Straight,
+            win::DXGI_ALPHA_MODE_IGNORE => Self::Ignore,
+            win::DXGI_ALPHA_MODE_FORCE_DWORD => Self::ForceDWord,
             _ => panic!("Bad alpha mode"),
         }
     }
 }
 
 bitflags! {
-    pub struct SDXGISwapChainFlags: DXGI_SWAP_CHAIN_FLAG {
-        const NONPREROTATED = DXGI_SWAP_CHAIN_FLAG_NONPREROTATED;
-        const ALLOW_MODE_SWITCH = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
-        const GDI_COMPATIBLE = DXGI_SWAP_CHAIN_FLAG_GDI_COMPATIBLE;
-        const RESTRICTED_CONTENT = DXGI_SWAP_CHAIN_FLAG_RESTRICTED_CONTENT;
-        const RESTRICT_SHARED_RESOURCE_DRIVER = DXGI_SWAP_CHAIN_FLAG_RESTRICT_SHARED_RESOURCE_DRIVER;
-        const DISPLAY_ONLY = DXGI_SWAP_CHAIN_FLAG_DISPLAY_ONLY;
-        const FRAME_LATENCY_WAITABLE_OBJECT = DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT;
-        const FOREGROUND_LAYER = DXGI_SWAP_CHAIN_FLAG_FOREGROUND_LAYER;
-        const FULLSCREEN_VIDEO = DXGI_SWAP_CHAIN_FLAG_FULLSCREEN_VIDEO;
-        const YUV_VIDEO = DXGI_SWAP_CHAIN_FLAG_YUV_VIDEO;
-        const HW_PROTECTED = DXGI_SWAP_CHAIN_FLAG_HW_PROTECTED;
-        const ALLOW_TEARING = DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
+    pub struct SDXGISwapChainFlags: win::DXGI_SWAP_CHAIN_FLAG {
+        const NONPREROTATED = win::DXGI_SWAP_CHAIN_FLAG_NONPREROTATED;
+        const ALLOW_MODE_SWITCH = win::DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
+        const GDI_COMPATIBLE = win::DXGI_SWAP_CHAIN_FLAG_GDI_COMPATIBLE;
+        const RESTRICTED_CONTENT = win::DXGI_SWAP_CHAIN_FLAG_RESTRICTED_CONTENT;
+        const RESTRICT_SHARED_RESOURCE_DRIVER = win::DXGI_SWAP_CHAIN_FLAG_RESTRICT_SHARED_RESOURCE_DRIVER;
+        const DISPLAY_ONLY = win::DXGI_SWAP_CHAIN_FLAG_DISPLAY_ONLY;
+        const FRAME_LATENCY_WAITABLE_OBJECT = win::DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT;
+        const FOREGROUND_LAYER = win::DXGI_SWAP_CHAIN_FLAG_FOREGROUND_LAYER;
+        const FULLSCREEN_VIDEO = win::DXGI_SWAP_CHAIN_FLAG_FULLSCREEN_VIDEO;
+        const YUV_VIDEO = win::DXGI_SWAP_CHAIN_FLAG_YUV_VIDEO;
+        const HW_PROTECTED = win::DXGI_SWAP_CHAIN_FLAG_HW_PROTECTED;
+        const ALLOW_TEARING = win::DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
         //const RESTRICTED_TO_ALL_HOLOGRAPHIC_DISPLAYS = DXGI_SWAP_CHAIN_FLAG_RESTRICTED_TO_ALL_HOLOGRAPHIC_DISPLAY;
     }
 }
@@ -161,12 +161,12 @@ pub struct SSwapChainDesc {
 }
 
 impl SSwapChainDesc {
-    pub fn d3dtype(&self) -> DXGI_SWAP_CHAIN_DESC1 {
-        DXGI_SWAP_CHAIN_DESC1 {
+    pub fn d3dtype(&self) -> win::DXGI_SWAP_CHAIN_DESC1 {
+        win::DXGI_SWAP_CHAIN_DESC1 {
             Width: self.width,
             Height: self.height,
             Format: EDXGIFormat::R8G8B8A8UNorm.d3dtype(), // $$$FRK(TODO): I have no idea why I'm picking this format
-            Stereo: if self.stereo { TRUE } else { FALSE },
+            Stereo: if self.stereo { true } else { false },
             SampleDesc: self.sample_desc.d3dtype(),
             BufferUsage: self.buffer_usage.bits(),
             BufferCount: self.buffer_count,
@@ -178,13 +178,13 @@ impl SSwapChainDesc {
     }
 }
 
-impl From<DXGI_SWAP_CHAIN_DESC1> for SSwapChainDesc {
-    fn from(desc: DXGI_SWAP_CHAIN_DESC1) -> Self {
+impl From<win::DXGI_SWAP_CHAIN_DESC1> for SSwapChainDesc {
+    fn from(desc: win::DXGI_SWAP_CHAIN_DESC1) -> Self {
         Self {
             width: desc.Width,
             height: desc.Height,
             format: EDXGIFormat::from(desc.Format),
-            stereo: if desc.Stereo == TRUE { true } else { false },
+            stereo: if desc.Stereo { true } else { false },
             sample_desc: SDXGISampleDesc::from(desc.SampleDesc),
             buffer_usage: SDXGIUsageFlags::from_bits(desc.BufferUsage).unwrap(),
             buffer_count: desc.BufferCount,
@@ -198,11 +198,11 @@ impl From<DXGI_SWAP_CHAIN_DESC1> for SSwapChainDesc {
 
 #[derive(Clone)]
 pub struct SSwapChain {
-    swapchain: ComPtr<IDXGISwapChain4>,
+    swapchain: win::IDXGISwapChain4,
 }
 
 impl SSwapChain {
-    pub unsafe fn new_from_raw(raw: ComPtr<IDXGISwapChain4>) -> Self {
+    pub unsafe fn new_from_raw(raw: win::IDXGISwapChain4) -> Self {
         Self { swapchain: raw }
     }
 
@@ -217,12 +217,9 @@ impl SSwapChain {
     }
 
     pub fn getbuffer(&self, idx: usize) -> Result<SResource, &'static str> {
-        let mut rawbuf: *mut ID3D12Resource = ptr::null_mut();
         let hn = unsafe {
-            self.swapchain.GetBuffer(
+            self.swapchain.GetBuffer::<win::ID3D12Resource>(
                 idx as u32,
-                &ID3D12Resource::uuidof(),
-                &mut rawbuf as *mut *mut _ as *mut *mut c_void,
             )
         };
 
@@ -231,12 +228,12 @@ impl SSwapChain {
             "Couldn't get ID3D12Resource for backbuffer from swapchain."
         );
 
-        Ok(unsafe { SResource::new_from_raw(ComPtr::from_raw(rawbuf)) })
+        Ok(unsafe { SResource::new_from_raw(hn.expect("checked err above")) })
     }
 
     pub fn getdesc(&self) -> Result<SSwapChainDesc, &'static str> {
         unsafe {
-            let mut desc: DXGI_SWAP_CHAIN_DESC1 = mem::zeroed();
+            let mut desc: win::DXGI_SWAP_CHAIN_DESC1 = mem::zeroed();
             let hr = self.swapchain.GetDesc1(&mut desc as *mut _);
             returnerrifwinerror!(hr, "Couldn't get swap chain desc.");
             Ok(SSwapChainDesc::from(desc))

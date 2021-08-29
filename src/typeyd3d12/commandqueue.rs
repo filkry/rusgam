@@ -3,7 +3,7 @@ use arrayvec::{ArrayVec};
 use super::*;
 
 pub struct SCommandQueueDesc {
-    raw: D3D12_COMMAND_QUEUE_DESC,
+    raw: win::D3D12_COMMAND_QUEUE_DESC,
 }
 
 impl SCommandQueueDesc {
@@ -14,15 +14,15 @@ impl SCommandQueueDesc {
 
 #[derive(Clone)]
 pub struct SCommandQueue {
-    queue: ComPtr<ID3D12CommandQueue>,
+    queue: win::ID3D12CommandQueue,
 }
 
 impl SCommandQueue {
-    pub unsafe fn new_from_raw(raw: ComPtr<ID3D12CommandQueue>) -> Self {
+    pub unsafe fn new_from_raw(raw: win::ID3D12CommandQueue) -> Self {
         Self { queue: raw }
     }
 
-    pub unsafe fn raw(&self) -> &ComPtr<ID3D12CommandQueue> {
+    pub unsafe fn raw(&self) -> &win::ID3D12CommandQueue {
         &self.queue
     }
 
@@ -42,9 +42,9 @@ impl SCommandQueue {
 
     // -- $$$FRK(TODO): support listS
     pub unsafe fn execute_command_lists(&self, lists: &[&mut SCommandList]) {
-        let mut raw_lists = ArrayVec::<[*mut ID3D12CommandList; 12]>::new();
+        let mut raw_lists = ArrayVec::<[*mut win::ID3D12CommandList; 12]>::new();
         for list in lists {
-            raw_lists.push(list.raw().as_raw() as *mut ID3D12CommandList);
+            raw_lists.push(list.raw().as_raw() as *mut win::ID3D12CommandList);
         }
 
         self.queue

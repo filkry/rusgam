@@ -2,15 +2,15 @@ use super::*;
 
 #[derive(Clone)]
 pub struct SFence {
-    fence: ComPtr<ID3D12Fence>,
+    fence: win::ID3D12Fence,
 }
 
 impl SFence {
-    pub unsafe fn new_from_raw(raw: ComPtr<ID3D12Fence>) -> Self {
+    pub unsafe fn new_from_raw(raw: win::ID3D12Fence) -> Self {
         Self { fence: raw }
     }
 
-    pub unsafe fn raw(&self) -> &ComPtr<ID3D12Fence> {
+    pub unsafe fn raw(&self) -> &win::ID3D12Fence {
         &self.fence
     }
 

@@ -27,34 +27,34 @@ pub enum ECompile {
 }
 
 impl TEnumFlags32 for ECompile {
-    type TRawType = DWORD;
+    type TRawType = u32;
 
     fn rawtype(&self) -> Self::TRawType {
         match self {
-            ECompile::Debug => d3dcompiler::D3DCOMPILE_DEBUG,
-            ECompile::SkipValidation => d3dcompiler::D3DCOMPILE_SKIP_VALIDATION,
-            ECompile::SkipOptimization => d3dcompiler::D3DCOMPILE_SKIP_OPTIMIZATION,
-            ECompile::PackMatrixRowMajor => d3dcompiler::D3DCOMPILE_PACK_MATRIX_ROW_MAJOR,
-            ECompile::PackMatrixColumnMajor => d3dcompiler::D3DCOMPILE_PACK_MATRIX_COLUMN_MAJOR,
-            ECompile::PartialPrecision => d3dcompiler::D3DCOMPILE_PARTIAL_PRECISION,
-            ECompile::ForceVsSoftwareNoOpt => d3dcompiler::D3DCOMPILE_FORCE_VS_SOFTWARE_NO_OPT,
-            ECompile::ForcePsSoftwareNoOpt => d3dcompiler::D3DCOMPILE_FORCE_PS_SOFTWARE_NO_OPT,
-            ECompile::NoPreshader => d3dcompiler::D3DCOMPILE_NO_PRESHADER,
-            ECompile::AvoidFlowControl => d3dcompiler::D3DCOMPILE_AVOID_FLOW_CONTROL,
-            ECompile::PreferFlowControl => d3dcompiler::D3DCOMPILE_PREFER_FLOW_CONTROL,
-            ECompile::EnableStrictness => d3dcompiler::D3DCOMPILE_ENABLE_STRICTNESS,
+            ECompile::Debug => win::D3DCOMPILE_DEBUG,
+            ECompile::SkipValidation => win::D3DCOMPILE_SKIP_VALIDATION,
+            ECompile::SkipOptimization => win::D3DCOMPILE_SKIP_OPTIMIZATION,
+            ECompile::PackMatrixRowMajor => win::D3DCOMPILE_PACK_MATRIX_ROW_MAJOR,
+            ECompile::PackMatrixColumnMajor => win::D3DCOMPILE_PACK_MATRIX_COLUMN_MAJOR,
+            ECompile::PartialPrecision => win::D3DCOMPILE_PARTIAL_PRECISION,
+            ECompile::ForceVsSoftwareNoOpt => win::D3DCOMPILE_FORCE_VS_SOFTWARE_NO_OPT,
+            ECompile::ForcePsSoftwareNoOpt => win::D3DCOMPILE_FORCE_PS_SOFTWARE_NO_OPT,
+            ECompile::NoPreshader => win::D3DCOMPILE_NO_PRESHADER,
+            ECompile::AvoidFlowControl => win::D3DCOMPILE_AVOID_FLOW_CONTROL,
+            ECompile::PreferFlowControl => win::D3DCOMPILE_PREFER_FLOW_CONTROL,
+            ECompile::EnableStrictness => win::D3DCOMPILE_ENABLE_STRICTNESS,
             ECompile::EnableBackwardsCompatibility => {
-                d3dcompiler::D3DCOMPILE_ENABLE_BACKWARDS_COMPATIBILITY
+                win::D3DCOMPILE_ENABLE_BACKWARDS_COMPATIBILITY
             }
-            ECompile::IEEEStrictness => d3dcompiler::D3DCOMPILE_IEEE_STRICTNESS,
-            ECompile::OptimizationLevel0 => d3dcompiler::D3DCOMPILE_OPTIMIZATION_LEVEL0,
-            ECompile::OptimizationLevel1 => d3dcompiler::D3DCOMPILE_OPTIMIZATION_LEVEL1,
-            ECompile::OptimizationLevel2 => d3dcompiler::D3DCOMPILE_OPTIMIZATION_LEVEL2,
-            ECompile::OptimizationLevel3 => d3dcompiler::D3DCOMPILE_OPTIMIZATION_LEVEL3,
-            ECompile::WarningsAreErrors => d3dcompiler::D3DCOMPILE_WARNINGS_ARE_ERRORS,
-            ECompile::ResourcesMayAlias => d3dcompiler::D3DCOMPILE_RESOURCES_MAY_ALIAS,
+            ECompile::IEEEStrictness => win::D3DCOMPILE_IEEE_STRICTNESS,
+            ECompile::OptimizationLevel0 => win::D3DCOMPILE_OPTIMIZATION_LEVEL0,
+            ECompile::OptimizationLevel1 => win::D3DCOMPILE_OPTIMIZATION_LEVEL1,
+            ECompile::OptimizationLevel2 => win::D3DCOMPILE_OPTIMIZATION_LEVEL2,
+            ECompile::OptimizationLevel3 => win::D3DCOMPILE_OPTIMIZATION_LEVEL3,
+            ECompile::WarningsAreErrors => win::D3DCOMPILE_WARNINGS_ARE_ERRORS,
+            ECompile::ResourcesMayAlias => win::D3DCOMPILE_RESOURCES_MAY_ALIAS,
             //ECompile::EnableUnboundedDescriptorTables => d3dcompiler::D3DCOMPILE_ENABLE_UNBOUND_DESCRIPTOR_TABLES,
-            ECompile::AllResourcesBound => d3dcompiler::D3DCOMPILE_ALL_RESOURCES_BOUND,
+            ECompile::AllResourcesBound => win::D3DCOMPILE_ALL_RESOURCES_BOUND,
         }
     }
 }
@@ -71,14 +71,14 @@ pub enum EShaderVisibility {
 }
 
 impl EShaderVisibility {
-    pub fn d3dtype(&self) -> D3D12_SHADER_VISIBILITY {
+    pub fn d3dtype(&self) -> win::D3D12_SHADER_VISIBILITY {
         match self {
-            Self::All => D3D12_SHADER_VISIBILITY_ALL,
-            Self::Vertex => D3D12_SHADER_VISIBILITY_VERTEX,
-            Self::Hull => D3D12_SHADER_VISIBILITY_HULL,
-            Self::Domain => D3D12_SHADER_VISIBILITY_DOMAIN,
-            Self::Geometry => D3D12_SHADER_VISIBILITY_GEOMETRY,
-            Self::Pixel => D3D12_SHADER_VISIBILITY_PIXEL,
+            Self::All => win::D3D12_SHADER_VISIBILITY_ALL,
+            Self::Vertex => win::D3D12_SHADER_VISIBILITY_VERTEX,
+            Self::Hull => win::D3D12_SHADER_VISIBILITY_HULL,
+            Self::Domain => win::D3D12_SHADER_VISIBILITY_DOMAIN,
+            Self::Geometry => win::D3D12_SHADER_VISIBILITY_GEOMETRY,
+            Self::Pixel => win::D3D12_SHADER_VISIBILITY_PIXEL,
         }
     }
 }
@@ -92,11 +92,11 @@ impl SShaderBytecode {
         Self { bytecode: blob }
     }
 
-    pub unsafe fn d3dtype(&self) -> D3D12_SHADER_BYTECODE {
+    pub unsafe fn d3dtype(&self) -> win::D3D12_SHADER_BYTECODE {
         let ptr = self.bytecode.raw.GetBufferPointer();
         let len = self.bytecode.raw.GetBufferSize();
 
-        D3D12_SHADER_BYTECODE {
+        win::D3D12_SHADER_BYTECODE {
             pShaderBytecode: ptr,
             BytecodeLength: len,
         }
@@ -113,26 +113,17 @@ pub fn d3dcompilefromfile(
     target: &str,
     flags1: SCompile,
 ) -> Result<SBlob, &'static str> {
-    // -- $$$FRK(FUTURE WORK): allocations :(
-    let mut fileparam: Vec<u16> = file.encode_utf16().collect();
-    fileparam.push('\0' as u16);
 
-    let mut entrypointparam: Vec<char> = entrypoint.chars().collect();
-    entrypointparam.push('\0');
-
-    let mut targetparam: Vec<char> = target.chars().collect();
-    targetparam.push('\0');
-
-    let mut rawcodeblob: *mut d3dcommon::ID3DBlob = ptr::null_mut();
-    let mut errormsgsblob: *mut d3dcommon::ID3DBlob = ptr::null_mut();
+    let mut rawcodeblob: Option<win::ID3DBlob> = None;
+    let mut errormsgsblob: Option<win::ID3DBlob> = None;
 
     let hr = unsafe {
-        d3dcompiler::D3DCompileFromFile(
-            fileparam.as_ptr(),
+        win::D3DCompileFromFile(
+            file,
             ptr::null_mut(),
             ptr::null_mut(),
-            entrypointparam.as_ptr() as *const i8,
-            targetparam.as_ptr() as *const i8,
+            entrypoint,
+            target,
             flags1.rawtype(),
             0,
             &mut rawcodeblob,
@@ -144,21 +135,16 @@ pub fn d3dcompilefromfile(
     // -- $$$FRK(TODO): use error messages blob
 
     Ok(SBlob {
-        raw: unsafe { ComPtr::from_raw(rawcodeblob) },
+        raw: rawcodeblob.expect("checked err above"),
     })
 }
 
 pub fn read_file_to_blob(file: &str) -> Result<SBlob, &'static str> {
-    let mut fileparam: Vec<u16> = file.encode_utf16().collect();
-    fileparam.push('\0' as u16);
-
-    let mut resultblob: *mut d3dcommon::ID3DBlob = ptr::null_mut();
-
-    let hr = unsafe { d3dcompiler::D3DReadFileToBlob(fileparam.as_ptr(), &mut resultblob) };
+    let hr = unsafe { win::D3DReadFileToBlob(file) };
 
     returnerrifwinerror!(hr, "failed to load shader");
 
     Ok(SBlob {
-        raw: unsafe { ComPtr::from_raw(resultblob) },
+        raw: hr.expect("checked err above"),
     })
 }

@@ -2,14 +2,14 @@ use super::*;
 
 #[derive(Clone)]
 pub struct SDevice {
-    device: ID3D12Device2,
+    device: win::ID3D12Device2,
 }
 
-pub fn d3d12createdevice(adapter: &SAdapter) -> Result<SDevice, &'static str> {
+pub fn d3d12createdevice(adapter: &SAdapter4) -> Result<SDevice, &'static str> {
     let hn = unsafe {
-        D3D12CreateDevice::<ID3D12Device2>(
+        win::D3D12CreateDevice::<win::ID3D12Device2>(
             adapter.adapter, //self.adapter.asunknownptr(),
-            Win32::Graphics::Direct3D11::D3D_FEATURE_LEVEL_11_0,
+            win::D3D_FEATURE_LEVEL_11_0,
         )
     };
     returnerrifwinerror!(hn, "Could not create device on adapter.");
@@ -20,7 +20,7 @@ pub fn d3d12createdevice(adapter: &SAdapter) -> Result<SDevice, &'static str> {
 
 impl SDevice {
     pub fn castinfoqueue(&self) -> Option<SInfoQueue> {
-        match self.device.cast::<ID3D12InfoQueue>() {
+        match self.device.cast::<win::ID3D12InfoQueue>() {
             Ok(a) => {
                 return Some(unsafe { SInfoQueue::new_from_raw(a) });
             }
@@ -35,15 +35,15 @@ impl SDevice {
         type_: ECommandListType,
     ) -> Result<SCommandQueue, &'static str> {
         // -- $$$FRK(FUTURE WORK): pass priority, flags, nodemask
-        let desc = Direct3D12::D3D12_COMMAND_QUEUE_DESC {
+        let desc = win::D3D12_COMMAND_QUEUE_DESC {
             Type: type_.d3dtype(),
-            Priority: Direct3D12::D3D12_COMMAND_QUEUE_PRIORITY_NORMAL,
+            Priority: win::D3D12_COMMAND_QUEUE_PRIORITY_NORMAL,
             Flags: 0,
             NodeMask: 0,
         };
 
         let hr = unsafe {
-            self.device.CreateCommandQueue::<ID3D12CommandQueue>(
+            self.device.CreateCommandQueue::<win::ID3D12CommandQueue>(
                 &desc,
             )
         };
@@ -60,7 +60,7 @@ impl SDevice {
         let d3ddesc = desc.d3dtype();
 
         let hr = unsafe {
-            self.device.CreateDescriptorHeap::<ID3D12DescriptorHeap>(
+            self.device.CreateDescriptorHeap::<win::ID3D12DescriptorHeap>(
                 &d3ddesc,
             )
         };
@@ -160,7 +160,7 @@ impl SDevice {
             let d3dcv = clear_value.map(|cv| cv.d3dtype());
             let d3dcv_ptr = d3dcv.as_ref().map_or(ptr::null(), |cv| cv);
 
-            let hn = self.device.CreateCommittedResource::<ID3D12Resource>(
+            let hn = self.device.CreateCommittedResource::<win::ID3D12Resource>(
                 heapproperties.raw(),
                 heapflags.rawtype(),
                 resourcedesc.raw(),
@@ -178,7 +178,7 @@ impl SDevice {
         type_: ECommandListType,
     ) -> Result<SCommandAllocator, &'static str> {
         let hn = unsafe {
-            self.device.CreateCommandAllocator::<ID3D12CommandAllocator>(
+            self.device.CreateCommandAllocator::<win::ID3D12CommandAllocator>(
                 type_.d3dtype(),
             )
         };
@@ -192,9 +192,9 @@ impl SDevice {
         &self,
         allocator: &SCommandAllocator,
     ) -> Result<SCommandList, &'static str> {
-        let mut rawcl: *mut ID3D12GraphicsCommandList = ptr::null_mut();
+        let mut rawcl: *mut win::ID3D12GraphicsCommandList = ptr::null_mut();
         let hn = unsafe {
-            self.device.CreateCommandList::<ID3D12GraphicsCommandList>(
+            self.device.CreateCommandList::<win::ID3D12GraphicsCommandList>(
                 0,
                 allocator.type_().d3dtype(),
                 allocator.raw().as_raw(),
@@ -210,9 +210,9 @@ impl SDevice {
     pub fn createfence(&self) -> Result<SFence, &'static str> {
         let hn = unsafe {
             // -- $$$FRK(TODO): support parameters
-            self.device.CreateFence::<ID3D12Fence>(
+            self.device.CreateFence::<win::ID3D12Fence>(
                 0,
-                D3D12_FENCE_FLAG_NONE,
+                win::D3D12_FENCE_FLAG_NONE,
             )
         };
 
@@ -227,7 +227,7 @@ impl SDevice {
         blob_with_root_signature: &SBlob,
     ) -> Result<SRootSignature, &'static str> {
         let hr = unsafe {
-            self.device.CreateRootSignature::<ID3D12RootSignature>(
+            self.device.CreateRootSignature::<win::ID3D12RootSignature>(
                 0,
                 blob_with_root_signature.raw.GetBufferPointer(),
                 blob_with_root_signature.raw.GetBufferSize(),
@@ -243,10 +243,10 @@ impl SDevice {
 
     pub fn create_pipeline_state_for_raw_desc(
         &self,
-        desc: &D3D12_PIPELINE_STATE_STREAM_DESC,
+        desc: &win::D3D12_PIPELINE_STATE_STREAM_DESC,
     ) -> Result<SPipelineState, &'static str> {
         let hr = unsafe {
-            self.device.CreatePipelineState::<ID3D12PipelineState>(
+            self.device.CreatePipelineState::<win::ID3D12PipelineState>(
                 desc,
             )
         };
@@ -285,10 +285,9 @@ impl SDevice {
             src_descriptor_range_sizes.len()
         );
         assert_eq!(
-            size_of::<D3D12_CPU_DESCRIPTOR_HANDLE>(),
+            size_of::<win::D3D12_CPU_DESCRIPTOR_HANDLE>(),
             size_of::<SCPUDescriptorHandle>()
         );
-        assert_eq!(size_of::<UINT>(), size_of::<u32>());
 
         // -- Note: SCPUDescriptorHandle is repr(C) and just holds a D3D12_CPU_HANDLE...
 
@@ -296,11 +295,11 @@ impl SDevice {
 
         unsafe {
             self.device.CopyDescriptors(
-                dest_descriptor_range_sizes.len() as UINT,
-                dest_starts_ptr as *const D3D12_CPU_DESCRIPTOR_HANDLE,
+                dest_descriptor_range_sizes.len(),
+                dest_starts_ptr as *const win::D3D12_CPU_DESCRIPTOR_HANDLE,
                 dest_descriptor_range_sizes.as_ptr(),
-                src_descriptor_range_sizes.len() as UINT,
-                src_descriptor_range_starts.as_ptr() as *const D3D12_CPU_DESCRIPTOR_HANDLE,
+                src_descriptor_range_sizes.len(),
+                src_descriptor_range_starts.as_ptr() as *const win::D3D12_CPU_DESCRIPTOR_HANDLE,
                 src_descriptor_range_sizes.as_ptr(),
                 type_.d3dtype(),
             );

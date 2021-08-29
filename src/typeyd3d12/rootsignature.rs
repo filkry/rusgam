@@ -18,26 +18,26 @@ impl TEnumFlags32 for ERootSignatureFlags {
 
     fn rawtype(&self) -> Self::TRawType {
         match self {
-            Self::ENone => D3D12_ROOT_SIGNATURE_FLAG_NONE,
+            Self::ENone => win::D3D12_ROOT_SIGNATURE_FLAG_NONE,
             Self::AllowInputAssemblerInputLayout => {
-                D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT
+                win::D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT
             }
             Self::DenyVertexShaderRootAccess => {
-                D3D12_ROOT_SIGNATURE_FLAG_DENY_VERTEX_SHADER_ROOT_ACCESS
+                win::D3D12_ROOT_SIGNATURE_FLAG_DENY_VERTEX_SHADER_ROOT_ACCESS
             }
             Self::DenyHullShaderRootAccess => {
-                D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS
+                win::D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS
             }
             Self::DenyDomainShaderRootAccess => {
-                D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS
+                win::D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS
             }
             Self::DenyGeometryShaderRootAccess => {
-                D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS
+                win::D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS
             }
             Self::DenyPixelShaderRootAccess => {
-                D3D12_ROOT_SIGNATURE_FLAG_DENY_PIXEL_SHADER_ROOT_ACCESS
+                win::D3D12_ROOT_SIGNATURE_FLAG_DENY_PIXEL_SHADER_ROOT_ACCESS
             }
-            Self::AllowStreamOutput => D3D12_ROOT_SIGNATURE_FLAG_ALLOW_STREAM_OUTPUT,
+            Self::AllowStreamOutput => win::D3D12_ROOT_SIGNATURE_FLAG_ALLOW_STREAM_OUTPUT,
             //Self::LocalRootSignature => D3D12_ROOT_SIGNATURE_FLAG_LOCAL_ROOT_SIGNATURE
         }
     }
@@ -46,7 +46,7 @@ impl TEnumFlags32 for ERootSignatureFlags {
 pub type SRootSignatureFlags = SEnumFlags32<ERootSignatureFlags>;
 
 pub struct SRootSignature {
-    pub raw: ComPtr<ID3D12RootSignature>,
+    pub raw: win::ID3D12RootSignature,
 }
 
 // -- $$$FRK(TODO): This struct should take references to slices for parameters/static_samplers,
@@ -57,8 +57,8 @@ pub struct SRootSignatureDesc {
     pub flags: SRootSignatureFlags,
 
     // -- for d3dtype()
-    d3d_parameters: Vec<D3D12_ROOT_PARAMETER>,
-    d3d_static_samplers: Vec<D3D12_STATIC_SAMPLER_DESC>,
+    d3d_parameters: Vec<win::D3D12_ROOT_PARAMETER>,
+    d3d_static_samplers: Vec<win::D3D12_STATIC_SAMPLER_DESC>,
 }
 
 impl SRootSignatureDesc {
@@ -72,7 +72,7 @@ impl SRootSignatureDesc {
         }
     }
 
-    pub unsafe fn d3dtype(&mut self) -> D3D12_ROOT_SIGNATURE_DESC {
+    pub unsafe fn d3dtype(&mut self) -> win::D3D12_ROOT_SIGNATURE_DESC {
         self.d3d_parameters.clear();
         for parameter in &mut self.parameters {
             self.d3d_parameters.push(parameter.d3dtype());
@@ -83,7 +83,7 @@ impl SRootSignatureDesc {
             self.d3d_static_samplers.push(sampler.d3dtype());
         }
 
-        D3D12_ROOT_SIGNATURE_DESC {
+        win::D3D12_ROOT_SIGNATURE_DESC {
             NumParameters: self.parameters.len() as u32,
             pParameters: self.d3d_parameters.as_ptr(),
             NumStaticSamplers: self.static_samplers.len() as u32,
@@ -100,11 +100,11 @@ pub enum ERootSignatureVersion {
 }
 
 impl ERootSignatureVersion {
-    pub fn d3dtype(&self) -> D3D_ROOT_SIGNATURE_VERSION {
+    pub fn d3dtype(&self) -> win::D3D_ROOT_SIGNATURE_VERSION {
         match self {
-            Self::V1 => D3D_ROOT_SIGNATURE_VERSION_1,
-            Self::V1_0 => D3D_ROOT_SIGNATURE_VERSION_1_0,
-            Self::V1_1 => D3D_ROOT_SIGNATURE_VERSION_1_1,
+            Self::V1 => win::D3D_ROOT_SIGNATURE_VERSION_1,
+            Self::V1_0 => win::D3D_ROOT_SIGNATURE_VERSION_1_0,
+            Self::V1_1 => win::D3D_ROOT_SIGNATURE_VERSION_1_1,
         }
     }
 }
@@ -113,13 +113,13 @@ pub fn serialize_root_signature(
     root_signature: &mut SRootSignatureDesc,
     version: ERootSignatureVersion,
 ) -> Result<SBlob, SBlob> {
-    let mut raw_result_blob: *mut d3dcommon::ID3DBlob = ptr::null_mut();
-    let mut raw_err_blob: *mut d3dcommon::ID3DBlob = ptr::null_mut();
+    let mut raw_result_blob: Option<win::ID3DBlob> = None;
+    let mut raw_err_blob: Option<win::ID3DBlob> = None;
 
     let d3d_signature = unsafe { root_signature.d3dtype() };
 
     let hr = unsafe {
-        D3D12SerializeRootSignature(
+        win::D3D12SerializeRootSignature(
             &d3d_signature,
             version.d3dtype(),
             &mut raw_result_blob,
@@ -127,14 +127,9 @@ pub fn serialize_root_signature(
         )
     };
 
-    if winerror::SUCCEEDED(hr) {
-        Ok(SBlob {
-            raw: unsafe { ComPtr::from_raw(raw_result_blob) },
-        })
-    } else {
-        Err(SBlob {
-            raw: unsafe { ComPtr::from_raw(raw_err_blob) },
-        })
+    match hr {
+        Ok(_) => Ok(SBlob { raw: raw_result_blob.expect("") }),
+        Err(_) => Err(SBlob { raw: raw_err_blob.expect("") }),
     }
 }
 
@@ -145,8 +140,8 @@ pub struct SRootConstants {
 }
 
 impl SRootConstants {
-    pub fn d3dtype(&self) -> D3D12_ROOT_CONSTANTS {
-        D3D12_ROOT_CONSTANTS {
+    pub fn d3dtype(&self) -> win::D3D12_ROOT_CONSTANTS {
+        win::D3D12_ROOT_CONSTANTS {
             ShaderRegister: self.shader_register,
             RegisterSpace: self.register_space,
             Num32BitValues: self.num_32_bit_values,
@@ -158,7 +153,7 @@ pub struct SRootDescriptorTable {
     pub descriptor_ranges: ArrayVec<[SDescriptorRange; 16]>,
 
     // -- for d3dtype()
-    d3d_descriptor_ranges: ArrayVec<[D3D12_DESCRIPTOR_RANGE; 16]>,
+    d3d_descriptor_ranges: ArrayVec<[win::D3D12_DESCRIPTOR_RANGE; 16]>,
 }
 
 impl SRootDescriptorTable {
@@ -169,13 +164,13 @@ impl SRootDescriptorTable {
         }
     }
 
-    pub unsafe fn d3dtype(&mut self) -> D3D12_ROOT_DESCRIPTOR_TABLE {
+    pub unsafe fn d3dtype(&mut self) -> win::D3D12_ROOT_DESCRIPTOR_TABLE {
         self.d3d_descriptor_ranges.clear();
         for dr in &self.descriptor_ranges {
             self.d3d_descriptor_ranges.push(dr.d3dtype());
         }
 
-        D3D12_ROOT_DESCRIPTOR_TABLE {
+        win::D3D12_ROOT_DESCRIPTOR_TABLE {
             NumDescriptorRanges: self.d3d_descriptor_ranges.len() as u32,
             pDescriptorRanges: self.d3d_descriptor_ranges.as_ptr(),
         }
@@ -188,8 +183,8 @@ pub struct SRootDescriptor {
 }
 
 impl SRootDescriptor {
-    pub fn d3dtype(&self) -> D3D12_ROOT_DESCRIPTOR {
-        D3D12_ROOT_DESCRIPTOR {
+    pub fn d3dtype(&self) -> win::D3D12_ROOT_DESCRIPTOR {
+        win::D3D12_ROOT_DESCRIPTOR {
             ShaderRegister: self.shader_register,
             RegisterSpace: self.register_space,
         }
@@ -205,13 +200,13 @@ pub enum ERootParameterType {
 }
 
 impl ERootParameterType {
-    pub fn d3dtype(&self) -> D3D12_ROOT_PARAMETER_TYPE {
+    pub fn d3dtype(&self) -> win::D3D12_ROOT_PARAMETER_TYPE {
         match self {
-            Self::DescriptorTable(..) => D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
-            Self::E32BitConstants(..) => D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS,
-            Self::CBV(..) => D3D12_ROOT_PARAMETER_TYPE_CBV,
-            Self::SRV(..) => D3D12_ROOT_PARAMETER_TYPE_SRV,
-            Self::UAV(..) => D3D12_ROOT_PARAMETER_TYPE_UAV,
+            Self::DescriptorTable(..) => win::D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
+            Self::E32BitConstants(..) => win::D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS,
+            Self::CBV(..) => win::D3D12_ROOT_PARAMETER_TYPE_CBV,
+            Self::SRV(..) => win::D3D12_ROOT_PARAMETER_TYPE_SRV,
+            Self::UAV(..) => win::D3D12_ROOT_PARAMETER_TYPE_UAV,
         }
     }
 }
@@ -222,9 +217,9 @@ pub struct SRootParameter {
 }
 
 impl SRootParameter {
-    pub fn d3dtype(&mut self) -> D3D12_ROOT_PARAMETER {
+    pub fn d3dtype(&mut self) -> win::D3D12_ROOT_PARAMETER {
         unsafe {
-            let mut result = mem::MaybeUninit::<D3D12_ROOT_PARAMETER>::zeroed();
+            let mut result = mem::MaybeUninit::<win::D3D12_ROOT_PARAMETER>::zeroed();
             (*result.as_mut_ptr()).ParameterType = self.type_.d3dtype();
             match &mut self.type_ {
                 ERootParameterType::E32BitConstants ( constants ) => {

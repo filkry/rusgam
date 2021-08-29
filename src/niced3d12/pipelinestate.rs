@@ -5,8 +5,8 @@ use std::mem::{size_of};
 
 #[repr(C)]
 pub struct SPipelineStateStreamRootSignature<'a> {
-    type_: Direct3D12::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE,
-    value: &'a Direct3D12::ID3D12RootSignature,
+    type_: win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE,
+    value: &'a win::ID3D12RootSignature,
 }
 
 impl<'a> SPipelineStateStreamRootSignature<'a> {
@@ -21,8 +21,8 @@ impl<'a> SPipelineStateStreamRootSignature<'a> {
 
 #[repr(C)]
 pub struct SPipelineStateStreamVertexShader<'a> {
-    type_: Direct3D12::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE,
-    value: Direct3D12::D3D12_SHADER_BYTECODE,
+    type_: win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE,
+    value: win::D3D12_SHADER_BYTECODE,
     phantom: PhantomData<&'a t12::SShaderBytecode>,
 }
 
@@ -40,8 +40,8 @@ impl<'a> SPipelineStateStreamVertexShader<'a> {
 
 #[repr(C)]
 pub struct SPipelineStateStreamPixelShader<'a> {
-    type_: Direct3D12::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE,
-    value: Direct3D12::D3D12_SHADER_BYTECODE,
+    type_: win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE,
+    value: win::D3D12_SHADER_BYTECODE,
     phantom: PhantomData<&'a t12::SShaderBytecode>,
 }
 
@@ -59,8 +59,8 @@ impl<'a> SPipelineStateStreamPixelShader<'a> {
 
 #[repr(C)]
 pub struct SPipelineStateStreamComputeShader<'a> {
-    type_: Direct3D12::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE,
-    value: Direct3D12::D3D12_SHADER_BYTECODE,
+    type_: win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE,
+    value: win::D3D12_SHADER_BYTECODE,
     phantom: PhantomData<&'a t12::SShaderBytecode>,
 }
 
@@ -78,8 +78,8 @@ impl<'a> SPipelineStateStreamComputeShader<'a> {
 
 #[repr(C, align(8))]
 pub struct SPipelineStateStreamBlendDesc {
-    type_: Direct3D12::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE,
-    value: Direct3D12::D3D12_BLEND_DESC,
+    type_: win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE,
+    value: win::D3D12_BLEND_DESC,
 }
 
 impl SPipelineStateStreamBlendDesc {
@@ -95,8 +95,8 @@ impl SPipelineStateStreamBlendDesc {
 
 #[repr(C)]
 pub struct SPipelineStateStreamInputLayout<'a> {
-    type_: Direct3D12::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE,
-    value: Direct3D12::D3D12_INPUT_LAYOUT_DESC,
+    type_: win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE,
+    value: win::D3D12_INPUT_LAYOUT_DESC,
     phantom: PhantomData<&'a t12::SInputLayoutDesc>,
 }
 
@@ -113,8 +113,8 @@ impl<'a> SPipelineStateStreamInputLayout<'a> {
 
 #[repr(C)]
 pub struct SPipelineStateStreamPrimitiveTopology {
-    type_: Direct3D12::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE,
-    value: Direct3D12::D3D12_PRIMITIVE_TOPOLOGY_TYPE,
+    type_: win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE,
+    value: win::D3D12_PRIMITIVE_TOPOLOGY_TYPE,
 }
 
 impl SPipelineStateStreamPrimitiveTopology {
@@ -129,8 +129,8 @@ impl SPipelineStateStreamPrimitiveTopology {
 
 #[repr(C)]
 pub struct SPipelineStateStreamRTVFormats<'a> {
-    type_: Direct3D12::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE,
-    value: Direct3D12::D3D12_RT_FORMAT_ARRAY,
+    type_: win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE,
+    value: win::D3D12_RT_FORMAT_ARRAY,
     phantom: PhantomData<&'a t12::SRTFormatArray>,
 }
 
@@ -147,8 +147,8 @@ impl<'a> SPipelineStateStreamRTVFormats<'a> {
 
 #[repr(C)]
 pub struct SPipelineStateStreamDepthStencilDesc {
-    type_: Direct3D12::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE,
-    value: Direct3D12::D3D12_DEPTH_STENCIL_DESC,
+    type_: win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE,
+    value: win::D3D12_DEPTH_STENCIL_DESC,
 }
 
 impl SPipelineStateStreamDepthStencilDesc {
@@ -163,8 +163,8 @@ impl SPipelineStateStreamDepthStencilDesc {
 
 #[repr(C)]
 pub struct SPipelineStateStreamDepthStencilFormat {
-    type_: Direct3D12::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE,
-    value: Dxgi::DXGI_FORMAT,
+    type_: win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE,
+    value: win::DXGI_FORMAT,
 }
 
 impl SPipelineStateStreamDepthStencilFormat {

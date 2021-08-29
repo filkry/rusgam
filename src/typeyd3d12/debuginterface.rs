@@ -1,13 +1,13 @@
 use super::*;
 
 pub struct SDebugInterface {
-    debuginterface: ComPtr<ID3D12Debug>,
+    debuginterface: win::ID3D12Debug,
 }
 
 impl SDebugInterface {
     pub fn new() -> Result<Self, &'static str> {
         unsafe {
-            match D3D12GetDebugInterface::<ID3D12Debug>() {
+            match win::D3D12GetDebugInterface::<win::ID3D12Debug>() {
                 Ok(di) => Ok(SDebugInterface {
                     debuginterface: di,
                 }),
@@ -24,13 +24,13 @@ impl SDebugInterface {
 }
 
 pub struct SDXGIDebugInterface {
-    debuginterface: IDXGIDebug,
+    debuginterface: win::IDXGIDebug,
 }
 
 impl SDXGIDebugInterface {
     pub fn new() -> Result<Self, &'static str> {
         unsafe {
-            let res = Win32::Graphics::Dxgi::DXGIGetDebugInterface1::<IDXGIDebug>(0);
+            let res = win::DXGIGetDebugInterface1::<win::IDXGIDebug>(0);
             match res {
                 Ok(di) => Ok(Self {
                     debuginterface: di,
@@ -87,8 +87,8 @@ impl SDXGIDebugInterface {
         // -- $$$FRK(FUTURE WORK): support parameters?
         unsafe {
             self.debuginterface.ReportLiveObjects(
-                Win32::Graphics::Dxgi::DXGI_DEBUG_ALL,
-                Win32::Graphics::Dxgi::DXGI_DEBUG_RLO_ALL,
+                win::DXGI_DEBUG_ALL,
+                win::DXGI_DEBUG_RLO_ALL,
             );
         }
     }

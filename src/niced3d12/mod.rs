@@ -26,6 +26,8 @@ use std::ops::Deref;
 use std::ptr;
 use std::rc::{Rc};
 
+use win;
+
 pub use self::adapter::*;
 pub use self::commandallocator::*;
 pub use self::commandlist::*;

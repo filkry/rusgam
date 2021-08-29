@@ -40,64 +40,64 @@ pub enum EFilter {
 }
 
 impl EFilter {
-    pub fn d3dtype(&self) -> D3D12_FILTER {
+    pub fn d3dtype(&self) -> win::D3D12_FILTER {
         match self {
-            Self::MinMagMipPoint => D3D12_FILTER_MIN_MAG_MIP_POINT,
-            Self::MinMagPointMipLinear => D3D12_FILTER_MIN_MAG_POINT_MIP_LINEAR,
-            Self::MinPointMagLinearMipPoint => D3D12_FILTER_MIN_POINT_MAG_LINEAR_MIP_POINT,
-            Self::MinPointMagMipLinear => D3D12_FILTER_MIN_POINT_MAG_MIP_LINEAR,
-            Self::MinLinearMagMipPoint => D3D12_FILTER_MIN_LINEAR_MAG_MIP_POINT,
-            Self::MinLinearMagPointMipLinear => D3D12_FILTER_MIN_LINEAR_MAG_POINT_MIP_LINEAR,
-            Self::MinMagLinearMipPoint => D3D12_FILTER_MIN_MAG_LINEAR_MIP_POINT,
-            Self::MinMagMipLinear => D3D12_FILTER_MIN_MAG_MIP_LINEAR,
-            Self::Anisotropic => D3D12_FILTER_ANISOTROPIC,
-            Self::ComparisonMinMagMipPoint => D3D12_FILTER_COMPARISON_MIN_MAG_MIP_POINT,
+            Self::MinMagMipPoint => win::D3D12_FILTER_MIN_MAG_MIP_POINT,
+            Self::MinMagPointMipLinear => win::D3D12_FILTER_MIN_MAG_POINT_MIP_LINEAR,
+            Self::MinPointMagLinearMipPoint => win::D3D12_FILTER_MIN_POINT_MAG_LINEAR_MIP_POINT,
+            Self::MinPointMagMipLinear => win::D3D12_FILTER_MIN_POINT_MAG_MIP_LINEAR,
+            Self::MinLinearMagMipPoint => win::D3D12_FILTER_MIN_LINEAR_MAG_MIP_POINT,
+            Self::MinLinearMagPointMipLinear => win::D3D12_FILTER_MIN_LINEAR_MAG_POINT_MIP_LINEAR,
+            Self::MinMagLinearMipPoint => win::D3D12_FILTER_MIN_MAG_LINEAR_MIP_POINT,
+            Self::MinMagMipLinear => win::D3D12_FILTER_MIN_MAG_MIP_LINEAR,
+            Self::Anisotropic => win::D3D12_FILTER_ANISOTROPIC,
+            Self::ComparisonMinMagMipPoint => win::D3D12_FILTER_COMPARISON_MIN_MAG_MIP_POINT,
             Self::ComparisonMinMagPointMipLinear => {
-                D3D12_FILTER_COMPARISON_MIN_MAG_POINT_MIP_LINEAR
+                win::D3D12_FILTER_COMPARISON_MIN_MAG_POINT_MIP_LINEAR
             }
             Self::ComparisonMinPointMagLinearMipPoint => {
-                D3D12_FILTER_COMPARISON_MIN_POINT_MAG_LINEAR_MIP_POINT
+                win::D3D12_FILTER_COMPARISON_MIN_POINT_MAG_LINEAR_MIP_POINT
             }
             Self::ComparisonMinPointMagMipLinear => {
-                D3D12_FILTER_COMPARISON_MIN_POINT_MAG_MIP_LINEAR
+                win::D3D12_FILTER_COMPARISON_MIN_POINT_MAG_MIP_LINEAR
             }
             Self::ComparisonMinLinearMagMipPoint => {
-                D3D12_FILTER_COMPARISON_MIN_LINEAR_MAG_MIP_POINT
+                win::D3D12_FILTER_COMPARISON_MIN_LINEAR_MAG_MIP_POINT
             }
             Self::ComparisonMinLinearMagPointMipLinear => {
-                D3D12_FILTER_COMPARISON_MIN_LINEAR_MAG_POINT_MIP_LINEAR
+                win::D3D12_FILTER_COMPARISON_MIN_LINEAR_MAG_POINT_MIP_LINEAR
             }
             Self::ComparisonMinMagLinearMipPoint => {
-                D3D12_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT
+                win::D3D12_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT
             }
-            Self::ComparisonMinMagMipLinear => D3D12_FILTER_COMPARISON_MIN_MAG_MIP_LINEAR,
-            Self::ComparisonAnisotropic => D3D12_FILTER_COMPARISON_ANISOTROPIC,
-            Self::MinimumMinMagMipPoint => D3D12_FILTER_MINIMUM_MIN_MAG_MIP_POINT,
-            Self::MinimumMinMagPointMipLinear => D3D12_FILTER_MINIMUM_MIN_MAG_POINT_MIP_LINEAR,
+            Self::ComparisonMinMagMipLinear => win::D3D12_FILTER_COMPARISON_MIN_MAG_MIP_LINEAR,
+            Self::ComparisonAnisotropic => win::D3D12_FILTER_COMPARISON_ANISOTROPIC,
+            Self::MinimumMinMagMipPoint => win::D3D12_FILTER_MINIMUM_MIN_MAG_MIP_POINT,
+            Self::MinimumMinMagPointMipLinear => win::D3D12_FILTER_MINIMUM_MIN_MAG_POINT_MIP_LINEAR,
             Self::MinimumMinPointMagLinearMipPoint => {
-                D3D12_FILTER_MINIMUM_MIN_POINT_MAG_LINEAR_MIP_POINT
+                win::D3D12_FILTER_MINIMUM_MIN_POINT_MAG_LINEAR_MIP_POINT
             }
-            Self::MinimumMinPointMagMipLinear => D3D12_FILTER_MINIMUM_MIN_POINT_MAG_MIP_LINEAR,
-            Self::MinimumMinLinearMagMipPoint => D3D12_FILTER_MINIMUM_MIN_LINEAR_MAG_MIP_POINT,
+            Self::MinimumMinPointMagMipLinear => win::D3D12_FILTER_MINIMUM_MIN_POINT_MAG_MIP_LINEAR,
+            Self::MinimumMinLinearMagMipPoint => win::D3D12_FILTER_MINIMUM_MIN_LINEAR_MAG_MIP_POINT,
             Self::MinimumMinLinearMagPointMipLinear => {
-                D3D12_FILTER_MINIMUM_MIN_LINEAR_MAG_POINT_MIP_LINEAR
+                win::D3D12_FILTER_MINIMUM_MIN_LINEAR_MAG_POINT_MIP_LINEAR
             }
-            Self::MinimumMinMagLinearMipPoint => D3D12_FILTER_MINIMUM_MIN_MAG_LINEAR_MIP_POINT,
-            Self::MinimumMinMagMipLinear => D3D12_FILTER_MINIMUM_MIN_MAG_MIP_LINEAR,
-            Self::MinimumAnisotropic => D3D12_FILTER_MINIMUM_ANISOTROPIC,
-            Self::MaximumMinMagMipPoint => D3D12_FILTER_MAXIMUM_MIN_MAG_MIP_POINT,
-            Self::MaximumMinMagPointMipLinear => D3D12_FILTER_MAXIMUM_MIN_MAG_POINT_MIP_LINEAR,
+            Self::MinimumMinMagLinearMipPoint => win::D3D12_FILTER_MINIMUM_MIN_MAG_LINEAR_MIP_POINT,
+            Self::MinimumMinMagMipLinear => win::D3D12_FILTER_MINIMUM_MIN_MAG_MIP_LINEAR,
+            Self::MinimumAnisotropic => win::D3D12_FILTER_MINIMUM_ANISOTROPIC,
+            Self::MaximumMinMagMipPoint => win::D3D12_FILTER_MAXIMUM_MIN_MAG_MIP_POINT,
+            Self::MaximumMinMagPointMipLinear => win::D3D12_FILTER_MAXIMUM_MIN_MAG_POINT_MIP_LINEAR,
             Self::MaximumMinPointMagLinearMipPoint => {
-                D3D12_FILTER_MAXIMUM_MIN_POINT_MAG_LINEAR_MIP_POINT
+                win::D3D12_FILTER_MAXIMUM_MIN_POINT_MAG_LINEAR_MIP_POINT
             }
-            Self::MaximumMinPointMagMipLinear => D3D12_FILTER_MAXIMUM_MIN_POINT_MAG_MIP_LINEAR,
-            Self::MaximumMinLinearMagMipPoint => D3D12_FILTER_MAXIMUM_MIN_LINEAR_MAG_MIP_POINT,
+            Self::MaximumMinPointMagMipLinear => win::D3D12_FILTER_MAXIMUM_MIN_POINT_MAG_MIP_LINEAR,
+            Self::MaximumMinLinearMagMipPoint => win::D3D12_FILTER_MAXIMUM_MIN_LINEAR_MAG_MIP_POINT,
             Self::MaximumMinLinearMagPointMipLinear => {
-                D3D12_FILTER_MAXIMUM_MIN_LINEAR_MAG_POINT_MIP_LINEAR
+                win::D3D12_FILTER_MAXIMUM_MIN_LINEAR_MAG_POINT_MIP_LINEAR
             }
-            Self::MaximumMinMagLinearMipPoint => D3D12_FILTER_MAXIMUM_MIN_MAG_LINEAR_MIP_POINT,
-            Self::MaximumMinMagMipLinear => D3D12_FILTER_MAXIMUM_MIN_MAG_MIP_LINEAR,
-            Self::MaximumAnisotropic => D3D12_FILTER_MAXIMUM_ANISOTROPIC,
+            Self::MaximumMinMagLinearMipPoint => win::D3D12_FILTER_MAXIMUM_MIN_MAG_LINEAR_MIP_POINT,
+            Self::MaximumMinMagMipLinear => win::D3D12_FILTER_MAXIMUM_MIN_MAG_MIP_LINEAR,
+            Self::MaximumAnisotropic => win::D3D12_FILTER_MAXIMUM_ANISOTROPIC,
         }
     }
 }
@@ -111,13 +111,13 @@ pub enum ETextureAddressMode {
 }
 
 impl ETextureAddressMode {
-    pub fn d3dtype(&self) -> D3D12_TEXTURE_ADDRESS_MODE {
+    pub fn d3dtype(&self) -> win::D3D12_TEXTURE_ADDRESS_MODE {
         match self {
-            Self::Wrap => D3D12_TEXTURE_ADDRESS_MODE_WRAP,
-            Self::Mirror => D3D12_TEXTURE_ADDRESS_MODE_MIRROR,
-            Self::Clamp => D3D12_TEXTURE_ADDRESS_MODE_CLAMP,
-            Self::Border => D3D12_TEXTURE_ADDRESS_MODE_BORDER,
-            Self::MirrorOnce => D3D12_TEXTURE_ADDRESS_MODE_MIRROR_ONCE,
+            Self::Wrap => win::D3D12_TEXTURE_ADDRESS_MODE_WRAP,
+            Self::Mirror => win::D3D12_TEXTURE_ADDRESS_MODE_MIRROR,
+            Self::Clamp => win::D3D12_TEXTURE_ADDRESS_MODE_CLAMP,
+            Self::Border => win::D3D12_TEXTURE_ADDRESS_MODE_BORDER,
+            Self::MirrorOnce => win::D3D12_TEXTURE_ADDRESS_MODE_MIRROR_ONCE,
         }
     }
 }
@@ -129,11 +129,11 @@ pub enum EStaticBorderColor {
 }
 
 impl EStaticBorderColor {
-    pub fn d3dtype(&self) -> D3D12_STATIC_BORDER_COLOR {
+    pub fn d3dtype(&self) -> win::D3D12_STATIC_BORDER_COLOR {
         match self {
-            Self::TransparentBlack => D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK,
-            Self::OpaqueBlack => D3D12_STATIC_BORDER_COLOR_OPAQUE_BLACK,
-            Self::OpaqueWhite => D3D12_STATIC_BORDER_COLOR_OPAQUE_WHITE,
+            Self::TransparentBlack => win::D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK,
+            Self::OpaqueBlack => win::D3D12_STATIC_BORDER_COLOR_OPAQUE_BLACK,
+            Self::OpaqueWhite => win::D3D12_STATIC_BORDER_COLOR_OPAQUE_WHITE,
         }
     }
 }
@@ -155,8 +155,8 @@ pub struct SStaticSamplerDesc {
 }
 
 impl SStaticSamplerDesc {
-    pub fn d3dtype(&self) -> D3D12_STATIC_SAMPLER_DESC {
-        D3D12_STATIC_SAMPLER_DESC {
+    pub fn d3dtype(&self) -> win::D3D12_STATIC_SAMPLER_DESC {
+        win::D3D12_STATIC_SAMPLER_DESC {
             Filter: self.filter.d3dtype(),
             AddressU: self.address_u.d3dtype(),
             AddressV: self.address_v.d3dtype(),

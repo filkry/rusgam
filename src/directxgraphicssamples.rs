@@ -70,15 +70,15 @@ pub unsafe fn UpdateSubresources(
     rowsizesinbytes: *const u64,
     srcdata: *const win::D3D12_SUBRESOURCE_DATA,
 ) -> u64 {
-    assert!(firstsubresource <= D3D12_REQ_SUBRESOURCES);
-    assert!(numsubresources <= D3D12_REQ_SUBRESOURCES - firstsubresource);
+    assert!(firstsubresource <= win::D3D12_REQ_SUBRESOURCES);
+    assert!(numsubresources <= win::D3D12_REQ_SUBRESOURCES - firstsubresource);
 
     // Minor validation
     let intermediatedesc = (*intermediate).GetDesc();
     let destinationdesc = (*destinationresource).GetDesc();
-    let cond1 = intermediatedesc.Dimension != D3D12_RESOURCE_DIMENSION_BUFFER;
+    let cond1 = intermediatedesc.Dimension != win::D3D12_RESOURCE_DIMENSION_BUFFER;
     let cond2 = intermediatedesc.Width < (requiredsize + (*layouts.offset(0)).Offset);
-    let cond3 = destinationdesc.Dimension == D3D12_RESOURCE_DIMENSION_BUFFER
+    let cond3 = destinationdesc.Dimension == win::D3D12_RESOURCE_DIMENSION_BUFFER
         && (firstsubresource != 0 || numsubresources != 1);
     if cond1 || cond2 || cond3 {
         panic!("No Err here yet");
@@ -121,11 +121,11 @@ pub unsafe fn UpdateSubresources(
     } else {
         for i in 0..numsubresources {
             let layout = layouts.offset(i as isize);
-            let mut dst = win::CD3DX12_TEXTURE_COPY_LOCATION::from_res_sub(
+            let mut dst = CD3DX12_TEXTURE_COPY_LOCATION::from_res_sub(
                 destinationresource,
                 i + firstsubresource,
             );
-            let mut src = win::CD3DX12_TEXTURE_COPY_LOCATION::from_res_footprint(intermediate, *layout);
+            let mut src = CD3DX12_TEXTURE_COPY_LOCATION::from_res_footprint(intermediate, *layout);
             (*cmdlist).CopyTextureRegion(&mut dst, 0, 0, 0, &mut src, ptr::null());
         }
     }
@@ -184,7 +184,7 @@ pub unsafe fn UpdateSubresourcesStack(
 pub struct CD3DX12_TEXTURE_COPY_LOCATION {}
 
 impl CD3DX12_TEXTURE_COPY_LOCATION {
-    pub unsafe fn from_res(res: *mut ID3D12Resource) -> D3D12_TEXTURE_COPY_LOCATION {
+    pub unsafe fn from_res(res: *mut win::ID3D12Resource) -> win::D3D12_TEXTURE_COPY_LOCATION {
         win::D3D12_TEXTURE_COPY_LOCATION {
             pResource: res,
             Type: win::D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,

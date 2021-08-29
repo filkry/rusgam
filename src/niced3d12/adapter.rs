@@ -15,16 +15,16 @@ impl SAdapter {
         if d3d_debug {
             match device.castinfoqueue() {
                 Some(infoqueue) => {
-                    infoqueue.set_break_on_severity(Direct3D12::D3D12_MESSAGE_SEVERITY_CORRUPTION, true);
-                    infoqueue.set_break_on_severity(Direct3D12::D3D12_MESSAGE_SEVERITY_ERROR, true);
-                    infoqueue.set_break_on_severity(Direct3D12::D3D12_MESSAGE_SEVERITY_WARNING, true);
+                    infoqueue.set_break_on_severity(win::D3D12_MESSAGE_SEVERITY_CORRUPTION, true);
+                    infoqueue.set_break_on_severity(win::D3D12_MESSAGE_SEVERITY_ERROR, true);
+                    infoqueue.set_break_on_severity(win::D3D12_MESSAGE_SEVERITY_WARNING, true);
 
-                    let mut suppressedseverities = [Direct3D12::D3D12_MESSAGE_SEVERITY_INFO];
+                    let mut suppressedseverities = [win::D3D12_MESSAGE_SEVERITY_INFO];
 
                     let mut suppressedmessages =
-                        [Direct3D12::D3D12_MESSAGE_ID_CLEARRENDERTARGETVIEW_MISMATCHINGCLEARVALUE];
+                        [win::D3D12_MESSAGE_ID_CLEARRENDERTARGETVIEW_MISMATCHINGCLEARVALUE];
 
-                    let allowlist = Direct3D12::D3D12_INFO_QUEUE_FILTER_DESC {
+                    let allowlist = win::D3D12_INFO_QUEUE_FILTER_DESC {
                         NumCategories: 0,
                         pCategoryList: ptr::null_mut(),
                         NumSeverities: 0,
@@ -33,7 +33,7 @@ impl SAdapter {
                         pIDList: ptr::null_mut(),
                     };
 
-                    let denylist = Direct3D12::D3D12_INFO_QUEUE_FILTER_DESC {
+                    let denylist = win::D3D12_INFO_QUEUE_FILTER_DESC {
                         NumCategories: 0,
                         pCategoryList: ptr::null_mut(),
                         NumSeverities: suppressedseverities.len() as u32,
@@ -42,7 +42,7 @@ impl SAdapter {
                         pIDList: &mut suppressedmessages[0] as *mut u32,
                     };
 
-                    let mut filter = Direct3D12::D3D12_INFO_QUEUE_FILTER {
+                    let mut filter = win::D3D12_INFO_QUEUE_FILTER {
                         AllowList: allowlist,
                         DenyList: denylist,
                     };

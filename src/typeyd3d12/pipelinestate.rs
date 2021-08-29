@@ -7,10 +7,10 @@ pub enum EInputClassification {
 }
 
 impl EInputClassification {
-    pub fn d3dtype(&self) -> D3D12_INPUT_CLASSIFICATION {
+    pub fn d3dtype(&self) -> win::D3D12_INPUT_CLASSIFICATION {
         match self {
-            Self::PerVertexData => D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
-            Self::PerInstanceData => D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA,
+            Self::PerVertexData => win::D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
+            Self::PerInstanceData => win::D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA,
         }
     }
 }
@@ -60,8 +60,8 @@ impl SInputElementDesc {
         result
     }
 
-    pub unsafe fn d3dtype(&self) -> D3D12_INPUT_ELEMENT_DESC {
-        D3D12_INPUT_ELEMENT_DESC {
+    pub unsafe fn d3dtype(&self) -> win::D3D12_INPUT_ELEMENT_DESC {
+        win::D3D12_INPUT_ELEMENT_DESC {
             //SemanticName: self.semantic_name_utf16.as_ptr(),
             SemanticName: self.semantic_name_null_terminated.as_ptr(),
             SemanticIndex: self.semantic_index,
@@ -75,15 +75,15 @@ impl SInputElementDesc {
 }
 
 pub struct SPipelineState {
-    raw: ComPtr<ID3D12PipelineState>,
+    raw: win::ID3D12PipelineState,
 }
 
 impl SPipelineState {
-    pub unsafe fn new_from_raw(raw: ComPtr<ID3D12PipelineState>) -> Self {
+    pub unsafe fn new_from_raw(raw: win::ID3D12PipelineState) -> Self {
         Self { raw: raw }
     }
 
-    pub unsafe fn raw(&self) -> &ComPtr<ID3D12PipelineState> {
+    pub unsafe fn raw(&self) -> &win::ID3D12PipelineState {
         &self.raw
     }
 }
@@ -91,7 +91,7 @@ impl SPipelineState {
 pub struct SInputLayoutDesc {
     pub input_element_descs: ArrayVec<[SInputElementDesc; 16]>,
 
-    pub d3d_input_element_descs: ArrayVec<[D3D12_INPUT_ELEMENT_DESC; 16]>,
+    pub d3d_input_element_descs: ArrayVec<[win::D3D12_INPUT_ELEMENT_DESC; 16]>,
 }
 
 impl SInputLayoutDesc {
@@ -104,12 +104,12 @@ impl SInputLayoutDesc {
         }
     }
 
-    pub unsafe fn d3dtype(&mut self) -> D3D12_INPUT_LAYOUT_DESC {
+    pub unsafe fn d3dtype(&mut self) -> win::D3D12_INPUT_LAYOUT_DESC {
         // -- $$$FRK(NOTE): the generate data here is no longer valid if this moves!!!
         // -- it contains internal references!
         self.generate_d3dtype();
 
-        let result = D3D12_INPUT_LAYOUT_DESC {
+        let result = win::D3D12_INPUT_LAYOUT_DESC {
             pInputElementDescs: self.d3d_input_element_descs.as_ptr(),
             NumElements: self.d3d_input_element_descs.len() as u32,
         };
@@ -130,16 +130,16 @@ pub enum EStencilOp {
 }
 
 impl EStencilOp {
-    pub fn d3dtype(&self) -> D3D12_STENCIL_OP {
+    pub fn d3dtype(&self) -> win::D3D12_STENCIL_OP {
         match self {
-            Self::Keep => D3D12_STENCIL_OP_KEEP,
-            Self::Zero => D3D12_STENCIL_OP_ZERO,
-            Self::Replace => D3D12_STENCIL_OP_REPLACE,
-            Self::IncrSat => D3D12_STENCIL_OP_INCR_SAT,
-            Self::DecrSat => D3D12_STENCIL_OP_DECR_SAT,
-            Self::Invert => D3D12_STENCIL_OP_INVERT,
-            Self::Incr => D3D12_STENCIL_OP_INCR,
-            Self::Decr => D3D12_STENCIL_OP_DECR
+            Self::Keep => win::D3D12_STENCIL_OP_KEEP,
+            Self::Zero => win::D3D12_STENCIL_OP_ZERO,
+            Self::Replace => win::D3D12_STENCIL_OP_REPLACE,
+            Self::IncrSat => win::D3D12_STENCIL_OP_INCR_SAT,
+            Self::DecrSat => win::D3D12_STENCIL_OP_DECR_SAT,
+            Self::Invert => win::D3D12_STENCIL_OP_INVERT,
+            Self::Incr => win::D3D12_STENCIL_OP_INCR,
+            Self::Decr => win::D3D12_STENCIL_OP_DECR
         }
     }
 }
@@ -163,8 +163,8 @@ impl Default for SDepthStencilOpDesc {
 }
 
 impl SDepthStencilOpDesc {
-    pub fn d3dtype(&self) -> D3D12_DEPTH_STENCILOP_DESC {
-        D3D12_DEPTH_STENCILOP_DESC {
+    pub fn d3dtype(&self) -> win::D3D12_DEPTH_STENCILOP_DESC {
+        win::D3D12_DEPTH_STENCILOP_DESC {
             StencilFailOp: self.stencil_fail_op.d3dtype(),
             StencilDepthFailOp: self.stencil_depth_fail_op.d3dtype(),
             StencilPassOp: self.stencil_depth_fail_op.d3dtype(),
@@ -185,8 +185,8 @@ pub struct SDepthStencilDesc {
 }
 
 impl SDepthStencilDesc {
-    pub fn d3dtype(&self) -> D3D12_DEPTH_STENCIL_DESC {
-        D3D12_DEPTH_STENCIL_DESC {
+    pub fn d3dtype(&self) -> win::D3D12_DEPTH_STENCIL_DESC {
+        win::D3D12_DEPTH_STENCIL_DESC {
             DepthEnable: if self.depth_enable { 1 } else { 0 } ,
             DepthWriteMask: self.write_mask.d3dtype(),
             DepthFunc: self.depth_func.d3dtype(),
@@ -206,8 +206,8 @@ impl Default for SDepthStencilDesc {
             write_mask: EDepthWriteMask::All,
             depth_func: EComparisonFunc::Less,
             stencil_enable: false,
-            stencil_read_mask: D3D12_DEFAULT_STENCIL_READ_MASK as u8,
-            stencil_write_mask: D3D12_DEFAULT_STENCIL_READ_MASK as u8,
+            stencil_read_mask: win::D3D12_DEFAULT_STENCIL_READ_MASK as u8,
+            stencil_write_mask: win::D3D12_DEFAULT_STENCIL_READ_MASK as u8,
             front_face: Default::default(),
             back_face: Default::default(),
         }
@@ -224,13 +224,13 @@ pub enum EPrimitiveTopologyType {
 }
 
 impl EPrimitiveTopologyType {
-    pub fn d3dtype(&self) -> D3D12_PRIMITIVE_TOPOLOGY_TYPE {
+    pub fn d3dtype(&self) -> win::D3D12_PRIMITIVE_TOPOLOGY_TYPE {
         match self {
-            Self::Undefined => D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED,
-            Self::Point => D3D12_PRIMITIVE_TOPOLOGY_TYPE_POINT,
-            Self::Line => D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE,
-            Self::Triangle => D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
-            Self::Patch => D3D12_PRIMITIVE_TOPOLOGY_TYPE_PATCH,
+            Self::Undefined => win::D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED,
+            Self::Point => win::D3D12_PRIMITIVE_TOPOLOGY_TYPE_POINT,
+            Self::Line => win::D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE,
+            Self::Triangle => win::D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
+            Self::Patch => win::D3D12_PRIMITIVE_TOPOLOGY_TYPE_PATCH,
         }
     }
 }
@@ -251,18 +251,18 @@ pub enum EPrimitiveTopology {
 }
 
 impl EPrimitiveTopology {
-    pub fn d3dtype(&self) -> Direct3D12::D3D12_PRIMITIVE_TOPOLOGY {
+    pub fn d3dtype(&self) -> win::D3D_PRIMITIVE_TOPOLOGY {
         match self {
-            Self::Undefined => Direct3D11::D3D_PRIMITIVE_TOPOLOGY_UNDEFINED,
-            Self::PointList => Direct3D11::D3D_PRIMITIVE_TOPOLOGY_POINTLIST,
-            Self::LineList => Direct3D11::D3D_PRIMITIVE_TOPOLOGY_LINELIST,
-            Self::LineStrip => Direct3D11::D3D_PRIMITIVE_TOPOLOGY_LINESTRIP,
-            Self::TriangleList => Direct3D11::D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST,
-            Self::TriangleStrip => Direct3D11::D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP,
-            Self::LineListAdj => Direct3D11::D3D_PRIMITIVE_TOPOLOGY_LINELIST_ADJ,
-            Self::LineStripAdj => Direct3D11::D3D_PRIMITIVE_TOPOLOGY_LINESTRIP_ADJ,
-            Self::TriangleListAdj => Direct3D11::D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST_ADJ,
-            Self::TriangleStripAdj => Direct3D11::D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP_ADJ,
+            Self::Undefined => win::D3D_PRIMITIVE_TOPOLOGY_UNDEFINED,
+            Self::PointList => win::D3D_PRIMITIVE_TOPOLOGY_POINTLIST,
+            Self::LineList => win::D3D_PRIMITIVE_TOPOLOGY_LINELIST,
+            Self::LineStrip => win::D3D_PRIMITIVE_TOPOLOGY_LINESTRIP,
+            Self::TriangleList => win::D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST,
+            Self::TriangleStrip => win::D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP,
+            Self::LineListAdj => win::D3D_PRIMITIVE_TOPOLOGY_LINELIST_ADJ,
+            Self::LineStripAdj => win::D3D_PRIMITIVE_TOPOLOGY_LINESTRIP_ADJ,
+            Self::TriangleListAdj => win::D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST_ADJ,
+            Self::TriangleStripAdj => win::D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP_ADJ,
         }
     }
 }
@@ -272,10 +272,10 @@ pub struct SRTFormatArray {
 }
 
 impl SRTFormatArray {
-    pub fn d3dtype(&self) -> D3D12_RT_FORMAT_ARRAY {
+    pub fn d3dtype(&self) -> win::D3D12_RT_FORMAT_ARRAY {
         unsafe {
-            let mut result = mem::MaybeUninit::<D3D12_RT_FORMAT_ARRAY>::zeroed();
-            (*result.as_mut_ptr()).NumRenderTargets = self.rt_formats.len() as UINT;
+            let mut result = mem::MaybeUninit::<win::D3D12_RT_FORMAT_ARRAY>::zeroed();
+            (*result.as_mut_ptr()).NumRenderTargets = self.rt_formats.len() as u32;
 
             for i in 0..self.rt_formats.len() {
                 (*result.as_mut_ptr()).RTFormats[i] = self.rt_formats[i].d3dtype();
@@ -310,25 +310,25 @@ pub enum EBlend {
 }
 
 impl EBlend {
-    pub fn d3dtype(&self) -> D3D12_BLEND {
+    pub fn d3dtype(&self) -> win::D3D12_BLEND {
         match self {
-            Self::Zero => D3D12_BLEND_ZERO,
-            Self::One => D3D12_BLEND_ONE,
-            Self::SrcColor => D3D12_BLEND_SRC_COLOR,
-            Self::InvSrcColor => D3D12_BLEND_INV_SRC_COLOR,
-            Self::SrcAlpha => D3D12_BLEND_SRC_ALPHA,
-            Self::InvSrcAlpha => D3D12_BLEND_INV_SRC_ALPHA,
-            Self::DestAlpha => D3D12_BLEND_DEST_ALPHA,
-            Self::InvDestAlpha => D3D12_BLEND_INV_DEST_ALPHA,
-            Self::DestColor => D3D12_BLEND_DEST_COLOR,
-            Self::InvDestColor => D3D12_BLEND_INV_DEST_COLOR,
-            Self::SrcAlphaSat => D3D12_BLEND_SRC_ALPHA_SAT,
-            Self::BlendFactor => D3D12_BLEND_BLEND_FACTOR,
-            Self::InvBlendFactor => D3D12_BLEND_INV_BLEND_FACTOR,
-            Self::Src1Color => D3D12_BLEND_SRC1_COLOR,
-            Self::InvSrc1Color => D3D12_BLEND_INV_SRC1_COLOR,
-            Self::Src1Alpha => D3D12_BLEND_SRC1_ALPHA,
-            Self::InvSrc1Alpha => D3D12_BLEND_INV_SRC1_ALPHA
+            Self::Zero => win::D3D12_BLEND_ZERO,
+            Self::One => win::D3D12_BLEND_ONE,
+            Self::SrcColor => win::D3D12_BLEND_SRC_COLOR,
+            Self::InvSrcColor => win::D3D12_BLEND_INV_SRC_COLOR,
+            Self::SrcAlpha => win::D3D12_BLEND_SRC_ALPHA,
+            Self::InvSrcAlpha => win::D3D12_BLEND_INV_SRC_ALPHA,
+            Self::DestAlpha => win::D3D12_BLEND_DEST_ALPHA,
+            Self::InvDestAlpha => win::D3D12_BLEND_INV_DEST_ALPHA,
+            Self::DestColor => win::D3D12_BLEND_DEST_COLOR,
+            Self::InvDestColor => win::D3D12_BLEND_INV_DEST_COLOR,
+            Self::SrcAlphaSat => win::D3D12_BLEND_SRC_ALPHA_SAT,
+            Self::BlendFactor => win::D3D12_BLEND_BLEND_FACTOR,
+            Self::InvBlendFactor => win::D3D12_BLEND_INV_BLEND_FACTOR,
+            Self::Src1Color => win::D3D12_BLEND_SRC1_COLOR,
+            Self::InvSrc1Color => win::D3D12_BLEND_INV_SRC1_COLOR,
+            Self::Src1Alpha => win::D3D12_BLEND_SRC1_ALPHA,
+            Self::InvSrc1Alpha => win::D3D12_BLEND_INV_SRC1_ALPHA
         }
     }
 }
@@ -342,13 +342,13 @@ pub enum EBlendOp {
 }
 
 impl EBlendOp {
-    pub fn d3dtype(&self) -> D3D12_BLEND {
+    pub fn d3dtype(&self) -> win::D3D12_BLEND {
         match self {
-            Self::Add => D3D12_BLEND_OP_ADD,
-            Self::Subtract => D3D12_BLEND_OP_SUBTRACT,
-            Self::RevSubtract => D3D12_BLEND_OP_REV_SUBTRACT,
-            Self::Min => D3D12_BLEND_OP_MIN,
-            Self::Max => D3D12_BLEND_OP_MAX
+            Self::Add => win::D3D12_BLEND_OP_ADD,
+            Self::Subtract => win::D3D12_BLEND_OP_SUBTRACT,
+            Self::RevSubtract => win::D3D12_BLEND_OP_REV_SUBTRACT,
+            Self::Min => win::D3D12_BLEND_OP_MIN,
+            Self::Max => win::D3D12_BLEND_OP_MAX
         }
     }
 }
@@ -383,8 +383,8 @@ impl Default for SRenderTargetBlendDesc {
 }
 
 impl SRenderTargetBlendDesc {
-    pub fn d3dtype(&self) -> D3D12_RENDER_TARGET_BLEND_DESC {
-        D3D12_RENDER_TARGET_BLEND_DESC {
+    pub fn d3dtype(&self) -> win::D3D12_RENDER_TARGET_BLEND_DESC {
+        win::D3D12_RENDER_TARGET_BLEND_DESC {
             BlendEnable: self.blend_enable as i32,
             LogicOpEnable: self.logic_op_enable as i32,
             SrcBlend: self.src_blend.d3dtype(),
@@ -393,8 +393,8 @@ impl SRenderTargetBlendDesc {
             SrcBlendAlpha: self.src_blend_alpha.d3dtype(),
             DestBlendAlpha: self.dest_blend_alpha.d3dtype(),
             BlendOpAlpha: self.blend_op_alpha.d3dtype(),
-            LogicOp: D3D12_LOGIC_OP_NOOP,
-            RenderTargetWriteMask: D3D12_COLOR_WRITE_ENABLE_ALL as u8,
+            LogicOp: win::D3D12_LOGIC_OP_NOOP,
+            RenderTargetWriteMask: win::D3D12_COLOR_WRITE_ENABLE_ALL as u8,
         }
     }
 }
@@ -425,7 +425,7 @@ impl Default for SBlendDesc {
 }
 
 impl SBlendDesc {
-    pub fn d3dtype(&self) -> D3D12_BLEND_DESC {
+    pub fn d3dtype(&self) -> win::D3D12_BLEND_DESC {
         let output_render_target =[
             self.render_target_blend_desc[0].d3dtype(),
             self.render_target_blend_desc[1].d3dtype(),
@@ -437,7 +437,7 @@ impl SBlendDesc {
             self.render_target_blend_desc[7].d3dtype(),
         ];
 
-        D3D12_BLEND_DESC {
+        win::D3D12_BLEND_DESC {
             AlphaToCoverageEnable: self.alpha_to_coverage_enable as i32,
             IndependentBlendEnable: self.independent_blend_enable as i32,
             RenderTarget: output_render_target,
@@ -454,10 +454,10 @@ impl<'a, T> SPipelineStateStreamDesc<'a, T> {
         Self { stream: stream }
     }
 
-    pub unsafe fn d3dtype(&self) -> Direct3D12::D3D12_PIPELINE_STATE_STREAM_DESC {
-        Direct3D12::D3D12_PIPELINE_STATE_STREAM_DESC {
+    pub unsafe fn d3dtype(&self) -> win::D3D12_PIPELINE_STATE_STREAM_DESC {
+        win::D3D12_PIPELINE_STATE_STREAM_DESC {
             SizeInBytes: mem::size_of::<T>(),
-            pPipelineStateSubobjectStream: self.stream as *const T as *mut c_void,
+            pPipelineStateSubobjectStream: self.stream as *const T as *mut std::ffi::c_void,
         }
     }
 }
@@ -490,32 +490,32 @@ pub enum EPipelineStateSubobjectType {
 }
 
 impl EPipelineStateSubobjectType {
-    pub fn d3dtype(&self) -> D3D12_PIPELINE_STATE_SUBOBJECT_TYPE {
+    pub fn d3dtype(&self) -> win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE {
         match self {
-            Self::RootSignature => D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_ROOT_SIGNATURE,
-            Self::VS => D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_VS,
-            Self::PS => D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_PS,
-            Self::DS => D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_DS,
-            Self::HS => D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_HS,
-            Self::GS => D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_GS,
-            Self::CS => D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_CS,
-            Self::StreamOutput => D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_STREAM_OUTPUT,
-            Self::Blend => D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_BLEND,
-            Self::SampleMask => D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_SAMPLE_MASK,
-            Self::Rasterizer => D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_RASTERIZER,
-            Self::DepthStencil => D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_DEPTH_STENCIL,
-            Self::InputLayout => D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_INPUT_LAYOUT,
-            Self::IBStripCutValue => D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_IB_STRIP_CUT_VALUE,
-            Self::PrimitiveTopology => D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_PRIMITIVE_TOPOLOGY,
-            Self::RenderTargetFormats => D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_RENDER_TARGET_FORMATS,
-            Self::DepthStencilFormat => D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_DEPTH_STENCIL_FORMAT,
-            Self::SampleDesc => D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_SAMPLE_DESC,
-            Self::NodeMask => D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_NODE_MASK,
-            Self::CachedPSO => D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_CACHED_PSO,
-            Self::Flags => D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_FLAGS,
-            Self::DepthStencil1 => D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_DEPTH_STENCIL1,
+            Self::RootSignature => win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_ROOT_SIGNATURE,
+            Self::VS => win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_VS,
+            Self::PS => win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_PS,
+            Self::DS => win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_DS,
+            Self::HS => win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_HS,
+            Self::GS => win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_GS,
+            Self::CS => win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_CS,
+            Self::StreamOutput => win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_STREAM_OUTPUT,
+            Self::Blend => win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_BLEND,
+            Self::SampleMask => win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_SAMPLE_MASK,
+            Self::Rasterizer => win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_RASTERIZER,
+            Self::DepthStencil => win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_DEPTH_STENCIL,
+            Self::InputLayout => win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_INPUT_LAYOUT,
+            Self::IBStripCutValue => win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_IB_STRIP_CUT_VALUE,
+            Self::PrimitiveTopology => win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_PRIMITIVE_TOPOLOGY,
+            Self::RenderTargetFormats => win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_RENDER_TARGET_FORMATS,
+            Self::DepthStencilFormat => win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_DEPTH_STENCIL_FORMAT,
+            Self::SampleDesc => win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_SAMPLE_DESC,
+            Self::NodeMask => win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_NODE_MASK,
+            Self::CachedPSO => win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_CACHED_PSO,
+            Self::Flags => win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_FLAGS,
+            Self::DepthStencil1 => win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_DEPTH_STENCIL1,
             //Self::ViewInstancing => D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_VIEW_INSTANCING,
-            Self::MaxValid => D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_MAX_VALID,
+            Self::MaxValid => win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_MAX_VALID,
         }
     }
 }

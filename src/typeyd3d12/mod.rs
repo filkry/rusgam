@@ -64,7 +64,7 @@ pub struct SBarrier {
 pub struct SScissorRects {
     rects: ArrayVec<[SRect; 16]>,
 
-    d3drects: ArrayVec<[win::D3D12_RECT; 16]>,
+    d3drects: ArrayVec<[win::RECT; 16]>,
 }
 
 impl SScissorRects {
@@ -128,7 +128,7 @@ impl SViewport {
 pub type SRect = safewindows::SRect;
 
 impl SRect {
-    pub fn d3dtype(&self) -> D3D12_RECT {
+    pub fn d3dtype(&self) -> win::D3D12_RECT {
         win::D3D12_RECT {
             left: self.left,
             right: self.right,
@@ -260,26 +260,16 @@ pub fn d3dcompilefromfile(
     target: &str,
     flags1: SCompile,
 ) -> Result<SBlob, &'static str> {
-    // -- $$$FRK(FUTURE WORK): allocations here, but for now it's not a performance bottleneck
-    let mut fileparam: Vec<u16> = file.encode_utf16().collect();
-    fileparam.push('\0' as u16);
-
-    let mut entrypointparam: Vec<char> = entrypoint.chars().collect();
-    entrypointparam.push('\0');
-
-    let mut targetparam: Vec<char> = target.chars().collect();
-    targetparam.push('\0');
-
-    let mut rawcodeblob: *mut d3dcommon::ID3DBlob = ptr::null_mut();
-    let mut errormsgsblob: *mut d3dcommon::ID3DBlob = ptr::null_mut();
+    let mut rawcodeblob: Option<win::ID3DBlob> = None;
+    let mut errormsgsblob: Option<win::ID3DBlob> = None;
 
     let hr = unsafe {
-        d3dcompiler::D3DCompileFromFile(
-            fileparam.as_ptr(),
+        win::D3DCompileFromFile(
+            file,
             ptr::null_mut(),
             ptr::null_mut(),
-            entrypointparam.as_ptr() as *const i8,
-            targetparam.as_ptr() as *const i8,
+            entrypoint,
+            target,
             flags1.rawtype(),
             0,
             &mut rawcodeblob,
@@ -291,21 +281,16 @@ pub fn d3dcompilefromfile(
     // -- $$$FRK(FUTURE WORK): use error messages blob
 
     Ok(SBlob {
-        raw: unsafe { ComPtr::from_raw(rawcodeblob) },
+        raw: unsafe { rawcodeblob.expect("checked err above") },
     })
 }
 
 pub fn read_file_to_blob(file: &str) -> Result<SBlob, &'static str> {
-    let mut fileparam: Vec<u16> = file.encode_utf16().collect();
-    fileparam.push('\0' as u16);
-
-    let mut resultblob: *mut d3dcommon::ID3DBlob = ptr::null_mut();
-
-    let hr = unsafe { d3dcompiler::D3DReadFileToBlob(fileparam.as_ptr(), &mut resultblob) };
+    let hr = unsafe { win::D3DReadFileToBlob(file) };
 
     returnerrifwinerror!(hr, "failed to load shader");
 
     Ok(SBlob {
-        raw: unsafe { ComPtr::from_raw(resultblob) },
+        raw: unsafe { hr.expect("checked err above") },
     })
 }

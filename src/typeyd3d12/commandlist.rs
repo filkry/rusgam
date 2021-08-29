@@ -14,24 +14,24 @@ pub enum ECommandListType {
 }
 
 impl ECommandListType {
-    pub fn d3dtype(&self) -> D3D12_COMMAND_LIST_TYPE {
+    pub fn d3dtype(&self) -> win::D3D12_COMMAND_LIST_TYPE {
         match self {
             ECommandListType::Invalid => panic!("Trying to use invalid CommandListType"),
-            ECommandListType::Direct => D3D12_COMMAND_LIST_TYPE_DIRECT,
-            ECommandListType::Bundle => D3D12_COMMAND_LIST_TYPE_BUNDLE,
-            ECommandListType::Compute => D3D12_COMMAND_LIST_TYPE_COMPUTE,
-            ECommandListType::Copy => D3D12_COMMAND_LIST_TYPE_COPY,
+            ECommandListType::Direct => win::D3D12_COMMAND_LIST_TYPE_DIRECT,
+            ECommandListType::Bundle => win::D3D12_COMMAND_LIST_TYPE_BUNDLE,
+            ECommandListType::Compute => win::D3D12_COMMAND_LIST_TYPE_COMPUTE,
+            ECommandListType::Copy => win::D3D12_COMMAND_LIST_TYPE_COPY,
             //VideoDecode => D3D12_COMMAND_LIST_TYPE_VIDEO_DECODE ,
             //VideoProcess => D3D12_COMMAND_LIST_TYPE_VIDEO_PROCESS ,
         }
     }
 
-    pub fn new_from_d3dtype(d3dtype: D3D12_COMMAND_LIST_TYPE) -> Self {
+    pub fn new_from_d3dtype(d3dtype: win::D3D12_COMMAND_LIST_TYPE) -> Self {
         match d3dtype {
-            D3D12_COMMAND_LIST_TYPE_DIRECT => ECommandListType::Direct,
-            D3D12_COMMAND_LIST_TYPE_BUNDLE => ECommandListType::Bundle,
-            D3D12_COMMAND_LIST_TYPE_COMPUTE => ECommandListType::Compute,
-            D3D12_COMMAND_LIST_TYPE_COPY => ECommandListType::Copy,
+            win::D3D12_COMMAND_LIST_TYPE_DIRECT => ECommandListType::Direct,
+            win::D3D12_COMMAND_LIST_TYPE_BUNDLE => ECommandListType::Bundle,
+            win::D3D12_COMMAND_LIST_TYPE_COMPUTE => ECommandListType::Compute,
+            win::D3D12_COMMAND_LIST_TYPE_COPY => ECommandListType::Copy,
             _ => ECommandListType::Invalid,
         }
     }
@@ -39,11 +39,11 @@ impl ECommandListType {
 
 #[derive(Clone)]
 pub struct SCommandList {
-    commandlist: ComPtr<ID3D12GraphicsCommandList>,
+    commandlist: win::ID3D12GraphicsCommandList,
 }
 
 impl SCommandList {
-    pub unsafe fn new_from_raw(raw: ComPtr<ID3D12GraphicsCommandList>) -> Self {
+    pub unsafe fn new_from_raw(raw: win::ID3D12GraphicsCommandList) -> Self {
         Self { commandlist: raw }
     }
 
@@ -65,7 +65,7 @@ impl SCommandList {
     }
 
     pub unsafe fn resourcebarrier(&self, barriers: &[SBarrier]) {
-        let mut raw_barriers = ArrayVec::<[D3D12_RESOURCE_BARRIER; 10]>::new();
+        let mut raw_barriers = ArrayVec::<[win::D3D12_RESOURCE_BARRIER; 10]>::new();
         for barrier in barriers {
             raw_barriers.push(barrier.barrier);
         }
@@ -87,7 +87,7 @@ impl SCommandList {
         // -- $$$FRK(FUTURE WORK): support ClearFlags/Stencil/NumRects/pRects
         self.commandlist.ClearDepthStencilView(
             *descriptor.raw(),
-            D3D12_CLEAR_FLAG_DEPTH,
+            win::D3D12_CLEAR_FLAG_DEPTH,
             depth,
             0,
             0,
@@ -122,7 +122,7 @@ impl SCommandList {
     ) {
         assert!(vertex_buffers.len() <= 10);
 
-        let mut raw_array : [D3D12_VERTEX_BUFFER_VIEW ; 10] = [
+        let mut raw_array : [win::D3D12_VERTEX_BUFFER_VIEW ; 10] = [
             std::mem::MaybeUninit::zeroed().assume_init(),
             std::mem::MaybeUninit::zeroed().assume_init(),
             std::mem::MaybeUninit::zeroed().assume_init(),
@@ -206,11 +206,11 @@ impl SCommandList {
         dest_offset_in_32_bit_values: u32,
     ) {
         let num_values = mem::size_of::<T>() / 4;
-        let src_data_ptr = data as *const T as *const c_void;
+        let src_data_ptr = data as *const T as *const std::ffi::c_void;
 
         self.commandlist.SetGraphicsRoot32BitConstants(
             root_parameter_index,
-            num_values as UINT,
+            num_values as u32,
             src_data_ptr,
             dest_offset_in_32_bit_values,
         );
@@ -233,7 +233,7 @@ impl SCommandList {
         base_descriptor: &SGPUDescriptorHandle,
     ) {
         self.commandlist.SetGraphicsRootDescriptorTable(
-            root_parameter_index as UINT,
+            root_parameter_index as u32,
             base_descriptor.d3dtype(),
         );
     }
@@ -313,11 +313,11 @@ impl SCommandList {
         }
     }
 
-    pub unsafe fn raw(&self) -> &ComPtr<ID3D12GraphicsCommandList> {
+    pub unsafe fn raw(&self) -> &win::ID3D12GraphicsCommandList {
         &self.commandlist
     }
 
-    pub unsafe fn rawmut(&mut self) -> &mut ComPtr<ID3D12GraphicsCommandList> {
+    pub unsafe fn rawmut(&mut self) -> &mut win::ID3D12GraphicsCommandList {
         &mut self.commandlist
     }
 }

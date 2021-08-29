@@ -1,7 +1,7 @@
 use super::*;
 
 pub struct SVertexBufferView {
-    raw: D3D12_VERTEX_BUFFER_VIEW,
+    raw: win::D3D12_VERTEX_BUFFER_VIEW,
 }
 
 impl SVertexBufferView {
@@ -11,7 +11,7 @@ impl SVertexBufferView {
         strideinbytes: u32,
     ) -> Self {
         Self {
-            raw: D3D12_VERTEX_BUFFER_VIEW {
+            raw: win::D3D12_VERTEX_BUFFER_VIEW {
                 BufferLocation: bufferlocation.raw(),
                 SizeInBytes: sizeinbytes,
                 StrideInBytes: strideinbytes,
@@ -19,13 +19,13 @@ impl SVertexBufferView {
         }
     }
 
-    pub unsafe fn raw(&self) -> &D3D12_VERTEX_BUFFER_VIEW {
+    pub unsafe fn raw(&self) -> &win::D3D12_VERTEX_BUFFER_VIEW {
         &self.raw
     }
 }
 
 pub struct SIndexBufferView {
-    raw: D3D12_INDEX_BUFFER_VIEW,
+    raw: win::D3D12_INDEX_BUFFER_VIEW,
 }
 
 impl SIndexBufferView {
@@ -35,7 +35,7 @@ impl SIndexBufferView {
         sizeinbytes: u32,
     ) -> Self {
         Self {
-            raw: D3D12_INDEX_BUFFER_VIEW {
+            raw: win::D3D12_INDEX_BUFFER_VIEW {
                 BufferLocation: bufferlocation.raw(),
                 Format: format.d3dtype(),
                 SizeInBytes: sizeinbytes,
@@ -43,7 +43,7 @@ impl SIndexBufferView {
         }
     }
 
-    pub unsafe fn raw(&self) -> &D3D12_INDEX_BUFFER_VIEW {
+    pub unsafe fn raw(&self) -> &win::D3D12_INDEX_BUFFER_VIEW {
         &self.raw
     }
 }
@@ -61,9 +61,9 @@ pub struct SDepthStencilViewDesc {
 }
 
 impl SDepthStencilViewDesc {
-    pub fn d3dtype(&self) -> D3D12_DEPTH_STENCIL_VIEW_DESC {
+    pub fn d3dtype(&self) -> win::D3D12_DEPTH_STENCIL_VIEW_DESC {
         unsafe {
-            let mut result = mem::MaybeUninit::<D3D12_DEPTH_STENCIL_VIEW_DESC>::zeroed();
+            let mut result = mem::MaybeUninit::<win::D3D12_DEPTH_STENCIL_VIEW_DESC>::zeroed();
             (*result.as_mut_ptr()).Format = self.format.d3dtype();
             (*result.as_mut_ptr()).ViewDimension = self.view_dimension.d3dtype();
             (*result.as_mut_ptr()).Flags = self.flags.rawtype();
@@ -88,8 +88,8 @@ pub struct SDepthStencilValue {
 }
 
 impl SDepthStencilValue {
-    pub fn d3dtype(&self) -> D3D12_DEPTH_STENCIL_VALUE {
-        D3D12_DEPTH_STENCIL_VALUE {
+    pub fn d3dtype(&self) -> win::D3D12_DEPTH_STENCIL_VALUE {
+        win::D3D12_DEPTH_STENCIL_VALUE {
             Depth: self.depth,
             Stencil: self.stencil,
         }
@@ -107,9 +107,9 @@ pub struct SClearValue {
 }
 
 impl SClearValue {
-    pub fn d3dtype(&self) -> D3D12_CLEAR_VALUE {
+    pub fn d3dtype(&self) -> win::D3D12_CLEAR_VALUE {
         unsafe {
-            let mut result = mem::MaybeUninit::<D3D12_CLEAR_VALUE>::zeroed();
+            let mut result = mem::MaybeUninit::<win::D3D12_CLEAR_VALUE>::zeroed();
             (*result.as_mut_ptr()).Format = self.format.d3dtype();
             match &self.value {
                 EClearValue::Color(color) => *((*result.as_mut_ptr()).u.Color_mut()) = *color,
@@ -134,15 +134,15 @@ pub enum EDSVDimension {
 }
 
 impl EDSVDimension {
-    pub fn d3dtype(&self) -> D3D12_DSV_DIMENSION {
+    pub fn d3dtype(&self) -> win::D3D12_DSV_DIMENSION {
         match self {
-            Self::Unknown => D3D12_DSV_DIMENSION_UNKNOWN,
-            Self::Texture1D => D3D12_DSV_DIMENSION_TEXTURE1D,
-            Self::Texture1DArray => D3D12_DSV_DIMENSION_TEXTURE1DARRAY,
-            Self::Texture2D => D3D12_DSV_DIMENSION_TEXTURE2D,
-            Self::Texture2DArray => D3D12_DSV_DIMENSION_TEXTURE2DARRAY,
-            Self::Texture2DMS => D3D12_DSV_DIMENSION_TEXTURE2DMS,
-            Self::Texture2DMSArray => D3D12_DSV_DIMENSION_TEXTURE2DMSARRAY,
+            Self::Unknown => win::D3D12_DSV_DIMENSION_UNKNOWN,
+            Self::Texture1D => win::D3D12_DSV_DIMENSION_TEXTURE1D,
+            Self::Texture1DArray => win::D3D12_DSV_DIMENSION_TEXTURE1DARRAY,
+            Self::Texture2D => win::D3D12_DSV_DIMENSION_TEXTURE2D,
+            Self::Texture2DArray => win::D3D12_DSV_DIMENSION_TEXTURE2DARRAY,
+            Self::Texture2DMS => win::D3D12_DSV_DIMENSION_TEXTURE2DMS,
+            Self::Texture2DMSArray => win::D3D12_DSV_DIMENSION_TEXTURE2DMSARRAY,
         }
     }
 }
@@ -155,13 +155,13 @@ pub enum EDSVFlags {
 }
 
 impl TEnumFlags32 for EDSVFlags {
-    type TRawType = D3D12_DSV_FLAGS;
+    type TRawType = win::D3D12_DSV_FLAGS;
 
     fn rawtype(&self) -> Self::TRawType {
         match self {
-            Self::None => D3D12_DSV_FLAG_NONE,
-            Self::ReadOnlyDepth => D3D12_DSV_FLAG_READ_ONLY_DEPTH,
-            Self::ReadOnlyStencil => D3D12_DSV_FLAG_READ_ONLY_STENCIL,
+            Self::None => win::D3D12_DSV_FLAG_NONE,
+            Self::ReadOnlyDepth => win::D3D12_DSV_FLAG_READ_ONLY_DEPTH,
+            Self::ReadOnlyStencil => win::D3D12_DSV_FLAG_READ_ONLY_STENCIL,
         }
     }
 }
@@ -172,8 +172,8 @@ pub struct STex2DDSV {
 }
 
 impl STex2DDSV {
-    pub fn d3dtype(&self) -> D3D12_TEX2D_DSV {
-        D3D12_TEX2D_DSV {
+    pub fn d3dtype(&self) -> win::D3D12_TEX2D_DSV {
+        win::D3D12_TEX2D_DSV {
             MipSlice: self.mip_slice,
         }
     }
@@ -186,8 +186,8 @@ pub struct STex2DArrayDSV {
 }
 
 impl STex2DArrayDSV {
-    pub fn d3dtype(&self) -> D3D12_TEX2D_ARRAY_DSV {
-        D3D12_TEX2D_ARRAY_DSV {
+    pub fn d3dtype(&self) -> win::D3D12_TEX2D_ARRAY_DSV {
+        win::D3D12_TEX2D_ARRAY_DSV {
             MipSlice: self.mip_slice,
             FirstArraySlice: self.first_array_slice,
             ArraySize: self.array_size,
@@ -201,10 +201,10 @@ pub enum ED3D12BufferSRVFlags {
 }
 
 impl ED3D12BufferSRVFlags {
-    pub fn d3dtype(&self) -> D3D12_BUFFER_SRV_FLAGS {
+    pub fn d3dtype(&self) -> win::D3D12_BUFFER_SRV_FLAGS {
         match &self {
-            Self::None => D3D12_BUFFER_SRV_FLAG_NONE,
-            Self::Raw => D3D12_BUFFER_SRV_FLAG_RAW,
+            Self::None => win::D3D12_BUFFER_SRV_FLAG_NONE,
+            Self::Raw => win::D3D12_BUFFER_SRV_FLAG_RAW,
         }
     }
 }
@@ -217,8 +217,8 @@ pub struct SBufferSRV {
 }
 
 impl SBufferSRV {
-    pub fn d3dtype(&self) -> D3D12_BUFFER_SRV {
-        D3D12_BUFFER_SRV {
+    pub fn d3dtype(&self) -> win::D3D12_BUFFER_SRV {
+        win::D3D12_BUFFER_SRV {
             FirstElement: self.first_element,
             NumElements: self.num_elements as u32,
             StructureByteStride: self.structure_byte_stride as u32,
@@ -246,8 +246,8 @@ impl Default for STex2DSRV {
 }
 
 impl STex2DSRV {
-    pub fn d3dtype(&self) -> D3D12_TEX2D_SRV {
-        D3D12_TEX2D_SRV {
+    pub fn d3dtype(&self) -> win::D3D12_TEX2D_SRV {
+        win::D3D12_TEX2D_SRV {
             MostDetailedMip: self.most_detailed_mip,
             MipLevels: self.mip_levels,
             PlaneSlice: self.plane_slice,
@@ -267,8 +267,8 @@ impl Default for STexCubeSRV {
 }
 
 impl STexCubeSRV {
-    pub fn d3dtype(&self) -> D3D12_TEXCUBE_SRV {
-        D3D12_TEXCUBE_SRV {
+    pub fn d3dtype(&self) -> win::D3D12_TEXCUBE_SRV {
+        win::D3D12_TEXCUBE_SRV {
             MostDetailedMip: self.most_detailed_mip,
             MipLevels: self.mip_levels,
             ResourceMinLODClamp: self.resource_min_lod_clamp,
@@ -290,12 +290,12 @@ pub enum ESRV {
 }
 
 impl ESRV {
-    pub fn d3d_view_dimension(&self) -> D3D12_SRV_DIMENSION {
+    pub fn d3d_view_dimension(&self) -> win::D3D12_SRV_DIMENSION {
         match self {
-            Self::Unknown => D3D12_SRV_DIMENSION_UNKNOWN,
-            Self::Buffer(..) => D3D12_SRV_DIMENSION_BUFFER,
-            Self::Texture2D { .. } => D3D12_SRV_DIMENSION_TEXTURE2D,
-            Self::TextureCube { .. } => D3D12_SRV_DIMENSION_TEXTURECUBE,
+            Self::Unknown => win::D3D12_SRV_DIMENSION_UNKNOWN,
+            Self::Buffer(..) => win::D3D12_SRV_DIMENSION_BUFFER,
+            Self::Texture2D { .. } => win::D3D12_SRV_DIMENSION_TEXTURE2D,
+            Self::TextureCube { .. } => win::D3D12_SRV_DIMENSION_TEXTURECUBE,
         }
     }
 }
@@ -307,9 +307,9 @@ pub struct SShaderResourceViewDesc {
 }
 
 impl SShaderResourceViewDesc {
-    pub fn d3dtype(&self) -> D3D12_SHADER_RESOURCE_VIEW_DESC {
+    pub fn d3dtype(&self) -> win::D3D12_SHADER_RESOURCE_VIEW_DESC {
         unsafe {
-            let mut result = mem::MaybeUninit::<D3D12_SHADER_RESOURCE_VIEW_DESC>::zeroed();
+            let mut result = mem::MaybeUninit::<win::D3D12_SHADER_RESOURCE_VIEW_DESC>::zeroed();
             (*result.as_mut_ptr()).Format = self.format.d3dtype();
             (*result.as_mut_ptr()).ViewDimension = self.view.d3d_view_dimension();
             match &self.view {
@@ -348,10 +348,10 @@ pub enum ED3D12BufferUAVFlags {
 }
 
 impl ED3D12BufferUAVFlags {
-    pub fn d3dtype(&self) -> D3D12_BUFFER_UAV_FLAGS {
+    pub fn d3dtype(&self) -> win::D3D12_BUFFER_UAV_FLAGS {
         match &self {
-            Self::None => D3D12_BUFFER_UAV_FLAG_NONE,
-            Self::Raw => D3D12_BUFFER_UAV_FLAG_RAW,
+            Self::None => win::D3D12_BUFFER_UAV_FLAG_NONE,
+            Self::Raw => win::D3D12_BUFFER_UAV_FLAG_RAW,
         }
     }
 }
@@ -365,8 +365,8 @@ pub struct SBufferUAV {
 }
 
 impl SBufferUAV {
-    pub fn d3dtype(&self) -> D3D12_BUFFER_UAV {
-        D3D12_BUFFER_UAV {
+    pub fn d3dtype(&self) -> win::D3D12_BUFFER_UAV {
+        win::D3D12_BUFFER_UAV {
             FirstElement: self.first_element,
             NumElements: self.num_elements as u32,
             StructureByteStride: self.structure_byte_stride as u32,
@@ -381,9 +381,9 @@ pub enum EUAV {
 }
 
 impl EUAV {
-    pub fn d3d_view_dimension(&self) -> D3D12_UAV_DIMENSION {
+    pub fn d3d_view_dimension(&self) -> win::D3D12_UAV_DIMENSION {
         match self {
-            Self::Buffer(..) => D3D12_UAV_DIMENSION_BUFFER,
+            Self::Buffer(..) => win::D3D12_UAV_DIMENSION_BUFFER,
         }
     }
 }
@@ -394,9 +394,9 @@ pub struct SUnorderedAccessViewDesc {
 }
 
 impl SUnorderedAccessViewDesc {
-    pub fn d3dtype(&self) -> D3D12_UNORDERED_ACCESS_VIEW_DESC {
+    pub fn d3dtype(&self) -> win::D3D12_UNORDERED_ACCESS_VIEW_DESC {
         unsafe {
-            let mut result = mem::MaybeUninit::<D3D12_UNORDERED_ACCESS_VIEW_DESC>::zeroed();
+            let mut result = mem::MaybeUninit::<win::D3D12_UNORDERED_ACCESS_VIEW_DESC>::zeroed();
             (*result.as_mut_ptr()).Format = self.format.d3dtype();
             (*result.as_mut_ptr()).ViewDimension = self.view.d3d_view_dimension();
             match &self.view {

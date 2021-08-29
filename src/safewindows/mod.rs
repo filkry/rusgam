@@ -30,7 +30,7 @@ pub struct SErr {
 
 pub unsafe fn getlasterror() -> SErr {
     SErr {
-        errcode: GetLastError(),
+        errcode: win::GetLastError(),
     }
 }
 
@@ -42,12 +42,12 @@ impl fmt::Debug for SErr {
 }
 
 pub struct SWinAPI {
-    hinstance: Foundation::HINSTANCE,
+    hinstance: win::HINSTANCE,
 }
 
 pub fn initwinapi() -> Result<SWinAPI, SErr> {
     unsafe {
-        let hinstance = GetModuleHandleW(0);
+        let hinstance = win::GetModuleHandleW(0);
         if !hinstance.is_null() {
             Ok(SWinAPI {
                 hinstance: hinstance,
@@ -61,13 +61,13 @@ pub fn initwinapi() -> Result<SWinAPI, SErr> {
 pub struct SWindowClass<'windows> {
     winapi: &'windows SWinAPI,
     windowclassname: &'static str,
-    class: ATOM,
+    class: u16,
 }
 
 impl<'windows> Drop for SWindowClass<'windows> {
     fn drop(&mut self) {
         unsafe {
-            WindowsAndMessaging::UnregisterClassW(
+            win::UnregisterClassW(
                 self.windowclassname,
                 self.winapi.hinstance,
             );
@@ -76,37 +76,37 @@ impl<'windows> Drop for SWindowClass<'windows> {
 }
 
 unsafe extern "system" fn windowproctrampoline(
-    hwnd: HWND,
-    msg: UINT,
-    wparam: WPARAM,
-    lparam: LPARAM,
-) -> LRESULT {
-    let window_ptr = GetWindowLongPtrW(hwnd, GWLP_USERDATA) as *mut SWindow;
+    hwnd: win::HWND,
+    msg: u32,
+    wparam: win::WPARAM,
+    lparam: win::LPARAM,
+) -> win::LRESULT {
+    let window_ptr = win::GetWindowLongPtrW(hwnd, win::GWLP_USERDATA) as *mut SWindow;
     if !window_ptr.is_null() {
         assert!(hwnd == (*window_ptr).window);
         return (*window_ptr).windowproc(msg, wparam, lparam);
     }
-    DefWindowProcW(hwnd, msg, wparam, lparam)
+    win::DefWindowProcW(hwnd, msg, wparam, lparam)
 }
 
 pub struct SEventHandle {
-    event: Foundation::HANDLE,
+    event: win::HANDLE,
 }
 
 impl SEventHandle {
-    pub unsafe fn raw(&self) -> Foundation::HANDLE {
+    pub unsafe fn raw(&self) -> win::HANDLE {
         self.event
     }
 
-    pub fn waitforsingleobject(&self, duration: u64) {
-        unsafe { Win32::System::Threading::WaitForSingleObject(self.raw(), duration as DWORD) };
+    pub fn waitforsingleobject(&self, duration: u32) {
+        unsafe { win::WaitForSingleObject(self.raw(), duration) };
     }
 }
 
 impl SWinAPI {
     pub fn queryperformancecounter() -> i64 {
         let mut result : i64 = 0;
-        let success = unsafe { Performance::QueryPerformanceCounter(&mut result) };
+        let success = unsafe { win::QueryPerformanceCounter(&mut result) };
         if success == 0 {
             panic!("Can't query performance.");
         }
@@ -116,7 +116,7 @@ impl SWinAPI {
 
     pub unsafe fn queryperformancefrequencycounter() -> i64 {
         let mut result : i64 = 0;
-        let success = Performance::QueryPerformanceFrequency(&mut result);
+        let success = win::QueryPerformanceFrequency(&mut result);
         if success == 0 {
             panic!("Can't query performance.");
         }
@@ -126,22 +126,22 @@ impl SWinAPI {
 
     pub fn registerclassex(&self, windowclassname: &'static str) -> Result<SWindowClass, SErr> {
         unsafe {
-            let classdata = WNDCLASSEXW {
-                cbSize: mem::size_of::<WNDCLASSEXW>() as u32,
-                style: CS_HREDRAW | CS_VREDRAW,
+            let classdata = win::WNDCLASSEXW {
+                cbSize: mem::size_of::<win::WNDCLASSEXW>() as u32,
+                style: win::CS_HREDRAW | win::CS_VREDRAW,
                 lpfnWndProc: Some(windowproctrampoline), //wndproc,
                 cbClsExtra: 0,
                 cbWndExtra: 0,
                 hInstance: self.hinstance,
-                hIcon: LoadIconW(self.hinstance, 0),
-                hCursor: LoadCursorW(0, IDC_ARROW),
-                hbrBackground: (COLOR_WINDOW + 1) as HBRUSH,
+                hIcon: win::LoadIconW(self.hinstance, 0),
+                hCursor: win::LoadCursorW(0, win::IDC_ARROW),
+                hbrBackground: (win::COLOR_WINDOW + 1) as win::HBRUSH,
                 lpszMenuName: 0 as *const u16,
                 lpszClassName: windowclassname,
-                hIconSm: 0 as HICON,
+                hIconSm: 0 as win::HICON,
             };
 
-            let atom = RegisterClassExW(&classdata);
+            let atom = win::RegisterClassExW(&classdata);
             if atom > 0 {
                 Ok(SWindowClass {
                     winapi: self,
@@ -155,7 +155,7 @@ impl SWinAPI {
     }
 
     pub fn createeventhandle(&self) -> Result<SEventHandle, &'static str> {
-        let event = unsafe { Win32::System::Threading::CreateEventW(ptr::null_mut(), FALSE, FALSE, ptr::null()) };
+        let event = unsafe { win::CreateEventW(ptr::null_mut(), false, false, ptr::null()) };
 
         if event == ptr::null() {
             return Err("Couldn't create event.");
@@ -165,11 +165,11 @@ impl SWinAPI {
     }
 
     pub fn get_cursor_pos(&self) -> [u32; 2] {
-        let mut point = Foundation::POINT {
+        let mut point = win::POINT {
             x: 0,
             y: 0,
         };
-        let success = unsafe { WindowsAndMessaging::GetCursorPos(&mut point) };
+        let success = unsafe { win::GetCursorPos(&mut point) };
         assert!(success != 0);
 
         [
@@ -180,60 +180,60 @@ impl SWinAPI {
 }
 
 pub struct SWindow {
-    window: HWND,
+    window: win::HWND,
     windowproc: Option<*mut dyn TWindowProc>,
 
     registereduserdata: bool,
 }
 
 pub struct SMSG {
-    msg: WindowsAndMessaging::MSG,
+    msg: win::MSG,
 }
 
 impl SWindow {
-    pub unsafe fn raw(&self) -> HWND {
+    pub unsafe fn raw(&self) -> win::HWND {
         self.window
     }
 
     pub fn show(&mut self) {
-        unsafe { ShowWindow(self.window, SW_SHOW) };
+        unsafe { win::ShowWindow(self.window, win::SW_SHOW) };
     }
 
     pub fn beginpaint(&mut self) {
         unsafe {
             // -- $$$FRK(TODO): real paintstruct
-            let mut paintstruct = mem::MaybeUninit::<Win32::Graphics::Gdi::PAINTSTRUCT>::uninit();
-            Win32::Graphics::Gdi::BeginPaint(self.window, paintstruct.as_mut_ptr());
+            let mut paintstruct = mem::MaybeUninit::<win::PAINTSTRUCT>::uninit();
+            win::BeginPaint(self.window, paintstruct.as_mut_ptr());
         }
     }
 
     pub fn endpaint(&mut self) {
         unsafe {
             // -- $$$FRK(TODO): real paintstruct
-            let mut paintstruct = mem::MaybeUninit::<Win32::Graphics::Gdi::PAINTSTRUCT>::uninit();
-            Win32::Graphics::Gdi::EndPaint(self.window, paintstruct.as_mut_ptr());
+            let mut paintstruct = mem::MaybeUninit::<win::PAINTSTRUCT>::uninit();
+            win::EndPaint(self.window, paintstruct.as_mut_ptr());
         }
     }
 
     // -- calls the stored windowproc if it exists, otherwise uses a default windowproc
-    pub unsafe fn windowproc(&mut self, msg: UINT, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+    pub unsafe fn windowproc(&mut self, msg: u32, wparam: win::WPARAM, lparam: win::LPARAM) -> win::LRESULT {
         match self.windowproc {
             Some(mptr) => match mptr.as_mut() {
                 Some(m) => {
                     let msgtype: EMsgType = msgtype(msg, wparam, lparam);
                     m.windowproc(self, msgtype);
-                    DefWindowProcW(self.window, msg, wparam, lparam)
+                    win::DefWindowProcW(self.window, msg, wparam, lparam)
                 }
-                None => DefWindowProcW(self.window, msg, wparam, lparam),
+                None => win::DefWindowProcW(self.window, msg, wparam, lparam),
             },
-            None => DefWindowProcW(self.window, msg, wparam, lparam),
+            None => win::DefWindowProcW(self.window, msg, wparam, lparam),
         }
     }
 
     // -- registers user data needed for windowproc
     unsafe fn registeruserdata(&mut self) {
-        let outwindowptr = self as *mut SWindow as LONG_PTR;
-        SetWindowLongPtrW(self.window, GWLP_USERDATA, outwindowptr);
+        let outwindowptr = self as *mut SWindow as isize;
+        win::SetWindowLongPtrW(self.window, win::GWLP_USERDATA, outwindowptr);
     }
 
     unsafe fn setwindowproc<'a>(&mut self, windowproc: &'a mut dyn TWindowProc) {
@@ -255,15 +255,15 @@ impl SWindow {
                 self.registeruserdata();
             }
 
-            let mut raw_msg = mem::MaybeUninit::<WindowsAndMessaging::MSG>::zeroed();
+            let mut raw_msg = mem::MaybeUninit::<win::MSG>::zeroed();
 
             self.setwindowproc(windowproc);
-            let foundmessage = WindowsAndMessaging::PeekMessageW(
+            let foundmessage = win::PeekMessageW(
                 raw_msg.as_mut_ptr(),
                 self.window,
                 0,
                 0,
-                WindowsAndMessaging::PM_REMOVE,
+                win::PM_REMOVE,
             );
             self.clearwindowproc();
 
@@ -279,7 +279,7 @@ impl SWindow {
 
     pub fn translatemessage<'a>(&mut self, message: &mut SMSG) {
         unsafe {
-            WindowsAndMessaging::TranslateMessage(&mut message.msg);
+            win::TranslateMessage(&mut message.msg);
         }
     }
 
@@ -290,15 +290,15 @@ impl SWindow {
             }
 
             self.setwindowproc(windowproc);
-            WindowsAndMessaging::DispatchMessageW(&mut message.msg);
+            win::DispatchMessageW(&mut message.msg);
             self.clearwindowproc();
         }
     }
 
     pub fn getclientrect(&self) -> Result<SRect, &'static str> {
         unsafe {
-            let mut rect: Foundation::RECT = mem::zeroed();
-            let res = WindowsAndMessaging::GetClientRect(self.window, &mut rect as *mut Foundation::RECT);
+            let mut rect: win::RECT = mem::zeroed();
+            let res = win::GetClientRect(self.window, &mut rect as *mut win::RECT);
             if res == 0 {
                 return Err("Could not get client rect.");
             }
@@ -313,12 +313,12 @@ impl SWindow {
     }
 
     pub fn screen_to_client(&self, point: &[u32; 2]) -> [i32; 2] {
-        let mut point = Foundation::POINT {
+        let mut point = win::POINT {
             x: point[0] as i32,
             y: point[1] as i32,
         };
 
-        let success = unsafe { WindowsAndMessaging::ScreenToClient(self.window, &mut point) };
+        let success = unsafe { win::ScreenToClient(self.window, &mut point) };
         assert!(success != 0);
 
         [point.x, point.y]
@@ -340,18 +340,18 @@ pub trait TWindowProc {
 impl<'windows> SWindowClass<'windows> {
     pub fn createwindow(&self, title: &str, width: u32, height: u32) -> Result<SWindow, SErr> {
         unsafe {
-            let windowstyle: DWORD = WS_OVERLAPPEDWINDOW;
+            let windowstyle: u32 = win::WS_OVERLAPPEDWINDOW;
 
-            let screenwidth = GetSystemMetrics(SM_CXSCREEN);
-            let screenheight = GetSystemMetrics(SM_CYSCREEN);
+            let screenwidth = win::GetSystemMetrics(win::SM_CXSCREEN);
+            let screenheight = win::GetSystemMetrics(win::SM_CYSCREEN);
 
-            let mut windowrect = RECT {
+            let mut windowrect = win::RECT {
                 left: 0,
                 top: 0,
-                right: width as LONG,
-                bottom: height as LONG,
+                right: width,
+                bottom: height,
             };
-            AdjustWindowRect(&mut windowrect, windowstyle, false as i32);
+            win::AdjustWindowRect(&mut windowrect, windowstyle, false as i32);
 
             let windowwidth = windowrect.right - windowrect.left;
             let windowheight = windowrect.bottom - windowrect.top;
@@ -362,7 +362,7 @@ impl<'windows> SWindowClass<'windows> {
             //self.class as ntdef::LPCWSTR,
             let hinstanceparam = self.winapi.hinstance;
 
-            let hwnd: Foundation::HWND = CreateWindowExW(
+            let hwnd: win::HWND = win::CreateWindowExW(
                 0,
                 self.windowclassname,
                 title,
@@ -371,8 +371,8 @@ impl<'windows> SWindowClass<'windows> {
                 windowy,
                 windowwidth,
                 windowheight,
-                0 as Foundation::HWND,
-                0 as WindowsAndMessaging::HMENU,
+                0 as win::HWND,
+                0 as win::HMENU,
                 hinstanceparam,
                 ptr::null(),
             );
@@ -449,7 +449,7 @@ pub enum EKey {
     Minus,
 }
 
-pub fn translatewmkey(key: Foundation::WPARAM) -> EKey {
+pub fn translatewmkey(key: win::WPARAM) -> EKey {
     match key as i32 {
         0x20 => EKey::Space,
         0x41 => EKey::A,
@@ -488,22 +488,22 @@ pub fn translatewmkey(key: Foundation::WPARAM) -> EKey {
         0x37 => EKey::Number7,
         0x38 => EKey::Number8,
         0x39 => EKey::Number9,
-        WindowsAndMessaging::VK_OEM_3 => EKey::Tilde,
-        WindowsAndMessaging::VK_TAB => EKey::Tab,
-        WindowsAndMessaging::VK_LEFT => EKey::LeftArrow,
-        WindowsAndMessaging::VK_RIGHT => EKey::RightArrow,
-        WindowsAndMessaging::VK_UP => EKey::UpArrow,
-        WindowsAndMessaging::VK_DOWN => EKey::DownArrow,
-        WindowsAndMessaging::VK_PRIOR => EKey::PageUp,
-        WindowsAndMessaging::VK_NEXT => EKey::PageDown,
-        WindowsAndMessaging::VK_HOME => EKey::Home,
-        WindowsAndMessaging::VK_END => EKey::End,
-        WindowsAndMessaging::VK_INSERT => EKey::Insert,
-        WindowsAndMessaging::VK_DELETE => EKey::Delete,
-        WindowsAndMessaging::VK_BACK => EKey::Backspace,
-        WindowsAndMessaging::VK_RETURN => EKey::Enter,
-        WindowsAndMessaging::VK_ESCAPE => EKey::Escape,
-        WindowsAndMessaging::VK_OEM_MINUS => EKey::Minus,
+        win::VK_OEM_3 => EKey::Tilde,
+        win::VK_TAB => EKey::Tab,
+        win::VK_LEFT => EKey::LeftArrow,
+        win::VK_RIGHT => EKey::RightArrow,
+        win::VK_UP => EKey::UpArrow,
+        win::VK_DOWN => EKey::DownArrow,
+        win::VK_PRIOR => EKey::PageUp,
+        win::VK_NEXT => EKey::PageDown,
+        win::VK_HOME => EKey::Home,
+        win::VK_END => EKey::End,
+        win::VK_INSERT => EKey::Insert,
+        win::VK_DELETE => EKey::Delete,
+        win::VK_BACK => EKey::Backspace,
+        win::VK_RETURN => EKey::Enter,
+        win::VK_ESCAPE => EKey::Escape,
+        win::VK_OEM_MINUS => EKey::Minus,
         _ => EKey::Invalid,
     }
 }
@@ -522,52 +522,52 @@ pub enum EMsgType {
     Input { raw_input: rawinput::SRawInput },
 }
 
-fn GET_X_LPARAM(lparam: LPARAM) -> i32 {
+fn GET_X_LPARAM(lparam: win::LPARAM) -> i32 {
     lparam as i8
 }
 
-fn GET_Y_LPARAM(lparam: LPARAM) -> i32 {
+fn GET_Y_LPARAM(lparam: win::LPARAM) -> i32 {
     (lparam >> 8) as i8
 }
 
-pub fn msgtype(msg: UINT, wparam: WPARAM, lparam: LPARAM) -> EMsgType {
+pub fn msgtype(msg: u32, wparam: win::WPARAM, lparam: win::LPARAM) -> EMsgType {
     match msg {
-        WindowsAndMessaging::WM_KEYDOWN => EMsgType::KeyDown {
+        win::WM_KEYDOWN => EMsgType::KeyDown {
             key: translatewmkey(wparam),
         },
-        WindowsAndMessaging::WM_KEYUP => EMsgType::KeyUp {
+        win::WM_KEYUP => EMsgType::KeyUp {
             key: translatewmkey(wparam),
         },
-        WindowsAndMessaging::WM_LBUTTONDOWN => EMsgType::LButtonDown {
+        win::WM_LBUTTONDOWN => EMsgType::LButtonDown {
             x_pos: GET_X_LPARAM(lparam),
             y_pos: GET_Y_LPARAM(lparam),
         },
-        WindowsAndMessaging::WM_LBUTTONUP => EMsgType::LButtonUp {
+        win::WM_LBUTTONUP => EMsgType::LButtonUp {
             x_pos: GET_X_LPARAM(lparam),
             y_pos: GET_Y_LPARAM(lparam),
         },
-        WindowsAndMessaging::WM_MBUTTONDOWN => EMsgType::MButtonDown {
+        win::WM_MBUTTONDOWN => EMsgType::MButtonDown {
             x_pos: GET_X_LPARAM(lparam),
             y_pos: GET_Y_LPARAM(lparam),
         },
-        WindowsAndMessaging::WM_MBUTTONUP => EMsgType::MButtonUp {
+        win::WM_MBUTTONUP => EMsgType::MButtonUp {
             x_pos: GET_X_LPARAM(lparam),
             y_pos: GET_Y_LPARAM(lparam),
         },
-        WindowsAndMessaging::WM_PAINT => EMsgType::Paint,
-        WindowsAndMessaging::WM_SIZE => EMsgType::Size,
-        WindowsAndMessaging::WM_INPUT => {
-            const RI_SIZE : u32 = std::mem::size_of::<RAWINPUT>() as u32;
-            const RI_HEADER_SIZE : u32 = std::mem::size_of::<RAWINPUTHEADER>() as u32;
+        win::WM_PAINT => EMsgType::Paint,
+        win::WM_SIZE => EMsgType::Size,
+        win::WM_INPUT => {
+            const RI_SIZE : u32 = std::mem::size_of::<win::RAWINPUT>() as u32;
+            const RI_HEADER_SIZE : u32 = std::mem::size_of::<win::RAWINPUTHEADER>() as u32;
 
             let mut bytes : [u8; RI_SIZE as usize] = [0; RI_SIZE as usize];
 
             unsafe {
 
                 #[allow(const_item_mutation)]
-                let result = GetRawInputData(
-                    lparam as HRAWINPUT,
-                    RID_INPUT,
+                let result = win::GetRawInputData(
+                    lparam as win::HRAWINPUT,
+                    win::RID_INPUT,
                     &mut bytes[0] as *mut u8 as *mut std::ffi::c_void,
                     &mut RI_SIZE,
                     RI_HEADER_SIZE
@@ -577,7 +577,7 @@ pub fn msgtype(msg: UINT, wparam: WPARAM, lparam: LPARAM) -> EMsgType {
                     panic!("Bad message.");
                 }
 
-                let raw : *mut RAWINPUT = &mut bytes[0] as *mut u8 as *mut RAWINPUT;
+                let raw : *mut win::RAWINPUT = &mut bytes[0] as *mut u8 as *mut win::RAWINPUT;
 
                 let raw_input = rawinput::SRawInput::try_from(*raw).unwrap();
 
@@ -590,11 +590,11 @@ pub fn msgtype(msg: UINT, wparam: WPARAM, lparam: LPARAM) -> EMsgType {
 }
 
 pub fn debug_break() {
-    unsafe { Win32::Diagnostics::Debug::DebugBreak() };
+    unsafe { win::DebugBreak() };
 }
 
 pub fn break_if_debugging() {
-    if unsafe { Win32::Diagnostics::Debug::IsDebuggerPresent() == TRUE } {
+    if unsafe { win::IsDebuggerPresent() } {
         debug_break();
     }
 }

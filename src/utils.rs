@@ -151,7 +151,7 @@ pub fn ray_intersects_aabb(ray: &SRay, aabb: &SAABB) -> Option<f32> {
         Right,
         Left,
         Middle,
-    };
+    }
 
     let mut inside = true;
     let mut quadrant = [EQuadrant::None; 3];

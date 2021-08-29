@@ -12,11 +12,11 @@ impl EDescriptorHeapType {
     pub fn d3dtype(&self) -> u32 {
         match self {
             EDescriptorHeapType::ConstantBufferShaderResourceUnorderedAccess => {
-                D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV
+                win::D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV
             }
-            EDescriptorHeapType::Sampler => D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER,
-            EDescriptorHeapType::RenderTarget => D3D12_DESCRIPTOR_HEAP_TYPE_RTV,
-            EDescriptorHeapType::DepthStencil => D3D12_DESCRIPTOR_HEAP_TYPE_DSV,
+            EDescriptorHeapType::Sampler => win::D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER,
+            EDescriptorHeapType::RenderTarget => win::D3D12_DESCRIPTOR_HEAP_TYPE_RTV,
+            EDescriptorHeapType::DepthStencil => win::D3D12_DESCRIPTOR_HEAP_TYPE_DSV,
         }
     }
 }
@@ -28,12 +28,12 @@ pub enum EDescriptorHeapFlags {
 }
 
 impl TEnumFlags32 for EDescriptorHeapFlags {
-    type TRawType = D3D12_DESCRIPTOR_HEAP_FLAGS;
+    type TRawType = win::D3D12_DESCRIPTOR_HEAP_FLAGS;
 
     fn rawtype(&self) -> Self::TRawType {
         match self {
-            Self::None => D3D12_DESCRIPTOR_HEAP_FLAG_NONE,
-            Self::ShaderVisible => D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE,
+            Self::None => win::D3D12_DESCRIPTOR_HEAP_FLAG_NONE,
+            Self::ShaderVisible => win::D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE,
         }
     }
 }
@@ -48,10 +48,10 @@ pub struct SDescriptorHeapDesc {
 }
 
 impl SDescriptorHeapDesc {
-    pub fn d3dtype(&self) -> D3D12_DESCRIPTOR_HEAP_DESC {
-        D3D12_DESCRIPTOR_HEAP_DESC {
+    pub fn d3dtype(&self) -> win::D3D12_DESCRIPTOR_HEAP_DESC {
+        win::D3D12_DESCRIPTOR_HEAP_DESC {
             Type: self.type_.d3dtype(),
-            NumDescriptors: self.num_descriptors as UINT,
+            NumDescriptors: self.num_descriptors as u32,
             Flags: self.flags.rawtype(),
             NodeMask: 0,
         }
@@ -61,13 +61,13 @@ impl SDescriptorHeapDesc {
 #[derive(Clone)]
 pub struct SDescriptorHeap {
     pub type_: EDescriptorHeapType,
-    pub(super) heap: ComPtr<ID3D12DescriptorHeap>,
+    pub(super) heap: win::ID3D12DescriptorHeap,
 }
 
 impl SDescriptorHeap {
     pub unsafe fn new_from_raw(
         type_: EDescriptorHeapType,
-        raw: ComPtr<ID3D12DescriptorHeap>,
+        raw: win::ID3D12DescriptorHeap,
     ) -> Self {
         Self {
             type_: type_,
@@ -89,30 +89,30 @@ impl SDescriptorHeap {
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct SCPUDescriptorHandle {
-    handle: D3D12_CPU_DESCRIPTOR_HANDLE,
+    handle: win::D3D12_CPU_DESCRIPTOR_HANDLE,
 }
 
 impl SCPUDescriptorHandle {
-    pub unsafe fn raw(&self) -> &D3D12_CPU_DESCRIPTOR_HANDLE {
+    pub unsafe fn raw(&self) -> &win::D3D12_CPU_DESCRIPTOR_HANDLE {
         &self.handle
     }
 
     pub unsafe fn offset(&self, bytes: usize) -> Self {
         SCPUDescriptorHandle {
-            handle: D3D12_CPU_DESCRIPTOR_HANDLE {
+            handle: win::D3D12_CPU_DESCRIPTOR_HANDLE {
                 ptr: self.handle.ptr + bytes,
             },
         }
     }
 
-    pub fn d3dtype(&self) -> D3D12_CPU_DESCRIPTOR_HANDLE {
+    pub fn d3dtype(&self) -> win::D3D12_CPU_DESCRIPTOR_HANDLE {
         self.handle
     }
 }
 
 #[repr(C)]
 pub struct SGPUDescriptorHandle {
-    handle: D3D12_GPU_DESCRIPTOR_HANDLE,
+    handle: win::D3D12_GPU_DESCRIPTOR_HANDLE,
 }
 
 impl std::fmt::Debug for SGPUDescriptorHandle {
@@ -124,19 +124,19 @@ impl std::fmt::Debug for SGPUDescriptorHandle {
 }
 
 impl SGPUDescriptorHandle {
-    pub unsafe fn raw(&self) -> &D3D12_GPU_DESCRIPTOR_HANDLE {
+    pub unsafe fn raw(&self) -> &win::D3D12_GPU_DESCRIPTOR_HANDLE {
         &self.handle
     }
 
     pub unsafe fn offset(&self, bytes: usize) -> Self {
         SGPUDescriptorHandle {
-            handle: D3D12_GPU_DESCRIPTOR_HANDLE {
+            handle: win::D3D12_GPU_DESCRIPTOR_HANDLE {
                 ptr: self.handle.ptr + (bytes as u64),
             },
         }
     }
 
-    pub fn d3dtype(&self) -> D3D12_GPU_DESCRIPTOR_HANDLE {
+    pub fn d3dtype(&self) -> win::D3D12_GPU_DESCRIPTOR_HANDLE {
         self.handle
     }
 }
@@ -149,12 +149,12 @@ pub enum EDescriptorRangeType {
 }
 
 impl EDescriptorRangeType {
-    pub fn d3dtype(&self) -> D3D12_DESCRIPTOR_RANGE_TYPE {
+    pub fn d3dtype(&self) -> win::D3D12_DESCRIPTOR_RANGE_TYPE {
         match self {
-            Self::SRV => D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
-            Self::UAV => D3D12_DESCRIPTOR_RANGE_TYPE_UAV,
-            Self::CBV => D3D12_DESCRIPTOR_RANGE_TYPE_CBV,
-            Self::Sampler => D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER,
+            Self::SRV => win::D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
+            Self::UAV => win::D3D12_DESCRIPTOR_RANGE_TYPE_UAV,
+            Self::CBV => win::D3D12_DESCRIPTOR_RANGE_TYPE_CBV,
+            Self::Sampler => win::D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER,
         }
     }
 }
@@ -167,7 +167,7 @@ pub enum EDescriptorRangeOffset {
 impl EDescriptorRangeOffset {
     pub fn d3dtype(&self) -> u32 {
         match self {
-            Self::EAppend => D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND,
+            Self::EAppend => win::D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND,
             Self::ENumDecriptors { num } => *num,
         }
     }
@@ -182,8 +182,8 @@ pub struct SDescriptorRange {
 }
 
 impl SDescriptorRange {
-    pub fn d3dtype(&self) -> D3D12_DESCRIPTOR_RANGE {
-        D3D12_DESCRIPTOR_RANGE {
+    pub fn d3dtype(&self) -> win::D3D12_DESCRIPTOR_RANGE {
+        win::D3D12_DESCRIPTOR_RANGE {
             RangeType: self.range_type.d3dtype(),
             NumDescriptors: self.num_descriptors,
             BaseShaderRegister: self.base_shader_register,

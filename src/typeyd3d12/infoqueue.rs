@@ -9,7 +9,7 @@ impl SInfoQueue {
         Self { infoqueue: raw }
     }
 
-    pub fn setbreakonseverity(&self, id: D3D12_MESSAGE_ID, val: BOOL) {
+    pub fn set_break_on_severity(&self, id: D3D12_MESSAGE_ID, val: bool) {
         unsafe {
             self.infoqueue.SetBreakOnSeverity(id, val);
         }

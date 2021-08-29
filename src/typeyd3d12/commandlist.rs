@@ -58,8 +58,10 @@ impl SCommandList {
         let hn = self
             .commandlist
             .Reset(commandallocator.raw().as_raw(), ptr::null_mut());
-        returnerrifwinerror!(hn, "Could not reset command list.");
-        Ok(())
+        match hn {
+            Ok(_) => Ok(()),
+            Err(_) => Err("Could not reset command list."),
+        }
     }
 
     pub unsafe fn resourcebarrier(&self, barriers: &[SBarrier]) {
@@ -305,8 +307,10 @@ impl SCommandList {
 
     pub unsafe fn close(&self) -> Result<(), &'static str> {
         let hn = self.commandlist.Close();
-        returnerrifwinerror!(hn, "Could not close command list.");
-        Ok(())
+        match hn {
+            Ok(_) => Ok(()),
+            Err(_) => Err("Could not close command list."),
+        }
     }
 
     pub unsafe fn raw(&self) -> &ComPtr<ID3D12GraphicsCommandList> {

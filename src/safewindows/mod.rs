@@ -469,7 +469,7 @@ pub enum EKey {
     Minus,
 }
 
-pub fn translatewmkey(key: winapi::shared::minwindef::WPARAM) -> EKey {
+pub fn translatewmkey(key: Foundation::WPARAM) -> EKey {
     match key as i32 {
         0x20 => EKey::Space,
         0x41 => EKey::A,
@@ -508,22 +508,22 @@ pub fn translatewmkey(key: winapi::shared::minwindef::WPARAM) -> EKey {
         0x37 => EKey::Number7,
         0x38 => EKey::Number8,
         0x39 => EKey::Number9,
-        winapi::um::winuser::VK_OEM_3 => EKey::Tilde,
-        winapi::um::winuser::VK_TAB => EKey::Tab,
-        winapi::um::winuser::VK_LEFT => EKey::LeftArrow,
-        winapi::um::winuser::VK_RIGHT => EKey::RightArrow,
-        winapi::um::winuser::VK_UP => EKey::UpArrow,
-        winapi::um::winuser::VK_DOWN => EKey::DownArrow,
-        winapi::um::winuser::VK_PRIOR => EKey::PageUp,
-        winapi::um::winuser::VK_NEXT => EKey::PageDown,
-        winapi::um::winuser::VK_HOME => EKey::Home,
-        winapi::um::winuser::VK_END => EKey::End,
-        winapi::um::winuser::VK_INSERT => EKey::Insert,
-        winapi::um::winuser::VK_DELETE => EKey::Delete,
-        winapi::um::winuser::VK_BACK => EKey::Backspace,
-        winapi::um::winuser::VK_RETURN => EKey::Enter,
-        winapi::um::winuser::VK_ESCAPE => EKey::Escape,
-        winapi::um::winuser::VK_OEM_MINUS => EKey::Minus,
+        WindowsAndMessaging::VK_OEM_3 => EKey::Tilde,
+        WindowsAndMessaging::VK_TAB => EKey::Tab,
+        WindowsAndMessaging::VK_LEFT => EKey::LeftArrow,
+        WindowsAndMessaging::VK_RIGHT => EKey::RightArrow,
+        WindowsAndMessaging::VK_UP => EKey::UpArrow,
+        WindowsAndMessaging::VK_DOWN => EKey::DownArrow,
+        WindowsAndMessaging::VK_PRIOR => EKey::PageUp,
+        WindowsAndMessaging::VK_NEXT => EKey::PageDown,
+        WindowsAndMessaging::VK_HOME => EKey::Home,
+        WindowsAndMessaging::VK_END => EKey::End,
+        WindowsAndMessaging::VK_INSERT => EKey::Insert,
+        WindowsAndMessaging::VK_DELETE => EKey::Delete,
+        WindowsAndMessaging::VK_BACK => EKey::Backspace,
+        WindowsAndMessaging::VK_RETURN => EKey::Enter,
+        WindowsAndMessaging::VK_ESCAPE => EKey::Escape,
+        WindowsAndMessaging::VK_OEM_MINUS => EKey::Minus,
         _ => EKey::Invalid,
     }
 }
@@ -542,33 +542,41 @@ pub enum EMsgType {
     Input { raw_input: rawinput::SRawInput },
 }
 
+fn GET_X_LPARAM(lparam: LPARAM) -> i32 {
+    lparam as i8
+}
+
+fn GET_Y_LPARAM(lparam: LPARAM) -> i32 {
+    (lparam >> 8) as i8
+}
+
 pub fn msgtype(msg: UINT, wparam: WPARAM, lparam: LPARAM) -> EMsgType {
     match msg {
-        winapi::um::winuser::WM_KEYDOWN => EMsgType::KeyDown {
+        WindowsAndMessaging::WM_KEYDOWN => EMsgType::KeyDown {
             key: translatewmkey(wparam),
         },
-        winapi::um::winuser::WM_KEYUP => EMsgType::KeyUp {
+        WindowsAndMessaging::WM_KEYUP => EMsgType::KeyUp {
             key: translatewmkey(wparam),
         },
-        winapi::um::winuser::WM_LBUTTONDOWN => EMsgType::LButtonDown {
-            x_pos: winapi::shared::windowsx::GET_X_LPARAM(lparam),
-            y_pos: winapi::shared::windowsx::GET_Y_LPARAM(lparam),
+        WindowsAndMessaging::WM_LBUTTONDOWN => EMsgType::LButtonDown {
+            x_pos: GET_X_LPARAM(lparam),
+            y_pos: GET_Y_LPARAM(lparam),
         },
-        winapi::um::winuser::WM_LBUTTONUP => EMsgType::LButtonUp {
-            x_pos: winapi::shared::windowsx::GET_X_LPARAM(lparam),
-            y_pos: winapi::shared::windowsx::GET_Y_LPARAM(lparam),
+        WindowsAndMessaging::WM_LBUTTONUP => EMsgType::LButtonUp {
+            x_pos: GET_X_LPARAM(lparam),
+            y_pos: GET_Y_LPARAM(lparam),
         },
-        winapi::um::winuser::WM_MBUTTONDOWN => EMsgType::MButtonDown {
-            x_pos: winapi::shared::windowsx::GET_X_LPARAM(lparam),
-            y_pos: winapi::shared::windowsx::GET_Y_LPARAM(lparam),
+        WindowsAndMessaging::WM_MBUTTONDOWN => EMsgType::MButtonDown {
+            x_pos: GET_X_LPARAM(lparam),
+            y_pos: GET_Y_LPARAM(lparam),
         },
-        winapi::um::winuser::WM_MBUTTONUP => EMsgType::MButtonUp {
-            x_pos: winapi::shared::windowsx::GET_X_LPARAM(lparam),
-            y_pos: winapi::shared::windowsx::GET_Y_LPARAM(lparam),
+        WindowsAndMessaging::WM_MBUTTONUP => EMsgType::MButtonUp {
+            x_pos: GET_X_LPARAM(lparam),
+            y_pos: GET_Y_LPARAM(lparam),
         },
-        winapi::um::winuser::WM_PAINT => EMsgType::Paint,
-        winapi::um::winuser::WM_SIZE => EMsgType::Size,
-        winapi::um::winuser::WM_INPUT => {
+        WindowsAndMessaging::WM_PAINT => EMsgType::Paint,
+        WindowsAndMessaging::WM_SIZE => EMsgType::Size,
+        WindowsAndMessaging::WM_INPUT => {
             const RI_SIZE : u32 = std::mem::size_of::<RAWINPUT>() as u32;
             const RI_HEADER_SIZE : u32 = std::mem::size_of::<RAWINPUTHEADER>() as u32;
 
@@ -580,7 +588,7 @@ pub fn msgtype(msg: UINT, wparam: WPARAM, lparam: LPARAM) -> EMsgType {
                 let result = GetRawInputData(
                     lparam as HRAWINPUT,
                     RID_INPUT,
-                    &mut bytes[0] as *mut u8 as *mut winapi::ctypes::c_void,
+                    &mut bytes[0] as *mut u8 as *mut std::ffi::c_void,
                     &mut RI_SIZE,
                     RI_HEADER_SIZE
                 );
@@ -602,11 +610,11 @@ pub fn msgtype(msg: UINT, wparam: WPARAM, lparam: LPARAM) -> EMsgType {
 }
 
 pub fn debug_break() {
-    unsafe { winapi::um::debugapi::DebugBreak() };
+    unsafe { Win32::Diagnostics::Debug::DebugBreak() };
 }
 
 pub fn break_if_debugging() {
-    if unsafe { winapi::um::debugapi::IsDebuggerPresent() == TRUE } {
+    if unsafe { Win32::Diagnostics::Debug::IsDebuggerPresent() == TRUE } {
         debug_break();
     }
 }

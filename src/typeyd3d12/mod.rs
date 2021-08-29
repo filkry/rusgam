@@ -1,8 +1,9 @@
 #![allow(dead_code)]
 
+// -- FRK(TODO): actually use the relevant windows error
 macro_rules! returnerrifwinerror {
     ($hn:expr, $err:expr) => {
-        if !winerror::SUCCEEDED($hn) {
+        if($hn.is_err()) {
             return Err($err);
         }
     };
@@ -34,6 +35,8 @@ use std::{mem, ptr};
 use std::convert::From;
 
 use arrayvec::ArrayVec;
+
+use winbindings::Windows::Win32;
 
 // -- this is copied in safewindows, does it have to be?
 trait ComPtrPtrs<T> {

@@ -86,7 +86,7 @@ pub unsafe fn UpdateSubresources(
 
     let mut data: *mut u8 = ptr::null_mut();
     let hr = (*intermediate).Map(0, ptr::null(), &mut data as *mut *mut _ as *mut *mut c_void);
-    if winerror::FAILED(hr) {
+    if hr.is_err() {
         panic!("No Err here yet");
     }
 

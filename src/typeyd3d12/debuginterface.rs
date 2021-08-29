@@ -7,18 +7,11 @@ pub struct SDebugInterface {
 impl SDebugInterface {
     pub fn new() -> Result<Self, &'static str> {
         unsafe {
-            let mut raw_ptr = std::mem::MaybeUninit::<*mut ID3D12Debug>::uninit();
-
-            let riid = ID3D12Debug::uuidof();
-            let voidcasted: *mut *mut c_void = raw_ptr.as_mut_ptr() as *mut _ as *mut *mut c_void;
-
-            let hresult = D3D12GetDebugInterface(&riid, voidcasted);
-            if winerror::SUCCEEDED(hresult) {
-                Ok(SDebugInterface {
-                    debuginterface: ComPtr::from_raw(raw_ptr.assume_init()),
-                })
-            } else {
-                Err("D3D12GetDebugInterface gave an error.")
+            match D3D12GetDebugInterface::<ID3D12Debug>() {
+                Ok(di) => Ok(SDebugInterface {
+                    debuginterface: di,
+                }),
+                Err(_) => Err("D3D12GetDebugInterface gave an error."),
             }
         }
     }
@@ -44,7 +37,7 @@ impl SDXGIDebugInterface {
                 curidx += 1;
             }
 
-            let module = winapi::um::libloaderapi::GetModuleHandleA(strbytes.as_ptr());
+            let module = Win32::System::LibraryLoader::GetModuleHandleA(strbytes.as_ptr());
             if module.is_null() {
                 return Err("Failed to find dxgidebug.dll");
             }
@@ -57,7 +50,7 @@ impl SDXGIDebugInterface {
             strbytes[curidx] = 0;
 
             let get_debug_interface_fn_ptr =
-                winapi::um::libloaderapi::GetProcAddress(module, strbytes.as_ptr());
+                Win32::System::LibraryLoader::GetProcAddress(module, strbytes.as_ptr());
             if get_debug_interface_fn_ptr.is_null() {
                 return Err("Failed to find DXGIGetDebugInterface");
             }

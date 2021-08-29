@@ -6,6 +6,7 @@ use std::ops::{Deref};
 use arrayvec::{ArrayVec};
 use imgui;
 use math::{Mat4};
+use win;
 
 use allocate::{SYSTEM_ALLOCATOR};
 use collections::{SVec};
@@ -147,7 +148,7 @@ impl SRenderImgui {
                 0,
                 t12::EDXGIFormat::R32G32Float,
                 0,
-                winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
+                win::D3D12_APPEND_ALIGNED_ELEMENT,
                 t12::EInputClassification::PerVertexData,
                 0,
             ),
@@ -156,7 +157,7 @@ impl SRenderImgui {
                 0,
                 t12::EDXGIFormat::R32G32Float,
                 0,
-                winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
+                win::D3D12_APPEND_ALIGNED_ELEMENT,
                 t12::EInputClassification::PerVertexData,
                 0,
             ),
@@ -165,7 +166,7 @@ impl SRenderImgui {
                 0,
                 t12::EDXGIFormat::R32UINT,
                 0,
-                winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
+                win::D3D12_APPEND_ALIGNED_ELEMENT,
                 t12::EInputClassification::PerVertexData,
                 0,
             ),

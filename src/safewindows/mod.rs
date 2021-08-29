@@ -2,13 +2,7 @@
 use std::{cmp, fmt, mem, ptr};
 use std::convert::TryFrom;
 
-use windows;
-use winbindings::Windows::Win32;
-use winbindings::Windows::Win32::Foundation;
-use winbindings::Windows::Win32::System::Diagnostics::Debug::GetLastError;
-use winbindings::Windows::Win32::System::LibraryLoader::GetModuleHandleW;
-use winbindings::Windows::Win32::System::Performance;
-use winbindings::Windows::Win32::UI::WindowsAndMessaging;
+use win;
 
 pub mod rawinput;
 
@@ -30,22 +24,8 @@ macro_rules! break_assert {
     };
 }
 
-// -- this is copied in safeD3D12, does it have to be?
-trait ComPtrPtrs<T> {
-    unsafe fn asunknownptr(&mut self) -> *mut windows::IUnknown;
-}
-
-impl<T> ComPtrPtrs<T> for ComPtr<T>
-where
-    T: Interface,
-{
-    unsafe fn asunknownptr(&mut self) -> *mut windows::IUnknown {
-        self.as_raw() as *mut windows::IUnknown
-    }
-}
-
 pub struct SErr {
-    errcode: DWORD,
+    errcode: win::WIN32_ERROR,
 }
 
 pub unsafe fn getlasterror() -> SErr {
@@ -62,7 +42,7 @@ impl fmt::Debug for SErr {
 }
 
 pub struct SWinAPI {
-    hinstance: HINSTANCE,
+    hinstance: Foundation::HINSTANCE,
 }
 
 pub fn initwinapi() -> Result<SWinAPI, SErr> {

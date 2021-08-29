@@ -26,9 +26,6 @@ use std::ops::Deref;
 use std::ptr;
 use std::rc::{Rc};
 
-use winbindings::Windows::Win32::Graphics::Direct3D12;
-use winbindings::Windows::Win32::Graphics::Dxgi;
-
 pub use self::adapter::*;
 pub use self::commandallocator::*;
 pub use self::commandlist::*;

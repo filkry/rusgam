@@ -38,10 +38,11 @@ mod enumflags;
 mod camera;
 mod model;
 mod render;
+mod win;
 
 mod entitytypes;
 
-mod winbindings {
+mod winbindings2 {
     windows::include_bindings!();
 }
 

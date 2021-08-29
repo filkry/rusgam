@@ -71,8 +71,8 @@ impl SResourceDesc {
                 Height: 1,                // required
                 DepthOrArraySize: 1,      // required
                 MipLevels: 1,             // required
-                Format: dxgiformat::DXGI_FORMAT_UNKNOWN, // required
-                SampleDesc: dxgitype::DXGI_SAMPLE_DESC {
+                Format: Dxgi::DXGI_FORMAT_UNKNOWN, // required
+                SampleDesc: Dxgi::DXGI_SAMPLE_DESC {
                     Count: 1,   // required
                     Quality: 0, // required
                 },
@@ -99,7 +99,7 @@ impl SResourceDesc {
                 DepthOrArraySize: array_size, // required
                 MipLevels: mip_levels,        // required
                 Format: format.d3dtype(),     // required
-                SampleDesc: dxgitype::DXGI_SAMPLE_DESC {
+                SampleDesc: Dxgi::DXGI_SAMPLE_DESC {
                     Count: 1,   // required
                     Quality: 0, // required
                 },

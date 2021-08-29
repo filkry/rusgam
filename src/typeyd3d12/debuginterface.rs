@@ -24,12 +24,20 @@ impl SDebugInterface {
 }
 
 pub struct SDXGIDebugInterface {
-    debuginterface: ComPtr<IDXGIDebug>,
+    debuginterface: IDXGIDebug,
 }
 
 impl SDXGIDebugInterface {
     pub fn new() -> Result<Self, &'static str> {
         unsafe {
+            let res = Win32::Graphics::Dxgi::DXGIGetDebugInterface1::<IDXGIDebug>(0);
+            match res {
+                Ok(di) => Ok(Self {
+                    debuginterface: di,
+                }),
+                Err(_) => Err("DXGIGetDebugInterface gave an error."),
+            }
+            /*
             let mut strbytes : [i8; 100] = [0; 100];
             let mut curidx = 0;
             for ch in "dxgidebug".bytes() {
@@ -71,6 +79,7 @@ impl SDXGIDebugInterface {
             } else {
                 Err("DXGIGetDebugInterface gave an error.")
             }
+            */
         }
     }
 
@@ -78,8 +87,8 @@ impl SDXGIDebugInterface {
         // -- $$$FRK(FUTURE WORK): support parameters?
         unsafe {
             self.debuginterface.ReportLiveObjects(
-                winapi::um::dxgidebug::DXGI_DEBUG_ALL,
-                winapi::um::dxgidebug::DXGI_DEBUG_RLO_ALL,
+                Win32::Graphics::Dxgi::DXGI_DEBUG_ALL,
+                Win32::Graphics::Dxgi::DXGI_DEBUG_RLO_ALL,
             );
         }
     }

@@ -6,34 +6,25 @@ pub struct SFactory {
 
 impl SFactory {
     pub fn new() -> Result<Self, &'static str> {
-        let mut rawfactory: *mut IDXGIFactory4 = ptr::null_mut();
         let createfactoryresult = unsafe {
-            CreateDXGIFactory2(
+            CreateDXGIFactory2::<IDXGIFactory4>(
                 DXGI_CREATE_FACTORY_DEBUG,
-                &IDXGIFactory4::uuidof(),
-                &mut rawfactory as *mut *mut _ as *mut *mut c_void,
             )
         };
-        if winerror::SUCCEEDED(createfactoryresult) {
-            return Ok(Self {
-                factory: unsafe { ComPtr::from_raw(rawfactory) },
-            });
+        match createfactoryresult {
+            Ok(rawfactory) => Ok(Self { factory: rawfactory, }),
+            Err(_) => Err("Couldn't get D3D12 factory.")
         }
-
-        Err("Couldn't get D3D12 factory.")
     }
 
     pub fn enumadapters(&self, adapteridx: u32) -> Option<SAdapter1> {
         let mut rawadapter1: *mut IDXGIAdapter1 = ptr::null_mut();
 
-        if unsafe { self.factory.EnumAdapters1(adapteridx, &mut rawadapter1) }
-            == winerror::DXGI_ERROR_NOT_FOUND
-        {
-            return None;
+        let res = self.factory.EnumAdapters1(adapteridx);
+        match res {
+            Ok(rawadapter1) => Some(SAdapter1::new_from_raw(rawadapter1)),
+            Err(_) => None,
         }
-
-        let adapter1: ComPtr<IDXGIAdapter1> = unsafe { ComPtr::from_raw(rawadapter1) };
-        Some(unsafe { SAdapter1::new_from_raw(adapter1) })
     }
 
     pub unsafe fn createswapchainforwindow(
@@ -64,24 +55,21 @@ impl SFactory {
 
         let d3d_desc = desc.d3dtype();
 
-        let mut rawswapchain: *mut IDXGISwapChain1 = ptr::null_mut();
-
         let hr = self.factory.CreateSwapChainForHwnd(
             commandqueue.raw().asunknownptr(),
             window.raw(),
             &d3d_desc,
             ptr::null(),
             ptr::null_mut(),
-            &mut rawswapchain as *mut *mut _ as *mut *mut IDXGISwapChain1,
         );
 
         returnerrifwinerror!(hr, "Failed to create swap chain");
 
-        let swapchain = ComPtr::from_raw(rawswapchain);
+        let swapchain = hr.expect("checked err above");
 
         match swapchain.cast::<IDXGISwapChain4>() {
             Ok(sc4) => Ok(SSwapChain::new_from_raw(sc4)),
-            _ => Err("Swap chain could not be case to SwapChain4"),
+            _ => Err("Swap chain could not be cast to SwapChain4"),
         }
     }
 }

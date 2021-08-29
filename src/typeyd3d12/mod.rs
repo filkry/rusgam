@@ -35,22 +35,7 @@ use std::{mem, ptr};
 use std::convert::From;
 
 use arrayvec::ArrayVec;
-
-use winbindings::Windows::Win32;
-
-// -- this is copied in safewindows, does it have to be?
-trait ComPtrPtrs<T> {
-    unsafe fn asunknownptr(&self) -> *mut unknwnbase::IUnknown;
-}
-
-impl<T> ComPtrPtrs<T> for ComPtr<T>
-where
-    T: Interface,
-{
-    unsafe fn asunknownptr(&self) -> *mut unknwnbase::IUnknown {
-        self.as_raw() as *mut unknwnbase::IUnknown
-    }
-}
+use win;
 
 pub use self::adapter::SAdapter1;
 pub use self::adapter::SAdapter4;
@@ -73,13 +58,13 @@ pub use self::swapchain::*;
 pub use self::view::*;
 
 pub struct SBarrier {
-    barrier: D3D12_RESOURCE_BARRIER,
+    barrier: win::D3D12_RESOURCE_BARRIER,
 }
 
 pub struct SScissorRects {
     rects: ArrayVec<[SRect; 16]>,
 
-    d3drects: ArrayVec<[D3D12_RECT; 16]>,
+    d3drects: ArrayVec<[win::D3D12_RECT; 16]>,
 }
 
 impl SScissorRects {
@@ -99,11 +84,11 @@ impl SScissorRects {
 }
 
 pub struct SGPUVirtualAddress {
-    raw: D3D12_GPU_VIRTUAL_ADDRESS,
+    raw: win::D3D12_GPU_VIRTUAL_ADDRESS,
 }
 
 impl SGPUVirtualAddress {
-    pub fn raw(&self) -> D3D12_GPU_VIRTUAL_ADDRESS {
+    pub fn raw(&self) -> win::D3D12_GPU_VIRTUAL_ADDRESS {
         self.raw
     }
 
@@ -115,7 +100,7 @@ impl SGPUVirtualAddress {
 }
 
 pub struct SViewport {
-    viewport: D3D12_VIEWPORT,
+    viewport: win::D3D12_VIEWPORT,
 }
 
 impl SViewport {
@@ -128,13 +113,13 @@ impl SViewport {
         maxdepth: Option<f32>,
     ) -> Self {
         SViewport {
-            viewport: D3D12_VIEWPORT {
+            viewport: win::D3D12_VIEWPORT {
                 TopLeftX: topleftx,
                 TopLeftY: toplefty,
                 Width: width,
                 Height: height,
-                MinDepth: mindepth.unwrap_or(D3D12_MIN_DEPTH),
-                MaxDepth: maxdepth.unwrap_or(D3D12_MAX_DEPTH),
+                MinDepth: mindepth.unwrap_or(win::D3D12_MIN_DEPTH),
+                MaxDepth: maxdepth.unwrap_or(win::D3D12_MAX_DEPTH),
             },
         }
     }
@@ -144,7 +129,7 @@ pub type SRect = safewindows::SRect;
 
 impl SRect {
     pub fn d3dtype(&self) -> D3D12_RECT {
-        D3D12_RECT {
+        win::D3D12_RECT {
             left: self.left,
             right: self.right,
             top: self.top,
@@ -169,35 +154,35 @@ pub enum EDXGIFormat {
 }
 
 impl EDXGIFormat {
-    pub fn d3dtype(&self) -> dxgiformat::DXGI_FORMAT {
+    pub fn d3dtype(&self) -> win::DXGI_FORMAT {
         match self {
-            Self::Unknown => dxgiformat::DXGI_FORMAT_UNKNOWN,
-            Self::R32G32B32A32Typeless => dxgiformat::DXGI_FORMAT_R32G32B32A32_TYPELESS,
-            Self::R32G32B32A32Float => dxgiformat::DXGI_FORMAT_R32G32B32A32_FLOAT,
-            Self::R32G32B32Float => dxgiformat::DXGI_FORMAT_R32G32B32_FLOAT,
-            Self::R32G32Float => dxgiformat::DXGI_FORMAT_R32G32_FLOAT,
-            Self::D32Float => dxgiformat::DXGI_FORMAT_D32_FLOAT,
-            Self::R32Float => dxgiformat::DXGI_FORMAT_R32_FLOAT,
-            Self::R32Typeless => dxgiformat::DXGI_FORMAT_R32_TYPELESS,
-            Self::R8G8B8A8UNorm => dxgiformat::DXGI_FORMAT_R8G8B8A8_UNORM,
-            Self::R16UINT => dxgiformat::DXGI_FORMAT_R16_UINT,
-            Self::R32UINT => dxgiformat::DXGI_FORMAT_R32_UINT,
+            Self::Unknown => win::DXGI_FORMAT_UNKNOWN,
+            Self::R32G32B32A32Typeless => win::DXGI_FORMAT_R32G32B32A32_TYPELESS,
+            Self::R32G32B32A32Float => win::DXGI_FORMAT_R32G32B32A32_FLOAT,
+            Self::R32G32B32Float => win::DXGI_FORMAT_R32G32B32_FLOAT,
+            Self::R32G32Float => win::DXGI_FORMAT_R32G32_FLOAT,
+            Self::D32Float => win::DXGI_FORMAT_D32_FLOAT,
+            Self::R32Float => win::DXGI_FORMAT_R32_FLOAT,
+            Self::R32Typeless => win::DXGI_FORMAT_R32_TYPELESS,
+            Self::R8G8B8A8UNorm => win::DXGI_FORMAT_R8G8B8A8_UNORM,
+            Self::R16UINT => win::DXGI_FORMAT_R16_UINT,
+            Self::R32UINT => win::DXGI_FORMAT_R32_UINT,
         }
     }
 }
 
-impl From<dxgiformat::DXGI_FORMAT> for EDXGIFormat {
-    fn from(format: dxgiformat::DXGI_FORMAT) -> Self {
+impl From<win::DXGI_FORMAT> for EDXGIFormat {
+    fn from(format: win::DXGI_FORMAT) -> Self {
         match format {
-            dxgiformat::DXGI_FORMAT_UNKNOWN => Self::Unknown,
-            dxgiformat::DXGI_FORMAT_R32G32B32A32_TYPELESS => Self::R32G32B32A32Typeless,
-            dxgiformat::DXGI_FORMAT_R32G32B32_FLOAT => Self::R32G32B32Float,
-            dxgiformat::DXGI_FORMAT_R32G32_FLOAT => Self::R32G32Float,
-            dxgiformat::DXGI_FORMAT_D32_FLOAT => Self::D32Float,
-            dxgiformat::DXGI_FORMAT_R32_FLOAT => Self::R32Float,
-            dxgiformat::DXGI_FORMAT_R32_TYPELESS => Self::R32Typeless,
-            dxgiformat::DXGI_FORMAT_R8G8B8A8_UNORM => Self::R8G8B8A8UNorm,
-            dxgiformat::DXGI_FORMAT_R16_UINT => Self::R16UINT,
+            win::DXGI_FORMAT_UNKNOWN => Self::Unknown,
+            win::DXGI_FORMAT_R32G32B32A32_TYPELESS => Self::R32G32B32A32Typeless,
+            win::DXGI_FORMAT_R32G32B32_FLOAT => Self::R32G32B32Float,
+            win::DXGI_FORMAT_R32G32_FLOAT => Self::R32G32Float,
+            win::DXGI_FORMAT_D32_FLOAT => Self::D32Float,
+            win::DXGI_FORMAT_R32_FLOAT => Self::R32Float,
+            win::DXGI_FORMAT_R32_TYPELESS => Self::R32Typeless,
+            win::DXGI_FORMAT_R8G8B8A8_UNORM => Self::R8G8B8A8UNorm,
+            win::DXGI_FORMAT_R16_UINT => Self::R16UINT,
             _ => {
                 panic!("Unimplemented type");
             }
@@ -206,7 +191,7 @@ impl From<dxgiformat::DXGI_FORMAT> for EDXGIFormat {
 }
 
 pub struct SBlob {
-    raw: ComPtr<d3dcommon::ID3DBlob>,
+    raw: win::ID3DBlob,
 }
 
 #[derive(Copy, Clone, PartialEq)]
@@ -216,10 +201,10 @@ pub enum EDepthWriteMask {
 }
 
 impl EDepthWriteMask {
-    pub fn d3dtype(&self) -> D3D12_DEPTH_WRITE_MASK {
+    pub fn d3dtype(&self) -> win::D3D12_DEPTH_WRITE_MASK {
         match self {
-            Self::Zero => D3D12_DEPTH_WRITE_MASK_ZERO,
-            Self::All => D3D12_DEPTH_WRITE_MASK_ALL,
+            Self::Zero => win::D3D12_DEPTH_WRITE_MASK_ZERO,
+            Self::All => win::D3D12_DEPTH_WRITE_MASK_ALL,
         }
     }
 }
@@ -242,8 +227,8 @@ pub struct SRange {
 }
 
 impl SRange {
-    pub fn d3dtype(&self) -> D3D12_RANGE {
-        D3D12_RANGE {
+    pub fn d3dtype(&self) -> win::D3D12_RANGE {
+        win::D3D12_RANGE {
             Begin: self.begin,
             End: self.end,
         }
@@ -251,16 +236,16 @@ impl SRange {
 }
 
 impl EComparisonFunc {
-    pub fn d3dtype(&self) -> D3D12_COMPARISON_FUNC {
+    pub fn d3dtype(&self) -> win::D3D12_COMPARISON_FUNC {
         match self {
-            Self::Never => D3D12_COMPARISON_FUNC_NEVER,
-            Self::Less => D3D12_COMPARISON_FUNC_LESS,
-            Self::Equal => D3D12_COMPARISON_FUNC_EQUAL,
-            Self::LessEqual => D3D12_COMPARISON_FUNC_LESS_EQUAL,
-            Self::Greater => D3D12_COMPARISON_FUNC_GREATER,
-            Self::NotEqual => D3D12_COMPARISON_FUNC_NOT_EQUAL,
-            Self::GreaterEqual => D3D12_COMPARISON_FUNC_GREATER_EQUAL,
-            Self::Always => D3D12_COMPARISON_FUNC_ALWAYS,
+            Self::Never => win::D3D12_COMPARISON_FUNC_NEVER,
+            Self::Less => win::D3D12_COMPARISON_FUNC_LESS,
+            Self::Equal => win::D3D12_COMPARISON_FUNC_EQUAL,
+            Self::LessEqual => win::D3D12_COMPARISON_FUNC_LESS_EQUAL,
+            Self::Greater => win::D3D12_COMPARISON_FUNC_GREATER,
+            Self::NotEqual => win::D3D12_COMPARISON_FUNC_NOT_EQUAL,
+            Self::GreaterEqual => win::D3D12_COMPARISON_FUNC_GREATER_EQUAL,
+            Self::Always => win::D3D12_COMPARISON_FUNC_ALWAYS,
         }
     }
 }

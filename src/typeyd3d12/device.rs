@@ -2,22 +2,19 @@ use super::*;
 
 #[derive(Clone)]
 pub struct SDevice {
-    device: ComPtr<ID3D12Device2>,
+    device: ID3D12Device2,
 }
 
-pub fn d3d12createdevice(adapter: *mut unknwnbase::IUnknown) -> Result<SDevice, &'static str> {
-    let mut rawdevice: *mut ID3D12Device2 = ptr::null_mut();
+pub fn d3d12createdevice(adapter: &SAdapter) -> Result<SDevice, &'static str> {
     let hn = unsafe {
-        D3D12CreateDevice(
-            adapter, //self.adapter.asunknownptr(),
-            d3dcommon::D3D_FEATURE_LEVEL_11_0,
-            &ID3D12Device2::uuidof(),
-            &mut rawdevice as *mut *mut _ as *mut *mut c_void,
+        D3D12CreateDevice::<ID3D12Device2>(
+            adapter.adapter, //self.adapter.asunknownptr(),
+            Win32::Graphics::Direct3D11::D3D_FEATURE_LEVEL_11_0,
         )
     };
     returnerrifwinerror!(hn, "Could not create device on adapter.");
 
-    let device = unsafe { ComPtr::from_raw(rawdevice) };
+    let device = hn.expect("checked for error above");
     Ok(SDevice { device: device })
 }
 
@@ -38,25 +35,22 @@ impl SDevice {
         type_: ECommandListType,
     ) -> Result<SCommandQueue, &'static str> {
         // -- $$$FRK(FUTURE WORK): pass priority, flags, nodemask
-        let desc = D3D12_COMMAND_QUEUE_DESC {
+        let desc = Direct3D12::D3D12_COMMAND_QUEUE_DESC {
             Type: type_.d3dtype(),
-            Priority: D3D12_COMMAND_QUEUE_PRIORITY_NORMAL as i32,
+            Priority: Direct3D12::D3D12_COMMAND_QUEUE_PRIORITY_NORMAL,
             Flags: 0,
             NodeMask: 0,
         };
 
-        let mut rawqueue: *mut ID3D12CommandQueue = ptr::null_mut();
         let hr = unsafe {
-            self.device.CreateCommandQueue(
+            self.device.CreateCommandQueue::<ID3D12CommandQueue>(
                 &desc,
-                &ID3D12CommandQueue::uuidof(),
-                &mut rawqueue as *mut *mut _ as *mut *mut c_void,
             )
         };
 
         returnerrifwinerror!(hr, "Could not create command queue");
 
-        Ok(unsafe { SCommandQueue::new_from_raw(ComPtr::from_raw(rawqueue)) })
+        Ok(SCommandQueue::new_from_raw(hr.expect("checked err above")))
     }
 
     pub fn create_descriptor_heap(
@@ -65,19 +59,16 @@ impl SDevice {
     ) -> Result<SDescriptorHeap, &'static str> {
         let d3ddesc = desc.d3dtype();
 
-        let mut rawheap: *mut ID3D12DescriptorHeap = ptr::null_mut();
         let hr = unsafe {
-            self.device.CreateDescriptorHeap(
+            self.device.CreateDescriptorHeap::<ID3D12DescriptorHeap>(
                 &d3ddesc,
-                &ID3D12DescriptorHeap::uuidof(),
-                &mut rawheap as *mut *mut _ as *mut *mut c_void,
             )
         };
 
         returnerrifwinerror!(hr, "Failed to create descriptor heap");
 
         unsafe {
-            let heap = ComPtr::from_raw(rawheap);
+            let heap = hr.expect("checked err above");
             Ok(SDescriptorHeap::new_from_raw(desc.type_, heap))
         }
     }
@@ -169,19 +160,16 @@ impl SDevice {
             let d3dcv = clear_value.map(|cv| cv.d3dtype());
             let d3dcv_ptr = d3dcv.as_ref().map_or(ptr::null(), |cv| cv);
 
-            let mut rawresource: *mut ID3D12Resource = ptr::null_mut();
-            let hn = self.device.CreateCommittedResource(
+            let hn = self.device.CreateCommittedResource::<ID3D12Resource>(
                 heapproperties.raw(),
                 heapflags.rawtype(),
                 resourcedesc.raw(),
                 initialresourcestate.d3dtype(),
                 d3dcv_ptr,
-                &ID3D12Resource::uuidof(), // $$$FRK(TODO): this isn't necessarily right
-                &mut rawresource as *mut *mut _ as *mut *mut c_void,
             );
 
             returnerrifwinerror!(hn, "Could not create committed resource.");
-            Ok(SResource::new_from_raw(ComPtr::from_raw(rawresource)))
+            Ok(SResource::new_from_raw(hn.expect("checked err above")))
         }
     }
 
@@ -189,18 +177,15 @@ impl SDevice {
         &self,
         type_: ECommandListType,
     ) -> Result<SCommandAllocator, &'static str> {
-        let mut rawca: *mut ID3D12CommandAllocator = ptr::null_mut();
         let hn = unsafe {
-            self.device.CreateCommandAllocator(
+            self.device.CreateCommandAllocator::<ID3D12CommandAllocator>(
                 type_.d3dtype(),
-                &ID3D12CommandAllocator::uuidof(),
-                &mut rawca as *mut *mut _ as *mut *mut c_void,
             )
         };
 
         returnerrifwinerror!(hn, "Could not create command allocator.");
 
-        Ok(unsafe { SCommandAllocator::new_from_raw(type_, ComPtr::from_raw(rawca)) })
+        Ok(unsafe { SCommandAllocator::new_from_raw(type_, hn.expect("checked err above")) })
     }
 
     pub fn createcommandlist(
@@ -209,36 +194,31 @@ impl SDevice {
     ) -> Result<SCommandList, &'static str> {
         let mut rawcl: *mut ID3D12GraphicsCommandList = ptr::null_mut();
         let hn = unsafe {
-            self.device.CreateCommandList(
+            self.device.CreateCommandList::<ID3D12GraphicsCommandList>(
                 0,
                 allocator.type_().d3dtype(),
                 allocator.raw().as_raw(),
                 ptr::null_mut(),
-                &ID3D12GraphicsCommandList::uuidof(),
-                &mut rawcl as *mut *mut _ as *mut *mut c_void,
             )
         };
 
         returnerrifwinerror!(hn, "Could not create command list.");
 
-        Ok(unsafe { SCommandList::new_from_raw(ComPtr::from_raw(rawcl)) })
+        Ok(unsafe { SCommandList::new_from_raw(hn.expect("checked err above")) })
     }
 
     pub fn createfence(&self) -> Result<SFence, &'static str> {
-        let mut rawf: *mut ID3D12Fence = ptr::null_mut();
         let hn = unsafe {
             // -- $$$FRK(TODO): support parameters
-            self.device.CreateFence(
+            self.device.CreateFence::<ID3D12Fence>(
                 0,
                 D3D12_FENCE_FLAG_NONE,
-                &ID3D12Fence::uuidof(),
-                &mut rawf as *mut *mut _ as *mut *mut c_void,
             )
         };
 
         returnerrifwinerror!(hn, "Could not create fence.");
 
-        Ok(unsafe { SFence::new_from_raw(ComPtr::from_raw(rawf)) })
+        Ok(unsafe { SFence::new_from_raw(hn.expect("checked err above")) })
     }
 
     // -- $$$FRK(FUTURE WORK): support nodeMask parameter
@@ -246,20 +226,16 @@ impl SDevice {
         &self,
         blob_with_root_signature: &SBlob,
     ) -> Result<SRootSignature, &'static str> {
-        let mut raw_root_signature: *mut ID3D12RootSignature = ptr::null_mut();
-
         let hr = unsafe {
-            self.device.CreateRootSignature(
+            self.device.CreateRootSignature::<ID3D12RootSignature>(
                 0,
                 blob_with_root_signature.raw.GetBufferPointer(),
                 blob_with_root_signature.raw.GetBufferSize(),
-                &ID3D12RootSignature::uuidof(),
-                &mut raw_root_signature as *mut *mut _ as *mut *mut c_void,
             )
         };
         returnerrifwinerror!(hr, "Could not create root signature");
 
-        let root_signature = unsafe { ComPtr::from_raw(raw_root_signature) };
+        let root_signature = hr.expect("checked err above");
         Ok(SRootSignature {
             raw: root_signature,
         })
@@ -269,19 +245,15 @@ impl SDevice {
         &self,
         desc: &D3D12_PIPELINE_STATE_STREAM_DESC,
     ) -> Result<SPipelineState, &'static str> {
-        let mut raw_pipeline_state: *mut ID3D12PipelineState = ptr::null_mut();
-
         let hr = unsafe {
-            self.device.CreatePipelineState(
+            self.device.CreatePipelineState::<ID3D12PipelineState>(
                 desc,
-                &ID3D12PipelineState::uuidof(),
-                &mut raw_pipeline_state as *mut *mut _ as *mut *mut c_void,
             )
         };
         returnerrifwinerror!(hr, "Could not create pipeline state");
 
         unsafe {
-            let pipeline_state = ComPtr::from_raw(raw_pipeline_state);
+            let pipeline_state = hr.expect("checked err above");
             Ok(SPipelineState::new_from_raw(pipeline_state))
         }
     }

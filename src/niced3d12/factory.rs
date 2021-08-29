@@ -1,6 +1,6 @@
 use super::*;
 
-use winbindings::Windows::Win32::Graphics::Dxgi;
+use win;
 
 pub struct SFactory {
     raw: t12::SFactory,
@@ -27,7 +27,7 @@ impl SFactory {
 
             let adapterdesc = adapter1.getdesc();
 
-            if adapterdesc.Flags & Dxgi::DXGI_ADAPTER_FLAG_SOFTWARE > 0 {
+            if adapterdesc.Flags & win::DXGI_ADAPTER_FLAG_SOFTWARE > 0 {
                 continue;
             }
 

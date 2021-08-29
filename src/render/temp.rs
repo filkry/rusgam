@@ -5,6 +5,7 @@ use std::mem::{size_of};
 // -- crate includes
 use arrayvec::{ArrayVec};
 use math::{Vec3, Vec4, Mat4};
+use win;
 
 use niced3d12 as n12;
 use typeyd3d12 as t12;
@@ -211,7 +212,7 @@ impl SRenderTemp {
                 0,
                 t12::EDXGIFormat::R32G32B32Float,
                 0,
-                winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
+                win::D3D12_APPEND_ALIGNED_ELEMENT,
                 t12::EInputClassification::PerVertexData,
                 0,
             ),
@@ -220,7 +221,7 @@ impl SRenderTemp {
                 0,
                 t12::EDXGIFormat::R32G32B32Float,
                 0,
-                winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
+                win::D3D12_APPEND_ALIGNED_ELEMENT,
                 t12::EInputClassification::PerVertexData,
                 0,
             ),
@@ -295,7 +296,7 @@ impl SRenderTemp {
                 0,
                 t12::EDXGIFormat::R32G32B32Float,
                 0,
-                winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
+                Direct3D12::D3D12_APPEND_ALIGNED_ELEMENT,
                 t12::EInputClassification::PerVertexData,
                 0,
             ),
@@ -304,7 +305,7 @@ impl SRenderTemp {
                 0,
                 t12::EDXGIFormat::R32G32B32Float,
                 0,
-                winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
+                Direct3D12::D3D12_APPEND_ALIGNED_ELEMENT,
                 t12::EInputClassification::PerVertexData,
                 0,
             ),
@@ -393,7 +394,7 @@ impl SRenderTemp {
                 0,
                 t12::EDXGIFormat::R32Float,
                 instance_input_slot,
-                winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
+                Direct3D12::D3D12_APPEND_ALIGNED_ELEMENT,
                 t12::EInputClassification::PerInstanceData,
                 1,
             ),
@@ -402,7 +403,7 @@ impl SRenderTemp {
                 0,
                 t12::EDXGIFormat::R32G32B32Float,
                 instance_input_slot,
-                winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
+                Direct3D12::D3D12_APPEND_ALIGNED_ELEMENT,
                 t12::EInputClassification::PerInstanceData,
                 1,
             ),
@@ -411,7 +412,7 @@ impl SRenderTemp {
                 0,
                 t12::EDXGIFormat::R32G32B32A32Float,
                 instance_input_slot,
-                winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
+                Direct3D12::D3D12_APPEND_ALIGNED_ELEMENT,
                 t12::EInputClassification::PerInstanceData,
                 1,
             ),

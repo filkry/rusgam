@@ -1,5 +1,7 @@
 use std::mem::{size_of};
 
+use winbindings::Windows::Win32::Graphics::Direct3D12;
+
 use math::{Mat4};
 use typeyd3d12 as t12;
 use utils::{STransform};
@@ -26,7 +28,7 @@ pub fn def_local_verts_input_element(slot: u32) -> t12::SInputElementDesc {
         0,
         t12::EDXGIFormat::R32G32B32Float,
         slot as u32,
-        winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
+        Direct3D12::D3D12_APPEND_ALIGNED_ELEMENT,
         t12::EInputClassification::PerVertexData,
         0,
     )
@@ -38,7 +40,7 @@ pub fn def_local_normals_input_element(slot: u32) -> t12::SInputElementDesc {
         0,
         t12::EDXGIFormat::R32G32B32Float,
         slot as u32,
-        winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
+        Direct3D12::D3D12_APPEND_ALIGNED_ELEMENT,
         t12::EInputClassification::PerVertexData,
         0,
     )
@@ -50,7 +52,7 @@ pub fn def_uvs_input_element(slot: u32) -> t12::SInputElementDesc {
         0,
         t12::EDXGIFormat::R32G32Float,
         slot as u32,
-        winapi::um::d3d12::D3D12_APPEND_ALIGNED_ELEMENT,
+        Direct3D12::D3D12_APPEND_ALIGNED_ELEMENT,
         t12::EInputClassification::PerVertexData,
         0,
     )

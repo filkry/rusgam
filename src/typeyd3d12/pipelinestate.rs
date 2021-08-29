@@ -25,7 +25,7 @@ pub struct SInputElementDesc {
     pub input_slot_class: EInputClassification,
     pub instance_data_step_rate: u32,
 
-    semantic_name_null_terminated: [winapi::um::winnt::CHAR; 32],
+    semantic_name_null_terminated: [u8; 32],
 }
 
 impl SInputElementDesc {
@@ -251,18 +251,18 @@ pub enum EPrimitiveTopology {
 }
 
 impl EPrimitiveTopology {
-    pub fn d3dtype(&self) -> D3D12_PRIMITIVE_TOPOLOGY {
+    pub fn d3dtype(&self) -> Direct3D12::D3D12_PRIMITIVE_TOPOLOGY {
         match self {
-            Self::Undefined => d3dcommon::D3D_PRIMITIVE_TOPOLOGY_UNDEFINED,
-            Self::PointList => d3dcommon::D3D_PRIMITIVE_TOPOLOGY_POINTLIST,
-            Self::LineList => d3dcommon::D3D_PRIMITIVE_TOPOLOGY_LINELIST,
-            Self::LineStrip => d3dcommon::D3D_PRIMITIVE_TOPOLOGY_LINESTRIP,
-            Self::TriangleList => d3dcommon::D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST,
-            Self::TriangleStrip => d3dcommon::D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP,
-            Self::LineListAdj => d3dcommon::D3D_PRIMITIVE_TOPOLOGY_LINELIST_ADJ,
-            Self::LineStripAdj => d3dcommon::D3D_PRIMITIVE_TOPOLOGY_LINESTRIP_ADJ,
-            Self::TriangleListAdj => d3dcommon::D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST_ADJ,
-            Self::TriangleStripAdj => d3dcommon::D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP_ADJ,
+            Self::Undefined => Direct3D11::D3D_PRIMITIVE_TOPOLOGY_UNDEFINED,
+            Self::PointList => Direct3D11::D3D_PRIMITIVE_TOPOLOGY_POINTLIST,
+            Self::LineList => Direct3D11::D3D_PRIMITIVE_TOPOLOGY_LINELIST,
+            Self::LineStrip => Direct3D11::D3D_PRIMITIVE_TOPOLOGY_LINESTRIP,
+            Self::TriangleList => Direct3D11::D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST,
+            Self::TriangleStrip => Direct3D11::D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP,
+            Self::LineListAdj => Direct3D11::D3D_PRIMITIVE_TOPOLOGY_LINELIST_ADJ,
+            Self::LineStripAdj => Direct3D11::D3D_PRIMITIVE_TOPOLOGY_LINESTRIP_ADJ,
+            Self::TriangleListAdj => Direct3D11::D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST_ADJ,
+            Self::TriangleStripAdj => Direct3D11::D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP_ADJ,
         }
     }
 }
@@ -454,9 +454,9 @@ impl<'a, T> SPipelineStateStreamDesc<'a, T> {
         Self { stream: stream }
     }
 
-    pub unsafe fn d3dtype(&self) -> D3D12_PIPELINE_STATE_STREAM_DESC {
-        D3D12_PIPELINE_STATE_STREAM_DESC {
-            SizeInBytes: mem::size_of::<T>() as winapi::shared::basetsd::SIZE_T,
+    pub unsafe fn d3dtype(&self) -> Direct3D12::D3D12_PIPELINE_STATE_STREAM_DESC {
+        Direct3D12::D3D12_PIPELINE_STATE_STREAM_DESC {
+            SizeInBytes: mem::size_of::<T>(),
             pPipelineStateSubobjectStream: self.stream as *const T as *mut c_void,
         }
     }

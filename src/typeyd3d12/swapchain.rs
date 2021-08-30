@@ -166,14 +166,14 @@ impl SSwapChainDesc {
             Width: self.width,
             Height: self.height,
             Format: EDXGIFormat::R8G8B8A8UNorm.d3dtype(), // $$$FRK(TODO): I have no idea why I'm picking this format
-            Stereo: if self.stereo { true } else { false },
+            Stereo: win::BOOL::from(self.stereo),
             SampleDesc: self.sample_desc.d3dtype(),
             BufferUsage: self.buffer_usage.bits(),
             BufferCount: self.buffer_count,
             Scaling: self.scaling.d3dtype(),
             SwapEffect: self.swap_effect.d3dtype(),
             AlphaMode: self.alpha_mode.d3dtype(),
-            Flags: self.flags.bits(),
+            Flags: self.flags.bits().0 as u32,
         }
     }
 }
@@ -184,14 +184,14 @@ impl From<win::DXGI_SWAP_CHAIN_DESC1> for SSwapChainDesc {
             width: desc.Width,
             height: desc.Height,
             format: EDXGIFormat::from(desc.Format),
-            stereo: if desc.Stereo { true } else { false },
+            stereo: desc.Stereo.as_bool(),
             sample_desc: SDXGISampleDesc::from(desc.SampleDesc),
             buffer_usage: SDXGIUsageFlags::from_bits(desc.BufferUsage).unwrap(),
             buffer_count: desc.BufferCount,
             scaling: EDXGIScaling::from(desc.Scaling),
             swap_effect: EDXGISwapEffect::from(desc.SwapEffect),
             alpha_mode: EDXGIAlphaMode::from(desc.AlphaMode),
-            flags: SDXGISwapChainFlags::from_bits(desc.Flags).unwrap(),
+            flags: SDXGISwapChainFlags::from_bits(win::DXGI_SWAP_CHAIN_FLAG(desc.Flags as i32)).unwrap(),
         }
     }
 }
@@ -233,10 +233,10 @@ impl SSwapChain {
 
     pub fn getdesc(&self) -> Result<SSwapChainDesc, &'static str> {
         unsafe {
-            let mut desc: win::DXGI_SWAP_CHAIN_DESC1 = mem::zeroed();
-            let hr = self.swapchain.GetDesc1(&mut desc as *mut _);
+            //let mut desc: win::DXGI_SWAP_CHAIN_DESC1 = mem::zeroed();
+            let hr = self.swapchain.GetDesc1();
             returnerrifwinerror!(hr, "Couldn't get swap chain desc.");
-            Ok(SSwapChainDesc::from(desc))
+            Ok(SSwapChainDesc::from(hr.expect("checked err above")))
         }
     }
 
@@ -253,7 +253,7 @@ impl SSwapChain {
                 width,
                 height,
                 olddesc.format.d3dtype(),
-                olddesc.flags.bits(),
+                olddesc.flags.bits().0 as u32,
             );
             returnerrifwinerror!(hr, "Couldn't resize buffers.");
         }

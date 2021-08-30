@@ -2,12 +2,13 @@ extern crate arrayvec;
 //extern crate nalgebra_glm as glm;
 extern crate tinytga;
 extern crate tobj;
-extern crate windows;
 extern crate bitflags;
 extern crate serde_json;
 extern crate serde;
 extern crate imgui;
 extern crate gltf;
+extern crate winbindings;
+extern crate windows;
 
 //mod math;
 #[macro_use]
@@ -38,13 +39,8 @@ mod enumflags;
 mod camera;
 mod model;
 mod render;
-mod win;
-
 mod entitytypes;
-
-mod winbindings2 {
-    windows::include_bindings!();
-}
+mod win;
 
 // -- std includes
 //use std::cell::RefCell;

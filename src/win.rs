@@ -2,12 +2,13 @@
 
 // -- sanitized collection of windows imports
 
+pub use windows::Abi;
 pub use windows::Interface;
 pub use windows::IUnknown;
 
-pub use winbindings2::Windows::Win32::Devices::HumanInterfaceDevice::*;
-pub use winbindings2::Windows::Win32::Foundation::*;
-pub use winbindings2::Windows::Win32::Graphics::Direct3D11::{
+pub use winbindings::bindings::Windows::Win32::Devices::HumanInterfaceDevice::*;
+pub use winbindings::bindings::Windows::Win32::Foundation::*;
+pub use winbindings::bindings::Windows::Win32::Graphics::Direct3D11::{
     D3D_FEATURE_LEVEL_11_0,
     D3D_PRIMITIVE_TOPOLOGY,
     D3D_PRIMITIVE_TOPOLOGY_UNDEFINED,
@@ -23,27 +24,27 @@ pub use winbindings2::Windows::Win32::Graphics::Direct3D11::{
     ID3DBlob,
     ID3DInclude,
 };
-pub use winbindings2::Windows::Win32::Graphics::Direct3D12::*;
-pub use winbindings2::Windows::Win32::Graphics::Dxgi::*;
-pub use winbindings2::Windows::Win32::Graphics::Gdi::{
+pub use winbindings::bindings::Windows::Win32::Graphics::Direct3D12::*;
+pub use winbindings::bindings::Windows::Win32::Graphics::Dxgi::*;
+pub use winbindings::bindings::Windows::Win32::Graphics::Gdi::{
     PAINTSTRUCT,
     BeginPaint,
     EndPaint,
     HBRUSH,
     ScreenToClient,
 };
-pub use winbindings2::Windows::Win32::Graphics::Hlsl::*;
-pub use winbindings2::Windows::Win32::System::Diagnostics::Debug::{
+pub use winbindings::bindings::Windows::Win32::Graphics::Hlsl::*;
+pub use winbindings::bindings::Windows::Win32::System::Diagnostics::Debug::{
     WIN32_ERROR,
     DebugBreak,
     GetLastError,
     IsDebuggerPresent
 };
-pub use winbindings2::Windows::Win32::System::LibraryLoader::{GetModuleHandleW, GetModuleHandleA};
-pub use winbindings2::Windows::Win32::System::Performance::*;
-pub use winbindings2::Windows::Win32::System::Threading::*;
-pub use winbindings2::Windows::Win32::UI::KeyboardAndMouseInput::*;
-pub use winbindings2::Windows::Win32::UI::WindowsAndMessaging::*;
+pub use winbindings::bindings::Windows::Win32::System::LibraryLoader::{GetModuleHandleW, GetModuleHandleA};
+pub use winbindings::bindings::Windows::Win32::System::Performance::*;
+pub use winbindings::bindings::Windows::Win32::System::Threading::*;
+pub use winbindings::bindings::Windows::Win32::UI::KeyboardAndMouseInput::*;
+pub use winbindings::bindings::Windows::Win32::UI::WindowsAndMessaging::*;
 
 // -- extra types from windows API that windows-rs doesn't expose for some reason
 pub type D3D12_GPU_VIRTUAL_ADDRESS = u64;

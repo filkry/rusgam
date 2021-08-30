@@ -12,3 +12,5 @@ externals/dxc_2020_10-22/*
 *.blend1
 *.shader_build_metadata
 imgui.ini
+
+winbindings/target

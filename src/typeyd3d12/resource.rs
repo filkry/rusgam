@@ -122,7 +122,7 @@ pub enum EResourceFlags {
 }
 
 impl TEnumFlags for EResourceFlags {
-    type TRawType = win::D3D12_HEAP_FLAGS;
+    type TRawType = win::D3D12_RESOURCE_FLAGS;
 
     fn rawtype(&self) -> Self::TRawType {
         match self {
@@ -199,15 +199,16 @@ pub fn create_transition_barrier(
     let mut barrier = win::D3D12_RESOURCE_BARRIER {
         Type: win::D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
         Flags: win::D3D12_RESOURCE_BARRIER_FLAG_NONE,
-        u: unsafe { mem::zeroed() },
+        Anonymous: unsafe { mem::zeroed() },
     };
 
-    *unsafe { barrier.u.Transition_mut() } = win::D3D12_RESOURCE_TRANSITION_BARRIER {
-        pResource: resource.resource.as_raw(),
+    use win::Abi;
+    barrier.Anonymous.Transition = win::D3D12_RESOURCE_TRANSITION_BARRIER {
+        pResource: Some(resource.resource),
         Subresource: win::D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES,
         StateBefore: beforestate.d3dtype(),
         StateAfter: afterstate.d3dtype(),
-    };
+    }.abi();
 
     SBarrier { barrier: barrier }
 }
@@ -219,7 +220,7 @@ pub struct SSubResourceData {
 impl SSubResourceData {
     pub unsafe fn create<T>(data: *const T, rowpitch: usize, slicepitch: usize) -> Self {
         let subresourcedata = win::D3D12_SUBRESOURCE_DATA {
-            pData: data as *const std::ffi::c_void,
+            pData: data as *mut std::ffi::c_void,
             RowPitch: rowpitch as isize,
             SlicePitch: slicepitch as isize,
         };

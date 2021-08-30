@@ -13,8 +13,8 @@ pub enum ERootSignatureFlags {
     //LocalRootSignature,
 }
 
-impl TEnumFlags32 for ERootSignatureFlags {
-    type TRawType = u32;
+impl TEnumFlags for ERootSignatureFlags {
+    type TRawType = win::D3D12_ROOT_SIGNATURE_FLAGS;
 
     fn rawtype(&self) -> Self::TRawType {
         match self {
@@ -43,7 +43,7 @@ impl TEnumFlags32 for ERootSignatureFlags {
     }
 }
 
-pub type SRootSignatureFlags = SEnumFlags32<ERootSignatureFlags>;
+pub type SRootSignatureFlags = SEnumFlags<ERootSignatureFlags>;
 
 pub struct SRootSignature {
     pub raw: win::ID3D12RootSignature,
@@ -85,9 +85,9 @@ impl SRootSignatureDesc {
 
         win::D3D12_ROOT_SIGNATURE_DESC {
             NumParameters: self.parameters.len() as u32,
-            pParameters: self.d3d_parameters.as_ptr(),
+            pParameters: self.d3d_parameters.as_mut_ptr(),
             NumStaticSamplers: self.static_samplers.len() as u32,
-            pStaticSamplers: self.d3d_static_samplers.as_ptr(),
+            pStaticSamplers: self.d3d_static_samplers.as_mut_ptr(),
             Flags: self.flags.rawtype(),
         }
     }
@@ -172,7 +172,7 @@ impl SRootDescriptorTable {
 
         win::D3D12_ROOT_DESCRIPTOR_TABLE {
             NumDescriptorRanges: self.d3d_descriptor_ranges.len() as u32,
-            pDescriptorRanges: self.d3d_descriptor_ranges.as_ptr(),
+            pDescriptorRanges: self.d3d_descriptor_ranges.as_mut_ptr(),
         }
     }
 }
@@ -219,28 +219,28 @@ pub struct SRootParameter {
 impl SRootParameter {
     pub fn d3dtype(&mut self) -> win::D3D12_ROOT_PARAMETER {
         unsafe {
-            let mut result = mem::MaybeUninit::<win::D3D12_ROOT_PARAMETER>::zeroed();
-            (*result.as_mut_ptr()).ParameterType = self.type_.d3dtype();
+            let mut result = mem::MaybeUninit::<win::D3D12_ROOT_PARAMETER>::zeroed().assume_init();
+            result.ParameterType = self.type_.d3dtype();
             match &mut self.type_ {
                 ERootParameterType::E32BitConstants ( constants ) => {
-                    *(*result.as_mut_ptr()).u.Constants_mut() = constants.d3dtype();
+                    result.Anonymous.Constants = constants.d3dtype();
                 }
                 ERootParameterType::DescriptorTable ( table ) => {
-                    *(*result.as_mut_ptr()).u.DescriptorTable_mut() = table.d3dtype();
+                    result.Anonymous.DescriptorTable = table.d3dtype();
                 }
                 ERootParameterType::CBV ( descriptor ) => {
-                    *(*result.as_mut_ptr()).u.Descriptor_mut() = descriptor.d3dtype();
+                    result.Anonymous.Descriptor = descriptor.d3dtype();
                 }
                 ERootParameterType::SRV ( descriptor ) => {
-                    *(*result.as_mut_ptr()).u.Descriptor_mut() = descriptor.d3dtype();
+                    result.Anonymous.Descriptor = descriptor.d3dtype();
                 }
                 ERootParameterType::UAV ( descriptor ) => {
-                    *(*result.as_mut_ptr()).u.Descriptor_mut() = descriptor.d3dtype();
+                    result.Anonymous.Descriptor = descriptor.d3dtype();
                 }
             }
-            (*result.as_mut_ptr()).ShaderVisibility = self.shader_visibility.d3dtype();
+            result.ShaderVisibility = self.shader_visibility.d3dtype();
 
-            result.assume_init()
+            result
         }
     }
 }

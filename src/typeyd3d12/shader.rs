@@ -121,7 +121,7 @@ pub fn d3dcompilefromfile(
         win::D3DCompileFromFile(
             file,
             ptr::null_mut(),
-            ptr::null_mut(),
+            None,
             entrypoint,
             target,
             flags1.rawtype(),

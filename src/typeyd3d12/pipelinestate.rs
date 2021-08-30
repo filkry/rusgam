@@ -385,8 +385,8 @@ impl Default for SRenderTargetBlendDesc {
 impl SRenderTargetBlendDesc {
     pub fn d3dtype(&self) -> win::D3D12_RENDER_TARGET_BLEND_DESC {
         win::D3D12_RENDER_TARGET_BLEND_DESC {
-            BlendEnable: self.blend_enable as i32,
-            LogicOpEnable: self.logic_op_enable as i32,
+            BlendEnable: win::BOOL::from(self.blend_enable),
+            LogicOpEnable: win::BOOL::from(self.logic_op_enable),
             SrcBlend: self.src_blend.d3dtype(),
             DestBlend: self.dest_blend.d3dtype(),
             BlendOp: self.blend_op.d3dtype(),
@@ -394,7 +394,7 @@ impl SRenderTargetBlendDesc {
             DestBlendAlpha: self.dest_blend_alpha.d3dtype(),
             BlendOpAlpha: self.blend_op_alpha.d3dtype(),
             LogicOp: win::D3D12_LOGIC_OP_NOOP,
-            RenderTargetWriteMask: win::D3D12_COLOR_WRITE_ENABLE_ALL as u8,
+            RenderTargetWriteMask: win::D3D12_COLOR_WRITE_ENABLE_ALL.0 as u8,
         }
     }
 }
@@ -438,8 +438,8 @@ impl SBlendDesc {
         ];
 
         win::D3D12_BLEND_DESC {
-            AlphaToCoverageEnable: self.alpha_to_coverage_enable as i32,
-            IndependentBlendEnable: self.independent_blend_enable as i32,
+            AlphaToCoverageEnable: win::BOOL::from(self.alpha_to_coverage_enable),
+            IndependentBlendEnable: win::BOOL::from(self.independent_blend_enable),
             RenderTarget: output_render_target,
         }
     }

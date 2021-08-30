@@ -70,10 +70,10 @@ impl SDepthStencilViewDesc {
 
             match &self.data {
                 EDepthStencilViewDescData::Tex2D(tex2d_dsv) => {
-                    *((*result.as_mut_ptr()).u.Texture2D_mut()) = tex2d_dsv.d3dtype()
+                    (*result.as_mut_ptr()).Anonymous.Texture2D = tex2d_dsv.d3dtype()
                 }
                 EDepthStencilViewDescData::Tex2DArray(tex2d_array_dsv) => {
-                    *((*result.as_mut_ptr()).u.Texture2DArray_mut()) = tex2d_array_dsv.d3dtype()
+                    (*result.as_mut_ptr()).Anonymous.Texture2DArray = tex2d_array_dsv.d3dtype()
                 }
             }
 
@@ -112,9 +112,9 @@ impl SClearValue {
             let mut result = mem::MaybeUninit::<win::D3D12_CLEAR_VALUE>::zeroed();
             (*result.as_mut_ptr()).Format = self.format.d3dtype();
             match &self.value {
-                EClearValue::Color(color) => *((*result.as_mut_ptr()).u.Color_mut()) = *color,
+                EClearValue::Color(color) => (*result.as_mut_ptr()).Anonymous.Color = *color,
                 EClearValue::DepthStencil(depth_stencil_value) => {
-                    *((*result.as_mut_ptr()).u.DepthStencil_mut()) = depth_stencil_value.d3dtype()
+                    (*result.as_mut_ptr()).Anonymous.DepthStencil = depth_stencil_value.d3dtype()
                 }
             }
             result.assume_init()
@@ -317,13 +317,13 @@ impl SShaderResourceViewDesc {
                     // -- do nothing
                 }
                 ESRV::Buffer(data) => {
-                    *(*result.as_mut_ptr()).u.Buffer_mut() = data.d3dtype();
+                    (*result.as_mut_ptr()).Anonymous.Buffer = data.d3dtype();
                 }
                 ESRV::Texture2D { data } => {
-                    *(*result.as_mut_ptr()).u.Texture2D_mut() = data.d3dtype();
+                    (*result.as_mut_ptr()).Anonymous.Texture2D = data.d3dtype();
                 }
                 ESRV::TextureCube(data) => {
-                    *(*result.as_mut_ptr()).u.TextureCube_mut() = data.d3dtype();
+                    (*result.as_mut_ptr()).Anonymous.TextureCube = data.d3dtype();
                 }
             }
 
@@ -401,7 +401,7 @@ impl SUnorderedAccessViewDesc {
             (*result.as_mut_ptr()).ViewDimension = self.view.d3d_view_dimension();
             match &self.view {
                 EUAV::Buffer(data) => {
-                    *(*result.as_mut_ptr()).u.Buffer_mut() = data.d3dtype();
+                    (*result.as_mut_ptr()).Anonymous.Buffer = data.d3dtype();
                 }
             }
 

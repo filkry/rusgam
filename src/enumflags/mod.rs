@@ -114,14 +114,18 @@ impl<T: TEnumFlags + Copy> SEnumFlags<T> {
     }
 
     pub fn and(&self, other: T) -> Self {
+        let mut result = self.raw;
+        result &= other.rawtype();
         Self {
-            raw: self.raw & other.rawtype(),
+            raw: result,
         }
     }
 
     pub fn or(&self, other: T) -> Self {
+        let mut result = self.raw;
+        result |= other.rawtype();
         Self {
-            raw: self.raw | other.rawtype(),
+            raw: result,
         }
     }
 

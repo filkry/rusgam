@@ -18,8 +18,6 @@ impl SFactory {
     }
 
     pub fn enumadapters(&self, adapteridx: u32) -> Option<SAdapter1> {
-        let mut rawadapter1: *mut win::IDXGIAdapter1 = ptr::null_mut();
-
         let res = self.factory.EnumAdapters1(adapteridx);
         match res {
             Ok(rawadapter1) => Some(SAdapter1::new_from_raw(rawadapter1)),

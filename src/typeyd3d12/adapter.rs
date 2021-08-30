@@ -28,7 +28,7 @@ impl SAdapter1 {
     }
 
     pub unsafe fn d3d12createdevice(&self) -> Result<SDevice, &'static str> {
-        d3d12createdevice(win::IUnknown::from(self.adapter))
+        d3d12createdevice(win::IUnknown::from(self.adapter.clone()))
     }
 }
 
@@ -38,6 +38,6 @@ pub struct SAdapter4 {
 
 impl SAdapter4 {
     pub unsafe fn d3d12createdevice(&self) -> Result<SDevice, &'static str> {
-        d3d12createdevice(win::IUnknown::from(self.adapter))
+        d3d12createdevice(win::IUnknown::from(self.adapter.clone()))
     }
 }

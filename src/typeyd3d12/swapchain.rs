@@ -129,19 +129,19 @@ impl From<win::DXGI_ALPHA_MODE> for EDXGIAlphaMode {
 }
 
 bitflags! {
-    pub struct SDXGISwapChainFlags: win::DXGI_SWAP_CHAIN_FLAG {
-        const NONPREROTATED = win::DXGI_SWAP_CHAIN_FLAG_NONPREROTATED;
-        const ALLOW_MODE_SWITCH = win::DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
-        const GDI_COMPATIBLE = win::DXGI_SWAP_CHAIN_FLAG_GDI_COMPATIBLE;
-        const RESTRICTED_CONTENT = win::DXGI_SWAP_CHAIN_FLAG_RESTRICTED_CONTENT;
-        const RESTRICT_SHARED_RESOURCE_DRIVER = win::DXGI_SWAP_CHAIN_FLAG_RESTRICT_SHARED_RESOURCE_DRIVER;
-        const DISPLAY_ONLY = win::DXGI_SWAP_CHAIN_FLAG_DISPLAY_ONLY;
-        const FRAME_LATENCY_WAITABLE_OBJECT = win::DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT;
-        const FOREGROUND_LAYER = win::DXGI_SWAP_CHAIN_FLAG_FOREGROUND_LAYER;
-        const FULLSCREEN_VIDEO = win::DXGI_SWAP_CHAIN_FLAG_FULLSCREEN_VIDEO;
-        const YUV_VIDEO = win::DXGI_SWAP_CHAIN_FLAG_YUV_VIDEO;
-        const HW_PROTECTED = win::DXGI_SWAP_CHAIN_FLAG_HW_PROTECTED;
-        const ALLOW_TEARING = win::DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
+    pub struct SDXGISwapChainFlags: i32 {
+        const NONPREROTATED = win::DXGI_SWAP_CHAIN_FLAG_NONPREROTATED.0;
+        const ALLOW_MODE_SWITCH = win::DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH.0;
+        const GDI_COMPATIBLE = win::DXGI_SWAP_CHAIN_FLAG_GDI_COMPATIBLE.0;
+        const RESTRICTED_CONTENT = win::DXGI_SWAP_CHAIN_FLAG_RESTRICTED_CONTENT.0;
+        const RESTRICT_SHARED_RESOURCE_DRIVER = win::DXGI_SWAP_CHAIN_FLAG_RESTRICT_SHARED_RESOURCE_DRIVER.0;
+        const DISPLAY_ONLY = win::DXGI_SWAP_CHAIN_FLAG_DISPLAY_ONLY.0;
+        const FRAME_LATENCY_WAITABLE_OBJECT = win::DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT.0;
+        const FOREGROUND_LAYER = win::DXGI_SWAP_CHAIN_FLAG_FOREGROUND_LAYER.0;
+        const FULLSCREEN_VIDEO = win::DXGI_SWAP_CHAIN_FLAG_FULLSCREEN_VIDEO.0;
+        const YUV_VIDEO = win::DXGI_SWAP_CHAIN_FLAG_YUV_VIDEO.0;
+        const HW_PROTECTED = win::DXGI_SWAP_CHAIN_FLAG_HW_PROTECTED.0;
+        const ALLOW_TEARING = win::DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING.0;
         //const RESTRICTED_TO_ALL_HOLOGRAPHIC_DISPLAYS = DXGI_SWAP_CHAIN_FLAG_RESTRICTED_TO_ALL_HOLOGRAPHIC_DISPLAY;
     }
 }
@@ -173,7 +173,7 @@ impl SSwapChainDesc {
             Scaling: self.scaling.d3dtype(),
             SwapEffect: self.swap_effect.d3dtype(),
             AlphaMode: self.alpha_mode.d3dtype(),
-            Flags: self.flags.bits().0 as u32,
+            Flags: self.flags.bits() as u32,
         }
     }
 }
@@ -191,7 +191,7 @@ impl From<win::DXGI_SWAP_CHAIN_DESC1> for SSwapChainDesc {
             scaling: EDXGIScaling::from(desc.Scaling),
             swap_effect: EDXGISwapEffect::from(desc.SwapEffect),
             alpha_mode: EDXGIAlphaMode::from(desc.AlphaMode),
-            flags: SDXGISwapChainFlags::from_bits(win::DXGI_SWAP_CHAIN_FLAG(desc.Flags as i32)).unwrap(),
+            flags: SDXGISwapChainFlags::from_bits(desc.Flags as i32).unwrap(),
         }
     }
 }
@@ -253,7 +253,7 @@ impl SSwapChain {
                 width,
                 height,
                 olddesc.format.d3dtype(),
-                olddesc.flags.bits().0 as u32,
+                olddesc.flags.bits() as u32,
             );
             returnerrifwinerror!(hr, "Couldn't resize buffers.");
         }

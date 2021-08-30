@@ -27,7 +27,7 @@ pub enum EDescriptorHeapFlags {
     ShaderVisible,
 }
 
-impl TEnumFlags32 for EDescriptorHeapFlags {
+impl TEnumFlags for EDescriptorHeapFlags {
     type TRawType = win::D3D12_DESCRIPTOR_HEAP_FLAGS;
 
     fn rawtype(&self) -> Self::TRawType {
@@ -38,7 +38,7 @@ impl TEnumFlags32 for EDescriptorHeapFlags {
     }
 }
 
-pub type SDescriptorHeapFlags = SEnumFlags32<EDescriptorHeapFlags>;
+pub type SDescriptorHeapFlags = SEnumFlags<EDescriptorHeapFlags>;
 
 pub struct SDescriptorHeapDesc {
     pub type_: EDescriptorHeapType,

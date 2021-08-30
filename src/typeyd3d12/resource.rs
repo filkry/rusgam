@@ -121,7 +121,7 @@ pub enum EResourceFlags {
     AllowSimultaneousAccess,
 }
 
-impl TEnumFlags32 for EResourceFlags {
+impl TEnumFlags for EResourceFlags {
     type TRawType = win::D3D12_HEAP_FLAGS;
 
     fn rawtype(&self) -> Self::TRawType {
@@ -139,7 +139,7 @@ impl TEnumFlags32 for EResourceFlags {
     }
 }
 
-pub type SResourceFlags = SEnumFlags32<EResourceFlags>;
+pub type SResourceFlags = SEnumFlags<EResourceFlags>;
 
 #[derive(Clone)]
 pub struct SResource {

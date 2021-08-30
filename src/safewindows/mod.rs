@@ -47,7 +47,7 @@ pub struct SWinAPI {
 
 pub fn initwinapi() -> Result<SWinAPI, SErr> {
     unsafe {
-        let hinstance = win::GetModuleHandleW(0);
+        let hinstance = win::GetModuleHandleW("");
         if !hinstance.is_null() {
             Ok(SWinAPI {
                 hinstance: hinstance,
@@ -107,7 +107,7 @@ impl SWinAPI {
     pub fn queryperformancecounter() -> i64 {
         let mut result : i64 = 0;
         let success = unsafe { win::QueryPerformanceCounter(&mut result) };
-        if success == 0 {
+        if success.as_bool() {
             panic!("Can't query performance.");
         }
 
@@ -117,7 +117,7 @@ impl SWinAPI {
     pub unsafe fn queryperformancefrequencycounter() -> i64 {
         let mut result : i64 = 0;
         let success = win::QueryPerformanceFrequency(&mut result);
-        if success == 0 {
+        if success.as_bool() {
             panic!("Can't query performance.");
         }
 
@@ -133,12 +133,12 @@ impl SWinAPI {
                 cbClsExtra: 0,
                 cbWndExtra: 0,
                 hInstance: self.hinstance,
-                hIcon: win::LoadIconW(self.hinstance, 0),
-                hCursor: win::LoadCursorW(0, win::IDC_ARROW),
-                hbrBackground: (win::COLOR_WINDOW + 1) as win::HBRUSH,
-                lpszMenuName: 0 as *const u16,
-                lpszClassName: windowclassname,
-                hIconSm: 0 as win::HICON,
+                hIcon: win::LoadIconW(self.hinstance, ""),
+                hCursor: win::LoadCursorW(self.hinstance, win::IDC_ARROW),
+                //hbrBackground: (win::COLOR_WINDOW + 1) as win::HBRUSH,
+                //lpszClassName: windowclassname,
+                lpszClassName: win::PWSTR(windowclassname.as_ptr() as _),
+                ..Default::default()
             };
 
             let atom = win::RegisterClassExW(&classdata);
@@ -155,9 +155,9 @@ impl SWinAPI {
     }
 
     pub fn createeventhandle(&self) -> Result<SEventHandle, &'static str> {
-        let event = unsafe { win::CreateEventW(ptr::null_mut(), false, false, ptr::null()) };
+        let event = unsafe { win::CreateEventW(ptr::null_mut(), false, false, "") };
 
-        if event == ptr::null() {
+        if event.is_null() {
             return Err("Couldn't create event.");
         }
 
@@ -170,7 +170,7 @@ impl SWinAPI {
             y: 0,
         };
         let success = unsafe { win::GetCursorPos(&mut point) };
-        assert!(success != 0);
+        assert!(success.as_bool());
 
         [
             point.x as u32,
@@ -267,7 +267,7 @@ impl SWindow {
             );
             self.clearwindowproc();
 
-            if foundmessage > 0 {
+            if foundmessage.as_bool() {
                 Some(SMSG {
                     msg: raw_msg.assume_init(),
                 })
@@ -299,7 +299,7 @@ impl SWindow {
         unsafe {
             let mut rect: win::RECT = mem::zeroed();
             let res = win::GetClientRect(self.window, &mut rect as *mut win::RECT);
-            if res == 0 {
+            if !res.as_bool() {
                 return Err("Could not get client rect.");
             }
 
@@ -319,7 +319,7 @@ impl SWindow {
         };
 
         let success = unsafe { win::ScreenToClient(self.window, &mut point) };
-        assert!(success != 0);
+        assert!(success.as_bool());
 
         [point.x, point.y]
     }
@@ -340,7 +340,7 @@ pub trait TWindowProc {
 impl<'windows> SWindowClass<'windows> {
     pub fn createwindow(&self, title: &str, width: u32, height: u32) -> Result<SWindow, SErr> {
         unsafe {
-            let windowstyle: u32 = win::WS_OVERLAPPEDWINDOW;
+            let windowstyle = win::WS_OVERLAPPEDWINDOW;
 
             let screenwidth = win::GetSystemMetrics(win::SM_CXSCREEN);
             let screenheight = win::GetSystemMetrics(win::SM_CYSCREEN);
@@ -348,10 +348,10 @@ impl<'windows> SWindowClass<'windows> {
             let mut windowrect = win::RECT {
                 left: 0,
                 top: 0,
-                right: width,
-                bottom: height,
+                right: width as i32,
+                bottom: height as i32,
             };
-            win::AdjustWindowRect(&mut windowrect, windowstyle, false as i32);
+            win::AdjustWindowRect(&mut windowrect, windowstyle, false);
 
             let windowwidth = windowrect.right - windowrect.left;
             let windowheight = windowrect.bottom - windowrect.top;
@@ -363,7 +363,7 @@ impl<'windows> SWindowClass<'windows> {
             let hinstanceparam = self.winapi.hinstance;
 
             let hwnd: win::HWND = win::CreateWindowExW(
-                0,
+                win::WINDOW_EX_STYLE::default(),
                 self.windowclassname,
                 title,
                 windowstyle,
@@ -371,10 +371,10 @@ impl<'windows> SWindowClass<'windows> {
                 windowy,
                 windowwidth,
                 windowheight,
-                0 as win::HWND,
-                0 as win::HMENU,
+                win::HWND::NULL,
+                win::HMENU::NULL,
                 hinstanceparam,
-                ptr::null(),
+                ptr::null_mut(),
             );
 
             if !hwnd.is_null() {
@@ -450,7 +450,7 @@ pub enum EKey {
 }
 
 pub fn translatewmkey(key: win::WPARAM) -> EKey {
-    match key as i32 {
+    match key.0 as u32 {
         0x20 => EKey::Space,
         0x41 => EKey::A,
         0x42 => EKey::B,
@@ -523,11 +523,11 @@ pub enum EMsgType {
 }
 
 fn GET_X_LPARAM(lparam: win::LPARAM) -> i32 {
-    lparam as i8
+    lparam.0 as i32
 }
 
 fn GET_Y_LPARAM(lparam: win::LPARAM) -> i32 {
-    (lparam >> 8) as i8
+    (lparam.0 >> 32) as i32
 }
 
 pub fn msgtype(msg: u32, wparam: win::WPARAM, lparam: win::LPARAM) -> EMsgType {
@@ -566,7 +566,7 @@ pub fn msgtype(msg: u32, wparam: win::WPARAM, lparam: win::LPARAM) -> EMsgType {
 
                 #[allow(const_item_mutation)]
                 let result = win::GetRawInputData(
-                    lparam as win::HRAWINPUT,
+                    win::HRAWINPUT(lparam.0),
                     win::RID_INPUT,
                     &mut bytes[0] as *mut u8 as *mut std::ffi::c_void,
                     &mut RI_SIZE,
@@ -594,7 +594,7 @@ pub fn debug_break() {
 }
 
 pub fn break_if_debugging() {
-    if unsafe { win::IsDebuggerPresent() } {
+    if unsafe { win::IsDebuggerPresent().as_bool() } {
         debug_break();
     }
 }

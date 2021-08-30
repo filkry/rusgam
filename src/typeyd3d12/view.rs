@@ -154,7 +154,7 @@ pub enum EDSVFlags {
     ReadOnlyStencil,
 }
 
-impl TEnumFlags32 for EDSVFlags {
+impl TEnumFlags for EDSVFlags {
     type TRawType = win::D3D12_DSV_FLAGS;
 
     fn rawtype(&self) -> Self::TRawType {
@@ -165,7 +165,7 @@ impl TEnumFlags32 for EDSVFlags {
         }
     }
 }
-pub type SDSVFlags = SEnumFlags32<EDSVFlags>;
+pub type SDSVFlags = SEnumFlags<EDSVFlags>;
 
 pub struct STex2DDSV {
     pub mip_slice: u32,

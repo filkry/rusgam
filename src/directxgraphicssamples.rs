@@ -60,8 +60,8 @@ pub unsafe fn MemcpySubresource(
 // All arrays must be populated (e.g. by calling GetCopyableFootprints)
 pub unsafe fn UpdateSubresources(
     cmdlist: *mut win::ID3D12GraphicsCommandList,
-    destinationresource: *mut win::ID3D12Resource,
-    intermediate: *mut win::ID3D12Resource,
+    destinationresource: &mut win::ID3D12Resource,
+    intermediate: &mut win::ID3D12Resource,
     firstsubresource: u32,
     numsubresources: u32,
     requiredsize: u64,

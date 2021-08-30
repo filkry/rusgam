@@ -1,7 +1,7 @@
 use std::convert::{TryFrom};
 
 use super::*;
-use enumflags::{TEnumFlags32, SEnumFlags32};
+use enumflags::{TEnumFlags, SEnumFlags};
 
 use arrayvec::ArrayVec;
 use bitflags::*;
@@ -17,7 +17,7 @@ impl EUsagePage {
     pub fn wintype(&self) -> USAGE {
 
         match self {
-            Self::Generic => win::HID_USAGE_PAGE_GENERIC,
+            Self::Generic => USAGE(win::HID_USAGE_PAGE_GENERIC),
         }
     }
 }
@@ -30,7 +30,7 @@ impl EUsage {
     pub fn wintype(&self) -> USAGE {
 
         match self {
-            Self::GenericMouse => win::HID_USAGE_GENERIC_MOUSE,
+            Self::GenericMouse => USAGE(win::HID_USAGE_GENERIC_MOUSE),
         }
     }
 }
@@ -50,7 +50,7 @@ pub enum ERIDEV {
     Remove,
 }
 
-impl TEnumFlags32 for ERIDEV {
+impl TEnumFlags for ERIDEV {
     type TRawType = win::RAWINPUTDEVICE_FLAGS;
 
     fn rawtype(&self) -> Self::TRawType {
@@ -69,7 +69,7 @@ impl TEnumFlags32 for ERIDEV {
     }
 }
 
-pub type SRIDEV = SEnumFlags32<ERIDEV>;
+pub type SRIDEV = SEnumFlags<ERIDEV>;
 
 pub struct SRawInputDevice<'a> {
     pub usage_page: EUsagePage,
@@ -81,11 +81,11 @@ pub struct SRawInputDevice<'a> {
 impl<'a> SRawInputDevice<'a> {
     pub unsafe fn wintype(&self) -> win::RAWINPUTDEVICE {
         win::RAWINPUTDEVICE {
-            usUsagePage: self.usage_page.wintype(),
-            usUsage: self.usage.wintype(),
+            usUsagePage: self.usage_page.wintype().0,
+            usUsage: self.usage.wintype().0,
             dwFlags: self.flags.rawtype(),
             hwndTarget: match self.target {
-                None => std::ptr::null() as win::HWND,
+                None => win::HWND::NULL,
                 Some(window) => window.raw(),
             },
         }
@@ -165,7 +165,7 @@ impl TryFrom<win::RAWINPUTHEADER> for SRawInputHeader {
     fn try_from(value: win::RAWINPUTHEADER) -> Result<Self, Self::Error> {
         Ok(
             SRawInputHeader {
-                type_: ERIMType::try_from(value.dwType)?,
+                type_: ERIMType::try_from(win::RID_DEVICE_INFO_TYPE::from(value.dwType))?,
                 size: value.dwSize as usize,
             }
         )
@@ -219,8 +219,8 @@ impl TryFrom<&win::RAWMOUSE> for SRawMouse {
 
     fn try_from(value: &win::RAWMOUSE) -> Result<Self, Self::Error> {
         Ok(Self {
-            flags: SRawMouseFlags::from_bits(value.usFlags).ok_or("Invalid flag bits.")?,
-            button_flags: SRIMouseButtonFlags::from_bits(value.usButtonFlags).ok_or("Invalid button flag bits.")?,
+            flags: SRawMouseFlags::from_bits(value.usFlags as u32).ok_or("Invalid flag bits.")?,
+            button_flags: SRIMouseButtonFlags::from_bits(value.Anonymous.Anonymous.usButtonFlags as u32).ok_or("Invalid button flag bits.")?,
             last_x: value.lLastX,
             last_y: value.lLastY,
         })

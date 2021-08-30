@@ -42,7 +42,7 @@ pub enum EHeapFlags {
     ENone,
 }
 
-impl TEnumFlags32 for EHeapFlags {
+impl TEnumFlags for EHeapFlags {
     type TRawType = win::D3D12_HEAP_FLAGS;
 
     fn rawtype(&self) -> Self::TRawType {
@@ -52,4 +52,4 @@ impl TEnumFlags32 for EHeapFlags {
     }
 }
 
-pub type SHeapFlags = SEnumFlags32<EHeapFlags>;
+pub type SHeapFlags = SEnumFlags<EHeapFlags>;

@@ -29,7 +29,7 @@ mod swapchain;
 mod view;
 
 use safewindows;
-use enumflags::{TEnumFlags32, SEnumFlags32};
+use enumflags::{TEnumFlags32, SEnumFlags32, TEnumFlags, SEnumFlags};
 
 use std::{mem, ptr};
 use std::convert::From;

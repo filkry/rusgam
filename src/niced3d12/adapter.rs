@@ -37,9 +37,9 @@ impl SAdapter {
                         NumCategories: 0,
                         pCategoryList: ptr::null_mut(),
                         NumSeverities: suppressedseverities.len() as u32,
-                        pSeverityList: &mut suppressedseverities[0] as *mut u32,
+                        pSeverityList: &mut suppressedseverities[0],
                         NumIDs: suppressedmessages.len() as u32,
-                        pIDList: &mut suppressedmessages[0] as *mut u32,
+                        pIDList: &mut suppressedmessages[0],
                     };
 
                     let mut filter = win::D3D12_INFO_QUEUE_FILTER {

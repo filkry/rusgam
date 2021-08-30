@@ -14,7 +14,7 @@ impl<'a> SPipelineStateStreamRootSignature<'a> {
         assert!(size_of::<Self>() % 8 == 0);
         Self {
             type_: t12::EPipelineStateSubobjectType::RootSignature.d3dtype(),
-            value: src.raw().raw.deref(),
+            value: &src.raw().raw,
         }
     }
 }

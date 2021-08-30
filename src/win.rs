@@ -1,6 +1,9 @@
+#![allow(non_camel_case_types)]
+
 // -- sanitized collection of windows imports
 
-#![allow(non_camel_case_types)]
+pub use windows::Interface;
+pub use windows::IUnknown;
 
 pub use winbindings2::Windows::Win32::Devices::HumanInterfaceDevice::*;
 pub use winbindings2::Windows::Win32::Foundation::*;
@@ -18,6 +21,7 @@ pub use winbindings2::Windows::Win32::Graphics::Direct3D11::{
     D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST_ADJ,
     D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP_ADJ,
     ID3DBlob,
+    ID3DInclude,
 };
 pub use winbindings2::Windows::Win32::Graphics::Direct3D12::*;
 pub use winbindings2::Windows::Win32::Graphics::Dxgi::*;
@@ -42,9 +46,5 @@ pub use winbindings2::Windows::Win32::UI::KeyboardAndMouseInput::*;
 pub use winbindings2::Windows::Win32::UI::WindowsAndMessaging::*;
 
 // -- extra types from windows API that windows-rs doesn't expose for some reason
-
-#[repr(transparent)]
-pub struct D3D12_GPU_VIRTUAL_ADDRESS(u64);
-
-#[repr(transparent)]
-pub struct D3D12_RECT(RECT);
+pub type D3D12_GPU_VIRTUAL_ADDRESS = u64;
+pub type D3D12_RECT = RECT;

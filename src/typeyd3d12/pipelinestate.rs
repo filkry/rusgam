@@ -52,7 +52,7 @@ impl SInputElementDesc {
 
         let mut i = 0;
         for c in semantic_name.as_bytes() {
-            result.semantic_name_null_terminated[i] = *c as i8;
+            result.semantic_name_null_terminated[i] = *c as u8;
             i += 1;
         }
         result.semantic_name_null_terminated[i] = 0;
@@ -63,7 +63,7 @@ impl SInputElementDesc {
     pub unsafe fn d3dtype(&self) -> win::D3D12_INPUT_ELEMENT_DESC {
         win::D3D12_INPUT_ELEMENT_DESC {
             //SemanticName: self.semantic_name_utf16.as_ptr(),
-            SemanticName: self.semantic_name_null_terminated.as_ptr(),
+            SemanticName: win::PSTR(self.semantic_name_null_terminated.as_mut_ptr()),
             SemanticIndex: self.semantic_index,
             Format: self.format.d3dtype(),
             InputSlot: self.input_slot,
@@ -110,7 +110,7 @@ impl SInputLayoutDesc {
         self.generate_d3dtype();
 
         let result = win::D3D12_INPUT_LAYOUT_DESC {
-            pInputElementDescs: self.d3d_input_element_descs.as_ptr(),
+            pInputElementDescs: self.d3d_input_element_descs.as_mut_ptr(),
             NumElements: self.d3d_input_element_descs.len() as u32,
         };
 
@@ -187,10 +187,10 @@ pub struct SDepthStencilDesc {
 impl SDepthStencilDesc {
     pub fn d3dtype(&self) -> win::D3D12_DEPTH_STENCIL_DESC {
         win::D3D12_DEPTH_STENCIL_DESC {
-            DepthEnable: if self.depth_enable { 1 } else { 0 } ,
+            DepthEnable: win::BOOL::from(self.depth_enable),
             DepthWriteMask: self.write_mask.d3dtype(),
             DepthFunc: self.depth_func.d3dtype(),
-            StencilEnable: if self.stencil_enable { 1 } else { 0 } ,
+            StencilEnable: win::BOOL::from(self.stencil_enable),
             StencilReadMask: self.stencil_read_mask,
             StencilWriteMask: self.stencil_write_mask,
             FrontFace: self.front_face.d3dtype(),
@@ -342,7 +342,7 @@ pub enum EBlendOp {
 }
 
 impl EBlendOp {
-    pub fn d3dtype(&self) -> win::D3D12_BLEND {
+    pub fn d3dtype(&self) -> win::D3D12_BLEND_OP {
         match self {
             Self::Add => win::D3D12_BLEND_OP_ADD,
             Self::Subtract => win::D3D12_BLEND_OP_SUBTRACT,

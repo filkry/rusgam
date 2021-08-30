@@ -63,17 +63,12 @@ impl SResource {
         &self
     ) -> usize {
         unsafe {
-            directxgraphicssamples::get_required_intermediate_size(self.raw.raw().as_raw(), 0, 1) as usize
+            directxgraphicssamples::get_required_intermediate_size(self.raw.raw(), 0, 1) as usize
         }
     }
 
     pub unsafe fn set_debug_name(&mut self, str_: &'static str) {
-        for ch in str_.encode_utf16() {
-            self.debug_name.push(ch);
-        }
-        self.debug_name.push('\0' as u16);
-
-        self.raw().raw().SetName(&self.debug_name[0]);
+        self.raw().raw().SetName(str_);
     }
 }
 
@@ -141,9 +136,9 @@ pub(super) fn update_subresources_stack(
 ) {
     unsafe {
         directxgraphicssamples::UpdateSubresourcesStack(
-            commandlist.raw().raw().as_raw(),
-            destinationresource.raw.raw_mut().as_raw(),
-            intermediateresource.raw.raw_mut().as_raw(),
+            commandlist.raw_mut().raw_mut(),
+            destinationresource.raw.raw(),
+            intermediateresource.raw.raw(),
             intermediateoffset,
             firstsubresource,
             numsubresources,

@@ -10,14 +10,13 @@ impl SAdapter1 {
     }
 
     pub fn getdesc(&self) -> win::DXGI_ADAPTER_DESC1 {
-        let mut adapterdesc = mem::MaybeUninit::<win::DXGI_ADAPTER_DESC1>::uninit();
         unsafe {
-            self.adapter.GetDesc1(adapterdesc.as_mut_ptr());
-            return adapterdesc.assume_init();
-        };
+            self.adapter.GetDesc1().unwrap()
+        }
     }
 
     pub fn castadapter4(&self) -> Option<SAdapter4> {
+        use win::Interface;
         match self.adapter.cast::<win::IDXGIAdapter4>() {
             Ok(a) => {
                 return Some(SAdapter4 { adapter: a });
@@ -29,7 +28,7 @@ impl SAdapter1 {
     }
 
     pub unsafe fn d3d12createdevice(&self) -> Result<SDevice, &'static str> {
-        d3d12createdevice(self.adapter.asunknownptr())
+        d3d12createdevice(win::IUnknown::from(self.adapter))
     }
 }
 
@@ -39,6 +38,6 @@ pub struct SAdapter4 {
 
 impl SAdapter4 {
     pub unsafe fn d3d12createdevice(&self) -> Result<SDevice, &'static str> {
-        d3d12createdevice(self.adapter.asunknownptr())
+        d3d12createdevice(win::IUnknown::from(self.adapter))
     }
 }

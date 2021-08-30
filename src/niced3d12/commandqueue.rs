@@ -31,12 +31,7 @@ impl SCommandQueue {
     }
 
     pub unsafe fn set_debug_name(&mut self, str_: &'static str) {
-        for ch in str_.encode_utf16() {
-            self.debug_name.push(ch);
-        }
-        self.debug_name.push('\0' as u16);
-
-        self.raw().raw().SetName(&self.debug_name[0]);
+        self.raw().raw().SetName(str_);
     }
 
     pub fn type_(&self) -> t12::ECommandListType {

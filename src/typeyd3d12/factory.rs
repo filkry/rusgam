@@ -56,16 +56,18 @@ impl SFactory {
         let d3d_desc = desc.d3dtype();
 
         let hr = self.factory.CreateSwapChainForHwnd(
-            commandqueue.raw().asunknownptr(),
+            win::IUnknown::from(commandqueue.raw()),
             window.raw(),
             &d3d_desc,
             ptr::null(),
-            ptr::null_mut(),
+            None,
         );
 
         returnerrifwinerror!(hr, "Failed to create swap chain");
 
         let swapchain = hr.expect("checked err above");
+
+        use win::Interface;
 
         match swapchain.cast::<win::IDXGISwapChain4>() {
             Ok(sc4) => Ok(SSwapChain::new_from_raw(sc4)),

@@ -5,10 +5,10 @@ pub struct SDevice {
     device: win::ID3D12Device2,
 }
 
-pub fn d3d12createdevice(adapter: &SAdapter4) -> Result<SDevice, &'static str> {
+pub fn d3d12createdevice(adapter: win::IUnknown) -> Result<SDevice, &'static str> {
     let hn = unsafe {
-        win::D3D12CreateDevice::<win::ID3D12Device2>(
-            adapter.adapter, //self.adapter.asunknownptr(),
+        win::D3D12CreateDevice(
+            adapter,
             win::D3D_FEATURE_LEVEL_11_0,
         )
     };
@@ -20,6 +20,7 @@ pub fn d3d12createdevice(adapter: &SAdapter4) -> Result<SDevice, &'static str> {
 
 impl SDevice {
     pub fn castinfoqueue(&self) -> Option<SInfoQueue> {
+        use win::Interface;
         match self.device.cast::<win::ID3D12InfoQueue>() {
             Ok(a) => {
                 return Some(unsafe { SInfoQueue::new_from_raw(a) });
@@ -37,8 +38,8 @@ impl SDevice {
         // -- $$$FRK(FUTURE WORK): pass priority, flags, nodemask
         let desc = win::D3D12_COMMAND_QUEUE_DESC {
             Type: type_.d3dtype(),
-            Priority: win::D3D12_COMMAND_QUEUE_PRIORITY_NORMAL,
-            Flags: 0,
+            Priority: win::D3D12_COMMAND_QUEUE_PRIORITY_NORMAL.0,
+            Flags: win::D3D12_COMMAND_QUEUE_FLAGS::default(),
             NodeMask: 0,
         };
 
@@ -88,7 +89,7 @@ impl SDevice {
     ) {
         unsafe {
             self.device.CreateRenderTargetView(
-                resource.raw().as_raw(),
+                resource.raw(),
                 ptr::null(),
                 *destdescriptor.raw(),
             );
@@ -105,7 +106,7 @@ impl SDevice {
             let d3ddesc = desc.d3dtype();
 
             self.device.CreateDepthStencilView(
-                resource.raw().as_raw(),
+                resource.raw(),
                 &d3ddesc,
                 *dest_descriptor.raw(),
             );
@@ -122,7 +123,7 @@ impl SDevice {
             let d3ddesc = desc.d3dtype();
 
             self.device.CreateShaderResourceView(
-                resource.raw().as_raw(),
+                resource.raw(),
                 &d3ddesc,
                 *dest_descriptor.raw(),
             );
@@ -139,8 +140,8 @@ impl SDevice {
             let d3ddesc = desc.d3dtype();
 
             self.device.CreateUnorderedAccessView(
-                resource.raw().as_raw(),
-                ptr::null_mut(),
+                resource.raw(),
+                None,
                 &d3ddesc,
                 *dest_descriptor.raw(),
             );
@@ -192,13 +193,12 @@ impl SDevice {
         &self,
         allocator: &SCommandAllocator,
     ) -> Result<SCommandList, &'static str> {
-        let mut rawcl: *mut win::ID3D12GraphicsCommandList = ptr::null_mut();
         let hn = unsafe {
-            self.device.CreateCommandList::<win::ID3D12GraphicsCommandList>(
+            self.device.CreateCommandList(
                 0,
                 allocator.type_().d3dtype(),
-                allocator.raw().as_raw(),
-                ptr::null_mut(),
+                allocator.raw(),
+                None,
             )
         };
 
@@ -295,10 +295,10 @@ impl SDevice {
 
         unsafe {
             self.device.CopyDescriptors(
-                dest_descriptor_range_sizes.len(),
+                dest_descriptor_range_sizes.len() as u32,
                 dest_starts_ptr as *const win::D3D12_CPU_DESCRIPTOR_HANDLE,
                 dest_descriptor_range_sizes.as_ptr(),
-                src_descriptor_range_sizes.len(),
+                src_descriptor_range_sizes.len() as u32,
                 src_descriptor_range_starts.as_ptr() as *const win::D3D12_CPU_DESCRIPTOR_HANDLE,
                 src_descriptor_range_sizes.as_ptr(),
                 type_.d3dtype(),

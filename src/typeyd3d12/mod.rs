@@ -94,7 +94,7 @@ impl SGPUVirtualAddress {
 
     pub fn add(&self, offset: usize) -> SGPUVirtualAddress {
         SGPUVirtualAddress {
-            raw: self.raw + (offset as u64),
+            raw: (self.raw + (offset as u64)),
         }
     }
 }
@@ -129,7 +129,7 @@ pub type SRect = safewindows::SRect;
 
 impl SRect {
     pub fn d3dtype(&self) -> win::D3D12_RECT {
-        win::D3D12_RECT {
+        win::D3D12_RECT{
             left: self.left,
             right: self.right,
             top: self.top,
@@ -267,7 +267,7 @@ pub fn d3dcompilefromfile(
         win::D3DCompileFromFile(
             file,
             ptr::null_mut(),
-            ptr::null_mut(),
+            None,
             entrypoint,
             target,
             flags1.rawtype(),

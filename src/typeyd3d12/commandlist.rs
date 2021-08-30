@@ -57,7 +57,7 @@ impl SCommandList {
     pub unsafe fn reset(&self, commandallocator: &SCommandAllocator) -> Result<(), &'static str> {
         let hn = self
             .commandlist
-            .Reset(commandallocator.raw().as_raw(), ptr::null_mut());
+            .Reset(commandallocator.raw(), None);
         match hn {
             Ok(_) => Ok(()),
             Err(_) => Err("Could not reset command list."),
@@ -80,7 +80,7 @@ impl SCommandList {
     ) {
         // -- $$$FRK(FUTURE WORK): support third/fourth parameter
         self.commandlist
-            .ClearRenderTargetView(*descriptor.raw(), colour, 0, ptr::null());
+            .ClearRenderTargetView(*descriptor.raw(), &colour[0], 0, ptr::null());
     }
 
     pub unsafe fn clear_depth_stencil_view(&self, descriptor: SCPUDescriptorHandle, depth: f32) {
@@ -97,17 +97,17 @@ impl SCommandList {
 
     pub unsafe fn set_pipeline_state(&self, pipeline_state: &SPipelineState) {
         self.commandlist
-            .SetPipelineState(pipeline_state.raw().as_raw())
+            .SetPipelineState(pipeline_state.raw())
     }
 
     pub unsafe fn set_graphics_root_signature(&self, root_signature: &SRootSignature) {
         self.commandlist
-            .SetGraphicsRootSignature(root_signature.raw.as_raw())
+            .SetGraphicsRootSignature(root_signature.raw)
     }
 
     pub unsafe fn set_compute_root_signature(&self, root_signature: &SRootSignature) {
         self.commandlist
-            .SetComputeRootSignature(root_signature.raw.as_raw())
+            .SetComputeRootSignature(root_signature.raw)
     }
 
     pub unsafe fn ia_set_primitive_topology(&self, primitive_topology: EPrimitiveTopology) {
@@ -175,13 +175,13 @@ impl SCommandList {
             self.commandlist.OMSetRenderTargets(
                 render_target_descriptors.len() as u32,
                 render_target_descriptors[0].raw(),
-                rts_single_handle_to_descriptor_range as i32,
+                rts_single_handle_to_descriptor_range,
                 depth_target_descriptor.raw(),
             );
         }
         else if render_target_descriptors.len() == 0 {
             self.commandlist.OMSetRenderTargets(
-                0, ptr::null_mut(), rts_single_handle_to_descriptor_range as i32,
+                0, ptr::null_mut(), rts_single_handle_to_descriptor_range,
                 depth_target_descriptor.raw(),
             );
         }
@@ -189,9 +189,9 @@ impl SCommandList {
 
     pub unsafe fn set_descriptor_heaps(&self, heaps: &[&SDescriptorHeap]) {
         if heaps.len() > 0 {
-            let mut raw_heaps = [ptr::null_mut(); 4]; // only 4 heap types
+            let mut raw_heaps = [None; 4]; // only 4 heap types
             for (i, heap) in heaps.iter().enumerate() {
-                raw_heaps[i] = heap.heap.as_raw();
+                raw_heaps[i] = Some(heap.heap);
             }
 
             self.commandlist
@@ -317,7 +317,7 @@ impl SCommandList {
         &self.commandlist
     }
 
-    pub unsafe fn rawmut(&mut self) -> &mut win::ID3D12GraphicsCommandList {
+    pub unsafe fn raw_mut(&mut self) -> &mut win::ID3D12GraphicsCommandList {
         &mut self.commandlist
     }
 }

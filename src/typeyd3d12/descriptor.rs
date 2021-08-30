@@ -9,7 +9,7 @@ pub enum EDescriptorHeapType {
 }
 
 impl EDescriptorHeapType {
-    pub fn d3dtype(&self) -> u32 {
+    pub fn d3dtype(&self) -> win::D3D12_DESCRIPTOR_HEAP_TYPE {
         match self {
             EDescriptorHeapType::ConstantBufferShaderResourceUnorderedAccess => {
                 win::D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV

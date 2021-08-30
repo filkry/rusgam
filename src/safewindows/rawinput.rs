@@ -249,7 +249,7 @@ impl TryFrom<win::RAWINPUT> for SRawInput {
             header: header,
             data: match header_type {
                 ERIMType::Mouse => ERawInputData::Mouse {
-                    data: SRawMouse::try_from(unsafe { value.data.mouse() })?,
+                    data: SRawMouse::try_from(unsafe { &value.data.mouse })?,
                 },
                 ERIMType::Keyboard => ERawInputData::Invalid,
                 ERIMType::HID => ERawInputData::Invalid,

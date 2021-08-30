@@ -108,20 +108,20 @@ impl<T: TEnumFlags + Copy> SEnumFlags<T> {
     pub fn create(flags: &[T]) -> Self {
         let mut result = Self::none();
         for flag in flags {
-            result.raw |= flag;
+            result.raw |= flag.rawtype();
         }
         result
     }
 
     pub fn and(&self, other: T) -> Self {
         Self {
-            raw: self.raw & other,
+            raw: self.raw & other.rawtype(),
         }
     }
 
     pub fn or(&self, other: T) -> Self {
         Self {
-            raw: self.raw | other,
+            raw: self.raw | other.rawtype(),
         }
     }
 

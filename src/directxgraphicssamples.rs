@@ -59,9 +59,9 @@ pub unsafe fn MemcpySubresource(
 //------------------------------------------------------------------------------------------------
 // All arrays must be populated (e.g. by calling GetCopyableFootprints)
 pub unsafe fn UpdateSubresources(
-    cmdlist: *mut win::ID3D12GraphicsCommandList,
-    destinationresource: &mut win::ID3D12Resource,
-    intermediate: &mut win::ID3D12Resource,
+    cmdlist: &mut win::ID3D12GraphicsCommandList,
+    destinationresource: &win::ID3D12Resource,
+    intermediate: &win::ID3D12Resource,
     firstsubresource: u32,
     numsubresources: u32,
     requiredsize: u64,
@@ -134,9 +134,9 @@ pub unsafe fn UpdateSubresources(
 
 // Stack-allocating UpdateSubresources implementation
 pub unsafe fn UpdateSubresourcesStack(
-    cmdlist: *mut win::ID3D12GraphicsCommandList,
-    destinationresource: *mut win::ID3D12Resource,
-    intermediate: *mut win::ID3D12Resource,
+    cmdlist: &mut win::ID3D12GraphicsCommandList,
+    destinationresource: &win::ID3D12Resource,
+    intermediate: &win::ID3D12Resource,
     intermediateoffset: u64,
     firstsubresource: u32,
     numsubresources: u32,
@@ -149,13 +149,9 @@ pub unsafe fn UpdateSubresourcesStack(
     let mut numrows: [u32; 10] = [0; 10];
     let mut rowsizesinbytes: [u64; 10] = [0; 10];
 
-    let desc = (*destinationresource).GetDesc();
-    let mut device: *mut win::ID3D12Device = ptr::null_mut();
-    (*destinationresource).GetDevice(
-        &win::ID3D12Device::uuidof(),
-        &mut device as *mut *mut _ as *mut *mut c_void,
-    );
-    (*device).GetCopyableFootprints(
+    let desc = destinationresource.GetDesc();
+    let device = destinationresource.GetDevice::<win::ID3D12Device>().expect("resource should have died if device gone");
+    device.GetCopyableFootprints(
         &desc,
         firstsubresource,
         numsubresources,
@@ -165,7 +161,7 @@ pub unsafe fn UpdateSubresourcesStack(
         rowsizesinbytes.as_mut_ptr(),
         &mut requiredsize,
     );
-    (*device).Release();
+    drop(device);
 
     return UpdateSubresources(
         cmdlist,
@@ -184,46 +180,45 @@ pub unsafe fn UpdateSubresourcesStack(
 pub struct CD3DX12_TEXTURE_COPY_LOCATION {}
 
 impl CD3DX12_TEXTURE_COPY_LOCATION {
-    pub unsafe fn from_res(res: *mut win::ID3D12Resource) -> win::D3D12_TEXTURE_COPY_LOCATION {
+    pub unsafe fn from_res(res: &win::ID3D12Resource) -> win::D3D12_TEXTURE_COPY_LOCATION {
         win::D3D12_TEXTURE_COPY_LOCATION {
-            pResource: res,
+            pResource: Some(res.clone()),
             Type: win::D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
-            u: mem::zeroed(),
+            Anonymous: mem::zeroed(),
         }
     }
 
     pub unsafe fn from_res_footprint(
-        res: *mut win::ID3D12Resource,
+        res: &win::ID3D12Resource,
         footprint: win::D3D12_PLACED_SUBRESOURCE_FOOTPRINT,
     ) -> win::D3D12_TEXTURE_COPY_LOCATION {
         let mut result: win::D3D12_TEXTURE_COPY_LOCATION = mem::zeroed();
-        result.pResource = res;
+        result.pResource = Some(res.clone());
         result.Type = win::D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
-        *(result.u.PlacedFootprint_mut()) = footprint;
+        result.Anonymous.PlacedFootprint = footprint;
         result
     }
 
-    pub unsafe fn from_res_sub(res: *mut win::ID3D12Resource, sub: u32) -> win::D3D12_TEXTURE_COPY_LOCATION {
+    pub unsafe fn from_res_sub(res: &win::ID3D12Resource, sub: u32) -> win::D3D12_TEXTURE_COPY_LOCATION {
         let mut result: win::D3D12_TEXTURE_COPY_LOCATION = mem::zeroed();
-        result.pResource = res;
+        result.pResource = Some(res.clone());
         result.Type = win::D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
-        *(result.u.SubresourceIndex_mut()) = sub;
+        result.Anonymous.SubresourceIndex = sub;
         result
     }
 }
 
 
 pub unsafe fn get_required_intermediate_size(
-    destination_resource: *mut win::ID3D12Resource,
+    destination_resource: &win::ID3D12Resource,
     first_subresource: u32,
     num_subresources: u32,
 ) -> u64 {
-    let desc = destination_resource.as_ref().unwrap().GetDesc();
+    let desc = destination_resource.GetDesc();
     let mut required_size = 0;
 
-    let mut device : *mut win::ID3D12Device = std::ptr::null_mut();
-    destination_resource.as_ref().unwrap().GetDevice(&win::ID3D12Device::uuidof(), &mut device as *mut *mut _ as *mut *mut c_void);
-    device.as_ref().unwrap().GetCopyableFootprints(
+    let device = destination_resource.GetDevice::<win::ID3D12Device>().expect("shouldn't be able to lose device before resource");
+    device.GetCopyableFootprints(
         &desc,
         first_subresource,
         num_subresources,
@@ -233,7 +228,7 @@ pub unsafe fn get_required_intermediate_size(
         std::ptr::null_mut(),
         &mut required_size,
     );
-    device.as_ref().unwrap().Release();
+    drop(device);
 
     return required_size;
 }

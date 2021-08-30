@@ -27,7 +27,7 @@ impl SFactory {
 
             let adapterdesc = adapter1.getdesc();
 
-            if adapterdesc.Flags & win::DXGI_ADAPTER_FLAG_SOFTWARE > 0 {
+            if (win::DXGI_ADAPTER_FLAG::from(adapterdesc.Flags) & win::DXGI_ADAPTER_FLAG_SOFTWARE).0 > 0 {
                 continue;
             }
 

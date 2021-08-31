@@ -5,12 +5,6 @@ use n12;
 use t12;
 use super::shaderbindings;
 
-#[repr(C)]
-struct SComputeSkinningPipelineStateStream<'a> {
-    root_signature: n12::SPipelineStateStreamRootSignature<'a>,
-    compute_shader: n12::SPipelineStateStreamComputeShader<'a>,
-}
-
 pub struct SComputeSkinningPipeline {
     compute_shader: shaderbindings::SComputeSkinningHLSL,
     compute_shader_bind: shaderbindings::SComputeSkinningHLSLBind,
@@ -38,15 +32,14 @@ pub fn setup_pipeline(
     let root_signature =
         device.create_root_signature(root_signature_desc, t12::ERootSignatureVersion::V1)?;
 
-    let pipeline_state_stream = SComputeSkinningPipelineStateStream {
-        root_signature: n12::SPipelineStateStreamRootSignature::create(&root_signature),
-        compute_shader: n12::SPipelineStateStreamComputeShader::create(compute_shader.bytecode()),
+    let pipeline_state_desc = t12::SComputePipelineStateDesc {
+        root_signature: root_signature.raw().clone(),
+        compute_shader: compute_shader.bytecode(),
     };
 
-    let pipeline_state_stream_desc = t12::SPipelineStateStreamDesc::create(&pipeline_state_stream);
     let pipeline_state = device
         .raw()
-        .create_pipeline_state(&pipeline_state_stream_desc)?;
+        .create_compute_pipeline_state(&pipeline_state_desc)?;
 
     Ok(SComputeSkinningPipeline {
         compute_shader,

@@ -34,19 +34,6 @@ pub mod shaderbindings;
 use self::render_imgui::{SRenderImgui};
 use self::temp::{SRenderTemp};
 
-#[allow(unused_variables)]
-#[allow(unused_mut)]
-#[repr(C)]
-struct SPipelineStateStream<'a> {
-    root_signature: n12::SPipelineStateStreamRootSignature<'a>,
-    input_layout: n12::SPipelineStateStreamInputLayout<'a>,
-    primitive_topology: n12::SPipelineStateStreamPrimitiveTopology,
-    vertex_shader: n12::SPipelineStateStreamVertexShader<'a>,
-    pixel_shader: n12::SPipelineStateStreamPixelShader<'a>,
-    depth_stencil_format: n12::SPipelineStateStreamDepthStencilFormat,
-    rtv_formats: n12::SPipelineStateStreamRTVFormats<'a>,
-}
-
 #[derive(Serialize, Deserialize)]
 struct SBuiltShaderMetadata {
     src_write_time: std::time::SystemTime,
@@ -266,7 +253,7 @@ impl SRender {
         let pixel_hlsl = shaderbindings::SPixelHLSL::new()?;
 
         // -- root signature stuff
-        let mut input_layout_desc = shaderbindings::SVertexHLSL::input_layout_desc();
+        let input_layout_desc = shaderbindings::SVertexHLSL::input_layout_desc();
 
         let root_signature_flags = t12::SRootSignatureFlags::create(&[
             t12::ERootSignatureFlags::AllowInputAssemblerInputLayout,
@@ -289,23 +276,21 @@ impl SRender {
         rtv_formats.rt_formats.push(t12::EDXGIFormat::R8G8B8A8UNorm);
 
         // -- pipeline state object
-        let pipeline_state_stream = SPipelineStateStream {
-            root_signature: n12::SPipelineStateStreamRootSignature::create(&root_signature),
-            input_layout: n12::SPipelineStateStreamInputLayout::create(&mut input_layout_desc),
-            primitive_topology: n12::SPipelineStateStreamPrimitiveTopology::create(
+        let mut pipeline_state_desc = {
+            let mut temp = t12::SGraphicsPipeLineStateDesc::new_min(
+                root_signature.raw().clone(),
+                input_layout_desc,
                 t12::EPrimitiveTopologyType::Triangle,
-            ),
-            vertex_shader: n12::SPipelineStateStreamVertexShader::create(vertex_hlsl.bytecode()),
-            pixel_shader: n12::SPipelineStateStreamPixelShader::create(pixel_hlsl.bytecode()),
-            depth_stencil_format: n12::SPipelineStateStreamDepthStencilFormat::create(
-                t12::EDXGIFormat::D32Float,
-            ),
-            rtv_formats: n12::SPipelineStateStreamRTVFormats::create(&rtv_formats),
+            );
+            temp.vertex_shader = Some(vertex_hlsl.bytecode());
+            temp.pixel_shader = Some(pixel_hlsl.bytecode());
+            temp.depth_stencil_format = Some(t12::EDXGIFormat::D32Float);
+            temp.rtv_formats = Some(rtv_formats);
+            temp
         };
-        let pipeline_state_stream_desc = t12::SPipelineStateStreamDesc::create(&pipeline_state_stream);
         let pipeline_state = device
             .raw()
-            .create_pipeline_state(&pipeline_state_stream_desc)?;
+            .create_graphics_pipeline_state(&mut pipeline_state_desc)?;
 
         let fovy: f32 = utils::PI / 4.0; // 45 degrees
         let znear = 0.1;

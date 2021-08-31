@@ -267,6 +267,7 @@ impl EPrimitiveTopology {
     }
 }
 
+#[derive(Clone)]
 pub struct SRTFormatArray {
     pub rt_formats: ArrayVec<[EDXGIFormat; 8]>,
 }
@@ -445,77 +446,85 @@ impl SBlendDesc {
     }
 }
 
-pub struct SPipelineStateStreamDesc<'a, T> {
-    stream: &'a T,
+// -- $$$FRK(TODO): skipped a lot of params I don't use
+pub struct SGraphicsPipeLineStateDesc<'a> {
+    pub root_signature: SRootSignature,
+    pub vertex_shader: Option<&'a SShaderBytecode>,
+    pub pixel_shader: Option<&'a SShaderBytecode>,
+    pub blend_state: Option<SBlendDesc>,
+    pub depth_stencil_state: Option<SDepthStencilDesc>,
+    pub input_layout: SInputLayoutDesc,
+    pub primitive_topology_type: EPrimitiveTopologyType,
+    pub depth_stencil_format: Option<EDXGIFormat>,
+    pub rtv_formats: Option<SRTFormatArray>,
 }
 
-impl<'a, T> SPipelineStateStreamDesc<'a, T> {
-    pub fn create(stream: &'a T) -> Self {
-        Self { stream: stream }
-    }
+impl<'a> SGraphicsPipeLineStateDesc<'a> {
+    pub fn new_min(
+        root_signature: SRootSignature,
+        input_layout: SInputLayoutDesc,
+        primitive_topology_type: EPrimitiveTopologyType,
+    ) -> Self {
+        Self {
+            root_signature,
+            input_layout,
+            primitive_topology_type,
 
-    pub unsafe fn d3dtype(&self) -> win::D3D12_PIPELINE_STATE_STREAM_DESC {
-        win::D3D12_PIPELINE_STATE_STREAM_DESC {
-            SizeInBytes: mem::size_of::<T>(),
-            pPipelineStateSubobjectStream: self.stream as *const T as *mut std::ffi::c_void,
+            vertex_shader: None,
+            pixel_shader: None,
+            blend_state: None,
+            depth_stencil_state: None,
+            depth_stencil_format: None,
+            rtv_formats: None,
         }
     }
-}
 
-pub enum EPipelineStateSubobjectType {
-    RootSignature,
-    VS,
-    PS,
-    DS,
-    HS,
-    GS,
-    CS,
-    StreamOutput,
-    Blend,
-    SampleMask,
-    Rasterizer,
-    DepthStencil,
-    InputLayout,
-    IBStripCutValue,
-    PrimitiveTopology,
-    RenderTargetFormats,
-    DepthStencilFormat,
-    SampleDesc,
-    NodeMask,
-    CachedPSO,
-    Flags,
-    DepthStencil1,
-    //ViewInstancing,
-    MaxValid,
-}
+    // -- unsafe because some of the generated structs cannot outlive self
+    pub unsafe fn d3dtype(&mut self) -> win::D3D12_GRAPHICS_PIPELINE_STATE_DESC {
+        let mut result = win::D3D12_GRAPHICS_PIPELINE_STATE_DESC::default();
 
-impl EPipelineStateSubobjectType {
-    pub fn d3dtype(&self) -> win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE {
-        match self {
-            Self::RootSignature => win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_ROOT_SIGNATURE,
-            Self::VS => win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_VS,
-            Self::PS => win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_PS,
-            Self::DS => win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_DS,
-            Self::HS => win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_HS,
-            Self::GS => win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_GS,
-            Self::CS => win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_CS,
-            Self::StreamOutput => win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_STREAM_OUTPUT,
-            Self::Blend => win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_BLEND,
-            Self::SampleMask => win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_SAMPLE_MASK,
-            Self::Rasterizer => win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_RASTERIZER,
-            Self::DepthStencil => win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_DEPTH_STENCIL,
-            Self::InputLayout => win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_INPUT_LAYOUT,
-            Self::IBStripCutValue => win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_IB_STRIP_CUT_VALUE,
-            Self::PrimitiveTopology => win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_PRIMITIVE_TOPOLOGY,
-            Self::RenderTargetFormats => win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_RENDER_TARGET_FORMATS,
-            Self::DepthStencilFormat => win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_DEPTH_STENCIL_FORMAT,
-            Self::SampleDesc => win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_SAMPLE_DESC,
-            Self::NodeMask => win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_NODE_MASK,
-            Self::CachedPSO => win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_CACHED_PSO,
-            Self::Flags => win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_FLAGS,
-            Self::DepthStencil1 => win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_DEPTH_STENCIL1,
-            //Self::ViewInstancing => D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_VIEW_INSTANCING,
-            Self::MaxValid => win::D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_MAX_VALID,
+        result.pRootSignature = Some(self.root_signature.raw.clone());
+        if let Some(bytecode) = self.vertex_shader {
+            result.VS = bytecode.d3dtype();
         }
+        if let Some(bytecode) = self.pixel_shader {
+            result.PS = bytecode.d3dtype();
+        }
+        if let Some(blend_state) = &self.blend_state {
+            result.BlendState = blend_state.d3dtype();
+        }
+        if let Some(depth_stencil_state) = &self.depth_stencil_state {
+            result.DepthStencilState = depth_stencil_state.d3dtype();
+        }
+        result.InputLayout = self.input_layout.d3dtype();
+        result.PrimitiveTopologyType = self.primitive_topology_type.d3dtype();
+        if let Some(depth_stencil_format) = self.depth_stencil_format {
+            result.DSVFormat = depth_stencil_format.d3dtype();
+        }
+        if let Some(rtv_formats) = &self.rtv_formats {
+            for (i, format) in rtv_formats.rt_formats.iter().enumerate() {
+                result.RTVFormats[i] = format.d3dtype();
+            }
+        }
+
+        result
+    }
+}
+
+// -- $$$FRK(TODO): skipped a lot of params I don't use
+pub struct SComputePipelineStateDesc<'a> {
+    pub root_signature: SRootSignature,
+    pub compute_shader: &'a SShaderBytecode,
+}
+
+impl<'a> SComputePipelineStateDesc<'a> {
+    // -- unsafe because some of the generated structs cannot outlive this
+    pub unsafe fn d3dtype(&self) -> win::D3D12_COMPUTE_PIPELINE_STATE_DESC {
+        let mut result = win::D3D12_COMPUTE_PIPELINE_STATE_DESC::default();
+
+        result.pRootSignature = Some(self.root_signature.raw.clone());
+        result.CS = self.compute_shader.d3dtype();
+
+        result
     }
 }

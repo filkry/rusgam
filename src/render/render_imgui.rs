@@ -14,20 +14,6 @@ use model::{STextureLoader, STextureHandle};
 use niced3d12 as n12;
 use typeyd3d12 as t12;
 
-#[allow(unused_variables)]
-#[allow(unused_mut)]
-#[repr(C)]
-struct SImguiPipelineStateStream<'a> {
-    root_signature: n12::SPipelineStateStreamRootSignature<'a>,
-    input_layout: n12::SPipelineStateStreamInputLayout<'a>,
-    primitive_topology: n12::SPipelineStateStreamPrimitiveTopology,
-    vertex_shader: n12::SPipelineStateStreamVertexShader<'a>,
-    pixel_shader: n12::SPipelineStateStreamPixelShader<'a>,
-    blend_state: n12::SPipelineStateStreamBlendDesc,
-    depth_stencil_desc: n12::SPipelineStateStreamDepthStencilDesc,
-    rtv_formats: n12::SPipelineStateStreamRTVFormats<'a>,
-}
-
 pub(super) struct SRenderImgui {
     font_texture: STextureHandle,
     font_texture_id: imgui::TextureId,
@@ -142,7 +128,7 @@ impl SRenderImgui {
             ..Default::default()
         };
 
-        let mut input_layout_desc = t12::SInputLayoutDesc::create(&[
+        let input_layout_desc = t12::SInputLayoutDesc::create(&[
             t12::SInputElementDesc::create(
                 "POSITION",
                 0,
@@ -184,22 +170,23 @@ impl SRenderImgui {
         };
         rtv_formats.rt_formats.push(t12::EDXGIFormat::R8G8B8A8UNorm);
 
-        let pipeline_state_stream = SImguiPipelineStateStream {
-            root_signature: n12::SPipelineStateStreamRootSignature::create(&root_signature),
-            input_layout: n12::SPipelineStateStreamInputLayout::create(&mut input_layout_desc),
-            primitive_topology: n12::SPipelineStateStreamPrimitiveTopology::create(
+        let mut pipeline_state_desc = {
+            let mut temp = t12::SGraphicsPipeLineStateDesc::new_min(
+                root_signature.raw().clone(),
+                input_layout_desc,
                 t12::EPrimitiveTopologyType::Triangle,
-            ),
-            vertex_shader: n12::SPipelineStateStreamVertexShader::create(&vert_byte_code),
-            pixel_shader: n12::SPipelineStateStreamPixelShader::create(&pixel_byte_code),
-            blend_state: n12::SPipelineStateStreamBlendDesc::create(blend_desc),
-            depth_stencil_desc: n12::SPipelineStateStreamDepthStencilDesc::create(depth_stencil_desc),
-            rtv_formats: n12::SPipelineStateStreamRTVFormats::create(&rtv_formats),
+            );
+            temp.vertex_shader = Some(&vert_byte_code);
+            temp.pixel_shader = Some(&pixel_byte_code);
+            temp.blend_state = Some(blend_desc);
+            temp.depth_stencil_state = Some(depth_stencil_desc);
+            temp.rtv_formats = Some(rtv_formats);
+
+            temp
         };
-        let pipeline_state_stream_desc = t12::SPipelineStateStreamDesc::create(&pipeline_state_stream);
         let pipeline_state = device
             .raw()
-            .create_pipeline_state(&pipeline_state_stream_desc)?;
+            .create_graphics_pipeline_state(&mut pipeline_state_desc)?;
 
         let allocator = SYSTEM_ALLOCATOR();
 

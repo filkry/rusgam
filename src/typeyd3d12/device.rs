@@ -241,29 +241,30 @@ impl SDevice {
         })
     }
 
-    pub fn create_pipeline_state_for_raw_desc(
+    pub fn create_compute_pipeline_state(
         &self,
-        desc: &win::D3D12_PIPELINE_STATE_STREAM_DESC,
+        desc: &SComputePipelineStateDesc,
     ) -> Result<SPipelineState, &'static str> {
-        let hr = unsafe {
-            self.device.CreatePipelineState::<win::ID3D12PipelineState>(
-                desc,
-            )
-        };
-        returnerrifwinerror!(hr, "Could not create pipeline state");
-
         unsafe {
-            let pipeline_state = hr.expect("checked err above");
-            Ok(SPipelineState::new_from_raw(pipeline_state))
+            let d3d_desc = desc.d3dtype();
+            match self.device.CreateComputePipelineState::<win::ID3D12PipelineState>(&d3d_desc) {
+                Ok(d3d_ps) => Ok(SPipelineState::new_from_raw(d3d_ps)),
+                Err(_) => Err("Could not create pipeline state"),
+            }
         }
     }
 
-    pub fn create_pipeline_state<T>(
+    pub fn create_graphics_pipeline_state(
         &self,
-        desc: &SPipelineStateStreamDesc<T>,
+        desc: &mut SGraphicsPipeLineStateDesc,
     ) -> Result<SPipelineState, &'static str> {
-        let d3ddesc = unsafe { desc.d3dtype() };
-        self.create_pipeline_state_for_raw_desc(&d3ddesc)
+        unsafe {
+            let d3d_desc = desc.d3dtype();
+            match self.device.CreateGraphicsPipelineState::<win::ID3D12PipelineState>(&d3d_desc) {
+                Ok(d3d_ps) => Ok(SPipelineState::new_from_raw(d3d_ps)),
+                Err(_) => Err("Could not create pipeline state"),
+            }
+        }
     }
 
     pub fn copy_descriptors(

@@ -11,18 +11,6 @@ use utils;
 
 use math::{Vec3, Mat4};
 
-#[allow(unused_variables)]
-#[allow(unused_mut)]
-#[repr(C)]
-struct SShadowPipelineStateStream<'a> {
-    root_signature: n12::SPipelineStateStreamRootSignature<'a>,
-    input_layout: n12::SPipelineStateStreamInputLayout<'a>,
-    primitive_topology: n12::SPipelineStateStreamPrimitiveTopology,
-    vertex_shader: n12::SPipelineStateStreamVertexShader<'a>,
-    pixel_shader: n12::SPipelineStateStreamPixelShader<'a>,
-    depth_stencil_format: n12::SPipelineStateStreamDepthStencilFormat,
-}
-
 pub struct SShadowMappingPipeline {
     vertex_shader: shaderbindings::SClipSpaceOnlyVertexHLSL,
     vertex_shader_bind: shaderbindings::SClipSpaceOnlyVertexHLSLBind,
@@ -52,7 +40,7 @@ pub fn setup_shadow_mapping_pipeline(
     let vertex_shader = shaderbindings::SClipSpaceOnlyVertexHLSL::new()?;
     let pixel_byte_code = t12::SShaderBytecode::create(pixel_blob);
 
-    let mut input_layout_desc = shaderbindings::SClipSpaceOnlyVertexHLSL::input_layout_desc();
+    let input_layout_desc = shaderbindings::SClipSpaceOnlyVertexHLSL::input_layout_desc();
 
     let root_signature_flags = t12::SRootSignatureFlags::create(&[
         t12::ERootSignatureFlags::AllowInputAssemblerInputLayout,
@@ -68,23 +56,21 @@ pub fn setup_shadow_mapping_pipeline(
     let root_signature =
         device.create_root_signature(root_signature_desc, t12::ERootSignatureVersion::V1)?;
 
-    let pipeline_state_stream = SShadowPipelineStateStream {
-        root_signature: n12::SPipelineStateStreamRootSignature::create(&root_signature),
-        input_layout: n12::SPipelineStateStreamInputLayout::create(&mut input_layout_desc),
-        primitive_topology: n12::SPipelineStateStreamPrimitiveTopology::create(
+    let mut pipeline_state_desc = {
+        let mut temp = t12::SGraphicsPipeLineStateDesc::new_min(
+            root_signature.raw().clone(),
+            input_layout_desc,
             t12::EPrimitiveTopologyType::Triangle,
-        ),
-        vertex_shader: n12::SPipelineStateStreamVertexShader::create(vertex_shader.bytecode()),
-        pixel_shader: n12::SPipelineStateStreamPixelShader::create(&pixel_byte_code),
-        depth_stencil_format: n12::SPipelineStateStreamDepthStencilFormat::create(
-            t12::EDXGIFormat::D32Float,
-        ),
+        );
+        temp.vertex_shader = Some(vertex_shader.bytecode());
+        temp.pixel_shader = Some(&pixel_byte_code);
+        temp.depth_stencil_format = Some(t12::EDXGIFormat::D32Float);
+        temp
     };
 
-    let pipeline_state_stream_desc = t12::SPipelineStateStreamDesc::create(&pipeline_state_stream);
     let pipeline_state = device
         .raw()
-        .create_pipeline_state(&pipeline_state_stream_desc)?;
+        .create_graphics_pipeline_state(&mut pipeline_state_desc)?;
 
     // -- depth texture
     #[allow(unused_variables)]

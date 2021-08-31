@@ -45,6 +45,7 @@ impl TEnumFlags for ERootSignatureFlags {
 
 pub type SRootSignatureFlags = SEnumFlags<ERootSignatureFlags>;
 
+#[derive(Clone)]
 pub struct SRootSignature {
     pub raw: win::ID3D12RootSignature,
 }

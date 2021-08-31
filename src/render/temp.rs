@@ -16,58 +16,6 @@ use super::shaderbindings;
 use utils::{STransform, SAABB};
 use super::{SRenderContext};
 
-#[allow(unused_variables)]
-#[allow(unused_mut)]
-#[repr(C)]
-struct SMeshPipelineStateStream<'a> {
-    root_signature: n12::SPipelineStateStreamRootSignature<'a>,
-    input_layout: n12::SPipelineStateStreamInputLayout<'a>,
-    primitive_topology: n12::SPipelineStateStreamPrimitiveTopology,
-    vertex_shader: n12::SPipelineStateStreamVertexShader<'a>,
-    pixel_shader: n12::SPipelineStateStreamPixelShader<'a>,
-    depth_stencil_format: n12::SPipelineStateStreamDepthStencilFormat,
-    rtv_formats: n12::SPipelineStateStreamRTVFormats<'a>,
-}
-
-#[allow(unused_variables)]
-#[allow(unused_mut)]
-#[repr(C)]
-struct SPointPipelineStateStream<'a> {
-    root_signature: n12::SPipelineStateStreamRootSignature<'a>,
-    input_layout: n12::SPipelineStateStreamInputLayout<'a>,
-    primitive_topology: n12::SPipelineStateStreamPrimitiveTopology,
-    vertex_shader: n12::SPipelineStateStreamVertexShader<'a>,
-    pixel_shader: n12::SPipelineStateStreamPixelShader<'a>,
-    depth_stencil_format: n12::SPipelineStateStreamDepthStencilFormat,
-    rtv_formats: n12::SPipelineStateStreamRTVFormats<'a>,
-}
-
-#[allow(unused_variables)]
-#[allow(unused_mut)]
-#[repr(C)]
-struct SLinePipelineStateStream<'a> {
-    root_signature: n12::SPipelineStateStreamRootSignature<'a>,
-    input_layout: n12::SPipelineStateStreamInputLayout<'a>,
-    primitive_topology: n12::SPipelineStateStreamPrimitiveTopology,
-    vertex_shader: n12::SPipelineStateStreamVertexShader<'a>,
-    pixel_shader: n12::SPipelineStateStreamPixelShader<'a>,
-    depth_stencil_format: n12::SPipelineStateStreamDepthStencilFormat,
-    rtv_formats: n12::SPipelineStateStreamRTVFormats<'a>,
-}
-
-#[allow(unused_variables)]
-#[allow(unused_mut)]
-#[repr(C)]
-struct SSpherePipelineStateStream<'a> {
-    root_signature: n12::SPipelineStateStreamRootSignature<'a>,
-    input_layout: n12::SPipelineStateStreamInputLayout<'a>,
-    primitive_topology: n12::SPipelineStateStreamPrimitiveTopology,
-    vertex_shader: n12::SPipelineStateStreamVertexShader<'a>,
-    pixel_shader: n12::SPipelineStateStreamPixelShader<'a>,
-    depth_stencil_format: n12::SPipelineStateStreamDepthStencilFormat,
-    rtv_formats: n12::SPipelineStateStreamRTVFormats<'a>,
-}
-
 #[derive(PartialEq, Clone, Copy)]
 pub struct SToken {
     token: u64,
@@ -206,7 +154,7 @@ impl SRenderTemp {
             device.create_root_signature(point_root_signature_desc,
                                          t12::ERootSignatureVersion::V1)?;
 
-        let mut point_input_layout_desc = t12::SInputLayoutDesc::create(&[
+        let point_input_layout_desc = t12::SInputLayoutDesc::create(&[
             t12::SInputElementDesc::create(
                 "POSITION",
                 0,
@@ -238,23 +186,21 @@ impl SRenderTemp {
         };
         rtv_formats.rt_formats.push(t12::EDXGIFormat::R8G8B8A8UNorm);
 
-        let point_pipeline_state_stream = SPointPipelineStateStream {
-            root_signature: n12::SPipelineStateStreamRootSignature::create(&point_root_signature),
-            input_layout: n12::SPipelineStateStreamInputLayout::create(&mut point_input_layout_desc),
-            primitive_topology: n12::SPipelineStateStreamPrimitiveTopology::create(
+        let mut point_pipeline_state_desc = {
+            let mut temp = t12::SGraphicsPipeLineStateDesc::new_min(
+                point_root_signature.raw().clone(),
+                point_input_layout_desc,
                 t12::EPrimitiveTopologyType::Point,
-            ),
-            vertex_shader: n12::SPipelineStateStreamVertexShader::create(&point_vert_byte_code),
-            pixel_shader: n12::SPipelineStateStreamPixelShader::create(&point_pixel_byte_code),
-            depth_stencil_format: n12::SPipelineStateStreamDepthStencilFormat::create(
-                t12::EDXGIFormat::D32Float,
-            ),
-            rtv_formats: n12::SPipelineStateStreamRTVFormats::create(&rtv_formats),
+            );
+            temp.vertex_shader = Some(&point_vert_byte_code);
+            temp.pixel_shader = Some(&point_pixel_byte_code);
+            temp.depth_stencil_format = Some(t12::EDXGIFormat::D32Float);
+            temp.rtv_formats = Some(rtv_formats.clone());
+            temp
         };
-        let point_pipeline_state_stream_desc = t12::SPipelineStateStreamDesc::create(&point_pipeline_state_stream);
         let point_pipeline_state = device
             .raw()
-            .create_pipeline_state(&point_pipeline_state_stream_desc)?;
+            .create_graphics_pipeline_state(&mut point_pipeline_state_desc)?;
 
         // =========================================================================================
         // LINE pipeline state
@@ -290,7 +236,7 @@ impl SRenderTemp {
             device.create_root_signature(line_root_signature_desc,
                                          t12::ERootSignatureVersion::V1)?;
 
-        let mut line_input_layout_desc = t12::SInputLayoutDesc::create(&[
+        let line_input_layout_desc = t12::SInputLayoutDesc::create(&[
             t12::SInputElementDesc::create(
                 "POSITION",
                 0,
@@ -322,23 +268,21 @@ impl SRenderTemp {
         };
         rtv_formats.rt_formats.push(t12::EDXGIFormat::R8G8B8A8UNorm);
 
-        let line_pipeline_state_stream = SLinePipelineStateStream {
-            root_signature: n12::SPipelineStateStreamRootSignature::create(&line_root_signature),
-            input_layout: n12::SPipelineStateStreamInputLayout::create(&mut line_input_layout_desc),
-            primitive_topology: n12::SPipelineStateStreamPrimitiveTopology::create(
+        let mut line_pipeline_state_desc = {
+            let mut temp = t12::SGraphicsPipeLineStateDesc::new_min(
+                line_root_signature.raw().clone(),
+                line_input_layout_desc,
                 t12::EPrimitiveTopologyType::Line,
-            ),
-            vertex_shader: n12::SPipelineStateStreamVertexShader::create(&line_vert_byte_code),
-            pixel_shader: n12::SPipelineStateStreamPixelShader::create(&line_pixel_byte_code),
-            depth_stencil_format: n12::SPipelineStateStreamDepthStencilFormat::create(
-                t12::EDXGIFormat::D32Float,
-            ),
-            rtv_formats: n12::SPipelineStateStreamRTVFormats::create(&rtv_formats),
+            );
+            temp.vertex_shader = Some(&line_vert_byte_code);
+            temp.pixel_shader = Some(&line_pixel_byte_code);
+            temp.depth_stencil_format = Some(t12::EDXGIFormat::D32Float);
+            temp.rtv_formats = Some(rtv_formats);
+            temp
         };
-        let line_pipeline_state_stream_desc = t12::SPipelineStateStreamDesc::create(&line_pipeline_state_stream);
         let line_pipeline_state = device
             .raw()
-            .create_pipeline_state(&line_pipeline_state_stream_desc)?;
+            .create_graphics_pipeline_state(&mut line_pipeline_state_desc)?;
 
         // =========================================================================================
         // INSTANCE MESH pipeline state
@@ -385,7 +329,7 @@ impl SRenderTemp {
             shaderbindings::types::def_uvs_input_element(uvs_slot),
         ];
 
-        let mut instance_mesh_input_layout_desc = t12::SInputLayoutDesc::create(&[
+        let instance_mesh_input_layout_desc = t12::SInputLayoutDesc::create(&[
             mesh_input_elements[0],
             mesh_input_elements[1],
             mesh_input_elements[2],
@@ -429,23 +373,21 @@ impl SRenderTemp {
         };
         rtv_formats.rt_formats.push(t12::EDXGIFormat::R8G8B8A8UNorm);
 
-        let instance_mesh_pipeline_state_stream = SSpherePipelineStateStream {
-            root_signature: n12::SPipelineStateStreamRootSignature::create(&instance_mesh_root_signature),
-            input_layout: n12::SPipelineStateStreamInputLayout::create(&mut instance_mesh_input_layout_desc),
-            primitive_topology: n12::SPipelineStateStreamPrimitiveTopology::create(
+        let mut instance_mesh_pipeline_state_desc = {
+            let mut temp = t12::SGraphicsPipeLineStateDesc::new_min(
+                instance_mesh_root_signature.raw().clone(),
+                instance_mesh_input_layout_desc,
                 t12::EPrimitiveTopologyType::Triangle,
-            ),
-            vertex_shader: n12::SPipelineStateStreamVertexShader::create(&instance_mesh_vert_byte_code),
-            pixel_shader: n12::SPipelineStateStreamPixelShader::create(&instance_mesh_pixel_byte_code),
-            depth_stencil_format: n12::SPipelineStateStreamDepthStencilFormat::create(
-                t12::EDXGIFormat::D32Float,
-            ),
-            rtv_formats: n12::SPipelineStateStreamRTVFormats::create(&rtv_formats),
+            );
+            temp.vertex_shader = Some(&instance_mesh_vert_byte_code);
+            temp.pixel_shader = Some(&instance_mesh_pixel_byte_code);
+            temp.depth_stencil_format = Some(t12::EDXGIFormat::D32Float);
+            temp.rtv_formats = Some(rtv_formats.clone());
+            temp
         };
-        let instance_mesh_pipeline_state_stream_desc = t12::SPipelineStateStreamDesc::create(&instance_mesh_pipeline_state_stream);
         let instance_mesh_pipeline_state = device
             .raw()
-            .create_pipeline_state(&instance_mesh_pipeline_state_stream_desc)?;
+            .create_graphics_pipeline_state(&mut instance_mesh_pipeline_state_desc)?;
 
         // -- sphere mesh
         let sphere_mesh = SModel::new_from_obj("assets/debug_unit_sphere.obj", mesh_loader, texture_loader, 1.0, false)?.mesh;
@@ -492,30 +434,28 @@ impl SRenderTemp {
             mesh_root_signature_desc, t12::ERootSignatureVersion::V1)?;
 
         // -- $$$FRK(TODO): wrong shader here!
-        let mut mesh_input_layout_desc = shaderbindings::SVertexHLSL::input_layout_desc();
+        let mesh_input_layout_desc = shaderbindings::SVertexHLSL::input_layout_desc();
 
         let mesh_vertblob = t12::read_file_to_blob("shaders_built/temp_mesh_vertex.cso")?;
         let mesh_pixelblob = t12::read_file_to_blob("shaders_built/temp_mesh_pixel.cso")?;
         let mesh_vert_byte_code = t12::SShaderBytecode::create(mesh_vertblob);
         let mesh_pixel_byte_code = t12::SShaderBytecode::create(mesh_pixelblob);
 
-        let mesh_pipeline_state_stream = SMeshPipelineStateStream {
-            root_signature: n12::SPipelineStateStreamRootSignature::create(&mesh_root_signature),
-            input_layout: n12::SPipelineStateStreamInputLayout::create(&mut mesh_input_layout_desc),
-            primitive_topology: n12::SPipelineStateStreamPrimitiveTopology::create(
+        let mut mesh_pipeline_state_desc = {
+            let mut temp = t12::SGraphicsPipeLineStateDesc::new_min(
+                mesh_root_signature.raw().clone(),
+                mesh_input_layout_desc,
                 t12::EPrimitiveTopologyType::Triangle,
-            ),
-            vertex_shader: n12::SPipelineStateStreamVertexShader::create(&mesh_vert_byte_code),
-            pixel_shader: n12::SPipelineStateStreamPixelShader::create(&mesh_pixel_byte_code),
-            depth_stencil_format: n12::SPipelineStateStreamDepthStencilFormat::create(
-                t12::EDXGIFormat::D32Float,
-            ),
-            rtv_formats: n12::SPipelineStateStreamRTVFormats::create(&rtv_formats),
+            );
+            temp.vertex_shader = Some(&mesh_vert_byte_code);
+            temp.pixel_shader = Some(&mesh_pixel_byte_code);
+            temp.depth_stencil_format = Some(t12::EDXGIFormat::D32Float);
+            temp.rtv_formats = Some(rtv_formats);
+            temp
         };
-        let mesh_pipeline_state_stream_desc = t12::SPipelineStateStreamDesc::create(&mesh_pipeline_state_stream);
         let mesh_pipeline_state = device
             .raw()
-            .create_pipeline_state(&mesh_pipeline_state_stream_desc)?;
+            .create_graphics_pipeline_state(&mut mesh_pipeline_state_desc)?;
 
         let allocator = SYSTEM_ALLOCATOR();
 

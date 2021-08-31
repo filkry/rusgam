@@ -21,7 +21,6 @@ use directxgraphicssamples;
 use safewindows;
 use typeyd3d12 as t12;
 
-use std::marker::PhantomData;
 use std::ops::Deref;
 use std::ptr;
 use std::rc::{Rc};

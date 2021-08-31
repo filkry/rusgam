@@ -281,7 +281,7 @@ pub fn d3dcompilefromfile(
     // -- $$$FRK(FUTURE WORK): use error messages blob
 
     Ok(SBlob {
-        raw: unsafe { rawcodeblob.expect("checked err above") },
+        raw: rawcodeblob.expect("checked err above"),
     })
 }
 
@@ -291,6 +291,6 @@ pub fn read_file_to_blob(file: &str) -> Result<SBlob, &'static str> {
     returnerrifwinerror!(hr, "failed to load shader");
 
     Ok(SBlob {
-        raw: unsafe { hr.expect("checked err above") },
+        raw: hr.expect("checked err above"),
     })
 }

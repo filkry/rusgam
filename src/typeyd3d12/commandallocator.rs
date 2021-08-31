@@ -26,6 +26,6 @@ impl SCommandAllocator {
     }
 
     pub fn reset(&self) {
-        unsafe { self.commandallocator.Reset() };
+        unsafe { self.commandallocator.Reset().expect("SCommandAllocator::reset failed in winapi") };
     }
 }

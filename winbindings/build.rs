@@ -7,7 +7,12 @@ fn main() {
         Windows::Win32::Graphics::Dxgi::*,
         Windows::Win32::Graphics::Gdi::*,
         Windows::Win32::Graphics::Hlsl::*,
-        Windows::Win32::System::Diagnostics::Debug::*,
+        Windows::Win32::System::Diagnostics::Debug::{
+            WIN32_ERROR,
+            DebugBreak,
+            GetLastError,
+            IsDebuggerPresent
+        },
         Windows::Win32::System::LibraryLoader::*,
         Windows::Win32::System::Performance::{QueryPerformanceCounter, QueryPerformanceFrequency},
         Windows::Win32::System::Threading::{CreateEventW, WaitForSingleObject},

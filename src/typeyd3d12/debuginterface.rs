@@ -89,7 +89,7 @@ impl SDXGIDebugInterface {
             self.debuginterface.ReportLiveObjects(
                 win::DXGI_DEBUG_ALL,
                 win::DXGI_DEBUG_RLO_ALL,
-            );
+            ).expect("SDXGIDebugInterface::report_live_objects failed in winapi");
         }
     }
 }

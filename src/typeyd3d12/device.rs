@@ -51,7 +51,7 @@ impl SDevice {
 
         returnerrifwinerror!(hr, "Could not create command queue");
 
-        Ok(SCommandQueue::new_from_raw(hr.expect("checked err above")))
+        Ok(unsafe { SCommandQueue::new_from_raw(hr.expect("checked err above")) })
     }
 
     pub fn create_descriptor_heap(

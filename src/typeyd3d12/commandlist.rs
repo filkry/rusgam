@@ -67,7 +67,7 @@ impl SCommandList {
     pub unsafe fn resourcebarrier(&self, barriers: &[SBarrier]) {
         let mut raw_barriers = ArrayVec::<[win::D3D12_RESOURCE_BARRIER; 10]>::new();
         for barrier in barriers {
-            raw_barriers.push(barrier.barrier);
+            raw_barriers.push(barrier.barrier.clone());
         }
 
         self.commandlist.ResourceBarrier(1, raw_barriers.as_ptr());
@@ -102,12 +102,12 @@ impl SCommandList {
 
     pub unsafe fn set_graphics_root_signature(&self, root_signature: &SRootSignature) {
         self.commandlist
-            .SetGraphicsRootSignature(root_signature.raw)
+            .SetGraphicsRootSignature(root_signature.raw.clone())
     }
 
     pub unsafe fn set_compute_root_signature(&self, root_signature: &SRootSignature) {
         self.commandlist
-            .SetComputeRootSignature(root_signature.raw)
+            .SetComputeRootSignature(root_signature.raw.clone())
     }
 
     pub unsafe fn ia_set_primitive_topology(&self, primitive_topology: EPrimitiveTopology) {
@@ -189,9 +189,9 @@ impl SCommandList {
 
     pub unsafe fn set_descriptor_heaps(&self, heaps: &[&SDescriptorHeap]) {
         if heaps.len() > 0 {
-            let mut raw_heaps = [None; 4]; // only 4 heap types
-            for (i, heap) in heaps.iter().enumerate() {
-                raw_heaps[i] = Some(heap.heap);
+            let mut raw_heaps = ArrayVec::<[Option<win::ID3D12DescriptorHeap>; 4]>::new();
+            for heap in heaps.iter() {
+                raw_heaps.push(Some(heap.heap.clone()));
             }
 
             self.commandlist

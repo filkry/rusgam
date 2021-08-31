@@ -68,7 +68,7 @@ impl SResource {
     }
 
     pub unsafe fn set_debug_name(&mut self, str_: &'static str) {
-        self.raw().raw().SetName(str_);
+        self.raw().raw().SetName(str_).expect("who knows why this would fail");
     }
 }
 

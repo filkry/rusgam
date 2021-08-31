@@ -31,6 +31,7 @@ impl SBucket {
         Ok(self.owners.len() - 1)
     }
 
+    #[allow(unused_variables)]
     pub fn purge_entities(&mut self, entities: &[SEntityHandle]) {
         panic!("Not implemented");
     }

@@ -1,4 +1,5 @@
 #![allow(non_camel_case_types)]
+#![allow(non_snake_case)]
 
 // -- sanitized collection of windows imports
 
@@ -49,3 +50,13 @@ pub use winbindings::bindings::Windows::Win32::UI::WindowsAndMessaging::*;
 // -- extra types from windows API that windows-rs doesn't expose for some reason
 pub type D3D12_GPU_VIRTUAL_ADDRESS = u64;
 pub type D3D12_RECT = RECT;
+
+pub fn GET_X_LPARAM(lparam: LPARAM) -> i32 {
+    lparam.0 as i32
+}
+
+pub fn GET_Y_LPARAM(lparam: LPARAM) -> i32 {
+    (lparam.0 >> 32) as i32
+}
+
+

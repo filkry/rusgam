@@ -47,7 +47,7 @@ pub struct SWinAPI {
 
 pub fn initwinapi() -> Result<SWinAPI, SErr> {
     unsafe {
-        let hinstance = win::GetModuleHandleW("");
+        let hinstance = win::GetModuleHandleW(None);
         if !hinstance.is_null() {
             Ok(SWinAPI {
                 hinstance: hinstance,
@@ -107,7 +107,7 @@ impl SWinAPI {
     pub fn queryperformancecounter() -> i64 {
         let mut result : i64 = 0;
         let success = unsafe { win::QueryPerformanceCounter(&mut result) };
-        if success.as_bool() {
+        if !success.as_bool() {
             panic!("Can't query performance.");
         }
 
@@ -117,7 +117,7 @@ impl SWinAPI {
     pub unsafe fn queryperformancefrequencycounter() -> i64 {
         let mut result : i64 = 0;
         let success = win::QueryPerformanceFrequency(&mut result);
-        if success.as_bool() {
+        if !success.as_bool() {
             panic!("Can't query performance.");
         }
 
@@ -522,14 +522,6 @@ pub enum EMsgType {
     Input { raw_input: rawinput::SRawInput },
 }
 
-fn GET_X_LPARAM(lparam: win::LPARAM) -> i32 {
-    lparam.0 as i32
-}
-
-fn GET_Y_LPARAM(lparam: win::LPARAM) -> i32 {
-    (lparam.0 >> 32) as i32
-}
-
 pub fn msgtype(msg: u32, wparam: win::WPARAM, lparam: win::LPARAM) -> EMsgType {
     match msg {
         win::WM_KEYDOWN => EMsgType::KeyDown {
@@ -539,20 +531,20 @@ pub fn msgtype(msg: u32, wparam: win::WPARAM, lparam: win::LPARAM) -> EMsgType {
             key: translatewmkey(wparam),
         },
         win::WM_LBUTTONDOWN => EMsgType::LButtonDown {
-            x_pos: GET_X_LPARAM(lparam),
-            y_pos: GET_Y_LPARAM(lparam),
+            x_pos: win::GET_X_LPARAM(lparam),
+            y_pos: win::GET_Y_LPARAM(lparam),
         },
         win::WM_LBUTTONUP => EMsgType::LButtonUp {
-            x_pos: GET_X_LPARAM(lparam),
-            y_pos: GET_Y_LPARAM(lparam),
+            x_pos: win::GET_X_LPARAM(lparam),
+            y_pos: win::GET_Y_LPARAM(lparam),
         },
         win::WM_MBUTTONDOWN => EMsgType::MButtonDown {
-            x_pos: GET_X_LPARAM(lparam),
-            y_pos: GET_Y_LPARAM(lparam),
+            x_pos: win::GET_X_LPARAM(lparam),
+            y_pos: win::GET_Y_LPARAM(lparam),
         },
         win::WM_MBUTTONUP => EMsgType::MButtonUp {
-            x_pos: GET_X_LPARAM(lparam),
-            y_pos: GET_Y_LPARAM(lparam),
+            x_pos: win::GET_X_LPARAM(lparam),
+            y_pos: win::GET_Y_LPARAM(lparam),
         },
         win::WM_PAINT => EMsgType::Paint,
         win::WM_SIZE => EMsgType::Size,

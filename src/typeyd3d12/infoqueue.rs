@@ -11,7 +11,7 @@ impl SInfoQueue {
 
     pub fn set_break_on_severity(&self, id: win::D3D12_MESSAGE_SEVERITY, val: bool) {
         unsafe {
-            self.infoqueue.SetBreakOnSeverity(id, val);
+            self.infoqueue.SetBreakOnSeverity(id, val).expect("SInfoQueue::set_break_on_severity failed in winapi");
         }
     }
 

@@ -19,7 +19,7 @@ impl SFactory {
         let mut bestadapter = 0;
 
         for adapteridx in 0..10 {
-            let adapter1opt = self.raw.enumadapters(adapteridx);
+            let adapter1opt = self.raw.enum_adapters(adapteridx);
             if let None = adapter1opt {
                 continue;
             }
@@ -48,7 +48,7 @@ impl SFactory {
         }
 
         if maxdedicatedmem > 0 {
-            let adapter1 = self.raw.enumadapters(bestadapter).expect("couldn't get graphics adapter");
+            let adapter1 = self.raw.enum_adapters(bestadapter).expect("couldn't get graphics adapter");
             let adapter4 = adapter1.castadapter4().expect("system does not support D3D API level providing Adapter4");
 
             return Ok(SAdapter::new_from_raw(adapter4));
@@ -66,7 +66,7 @@ impl SFactory {
     ) -> Result<SSwapChain, &'static str> {
         let newsc = unsafe {
             self.raw
-                .createswapchainforwindow(window, commandqueue.raw(), width, height)?
+                .create_swapchain_for_window(window, commandqueue.raw(), width, height)?
         };
 
         Ok(SSwapChain::new_from_raw(newsc, 2))

@@ -10,14 +10,13 @@ pub enum EUsagePage {
     Generic,
 }
 
-#[repr(transparent)]
-struct USAGE(u16);
+pub type USAGE = u16;
 
 impl EUsagePage {
     pub fn wintype(&self) -> USAGE {
 
         match self {
-            Self::Generic => USAGE(win::HID_USAGE_PAGE_GENERIC),
+            Self::Generic => win::HID_USAGE_PAGE_GENERIC,
         }
     }
 }
@@ -30,7 +29,7 @@ impl EUsage {
     pub fn wintype(&self) -> USAGE {
 
         match self {
-            Self::GenericMouse => USAGE(win::HID_USAGE_GENERIC_MOUSE),
+            Self::GenericMouse => win::HID_USAGE_GENERIC_MOUSE,
         }
     }
 }
@@ -81,8 +80,8 @@ pub struct SRawInputDevice<'a> {
 impl<'a> SRawInputDevice<'a> {
     pub unsafe fn wintype(&self) -> win::RAWINPUTDEVICE {
         win::RAWINPUTDEVICE {
-            usUsagePage: self.usage_page.wintype().0,
-            usUsage: self.usage.wintype().0,
+            usUsagePage: self.usage_page.wintype(),
+            usUsage: self.usage.wintype(),
             dwFlags: self.flags.rawtype(),
             hwndTarget: match self.target {
                 None => win::HWND::NULL,
@@ -220,7 +219,7 @@ impl TryFrom<&win::RAWMOUSE> for SRawMouse {
     fn try_from(value: &win::RAWMOUSE) -> Result<Self, Self::Error> {
         Ok(Self {
             flags: SRawMouseFlags::from_bits(value.usFlags as u32).ok_or("Invalid flag bits.")?,
-            button_flags: SRIMouseButtonFlags::from_bits(value.Anonymous.Anonymous.usButtonFlags as u32).ok_or("Invalid button flag bits.")?,
+            button_flags: SRIMouseButtonFlags::from_bits(unsafe { value.Anonymous.Anonymous.usButtonFlags as u32 }).ok_or("Invalid button flag bits.")?,
             last_x: value.lLastX,
             last_y: value.lLastY,
         })

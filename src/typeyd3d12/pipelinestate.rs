@@ -60,7 +60,7 @@ impl SInputElementDesc {
         result
     }
 
-    pub unsafe fn d3dtype(&self) -> win::D3D12_INPUT_ELEMENT_DESC {
+    pub unsafe fn d3dtype(&mut self) -> win::D3D12_INPUT_ELEMENT_DESC {
         win::D3D12_INPUT_ELEMENT_DESC {
             //SemanticName: self.semantic_name_utf16.as_ptr(),
             SemanticName: win::PSTR(self.semantic_name_null_terminated.as_mut_ptr()),
@@ -98,7 +98,7 @@ impl SInputLayoutDesc {
     pub unsafe fn generate_d3dtype(&mut self) {
         self.d3d_input_element_descs.clear();
 
-        for input_element_desc in &self.input_element_descs {
+        for input_element_desc in &mut self.input_element_descs {
             self.d3d_input_element_descs
                 .push(input_element_desc.d3dtype());
         }

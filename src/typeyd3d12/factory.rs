@@ -17,15 +17,15 @@ impl SFactory {
         }
     }
 
-    pub fn enumadapters(&self, adapteridx: u32) -> Option<SAdapter1> {
-        let res = self.factory.EnumAdapters1(adapteridx);
+    pub fn enum_adapters(&self, adapteridx: u32) -> Option<SAdapter1> {
+        let res = unsafe { self.factory.EnumAdapters1(adapteridx) };
         match res {
-            Ok(rawadapter1) => Some(SAdapter1::new_from_raw(rawadapter1)),
+            Ok(rawadapter1) => Some(unsafe { SAdapter1::new_from_raw(rawadapter1) }),
             Err(_) => None,
         }
     }
 
-    pub unsafe fn createswapchainforwindow(
+    pub unsafe fn create_swapchain_for_window(
         &self,
         window: &safewindows::SWindow,
         commandqueue: &SCommandQueue,

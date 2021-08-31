@@ -176,6 +176,7 @@ impl<TOwner: Clone> STree<TOwner> {
         self.nodes.get(node_handle).expect("invalid entry").owner().expect("asked for owner of non-leaf!")
     }
 
+    #[allow(unused_variables, dead_code)]
     pub fn purge_owners(&mut self, owners: &[TOwner]) {
         panic!("Not implemented");
     }

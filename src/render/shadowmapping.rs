@@ -65,6 +65,7 @@ pub fn setup_shadow_mapping_pipeline(
         temp.vertex_shader = Some(vertex_shader.bytecode());
         temp.pixel_shader = Some(&pixel_byte_code);
         temp.depth_stencil_format = Some(t12::EDXGIFormat::D32Float);
+        temp.num_render_targets = 0;
         temp
     };
 

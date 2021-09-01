@@ -446,6 +446,123 @@ impl SBlendDesc {
     }
 }
 
+pub enum EFillMode {
+    Wireframe,
+    Solid,
+}
+
+impl EFillMode {
+    pub fn d3dtype(&self) -> win::D3D12_FILL_MODE {
+        match self {
+            Self::Wireframe => win::D3D12_FILL_MODE_WIREFRAME,
+            Self::Solid => win::D3D12_FILL_MODE_SOLID,
+        }
+    }
+}
+
+pub enum ECullMode {
+    None,
+    Front,
+    Back,
+}
+
+impl ECullMode {
+    pub fn d3dtype(&self) -> win::D3D12_CULL_MODE {
+        match self {
+            Self::None => win::D3D12_CULL_MODE_NONE,
+            Self::Front => win::D3D12_CULL_MODE_FRONT,
+            Self::Back => win::D3D12_CULL_MODE_BACK,
+        }
+    }
+}
+
+pub enum EConservativeRasterizationMode {
+    Off,
+    On,
+}
+
+impl EConservativeRasterizationMode {
+    pub fn d3dtype(&self) -> win::D3D12_CONSERVATIVE_RASTERIZATION_MODE {
+        match self {
+            Self::Off => win::D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF,
+            Self::On => win::D3D12_CONSERVATIVE_RASTERIZATION_MODE_ON,
+        }
+    }
+}
+
+pub struct SRasterizerDesc {
+    fill_mode: EFillMode,
+    cull_mode: ECullMode,
+    front_counter_clockwise: bool,
+    depth_bias: i32,
+    depth_bias_clamp: f32,
+    slope_scaled_depth_bias: f32,
+    depth_clip_enable: bool,
+    multisample_enable: bool,
+    antialiased_line_enable: bool,
+    force_sample_count: u32,
+    conservative_raster: EConservativeRasterizationMode,
+}
+
+impl Default for SRasterizerDesc {
+    fn default() -> Self {
+        Self {
+            fill_mode: EFillMode::Solid,
+            cull_mode: ECullMode::Back,
+            front_counter_clockwise: false,
+            depth_bias: win::D3D12_DEFAULT_DEPTH_BIAS,
+            depth_bias_clamp: win::D3D12_DEFAULT_DEPTH_BIAS_CLAMP,
+            slope_scaled_depth_bias: win::D3D12_DEFAULT_SLOPE_SCALED_DEPTH_BIAS,
+            depth_clip_enable: true,
+            multisample_enable: false,
+            antialiased_line_enable: false,
+            force_sample_count: 0,
+            conservative_raster: EConservativeRasterizationMode::Off,
+        }
+    }
+}
+
+impl SRasterizerDesc {
+    pub fn d3dtype(&self) -> win::D3D12_RASTERIZER_DESC {
+        win::D3D12_RASTERIZER_DESC {
+            FillMode: self.fill_mode.d3dtype(),
+            CullMode: self.cull_mode.d3dtype(),
+            FrontCounterClockwise: win::BOOL::from(self.front_counter_clockwise),
+            DepthBias: self.depth_bias,
+            DepthBiasClamp: self.depth_bias_clamp,
+            SlopeScaledDepthBias: self.slope_scaled_depth_bias,
+            DepthClipEnable: win::BOOL::from(self.depth_clip_enable),
+            MultisampleEnable: win::BOOL::from(self.multisample_enable),
+            AntialiasedLineEnable: win::BOOL::from(self.antialiased_line_enable),
+            ForcedSampleCount: self.force_sample_count,
+            ConservativeRaster: self.conservative_raster.d3dtype(),
+        }
+    }
+}
+
+pub struct SSampleDesc {
+    count: u32,
+    quality: u32,
+}
+
+impl Default for SSampleDesc {
+    fn default() -> Self {
+        Self {
+            count: 1,
+            quality: 0,
+        }
+    }
+}
+
+impl SSampleDesc {
+    pub fn d3dtype(&self) -> win::DXGI_SAMPLE_DESC {
+        win::DXGI_SAMPLE_DESC {
+            Count: self.count,
+            Quality: self.quality,
+        }
+    }
+}
+
 // -- $$$FRK(TODO): skipped a lot of params I don't use
 pub struct SGraphicsPipeLineStateDesc<'a> {
     pub root_signature: SRootSignature,
@@ -455,8 +572,11 @@ pub struct SGraphicsPipeLineStateDesc<'a> {
     pub depth_stencil_state: Option<SDepthStencilDesc>,
     pub input_layout: SInputLayoutDesc,
     pub primitive_topology_type: EPrimitiveTopologyType,
-    pub depth_stencil_format: Option<EDXGIFormat>,
+    pub num_render_targets: u32,
     pub rtv_formats: Option<SRTFormatArray>,
+    pub depth_stencil_format: Option<EDXGIFormat>,
+    pub sample_desc: SSampleDesc,
+    pub rasterizer_state: SRasterizerDesc,
 }
 
 impl<'a> SGraphicsPipeLineStateDesc<'a> {
@@ -470,12 +590,15 @@ impl<'a> SGraphicsPipeLineStateDesc<'a> {
             input_layout,
             primitive_topology_type,
 
+            num_render_targets: 1,
             vertex_shader: None,
             pixel_shader: None,
             blend_state: None,
             depth_stencil_state: None,
             depth_stencil_format: None,
             rtv_formats: None,
+            sample_desc: Default::default(),
+            rasterizer_state: SRasterizerDesc::default(),
         }
     }
 
@@ -498,6 +621,7 @@ impl<'a> SGraphicsPipeLineStateDesc<'a> {
         }
         result.InputLayout = self.input_layout.d3dtype();
         result.PrimitiveTopologyType = self.primitive_topology_type.d3dtype();
+        result.NumRenderTargets = self.num_render_targets;
         if let Some(depth_stencil_format) = self.depth_stencil_format {
             result.DSVFormat = depth_stencil_format.d3dtype();
         }
@@ -506,6 +630,8 @@ impl<'a> SGraphicsPipeLineStateDesc<'a> {
                 result.RTVFormats[i] = format.d3dtype();
             }
         }
+        result.SampleDesc = self.sample_desc.d3dtype();
+        result.RasterizerState = self.rasterizer_state.d3dtype();
 
         result
     }

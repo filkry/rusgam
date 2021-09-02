@@ -64,10 +64,10 @@ impl SCommandList {
         }
     }
 
-    pub unsafe fn resourcebarrier(&self, barriers: &[SBarrier]) {
+    pub unsafe fn resource_barrier<const N: usize>(&self, barriers: [SBarrier; N]) {
         let mut raw_barriers = ArrayVec::<[win::D3D12_RESOURCE_BARRIER; 10]>::new();
-        for barrier in barriers {
-            raw_barriers.push(barrier.barrier.clone());
+        for barrier in std::array::IntoIter::new(barriers) {
+            raw_barriers.push(barrier.barrier);
         }
 
         self.commandlist.ResourceBarrier(1, raw_barriers.as_ptr());

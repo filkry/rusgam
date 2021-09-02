@@ -38,7 +38,12 @@ impl SD3D12Window {
         width: u32,
         height: u32,
     ) -> Result<Self, &'static str> {
-        let window = rustywindows::SWindow::create(windowclass, title, width, height).unwrap(); // $$$FRK(TODO): this panics, need to unify error handling
+        let window_res = rustywindows::SWindow::create(windowclass, title, width, height); // $$$FRK(TODO): this panics, need to unify error handling
+        if let Err(e) = window_res {
+            println!("rustywindows::SWindow::create failed with error code {:?}", e);
+            return Err("rustywindows::SWindow::create failed");
+        }
+        let window = window_res.expect("checked error above");
 
         let swap_chain = factory.create_swap_chain(&window.raw(), commandqueue, width, height)?;
         let cur_buffer = swap_chain.current_backbuffer_index();

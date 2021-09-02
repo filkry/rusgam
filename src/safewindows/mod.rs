@@ -124,7 +124,7 @@ impl SWinAPI {
         result
     }
 
-    pub fn registerclassex(&self, windowclassname: &'static str) -> Result<SWindowClass, SErr> {
+    fn register_class_ex_internal(&self, windowclassname: win::PWSTR) -> Result<u16, SErr> {
         unsafe {
             let classdata = win::WNDCLASSEXW {
                 cbSize: mem::size_of::<win::WNDCLASSEXW>() as u32,
@@ -137,21 +137,29 @@ impl SWinAPI {
                 hCursor: win::LoadCursorW(self.hinstance, win::IDC_ARROW),
                 //hbrBackground: (win::COLOR_WINDOW + 1) as win::HBRUSH,
                 //lpszClassName: windowclassname,
-                lpszClassName: win::PWSTR(windowclassname.as_ptr() as _),
+                lpszClassName: windowclassname,
                 ..Default::default()
             };
 
             let atom = win::RegisterClassExW(&classdata);
             if atom > 0 {
-                Ok(SWindowClass {
-                    winapi: self,
-                    windowclassname: windowclassname,
-                    class: atom,
-                })
+                Ok(atom)
             } else {
                 Err(getlasterror())
             }
         }
+    }
+
+    pub fn registerclassex(&self, windowclassname: &'static str) -> Result<SWindowClass, SErr> {
+        use windows::IntoParam;
+        let mut conversion : win::Param<win::PWSTR> = windowclassname.into_param();
+        let atom = self.register_class_ex_internal(conversion.abi())?;
+
+        Ok(SWindowClass {
+            winapi: self,
+            windowclassname: windowclassname,
+            class: atom,
+        })
     }
 
     pub fn createeventhandle(&self) -> Result<SEventHandle, &'static str> {

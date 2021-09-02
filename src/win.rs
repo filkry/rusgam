@@ -6,6 +6,8 @@
 pub use windows::Abi;
 pub use windows::Interface;
 pub use windows::IUnknown;
+pub use windows::IntoParam;
+pub use windows::Param;
 
 pub use winbindings::bindings::Windows::Win32::Devices::HumanInterfaceDevice::*;
 pub use winbindings::bindings::Windows::Win32::Foundation::*;

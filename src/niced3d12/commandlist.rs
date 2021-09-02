@@ -34,7 +34,7 @@ impl SCommandList {
         afterstate: t12::EResourceStates,
     ) -> Result<(), &'static str> {
         let transbarrier = t12::create_transition_barrier(&resource.raw, beforestate, afterstate);
-        unsafe { self.raw.resourcebarrier(&[transbarrier]) };
+        unsafe { self.raw.resource_barrier([transbarrier]) };
         Ok(())
     }
 

@@ -65,7 +65,7 @@ impl SFactory {
 
         let swapchain = hr.expect("checked err above");
 
-        use win::Interface;
+        use crate::win::Interface;
 
         match swapchain.cast::<win::IDXGISwapChain4>() {
             Ok(sc4) => Ok(SSwapChain::new_from_raw(sc4)),

@@ -1,6 +1,6 @@
 use super::*;
 
-use win;
+use crate::win;
 
 pub struct SFactory {
     raw: t12::SFactory,

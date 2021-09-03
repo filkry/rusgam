@@ -16,7 +16,7 @@ impl SAdapter1 {
     }
 
     pub fn castadapter4(&self) -> Option<SAdapter4> {
-        use win::Interface;
+        use crate::win::Interface;
         match self.adapter.cast::<win::IDXGIAdapter4>() {
             Ok(a) => {
                 return Some(SAdapter4 { adapter: a });

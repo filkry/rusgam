@@ -2,7 +2,7 @@
 use std::{cmp, fmt, mem, ptr};
 use std::convert::TryFrom;
 
-use win;
+use crate::win;
 
 pub mod rawinput;
 

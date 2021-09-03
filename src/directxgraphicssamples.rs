@@ -31,7 +31,7 @@ SOFTWARE.
 use std::ffi::c_void;
 use std::{mem, ptr};
 
-use win;
+use crate::win;
 
 pub unsafe fn MemcpySubresource(
     dest: *const win::D3D12_MEMCPY_DEST,

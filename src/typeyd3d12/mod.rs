@@ -29,13 +29,13 @@ mod swapchain;
 mod view;
 
 use crate::safewindows;
-use crate::enumflags::{TEnumFlags32, SEnumFlags32};
+use crate::enumflags::{TEnumFlags32, SEnumFlags32, TEnumFlags, SEnumFlags};
 
 use std::{mem, ptr};
 use std::convert::From;
 
 use arrayvec::ArrayVec;
-use win;
+use crate::win;
 
 pub use self::adapter::SAdapter1;
 pub use self::adapter::SAdapter4;

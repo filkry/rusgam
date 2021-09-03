@@ -202,7 +202,7 @@ pub fn create_transition_barrier(
         Anonymous: unsafe { mem::zeroed() },
     };
 
-    use win::Abi;
+    use crate::win::Abi;
     barrier.Anonymous.Transition = win::D3D12_RESOURCE_TRANSITION_BARRIER {
         pResource: Some(resource.resource.clone()),
         Subresource: win::D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES,

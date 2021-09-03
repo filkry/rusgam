@@ -20,7 +20,7 @@ pub fn d3d12createdevice(adapter: win::IUnknown) -> Result<SDevice, &'static str
 
 impl SDevice {
     pub fn castinfoqueue(&self) -> Option<SInfoQueue> {
-        use win::Interface;
+        use crate::win::Interface;
         match self.device.cast::<win::ID3D12InfoQueue>() {
             Ok(a) => {
                 return Some(unsafe { SInfoQueue::new_from_raw(a) });

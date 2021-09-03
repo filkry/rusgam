@@ -568,15 +568,16 @@ pub struct SGraphicsPipeLineStateDesc<'a> {
     pub root_signature: SRootSignature,
     pub vertex_shader: Option<&'a SShaderBytecode>,
     pub pixel_shader: Option<&'a SShaderBytecode>,
-    pub blend_state: Option<SBlendDesc>,
-    pub depth_stencil_state: Option<SDepthStencilDesc>,
+    pub blend_state: SBlendDesc,
+    pub sample_mask: u32,
+    pub rasterizer_state: SRasterizerDesc,
+    pub depth_stencil_state: SDepthStencilDesc,
     pub input_layout: SInputLayoutDesc,
     pub primitive_topology_type: EPrimitiveTopologyType,
     pub num_render_targets: u32,
     pub rtv_formats: Option<SRTFormatArray>,
     pub depth_stencil_format: Option<EDXGIFormat>,
     pub sample_desc: SSampleDesc,
-    pub rasterizer_state: SRasterizerDesc,
 }
 
 impl<'a> SGraphicsPipeLineStateDesc<'a> {
@@ -593,8 +594,9 @@ impl<'a> SGraphicsPipeLineStateDesc<'a> {
             num_render_targets: 1,
             vertex_shader: None,
             pixel_shader: None,
-            blend_state: None,
-            depth_stencil_state: None,
+            blend_state: Default::default(),
+            sample_mask: std::u32::MAX,
+            depth_stencil_state: Default::default(),
             depth_stencil_format: None,
             rtv_formats: None,
             sample_desc: Default::default(),
@@ -613,12 +615,9 @@ impl<'a> SGraphicsPipeLineStateDesc<'a> {
         if let Some(bytecode) = self.pixel_shader {
             result.PS = bytecode.d3dtype();
         }
-        if let Some(blend_state) = &self.blend_state {
-            result.BlendState = blend_state.d3dtype();
-        }
-        if let Some(depth_stencil_state) = &self.depth_stencil_state {
-            result.DepthStencilState = depth_stencil_state.d3dtype();
-        }
+        result.BlendState = self.blend_state.d3dtype();
+        result.SampleMask = self.sample_mask;
+        result.DepthStencilState = self.depth_stencil_state.d3dtype();
         result.InputLayout = self.input_layout.d3dtype();
         result.PrimitiveTopologyType = self.primitive_topology_type.d3dtype();
         result.NumRenderTargets = self.num_render_targets;

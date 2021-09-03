@@ -303,6 +303,7 @@ fn main() {
 
     let mut d3d_debug = false;
     let args : Vec::<String> = std::env::args().collect();
+    println!("Ran with args: {:?}", args);
     for arg in args {
         if arg.trim() == "d3d-debug" {
             d3d_debug = true;

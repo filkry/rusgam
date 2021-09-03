@@ -178,8 +178,8 @@ impl SRenderImgui {
             );
             temp.vertex_shader = Some(&vert_byte_code);
             temp.pixel_shader = Some(&pixel_byte_code);
-            temp.blend_state = Some(blend_desc);
-            temp.depth_stencil_state = Some(depth_stencil_desc);
+            temp.blend_state = blend_desc;
+            temp.depth_stencil_state = depth_stencil_desc;
             temp.rtv_formats = Some(rtv_formats);
 
             temp

@@ -208,8 +208,9 @@ impl<T> SBindlessBufferResource<T> {
         self.allocator.free(&mut slice.allocation)
     }
 
-    pub fn stage_data(&mut self, slice: &SBindlessBufferResourceSlice, data: &[T]) {
+    pub fn copy_to_upload(&mut self, slice: &SBindlessBufferResourceSlice, data: &[T]) {
         assert!(self.rid == slice.buffer_rid);
+        assert!(slice.allocation.size() == data.len());
         self.upload_resource.copy_to_map_segment(data, self.next_upload_index);
         self.staged_uploads.push(SStagedUpload {
             upload_start_index: self.next_upload_index,
@@ -220,7 +221,7 @@ impl<T> SBindlessBufferResource<T> {
         self.next_upload_index += data.len();
     }
 
-    pub fn upload(&mut self, list: &mut SCommandList) {
+    pub fn flush_upload_to_default(&mut self, list: &mut SCommandList) {
         list.transition_resource(
             &self.upload_resource.raw,
             t12::EResourceStates::GenericRead,

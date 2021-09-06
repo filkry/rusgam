@@ -15,4 +15,5 @@ serde = { version = "1.0.104", features = ["derive"] }
 serde_json = { version = "1.0.44" }
 imgui = { version = "0.3.0" }
 gltf = "0.15.2"
+rand = "0.8.4"
 winbindings = { path = "winbindings" }

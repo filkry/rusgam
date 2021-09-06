@@ -68,8 +68,8 @@ impl SBucket {
         self.owners[handle]
     }
 
-    pub fn get_model(&self, handle: SHandle) -> &SMeshInstanceHandle {
-        &self.models[handle]
+    pub fn get_model(&self, handle: SHandle) -> SMeshInstanceHandle {
+        self.models[handle]
     }
 
     pub fn set_bvh_entry(&mut self, handle: SHandle, entry: bvh::SNodeHandle) {

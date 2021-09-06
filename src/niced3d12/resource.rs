@@ -1,6 +1,9 @@
 use super::*;
 
 use arrayvec::ArrayVec;
+use rand;
+
+use crate::collections::freelistallocator;
 
 pub enum EResourceMetadata {
     Invalid,
@@ -23,11 +26,27 @@ pub struct SBufferResource<T> {
     pub(super) map_mem: Option<*mut T>,
 }
 
+pub struct SStagedUpload {
+    upload_start_index: usize,
+    default_start_index: usize,
+    count: usize,
+}
+
 pub struct SBindlessBufferResource<T> {
-    pub raw: SBufferResource<T>,
+    upload_resource: SBufferResource<T>,
+    default_resource: SBufferResource<T>,
+    use_state: t12::EResourceStates,
+
+    allocator: freelistallocator::manager::SManager,
+
+    staged_uploads: Vec<SStagedUpload>,
+    next_upload_index: usize,
+
+    rid: u64, // -- random ID to verify calls into here
 }
 pub struct SBindlessBufferResourceSlice {
-
+    allocation: freelistallocator::manager::SAllocation,
+    buffer_rid: u64,
 }
 
 
@@ -103,6 +122,15 @@ impl<T> SBufferResource<T> {
         }
     }
 
+    pub fn copy_to_map_segment(&mut self, data: &[T], start_offset: usize) {
+        assert!((start_offset + data.len()) < self.count);
+        assert!(self.map_mem.is_some());
+
+        unsafe {
+            std::ptr::copy_nonoverlapping(data.as_ptr(), self.map_mem.unwrap().add(start_offset), self.count);
+        }
+    }
+
     pub fn create_srv_desc(&self) -> t12::SShaderResourceViewDesc {
         t12::SShaderResourceViewDesc {
             format: t12::EDXGIFormat::Unknown,
@@ -130,6 +158,104 @@ impl<T> SBufferResource<T> {
                 },
             ),
         }
+    }
+}
+
+impl<T> SBindlessBufferResource<T> {
+    pub fn new(
+        device: &SDevice,
+        flags: t12::SResourceFlags,
+        use_state: t12::EResourceStates,
+        num_items: usize,
+        max_queued_changes: usize,
+    ) -> Result<Self, &'static str> {
+        let upload_resource = device.create_committed_buffer_resource_for_type::<T>(
+            t12::EHeapType::Upload,
+            t12::SResourceFlags::from(t12::EResourceFlags::DenyShaderResource),
+            t12::EResourceStates::GenericRead,
+            max_queued_changes,
+        )?;
+        upload_resource.map();
+
+        Ok(Self {
+            upload_resource,
+            default_resource: device.create_committed_buffer_resource_for_type::<T>(
+                t12::EHeapType::Default,
+                flags,
+                t12::EResourceStates::CopyDest,
+                num_items,
+            )?,
+            use_state,
+
+            allocator: freelistallocator::manager::SManager::new(num_items),
+
+            staged_uploads: Vec::new(),
+            next_upload_index: 0,
+
+            rid: rand::random(),
+        })
+    }
+
+    pub fn alloc(&mut self, count: usize) -> Result<SBindlessBufferResourceSlice, &'static str> {
+        Ok(SBindlessBufferResourceSlice{
+            allocation: self.allocator.alloc(count, 1)?,
+            buffer_rid: self.rid,
+        })
+    }
+
+    pub fn free(&mut self, mut slice: SBindlessBufferResourceSlice) {
+        assert!(self.rid == slice.buffer_rid);
+        self.allocator.free(&mut slice.allocation)
+    }
+
+    pub fn stage_data(&mut self, slice: &SBindlessBufferResourceSlice, data: &[T]) {
+        assert!(self.rid == slice.buffer_rid);
+        self.upload_resource.copy_to_map_segment(data, self.next_upload_index);
+        self.staged_uploads.push(SStagedUpload {
+            upload_start_index: self.next_upload_index,
+            default_start_index: slice.allocation.start_offset(),
+            count: data.len(),
+        });
+
+        self.next_upload_index += data.len();
+    }
+
+    pub fn upload(&mut self, list: &mut SCommandList) {
+        list.transition_resource(
+            &self.upload_resource.raw,
+            t12::EResourceStates::GenericRead,
+            t12::EResourceStates::CopySource,
+        );
+        list.transition_resource(
+            &self.default_resource.raw,
+            self.use_state,
+            t12::EResourceStates::CopyDest,
+        );
+
+        for staged_upload in self.staged_uploads {
+            list.raw_mut().copy_buffer_region(
+                &self.default_resource.raw.raw,
+                staged_upload.default_start_index,
+                &self.upload_resource.raw.raw,
+                staged_upload.upload_start_index,
+                staged_upload.count * std::mem::size_of::<T>(),
+            );
+        }
+
+        self.staged_uploads.clear();
+
+        list.transition_resource(
+            &self.upload_resource.raw,
+            t12::EResourceStates::CopySource,
+            t12::EResourceStates::GenericRead,
+        );
+        list.transition_resource(
+            &self.default_resource.raw,
+            t12::EResourceStates::CopyDest,
+            self.use_state,
+        );
+
+        self.next_upload_index = 0;
     }
 }
 

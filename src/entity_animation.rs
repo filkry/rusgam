@@ -4,7 +4,7 @@ use crate::collections::{SVec};
 use crate::entity::{SEntityHandle};
 use crate::entity_model;
 use crate::game_context::{SGameContext, SFrameContext};
-use crate::model::{SMeshInstanceSkinning, SMeshLoader};
+use crate::model::{SMeshInstanceSkinning, SMeshLoader, SMeshInstanceLoader};
 
 struct SPlayingAnimation {
     animation: SAnimHandle,
@@ -35,12 +35,12 @@ impl SBucket {
         &mut self,
         entity: SEntityHandle,
         model: (&entity_model::SBucket, entity_model::SHandle),
-        mesh_loader: &SMeshLoader,
+        mesh_loader: &mut SMeshInstanceLoader,
     ) -> Result<SHandle, &'static str> {
 
         let skinning = {
-            let mesh = model.0.get_model(model.1).mesh;
-            mesh_loader.bind_skinning(mesh)
+            let mesh_instance = model.0.get_model(model.1);
+            mesh_loader.bind_skinning(mesh_instance)
         }?;
 
         self.instances.push(SEntityAnimation{

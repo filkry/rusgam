@@ -136,12 +136,47 @@ impl SMeshLoader {
         cbv_srv_uav_heap: Weak<n12::SDescriptorAllocator>,
         max_mesh_count: u16,
     ) -> Result<Self, &'static str> {
+
+        let local_verts_resource = n12::SBindlessBufferResource::new(
+            device,
+            t12::SResourceFlags::none(),
+            t12::EResourceStates::Common,
+            4096,
+            256,
+        );
+        let local_normals_resource = n12::SBindlessBufferResource::new(
+            device,
+            t12::SResourceFlags::none(),
+            t12::EResourceStates::Common,
+            4096,
+            256,
+        );
+        let uvs_resource = n12::SBindlessBufferResource::new(
+            device,
+            t12::SResourceFlags::none(),
+            t12::EResourceStates::Common,
+            4096,
+            256,
+        );
+        let indices_resource = n12::SBindlessBufferResource::new(
+            device,
+            t12::SResourceFlags::none(),
+            t12::EResourceStates::IndexBuffer,
+            4096,
+            256,
+        );
+
         Ok(Self {
             device: device.clone(),
             copy_command_list_pool: n12::SCommandListPool::create(device.upgrade().expect("bad device").deref(), copy_command_queue, &winapi.rawwinapi(), 1, 2)?,
             direct_command_list_pool: n12::SCommandListPool::create(device.upgrade().expect("bad device").deref(), direct_command_queue, &winapi.rawwinapi(), 1, 2)?,
             cbv_srv_uav_heap,
             mesh_pool: SStoragePool::create(&SYSTEM_ALLOCATOR(), max_mesh_count),
+
+            local_verts_resource,
+            local_normals_resource,
+            uvs_resource,
+            indices_resource,
         })
     }
 
@@ -562,63 +597,6 @@ impl SMeshLoader {
         };
 
         return self.mesh_pool.insert_val(mesh)
-    }
-
-    pub fn bind_skinning(
-        &self,
-        mesh: SMeshHandle,
-    ) -> Result<SMeshInstanceSkinning, &'static str> {
-        let bind_joints = self.get_mesh_bind_joints(mesh).unwrap();
-
-        let mut joints_bind_to_cur_resource = self.device.upgrade().expect("device dropped").create_committed_buffer_resource_for_type::<Mat4>(
-            t12::EHeapType::Upload,
-            t12::SResourceFlags::from(t12::EResourceFlags::ENone),
-            t12::EResourceStates::GenericRead,
-            bind_joints.len(),
-        )?;
-
-        let allocator = SYSTEM_ALLOCATOR();
-
-        joints_bind_to_cur_resource.map();
-        //frame_model_to_joint_to_world_xforms_resource.copy_to_map(bind_joints.as_ref());
-
-        let mut cur_joints_to_parents = SVec::<STransform>::new(&allocator, bind_joints.len(), 0)?;
-        for joint in bind_joints.as_ref() {
-            cur_joints_to_parents.push(joint.local_to_parent);
-        }
-
-        cur_joints_to_parents[1].t = Vec3::new(1.0, 0.0, 0.0);
-
-        // -- $$$FRK(TODO, HACK): lazily working around the borrow checker here
-        let initial_verts = SVec::<Vec3>::new_copy_slice(&allocator, self.get_mesh_local_vertices(mesh))?;
-        let initial_normals = SVec::<Vec3>::new_copy_slice(&allocator, self.get_mesh_local_normals(mesh))?;
-
-        let skinned_verts_resource = self.device.upgrade().expect("device dropped").create_committed_buffer_resource_for_data(
-            t12::EHeapType::Default,
-            t12::SResourceFlags::from(t12::EResourceFlags::AllowUnorderedAccess),
-            t12::EResourceStates::UnorderedAccess,
-            initial_verts.as_ref(),
-        )?;
-        let skinned_verts_vbv = skinned_verts_resource.raw.create_vertex_buffer_view()?;
-
-        let skinned_normals_resource = self.device.upgrade().expect("device dropped").create_committed_buffer_resource_for_data(
-            t12::EHeapType::Default,
-            t12::SResourceFlags::from(t12::EResourceFlags::AllowUnorderedAccess),
-            t12::EResourceStates::UnorderedAccess,
-            initial_normals.as_ref(),
-        )?;
-        let skinned_normals_vbv = skinned_normals_resource.raw.create_vertex_buffer_view()?;
-
-        Ok(SMeshInstanceSkinning{
-            mesh,
-            cur_joints_to_parents,
-            joints_bind_to_cur_resource,
-
-            skinned_verts_resource,
-            skinned_verts_vbv,
-            skinned_normals_resource,
-            skinned_normals_vbv,
-        })
     }
 
     pub fn get_mesh_local_aabb(&self, mesh: SMeshHandle) -> &utils::SAABB {
@@ -1093,6 +1071,63 @@ impl SMeshInstanceLoader {
 
     pub fn vertex_buffer(&self) -> &n12::SResource {
         self.instance_data_buffer.raw.raw
+    }
+
+    pub fn bind_skinning(
+        &mut self,
+        mesh: SMeshInstanceHandle,
+    ) -> Result<SMeshInstanceSkinning, &'static str> {
+        let bind_joints = self.get_mesh_bind_joints(mesh).unwrap();
+
+        let mut joints_bind_to_cur_resource = self.device.upgrade().expect("device dropped").create_committed_buffer_resource_for_type::<Mat4>(
+            t12::EHeapType::Upload,
+            t12::SResourceFlags::from(t12::EResourceFlags::ENone),
+            t12::EResourceStates::GenericRead,
+            bind_joints.len(),
+        )?;
+
+        let allocator = SYSTEM_ALLOCATOR();
+
+        joints_bind_to_cur_resource.map();
+        //frame_model_to_joint_to_world_xforms_resource.copy_to_map(bind_joints.as_ref());
+
+        let mut cur_joints_to_parents = SVec::<STransform>::new(&allocator, bind_joints.len(), 0)?;
+        for joint in bind_joints.as_ref() {
+            cur_joints_to_parents.push(joint.local_to_parent);
+        }
+
+        cur_joints_to_parents[1].t = Vec3::new(1.0, 0.0, 0.0);
+
+        // -- $$$FRK(TODO, HACK): lazily working around the borrow checker here
+        let initial_verts = SVec::<Vec3>::new_copy_slice(&allocator, self.get_mesh_local_vertices(mesh))?;
+        let initial_normals = SVec::<Vec3>::new_copy_slice(&allocator, self.get_mesh_local_normals(mesh))?;
+
+        let skinned_verts_resource = self.device.upgrade().expect("device dropped").create_committed_buffer_resource_for_data(
+            t12::EHeapType::Default,
+            t12::SResourceFlags::from(t12::EResourceFlags::AllowUnorderedAccess),
+            t12::EResourceStates::UnorderedAccess,
+            initial_verts.as_ref(),
+        )?;
+        let skinned_verts_vbv = skinned_verts_resource.raw.create_vertex_buffer_view()?;
+
+        let skinned_normals_resource = self.device.upgrade().expect("device dropped").create_committed_buffer_resource_for_data(
+            t12::EHeapType::Default,
+            t12::SResourceFlags::from(t12::EResourceFlags::AllowUnorderedAccess),
+            t12::EResourceStates::UnorderedAccess,
+            initial_normals.as_ref(),
+        )?;
+        let skinned_normals_vbv = skinned_normals_resource.raw.create_vertex_buffer_view()?;
+
+        Ok(SMeshInstanceSkinning{
+            mesh,
+            cur_joints_to_parents,
+            joints_bind_to_cur_resource,
+
+            skinned_verts_resource,
+            skinned_verts_vbv,
+            skinned_normals_resource,
+            skinned_normals_vbv,
+        })
     }
 
     pub fn set_diffuse_colour(&mut self, handle: SMeshInstanceHandle, colour: &Vec4) {

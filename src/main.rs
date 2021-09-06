@@ -7,6 +7,7 @@ extern crate serde_json;
 extern crate serde;
 extern crate imgui;
 extern crate gltf;
+extern crate rand;
 extern crate winbindings;
 extern crate windows;
 

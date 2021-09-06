@@ -1,7 +1,7 @@
 // crate imports
 use crate::math::{Vec3};
 
-use crate::entity::{SEntityBucket, SEntityHandle};
+use crate::entity::{SEntityHandle};
 use crate::databucket::{SDataBucket};
 use crate::render;
 use crate::render::{SRender};
@@ -413,6 +413,7 @@ impl SGJKDebug {
     }
 
     pub fn reset_to_entities(&mut self, ctxt: &SDataBucket, entity_1: SEntityHandle, entity_2: SEntityHandle) {
+        /*
         use crate::entity_model;
 
         ctxt.get::<SEntityBucket>()
@@ -456,6 +457,8 @@ impl SGJKDebug {
                 self.pts_a = world_verts_a;
                 self.pts_b = world_verts_b;
             })
+
+        */
     }
 
     fn first_step(&self) -> EGJKDebugStep {

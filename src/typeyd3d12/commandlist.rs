@@ -73,6 +73,23 @@ impl SCommandList {
         self.commandlist.ResourceBarrier(1, raw_barriers.as_ptr());
     }
 
+    pub fn copy_buffer_region(
+        &mut self,
+        dst_buffer: &SResource,
+        dst_offset: usize,
+        src_buffer: &SResource,
+        src_offset: usize,
+        num_bytes: usize,
+    ) {
+        self.commandlist.CopyBufferRegion(
+            dst_buffer.raw(),
+            dst_offset as u64,
+            src_buffer.raw(),
+            src_offset as u64,
+            num_bytes as u64,
+        );
+    }
+
     pub unsafe fn clearrendertargetview(
         &self,
         descriptor: SCPUDescriptorHandle,

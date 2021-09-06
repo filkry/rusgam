@@ -645,10 +645,14 @@ impl SRender {
                     shadow_cube,
                 );
 
+                cl.ia_set_primitive_topology(t12::EPrimitiveTopology::TriangleList);
+                cl.ia_set_index_buffer(indices_ibv);
+
                 for model_handle in 0..entity_model.models.len() {
                     let entity_handle = entity_model.get_entity(model_handle);
                     let model = entity_model.get_model(model_handle);
 
+                    /*
                     let texture_metadata = shaderbindings::STextureMetadata::new_from_model(&model);
 
                     let texture_gpu_descriptor = model.diffuse_texture.map(|handle| {
@@ -678,8 +682,9 @@ impl SRender {
                         texture_gpu_descriptor,
                         self.render_shadow_map.srv().gpu_descriptor(0),
                     );
+                    */
 
-                    self.mesh_loader.set_index_buffer_and_draw(model.mesh, &mut list)?;
+                    self.mesh_loader.draw_one(model.mesh, &mut list, model.instance_location)?;
                 }
             }
 

@@ -750,6 +750,25 @@ impl SMeshLoader {
         Ok(())
     }
     */
+
+    pub fn draw_one(
+        &self,
+        mesh_handle: SMeshHandle,
+        cl: &mut n12::SCommandList,
+        instance_location: u32,
+    ) -> Result<(), &'static str> {
+        let mesh = self.mesh_pool.get(mesh_handle)?;
+
+        cl.draw_indexed_instanced(
+            mesh.index_count,
+            1,
+            mesh.start_index_location,
+            mesh.base_vertex_location,
+            instance_location,
+        );
+
+        Ok(())
+    }
 }
 
 impl STextureLoader {

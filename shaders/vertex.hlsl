@@ -2,7 +2,7 @@
 
 ConstantBuffer<matrix> view_projection : register(b0);
 
-StructuredBuffer<SInstanceData> instance_metadata_buffer : register(t0, space0);
+StructuredBuffer<SInstanceData> instance_data_buffer : register(t0, space0);
 StructuredBuffer<float3> vertex_buffer : register(t1, space0);
 StructuredBuffer<float3> normal_buffer : register(t2, space0);
 StructuredBuffer<float2> uv_buffer : register(t3, space0);
@@ -12,7 +12,7 @@ SPixelShaderInput main()
     SPixelShaderInput output;
 
     // -- $$$FRK(TODO): precompute all these per-instance in compute shader
-    matrix model = instance_metadata_buffer[SV_InstanceID].model_location;
+    matrix model = instance_data_buffer[SV_InstanceID].model_location;
     matrix mvp = mul(model, view_projection);
 
     float3 local_vertex = vertex_buffer[SV_VertexID];

@@ -733,6 +733,7 @@ impl SMeshLoader {
         &mesh.indices_ibv
     }
 
+    /*
     pub fn set_index_buffer_and_draw(
         &self,
         mesh_handle: SMeshHandle,
@@ -748,6 +749,7 @@ impl SMeshLoader {
 
         Ok(())
     }
+    */
 }
 
 impl STextureLoader {

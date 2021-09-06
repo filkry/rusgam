@@ -627,6 +627,24 @@ impl SRender {
                     list.set_descriptor_heaps(&[rh]);
                 });
 
+                self.vertex_hlsl.set_roots(
+                    &self.vertex_hlsl_bind,
+                    &mut list,
+                    context.view_projection_matrix,
+                    instance_data_buffer,
+                    vertex_buffer,
+                    normal_buffer,
+                    uv_buffer,
+                );
+                self.pixel_hlsl.set_roots(
+                    &self.pixel_hlsl_bind,
+                    &mut list,
+                    instance_data_buffer,
+                    texture_metadata_buffer,
+                    textures_table,
+                    shadow_cube,
+                );
+
                 for model_handle in 0..entity_model.models.len() {
                     let entity_handle = entity_model.get_entity(model_handle);
                     let model = entity_model.get_model(model_handle);

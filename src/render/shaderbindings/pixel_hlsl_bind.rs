@@ -9,9 +9,9 @@ use crate::model::{SModel};
 #[repr(C)]
 pub struct STextureMetadata {
     diffuse_colour: Vec4,
-    has_diffuse_texture: f32,
+    diffuse_texture_index: u32,
     diffuse_weight: f32,
-    is_lit: f32,
+    is_lit: u32,
 }
 
 impl STextureMetadata {

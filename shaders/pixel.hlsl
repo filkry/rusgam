@@ -3,26 +3,28 @@
 // -- must match STextureMetadata in pixel_hlsl_bind.rs
 struct STextureMetadata {
     float4 diffuse_colour;
-    float has_diffuse_texture;
+    uint diffuse_texture_index;
     float diffuse_weight;
-    float is_lit;
+    uint is_lit;
 };
 
-ConstantBuffer<STextureMetadata> texture_metadata_buffer : register(b1, space3);
+StructuredBuffer<SInstanceData> instance_metadata_buffer : register(t0, space3);
+StructuredBuffer<STextureMetadata> texture_metadata_buffer : register(t1, space3);
 
-Texture2D g_texture : register(t0, space3);
-SamplerState g_sampler : register(s0, space3);
+Texture2D textures[] : register(t1, space3);
+TextureCube shadow_cube : register(t2, space3);
 
-TextureCube g_shadow_cube : register(t0, space4);
-SamplerState g_shadow_sampler : register(s0, space4);
-
-static const float PI = 3.14159265f;
+SamplerState diffuse_sampler : register(s0, space3);
+SamplerState shadow_sampler : register(s1, space3);
 
 float4 main( SPixelShaderInput input ) : SV_Target
 {
+    SInstanceData instance_data = instance_metadata_buffer[SV_InstanceID];
+    STextureMetadata texture_metadata = texture_metadata_buffer[instance_data.texture_metadata_index];
+
     float point_irradiance = 1.0;
 
-    if(texture_metadata_buffer.is_lit > 0.0) {
+    if(texture_metadata_buffer.is_lit > 0) {
         float3 light_pos = float3(5.0, 5.0, 5.0);
         float light_power = 100.0;
         //float3 light_dir = normalize(float3(-1.0, -1.0, -1.0));
@@ -44,7 +46,7 @@ float4 main( SPixelShaderInput input ) : SV_Target
 
             // -- adjust shadow sample position based on normal, to fix acne
             float3 shadow_sample_pos = -to_light + 0.1 * input.normal.xyz;
-            float4 shadow_sample = g_shadow_cube.Sample(g_shadow_sampler, shadow_sample_pos);
+            float4 shadow_sample = shadow_cube.Sample(shadow_sampler, shadow_sample_pos);
 
             // -- from MJP's blog (https://mynameismjp.wordpress.com/2010/09/05/position-from-depth-3/)
             // -- {
@@ -63,10 +65,10 @@ float4 main( SPixelShaderInput input ) : SV_Target
     }
 
     float4 base_colour;
-    if(texture_metadata_buffer.has_diffuse_texture > 0.0f)
-        base_colour = g_texture.Sample(g_sampler, input.uv);
+    if(texture_metadata.diffuse_texture_index < 0xFFFFFFFF)
+        base_colour = diffuse_texture[texture_metadata.diffuse_texture_index].Sample(diffuse_sampler, input.uv);
     else
-        base_colour = texture_metadata_buffer.diffuse_colour;
+        base_colour = texture_metadata.diffuse_colour;
 
     float4 lit_color = float4(base_colour.xyz * point_irradiance, base_colour.w);
 

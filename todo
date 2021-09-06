@@ -1,4 +1,17 @@
 
+Current different PSOs:
++ graphics
+    + default in-world meshes
+    + imgui
+    + shadow mapping in-world meshes
+    + temp points
+    + temp lines
+    + temp instance mesh (not indexed?)
+    + temp non-instance mesh
++ compute
+    + skinning
+
+
 + refcount in mesh/texture/etcloader to get rid of unused assets
 + move freelistallocator to allocate
 + implement Deref() in most/all niced3d12 classes, and in doing so replace a lot of boilerplate fns

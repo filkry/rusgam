@@ -7,12 +7,10 @@ pub struct SVertexHLSL {
 }
 
 pub struct SVertexHLSLBind {
-    mvp_rp_idx: usize,
+    view_projection_rp_idx: usize,
 }
 
 impl SVertexHLSL {
-    const BASEVERTEXDATASLOT: u32 = 0;
-
     // -- by convention, spaces 0-2 are for vertex shader use
     const BASESPACE: u32 = 0;
 
@@ -29,44 +27,53 @@ impl SVertexHLSL {
         &self._bytecode
     }
 
+    /*
     pub fn input_layout_desc() -> t12::SInputLayoutDesc {
-        let input_elements = [
-            types::def_local_verts_input_element(Self::BASEVERTEXDATASLOT + 0),
-            types::def_local_normals_input_element(Self::BASEVERTEXDATASLOT + 1),
-            types::def_uvs_input_element(Self::BASEVERTEXDATASLOT + 2),
-        ];
+        let input_elements = [];
         t12::SInputLayoutDesc::create(&input_elements)
     }
+    */
 
     pub fn bind(&self, root_signature_desc: &mut t12::SRootSignatureDesc) -> SVertexHLSLBind {
-        let mvp_root_parameter = types::SModelViewProjection::root_parameter(0, Self::BASESPACE as usize);
+        let vp_root_parameter = t12::SRootParameter {
+            type_: t12::ERootParameterType::E32BitConstants(
+                t12::SRootConstants {
+                    shader_register: 0 as u32,
+                    register_space: BASESPACE as u32,
+                    num_32_bit_values: (size_of::<Mat4>() / size_of::<f32>()) as u32,
+                }),
+            shader_visibility: t12::EShaderVisibility::Vertex,
+        };
 
-        root_signature_desc.parameters.push(mvp_root_parameter);
-        let mvp_rp_idx = root_signature_desc.parameters.len() - 1;
+        root_signature_desc.parameters.push(vp_root_parameter);
+        let view_projection_rp_idx = root_signature_desc.parameters.len() - 1;
 
         SVertexHLSLBind {
-            mvp_rp_idx,
+            view_projection_rp_idx,
         }
     }
 
     pub fn set_vertex_buffers(
         &self,
+        bind: &SVertexHLSLBind,
         list: &mut n12::SCommandList,
-        local_verts_vbv: &t12::SVertexBufferView,
-        local_normals_vbv: &t12::SVertexBufferView,
-        uvs_vbv: &t12::SVertexBufferView,
+        local_verts_descriptor: t12::SGPUVirtualAddress,
+        local_normals_descriptor: t12::SGPUVirtualAddress,
+        uvs_descriptor: t12::SGPUVirtualAddress,
     )
     {
-        list.ia_set_vertex_buffers(0, &[local_verts_vbv, local_normals_vbv, uvs_vbv]);
+        list.set_graphics_root_shader_resource_view(bind.vertex_buffer_rp, local_verts_descriptor);
+        list.set_graphics_root_shader_resource_view(bind.normals_buffer_rp, local_normals_descriptor);
+        list.set_graphics_root_shader_resource_view(bind.uvs_descriptor, uvs_descriptor);
     }
 
     pub fn set_graphics_roots(
         &self,
         bind: &SVertexHLSLBind,
         list: &mut n12::SCommandList,
-        mvp: &types::SModelViewProjection,
+        vp: &Mat4,
     )
     {
-        list.set_graphics_root_32_bit_constants(bind.mvp_rp_idx, mvp, 0);
+        list.set_graphics_root_32_bit_constants(bind.view_projection_rp_idx, vp, 0);
     }
 }

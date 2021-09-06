@@ -4,7 +4,7 @@ use crate::collections::{SVec};
 use crate::entity::{SEntityHandle};
 use crate::entity_model;
 use crate::game_context::{SGameContext, SFrameContext};
-use crate::model::{SModelSkinning, SMeshLoader};
+use crate::model::{SMeshInstanceSkinning, SMeshLoader};
 
 struct SPlayingAnimation {
     animation: SAnimHandle,
@@ -14,7 +14,7 @@ struct SPlayingAnimation {
 pub struct SEntityAnimation {
     pub owner: SEntityHandle,
 
-    pub skinning: SModelSkinning,
+    pub skinning: SMeshInstanceSkinning,
 
     playing_animation: Option<SPlayingAnimation>,
 }
@@ -116,11 +116,11 @@ impl SBucket {
         None
     }
 
-    pub fn get_skinning(&self, handle: SHandle) -> Result<&SModelSkinning, &'static str> {
+    pub fn get_skinning(&self, handle: SHandle) -> Result<&SMeshInstanceSkinning, &'static str> {
         self.instances.get(handle).ok_or("out of bounds").map(|instance| &instance.skinning)
     }
 
-    pub fn get_skinning_for_entity(&self, entity: SEntityHandle) -> Option<&SModelSkinning> {
+    pub fn get_skinning_for_entity(&self, entity: SEntityHandle) -> Option<&SMeshInstanceSkinning> {
         let handle_opt = self.handle_for_entity(entity);
         handle_opt.map(|handle| self.get_skinning(handle).expect("handle valid"))
     }

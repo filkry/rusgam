@@ -1,6 +1,9 @@
+use std::mem::size_of;
+
+use crate::math::Mat4;
 use crate::niced3d12 as n12;
 use crate::typeyd3d12 as t12;
-use super::types;
+//use super::types;
 
 pub struct SVertexHLSL {
     _bytecode: t12::SShaderBytecode,
@@ -39,7 +42,7 @@ impl SVertexHLSL {
             type_: t12::ERootParameterType::E32BitConstants(
                 t12::SRootConstants {
                     shader_register: 0 as u32,
-                    register_space: BASESPACE as u32,
+                    register_space: Self::BASESPACE as u32,
                     num_32_bit_values: (size_of::<Mat4>() / size_of::<f32>()) as u32,
                 }),
             shader_visibility: t12::EShaderVisibility::Vertex,

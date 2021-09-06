@@ -3,7 +3,7 @@ use std::mem::{size_of};
 use crate::niced3d12 as n12;
 use crate::typeyd3d12 as t12;
 use crate::math::{Vec4};
-use crate::model::{SModel};
+//use crate::model::{SMeshInstance};
 
 // -- used to fill out shader metadata, must match STextureMetadata in pixel.hlsl
 #[repr(C)]
@@ -24,6 +24,7 @@ impl STextureMetadata {
         }
     }
 
+    /*
     pub fn new_from_model(model: &SModel) -> Self {
         Self::new(
             model.diffuse_colour,
@@ -32,6 +33,7 @@ impl STextureMetadata {
             model.is_lit
         )
     }
+    */
 }
 
 pub struct SPixelHLSL {

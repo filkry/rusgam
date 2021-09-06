@@ -2,11 +2,11 @@ use crate::allocate::{SAllocatorRef};
 use crate::collections::{SVec};
 use crate::entity::{SEntityHandle};
 use crate::bvh;
-use crate::model::SModel;
+use crate::model::SMeshInstanceHandle;
 
 pub struct SBucket {
     pub owners: SVec<SEntityHandle>,
-    pub models: SVec<SModel>,
+    pub models: SVec<SMeshInstanceHandle>,
     pub bvh_entries: SVec<Option<bvh::SNodeHandle>>,
 }
 
@@ -21,7 +21,7 @@ impl SBucket {
         })
     }
 
-    pub fn add_instance(&mut self, entity: SEntityHandle, model: SModel) -> Result<SHandle, &'static str> {
+    pub fn add_instance(&mut self, entity: SEntityHandle, model: SMeshInstanceHandle) -> Result<SHandle, &'static str> {
         self.owners.push(entity);
         self.models.push(model);
         self.bvh_entries.push(None);
@@ -68,7 +68,7 @@ impl SBucket {
         self.owners[handle]
     }
 
-    pub fn get_model(&self, handle: SHandle) -> &SModel {
+    pub fn get_model(&self, handle: SHandle) -> &SMeshInstanceHandle {
         &self.models[handle]
     }
 

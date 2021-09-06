@@ -19,7 +19,7 @@ use crate::entity::{SEntityBucket, SEntityHandle};
 use crate::entity_animation;
 use crate::entity_model;
 use crate::game_context::{SGameContext, SFrameContext};
-use crate::model::{SModel, SMeshLoader, STextureLoader};
+use crate::model::{SMeshInstanceLoader, SMeshInstanceHandle, SMeshLoader, STextureLoader};
 use crate::safewindows;
 use crate::rustywindows;
 use crate::utils;
@@ -65,6 +65,7 @@ pub struct SRender {
 
     mesh_loader: SMeshLoader,
     texture_loader: STextureLoader,
+    mesh_instance_loader: SMeshInstanceLoader,
 
     // -- global RTV properties -----------------------------------
     _depth_texture_resource: Option<n12::SResource>,
@@ -402,22 +403,26 @@ impl SRender {
         Ok(())
     }
 
-    pub fn new_model_from_obj(&mut self, obj_file_path: &'static str, diffuse_weight: f32, is_lit: bool) -> Result<SModel, &'static str> {
-        SModel::new_from_obj(obj_file_path, &mut self.mesh_loader, &mut self.texture_loader, diffuse_weight, is_lit)
+    pub fn new_mesh_instance_from_obj(&mut self, obj_file_path: &'static str, diffuse_weight: f32, is_lit: bool) -> Result<SMeshInstanceHandle, &'static str> {
+        self.mesh_instance_loader.new_from_obj(obj_file_path, &mut self.mesh_loader, &mut self.texture_loader, diffuse_weight, is_lit)
     }
 
-    pub fn new_model_from_gltf(&mut self, gltf_file_path: &'static str, diffuse_weight: f32, is_lit: bool) -> Result<SModel, &'static str> {
-        SModel::new_from_gltf(gltf_file_path, &mut self.mesh_loader, &mut self.texture_loader, diffuse_weight, is_lit)
+    pub fn new_mesh_instance_from_gltf(&mut self, gltf_file_path: &'static str, diffuse_weight: f32, is_lit: bool) -> Result<SMeshInstanceHandle, &'static str> {
+        self.mesh_instance_loader.new_from_gtlf.new_from_gltf(gltf_file_path, &mut self.mesh_loader, &mut self.texture_loader, diffuse_weight, is_lit)
     }
 
     pub fn mesh_loader(&self) -> &SMeshLoader {
         &self.mesh_loader
     }
 
+    pub fn mesh_instance_loader(&self) -> &SMeshInstanceLoader {
+        &self.mesh_instance_loader
+    }
+
     #[allow(dead_code)]
     pub fn ray_intersects(
         &self,
-        model: &SModel,
+        model: &SMeshInstanceHandle,
         ray_origin: &Vec3,
         ray_dir: &Vec3,
         model_to_ray_space: &STransform,
@@ -426,7 +431,7 @@ impl SRender {
             return None;
         }
 
-        self.mesh_loader.ray_intersects(model.mesh, ray_origin, ray_dir, model_to_ray_space)
+        self.mesh_instance_loader.ray_intersects(model, ray_origin, ray_dir, model_to_ray_space)
     }
 
     pub fn update_depth_texture_for_window(&mut self, window: &n12::SD3D12Window) -> Result<(), &'static str> {
@@ -631,22 +636,24 @@ impl SRender {
                     &self.vertex_hlsl_bind,
                     &mut list,
                     context.view_projection_matrix,
-                    instance_data_buffer,
-                    vertex_buffer,
-                    normal_buffer,
-                    uv_buffer,
+                    self.mesh_instance_loader.instance_data_buffer(),
+                    self.mesh_loader.vertex_buffer(),
+                    self.mesh_loader.normal_buffer(),
+                    self.mesh_loader.uv_buffer(),
                 );
+
+                let shadow_cube = self.render_shadow_map.srv().gpu_descriptor(0);
                 self.pixel_hlsl.set_roots(
                     &self.pixel_hlsl_bind,
                     &mut list,
-                    instance_data_buffer,
-                    texture_metadata_buffer,
-                    textures_table,
+                    self.mesh_instance_loader.instance_data_buffer(),
+                    self.mesh_instance_loader.texture_metadata_buffer(),
+                    self.texture_loader.textures_table(),
                     shadow_cube,
                 );
 
-                cl.ia_set_primitive_topology(t12::EPrimitiveTopology::TriangleList);
-                cl.ia_set_index_buffer(indices_ibv);
+                list.ia_set_primitive_topology(t12::EPrimitiveTopology::TriangleList);
+                list.ia_set_index_buffer(self.mesh_loader.index_buffer());
 
                 for model_handle in 0..entity_model.models.len() {
                     let entity_handle = entity_model.get_entity(model_handle);

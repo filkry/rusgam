@@ -18,5 +18,5 @@ struct SModelViewProjection
 // -- must match SIntanceData in vertex_hlsl_bind.rs
 struct SInstanceData {
     matrix model_location;
-    u32 texture_metadata_index;
+    uint texture_metadata_index;
 };

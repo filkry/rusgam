@@ -46,17 +46,9 @@ pub struct SMesh {
 
     local_aabb: utils::SAABB,
 
-    // -- resources
-    pub(super) local_verts_resource: n12::SBufferResource<Vec3>,
-    pub(super) local_normals_resource: n12::SBufferResource<Vec3>,
-    pub(super) uvs_resource: n12::SBufferResource<Vec2>,
-    pub(super) indices_resource: n12::SBufferResource<u16>,
-
-    // -- views
-    pub(super) local_verts_vbv: t12::SVertexBufferView,
-    pub(super) local_normals_vbv: t12::SVertexBufferView,
-    pub(super) uvs_vbv: t12::SVertexBufferView,
-    pub(super) indices_ibv: t12::SIndexBufferView,
+    verts_buf: n12::SBindlessBufferResourceSlice,
+    normals_buf: n12::SBindlessBufferResourceSlice,
+    uvs_buf: n12::SBindlessBufferResourceSlice,
 
     // -- SRV descriptors
     srv_descriptors: n12::SDescriptorAllocatorAllocation,
@@ -80,6 +72,14 @@ pub struct SMeshLoader {
     cbv_srv_uav_heap: Weak<n12::descriptorallocator::SDescriptorAllocator>,
 
     mesh_pool: SStoragePool<SMesh, u16, u16>,
+
+    // -- these are shared between all meshes, bound for all draws, and bindlessly indexed into
+
+    // -- resources
+    pub(super) local_verts_resource: n12::SBindlessBufferResource<Vec3>,
+    pub(super) local_normals_resource: n12::SBindlessBufferResource<Vec3>,
+    pub(super) uvs_resource: n12::SBindlessBufferResource<Vec2>,
+    pub(super) indices_resource: n12::SBindlessBufferResource<u16>,
 }
 pub type SMeshHandle = collections::SPoolHandle<u16, u16>;
 
@@ -93,11 +93,13 @@ pub struct STextureLoader {
 }
 pub type STextureHandle = collections::SPoolHandle<u16, u16>;
 
-#[derive(Clone, Copy)]
-pub struct SModel {
+pub struct SMeshInstance {
     pub mesh: SMeshHandle,
 
     pub pickable: bool,
+
+    instance_data: n12::SBindlessBufferResourceSlice,
+    texture_data: n12::SBindlessBufferResourceSlice,
 
     // -- material info
     pub diffuse_colour: Vec4,
@@ -106,18 +108,24 @@ pub struct SModel {
     pub is_lit: bool,
 }
 
-pub struct SModelSkinning {
+pub struct SMeshInstanceSkinning {
     pub mesh: SMeshHandle,
 
     pub cur_joints_to_parents: SVec<STransform>,
 
-    pub joints_bind_to_cur_resource: n12::SBufferResource<Mat4>,
-
-    pub skinned_verts_resource: n12::SBufferResource<Vec3>,
-    pub skinned_verts_vbv: t12::SVertexBufferView,
-    pub skinned_normals_resource: n12::SBufferResource<Vec3>,
-    pub skinned_normals_vbv: t12::SVertexBufferView,
+    skinned_verts: n12::SBindlessBufferResourceSlice,
+    skinned_normals: n12::SBindlessBufferResourceSlice,
 }
+
+pub struct SMeshInstanceLoader {
+    instance_pool: SStoragePool<SMeshInstance, u16, u16>,
+
+    // -- shared resources between all instances, indexed into bindlessly
+    instance_data_buffer: n12::SBindlessBufferResource<shaderbindings::SInstanceData>,
+    texture_metadata_buffer: n12::SBindlessBufferResource<shaderbindings::STextureMetadata>,
+    joints_bind_to_cur_buffer: n12::SBindlessBufferResource<Mat4>,
+}
+pub type SMeshInstanceHandle = collections::SPoolHandle<u16, u16>;
 
 impl SMeshLoader {
     pub fn new(
@@ -559,7 +567,7 @@ impl SMeshLoader {
     pub fn bind_skinning(
         &self,
         mesh: SMeshHandle,
-    ) -> Result<SModelSkinning, &'static str> {
+    ) -> Result<SMeshInstanceSkinning, &'static str> {
         let bind_joints = self.get_mesh_bind_joints(mesh).unwrap();
 
         let mut joints_bind_to_cur_resource = self.device.upgrade().expect("device dropped").create_committed_buffer_resource_for_type::<Mat4>(
@@ -601,7 +609,7 @@ impl SMeshLoader {
         )?;
         let skinned_normals_vbv = skinned_normals_resource.raw.create_vertex_buffer_view()?;
 
-        Ok(SModelSkinning{
+        Ok(SMeshInstanceSkinning{
             mesh,
             cur_joints_to_parents,
             joints_bind_to_cur_resource,
@@ -950,76 +958,7 @@ impl SMesh {
     const SRVS_NORM_IDX: usize = 1;
 }
 
-impl SModel {
-
-    pub fn new_from_obj(
-        obj_file: &'static str,
-        mesh_loader: &mut SMeshLoader,
-        texture_loader: &mut STextureLoader,
-        diffuse_weight: f32,
-        is_lit: bool,
-    ) -> Result<Self, &'static str> {
-
-        let (models, materials) = tobj::load_obj(&std::path::Path::new(obj_file)).unwrap();
-        assert_eq!(models.len(), 1);
-
-        let mesh = mesh_loader.get_or_create_mesh_obj(obj_file, &models[0].mesh);
-        let mut diffuse_colour : Vec4 = Vec4::zero();
-        let mut diffuse_texture : Option<STextureHandle> = None;
-
-        if materials.len() > 0 {
-            assert_eq!(materials.len(), 1);
-
-            diffuse_colour[0] = materials[0].diffuse[0];
-            diffuse_colour[1] = materials[0].diffuse[1];
-            diffuse_colour[2] = materials[0].diffuse[2];
-            diffuse_colour[3] = 1.0;
-
-            if materials[0].diffuse_texture.len() > 0 {
-                diffuse_texture = Some(texture_loader.get_or_create_texture(&materials[0].diffuse_texture)?)
-            }
-        }
-
-        Ok(Self {
-            mesh: mesh?,
-
-            pickable: true,
-
-            // -- material info
-            diffuse_colour,
-            diffuse_texture,
-            diffuse_weight,
-            is_lit,
-        })
-    }
-
-    pub fn new_from_gltf(
-        gltf_path: &'static str,
-        mesh_loader: &mut SMeshLoader,
-        _texture_loader: &mut STextureLoader,
-        diffuse_weight: f32,
-        is_lit: bool,
-    ) -> Result<Self, &'static str> {
-
-        let gltf = gltf::Gltf::open(gltf_path).unwrap();
-
-        let mesh = mesh_loader.get_or_create_mesh_gltf(gltf_path, &gltf);
-
-        let diffuse_colour = Vec4::new(0.7, 0.0, 0.3, 1.0);
-        let diffuse_texture : Option<STextureHandle> = None;
-
-        Ok(Self {
-            mesh: mesh?,
-
-            pickable: true,
-
-            // -- material info
-            diffuse_colour,
-            diffuse_texture,
-            diffuse_weight,
-            is_lit,
-        })
-    }
+impl SMeshInstance {
 
     #[allow(dead_code)]
     pub fn set_pickable(&mut self, pickable: bool) {
@@ -1028,7 +967,7 @@ impl SModel {
 
 }
 
-impl SModelSkinning {
+impl SMeshInstanceSkinning {
     pub fn update_skinning_joint_buffer(&mut self, mesh_loader: &SMeshLoader) {
         STACK_ALLOCATOR.with(|sa| {
             if let Some(skinning) = mesh_loader.get_mesh_skinning(self.mesh) {
@@ -1063,4 +1002,109 @@ impl SModelSkinning {
             }
         });
     }
+}
+
+impl SMeshInstanceLoader {
+
+    pub fn new_from_obj(
+        &mut self,
+        obj_file: &'static str,
+        mesh_loader: &mut SMeshLoader,
+        texture_loader: &mut STextureLoader,
+        diffuse_weight: f32,
+        is_lit: bool,
+    ) -> Result<SMeshInstanceHandle, &'static str> {
+
+        let (models, materials) = tobj::load_obj(&std::path::Path::new(obj_file)).unwrap();
+        assert_eq!(models.len(), 1);
+
+        let mesh = mesh_loader.get_or_create_mesh_obj(obj_file, &models[0].mesh)?;
+        let mut diffuse_colour : Vec4 = Vec4::zero();
+        let mut diffuse_texture : Option<STextureHandle> = None;
+
+        if materials.len() > 0 {
+            assert_eq!(materials.len(), 1);
+
+            diffuse_colour[0] = materials[0].diffuse[0];
+            diffuse_colour[1] = materials[0].diffuse[1];
+            diffuse_colour[2] = materials[0].diffuse[2];
+            diffuse_colour[3] = 1.0;
+
+            if materials[0].diffuse_texture.len() > 0 {
+                diffuse_texture = Some(texture_loader.get_or_create_texture(&materials[0].diffuse_texture)?)
+            }
+        }
+
+        let mesh_instance = SMeshInstance{
+            mesh: mesh,
+
+            pickable: true,
+
+            instance_data: self.instance_data_buffer.alloc(1)?,
+            texture_data: self.texture_data_buffer.alloc(1)?,
+
+            // -- material info
+            diffuse_colour,
+            diffuse_texture,
+            diffuse_weight,
+            is_lit,
+        };
+
+        return self.instance_pool.insert_val(mesh_instance)
+    }
+
+    pub fn new_from_gltf(
+        &mut self,
+        gltf_path: &'static str,
+        mesh_loader: &mut SMeshLoader,
+        _texture_loader: &mut STextureLoader,
+        diffuse_weight: f32,
+        is_lit: bool,
+    ) -> Result<SMeshInstanceHandle, &'static str> {
+
+        let gltf = gltf::Gltf::open(gltf_path).unwrap();
+
+        let mesh = mesh_loader.get_or_create_mesh_gltf(gltf_path, &gltf);
+
+        let diffuse_colour = Vec4::new(0.7, 0.0, 0.3, 1.0);
+        let diffuse_texture : Option<STextureHandle> = None;
+
+        let mesh_instance = SMeshInstance{
+            mesh: mesh?,
+
+            pickable: true,
+
+            instance_data: self.instance_data_buffer.alloc(1)?,
+            texture_data: self.texture_data_buffer.alloc(1)?,
+
+            // -- material info
+            diffuse_colour,
+            diffuse_texture,
+            diffuse_weight,
+            is_lit,
+        };
+
+        return self.instance_pool.insert_val(mesh_instance)
+    }
+
+    pub fn instance_data_buffer(&self) -> &n12::SResource {
+        self.instance_data_buffer.raw.raw
+    }
+
+    pub fn vertex_buffer(&self) -> &n12::SResource {
+        self.instance_data_buffer.raw.raw
+    }
+
+    pub fn set_diffuse_color(&mut self, handle: SMeshInstanceHandle, colour: &Vec4) {
+        match self.instance_pool.get_mut(handle) {
+            Ok(mesh_instance) => {
+                mesh_instance.diffuse_colour = colour;
+                self.instance_data_dirty = true;
+            }
+            Err(_) => {
+                assert!(false);
+            }
+        }
+    }
+
 }

@@ -23,6 +23,14 @@ pub struct SBufferResource<T> {
     pub(super) map_mem: Option<*mut T>,
 }
 
+pub struct SBindlessBufferResource<T> {
+    pub raw: SBufferResource<T>,
+}
+pub struct SBindlessBufferResourceSlice {
+
+}
+
+
 impl SResource {
     pub fn raw(&self) -> &t12::SResource {
         &self.raw

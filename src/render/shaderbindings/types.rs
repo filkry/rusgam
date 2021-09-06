@@ -22,6 +22,14 @@ pub struct SModelViewProjection {
     mvp: Mat4,
 }
 
+// -- must match SInstanceData in types.hlsl
+#[repr(C)]
+#[derive(Debug)]
+pub struct SInstanceData {
+    model_location: Mat4,
+    texture_metadata_index: u32,
+}
+
 pub fn def_local_verts_input_element(slot: u32) -> t12::SInputElementDesc {
     t12::SInputElementDesc::create(
         "POSITION",

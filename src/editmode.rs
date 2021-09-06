@@ -55,9 +55,9 @@ pub struct SEditModeContext {
     editing_level: Option<SEditingLevel>,
 
     editing_entity: Option<SEntityHandle>,
-    translation_widgets: [model::SModel; 3],
+    translation_widgets: [model::SMeshInstanceHandle; 3],
     translation_widget_transforms: [STransform; 3],
-    rotation_widgets: [model::SModel; 3],
+    rotation_widgets: [model::SMeshInstanceHandle; 3],
     rotation_widget_transforms: [STransform; 3],
 
     clicked_entity: Option<SEntityHandle>,
@@ -103,13 +103,13 @@ impl SEditModeContext {
     pub fn new(render: &mut render::SRender) -> Result<Self, &'static str> {
         // -- set up translation widget
         let mut translation_widgets = [
-            render.new_model_from_obj("assets/arrow_widget.obj", 1.0, false)?,
-            render.new_model_from_obj("assets/arrow_widget.obj", 1.0, false)?,
-            render.new_model_from_obj("assets/arrow_widget.obj", 1.0, false)?,
+            render.new_mesh_instance_from_obj("assets/arrow_widget.obj", 1.0, false)?,
+            render.new_mesh_instance_from_obj("assets/arrow_widget.obj", 1.0, false)?,
+            render.new_mesh_instance_from_obj("assets/arrow_widget.obj", 1.0, false)?,
         ];
-        translation_widgets[0].diffuse_colour = Vec4::new(1.0, 0.0, 0.0, 1.0);
-        translation_widgets[1].diffuse_colour = Vec4::new(0.0, 1.0, 0.0, 1.0);
-        translation_widgets[2].diffuse_colour = Vec4::new(0.0, 0.0, 1.0, 1.0);
+        render.mesh_instance_loader().set_diffuse_colour(translation_widgets[0], &Vec4::new(1.0, 0.0, 0.0, 1.0));
+        render.mesh_instance_loader().set_diffuse_colour(translation_widgets[1], &Vec4::new(0.0, 1.0, 0.0, 1.0));
+        render.mesh_instance_loader().set_diffuse_colour(translation_widgets[2], &Vec4::new(0.0, 0.0, 1.0, 1.0));
 
         let mut translation_widget_transforms = [
             STransform::default(),
@@ -121,13 +121,13 @@ impl SEditModeContext {
 
         // -- set up rotation widget
         let mut rotation_widgets = [
-            render.new_model_from_obj("assets/ring_widget.obj", 1.0, false)?,
-            render.new_model_from_obj("assets/ring_widget.obj", 1.0, false)?,
-            render.new_model_from_obj("assets/ring_widget.obj", 1.0, false)?,
+            render.new_mesh_instance_from_obj("assets/ring_widget.obj", 1.0, false)?,
+            render.new_mesh_instance_from_obj("assets/ring_widget.obj", 1.0, false)?,
+            render.new_mesh_instance_from_obj("assets/ring_widget.obj", 1.0, false)?,
         ];
-        rotation_widgets[0].diffuse_colour = Vec4::new(1.0, 0.0, 0.0, 1.0);
-        rotation_widgets[1].diffuse_colour = Vec4::new(0.0, 1.0, 0.0, 1.0);
-        rotation_widgets[2].diffuse_colour = Vec4::new(0.0, 0.0, 1.0, 1.0);
+        render.mesh_instance_loader().set_diffuse_colour(rotation_widgets[0], &Vec4::new(1.0, 0.0, 0.0, 1.0));
+        render.mesh_instance_loader().set_diffuse_colour(rotation_widgets[1], &Vec4::new(0.0, 1.0, 0.0, 1.0));
+        render.mesh_instance_loader().set_diffuse_colour(rotation_widgets[2], &Vec4::new(0.0, 0.0, 1.0, 1.0));
 
         let mut rotation_widget_transforms = [
             STransform::default(),

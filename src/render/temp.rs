@@ -11,7 +11,7 @@ use crate::niced3d12 as n12;
 use crate::typeyd3d12 as t12;
 use crate::allocate::{STACK_ALLOCATOR, SYSTEM_ALLOCATOR};
 use crate::collections::{SVec};
-use crate::model::{SModel, SMeshLoader, STextureLoader, SMeshHandle};
+use crate::model::{SMeshInstanceHandle, SMeshLoader, STextureLoader};
 use super::shaderbindings;
 use crate::utils::{STransform, SAABB};
 use super::{SRenderContext};
@@ -48,7 +48,7 @@ struct SSphere {
 }
 
 struct STempModel {
-    model: SModel,
+    model: SMeshInstanceHandle,
     location: STransform,
     over_world: bool,
     token: SToken,
@@ -79,6 +79,7 @@ pub struct SRenderTemp {
     line_vertex_buffer_resource: [Option<n12::SResource>; 2],
     line_vertex_buffer_view: [Option<t12::SVertexBufferView>; 2],
 
+    /*
     // -- sphere pipeline stuff
     instance_mesh_pipeline_state: t12::SPipelineState,
     instance_mesh_root_signature: n12::SRootSignature,
@@ -91,6 +92,7 @@ pub struct SRenderTemp {
     sphere_instance_buffer_intermediate_resource: [Option<n12::SResource>; 2],
     sphere_instance_buffer_resource: [Option<n12::SResource>; 2],
     sphere_instance_buffer_view: [Option<t12::SVertexBufferView>; 2],
+    */
 
     // -- mesh pipeline stuff
     mesh_pipeline_state: t12::SPipelineState,
@@ -390,7 +392,7 @@ impl SRenderTemp {
             .create_graphics_pipeline_state(&mut instance_mesh_pipeline_state_desc)?;
 
         // -- sphere mesh
-        let sphere_mesh = SModel::new_from_obj("assets/debug_unit_sphere.obj", mesh_loader, texture_loader, 1.0, false)?.mesh;
+        //let sphere_mesh_handles = mesh_instance_loader.new_from_obj("assets/debug_unit_sphere.obj", mesh_loader, texture_loader, 1.0, false)?.mesh;
 
         // =========================================================================================
         // MESH/MODEL pipeline state
@@ -486,11 +488,13 @@ impl SRenderTemp {
             _instance_mesh_vert_byte_code: instance_mesh_vert_byte_code,
             _instance_mesh_pixel_byte_code: instance_mesh_pixel_byte_code,
 
+            /*
             spheres: SVec::new(&allocator, 1024, 0)?,
-            sphere_mesh,
+            sphere_mesh_handles,
             sphere_instance_buffer_intermediate_resource: [None, None],
             sphere_instance_buffer_resource: [None, None],
             sphere_instance_buffer_view: [None, None],
+            */
 
             mesh_pipeline_state,
             mesh_root_signature,
@@ -528,11 +532,11 @@ impl SRenderTemp {
 
         clear_table!(points);
         clear_table!(lines);
-        clear_table!(spheres);
+        //clear_table!(spheres);
         clear_table!(models);
     }
 
-    pub fn draw_model(&mut self, model: &SModel, location: &STransform, over_world: bool) {
+    pub fn draw_model(&mut self, model: &SMeshInstanceHandle, location: &STransform, over_world: bool) {
         assert!(model.diffuse_texture.is_none());
 
         self.models.push(STempModel{
@@ -564,6 +568,7 @@ impl SRenderTemp {
     }
 
     pub fn draw_sphere(&mut self, pos: &Vec3, scale: f32, color: &Vec4, over_world: bool, token: Option<SToken>) {
+        /*
         self.spheres.push(SSphere {
             scale,
             pos: pos.clone(),
@@ -571,6 +576,7 @@ impl SRenderTemp {
             over_world,
             token: token.unwrap_or(SToken::default()),
         });
+        */
     }
 
     pub fn draw_aabb(&mut self, aabb: &SAABB, color: &Vec4, over_world: bool) {
@@ -618,7 +624,7 @@ impl SRenderTemp {
 
         clear_table!(points);
         clear_table!(lines);
-        clear_table!(spheres);
+        //clear_table!(spheres);
         clear_table!(models);
     }
 }
@@ -627,7 +633,7 @@ impl super::SRender {
     pub fn render_temp_in_world(&mut self, context: &SRenderContext) -> Result<(), &'static str> {
         self.render_temp_points(context, true)?;
         self.render_temp_lines(context, true)?;
-        self.render_temp_spheres(context, true)?;
+        //self.render_temp_spheres(context, true)?;
         self.render_temp_models(context, true)?;
 
         Ok(())
@@ -636,7 +642,7 @@ impl super::SRender {
     pub fn render_temp_over_world(&mut self, context: &SRenderContext) -> Result<(), &'static str> {
         self.render_temp_points(context, false)?;
         self.render_temp_lines(context, false)?;
-        self.render_temp_spheres(context, false)?;
+        //self.render_temp_spheres(context, false)?;
         self.render_temp_models(context, false)?;
 
         Ok(())
@@ -915,6 +921,7 @@ impl super::SRender {
     }
 
     pub fn render_temp_spheres(&mut self, context: &SRenderContext, in_world: bool) -> Result<(), &'static str> {
+        /*
         // A very basic test
         /*
         self.temp().draw_sphere(&Vec3::new(-1.0, 4.0, 0.0), 0.2, &Vec4::new(1.0, 0.0, 0.0, 0.5), false, None);
@@ -1050,6 +1057,7 @@ impl super::SRender {
         drop(list);
         self.direct_command_pool.execute_and_free_list(&mut handle)?;
 
+        */
         Ok(())
     }
 

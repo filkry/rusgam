@@ -78,6 +78,7 @@ fn update_frame(game_context: &SGameContext, frame_context: &mut SFrameContext) 
 }
 
 pub fn update_entity_bvh_entries(game_context: &SGameContext, _frame_context: &SFrameContext) {
+    /*
     game_context.data_bucket.get::<bvh::STree<entity::SEntityHandle>>()
         .and::<entity_model::SBucket>()
         .and::<SEntityBucket>()
@@ -108,6 +109,7 @@ pub fn update_entity_bvh_entries(game_context: &SGameContext, _frame_context: &S
                 }
             }
         });
+    */
 }
 
 fn main_d3d12(d3d_debug: bool) -> Result<(), &'static str> {

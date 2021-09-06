@@ -107,9 +107,9 @@ impl SEditModeContext {
             render.new_mesh_instance_from_obj("assets/arrow_widget.obj", 1.0, false)?,
             render.new_mesh_instance_from_obj("assets/arrow_widget.obj", 1.0, false)?,
         ];
-        render.mesh_instance_loader().set_diffuse_colour(translation_widgets[0], &Vec4::new(1.0, 0.0, 0.0, 1.0));
-        render.mesh_instance_loader().set_diffuse_colour(translation_widgets[1], &Vec4::new(0.0, 1.0, 0.0, 1.0));
-        render.mesh_instance_loader().set_diffuse_colour(translation_widgets[2], &Vec4::new(0.0, 0.0, 1.0, 1.0));
+        render.mesh_instance_loader_mut().set_diffuse_colour(translation_widgets[0], &Vec4::new(1.0, 0.0, 0.0, 1.0));
+        render.mesh_instance_loader_mut().set_diffuse_colour(translation_widgets[1], &Vec4::new(0.0, 1.0, 0.0, 1.0));
+        render.mesh_instance_loader_mut().set_diffuse_colour(translation_widgets[2], &Vec4::new(0.0, 0.0, 1.0, 1.0));
 
         let mut translation_widget_transforms = [
             STransform::default(),
@@ -125,9 +125,9 @@ impl SEditModeContext {
             render.new_mesh_instance_from_obj("assets/ring_widget.obj", 1.0, false)?,
             render.new_mesh_instance_from_obj("assets/ring_widget.obj", 1.0, false)?,
         ];
-        render.mesh_instance_loader().set_diffuse_colour(rotation_widgets[0], &Vec4::new(1.0, 0.0, 0.0, 1.0));
-        render.mesh_instance_loader().set_diffuse_colour(rotation_widgets[1], &Vec4::new(0.0, 1.0, 0.0, 1.0));
-        render.mesh_instance_loader().set_diffuse_colour(rotation_widgets[2], &Vec4::new(0.0, 0.0, 1.0, 1.0));
+        render.mesh_instance_loader_mut().set_diffuse_colour(rotation_widgets[0], &Vec4::new(1.0, 0.0, 0.0, 1.0));
+        render.mesh_instance_loader_mut().set_diffuse_colour(rotation_widgets[1], &Vec4::new(0.0, 1.0, 0.0, 1.0));
+        render.mesh_instance_loader_mut().set_diffuse_colour(rotation_widgets[2], &Vec4::new(0.0, 0.0, 1.0, 1.0));
 
         let mut rotation_widget_transforms = [
             STransform::default(),

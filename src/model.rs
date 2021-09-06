@@ -1095,7 +1095,7 @@ impl SMeshInstanceLoader {
         self.instance_data_buffer.raw.raw
     }
 
-    pub fn set_diffuse_color(&mut self, handle: SMeshInstanceHandle, colour: &Vec4) {
+    pub fn set_diffuse_colour(&mut self, handle: SMeshInstanceHandle, colour: &Vec4) {
         match self.instance_pool.get_mut(handle) {
             Ok(mesh_instance) => {
                 mesh_instance.diffuse_colour = colour;

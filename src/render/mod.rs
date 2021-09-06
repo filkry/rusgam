@@ -419,6 +419,10 @@ impl SRender {
         &self.mesh_instance_loader
     }
 
+    pub fn mesh_instance_loader_mut(&mut self) -> &mut SMeshInstanceLoader {
+        &mut self.mesh_instance_loader
+    }
+
     #[allow(dead_code)]
     pub fn ray_intersects(
         &self,

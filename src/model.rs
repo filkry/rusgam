@@ -14,6 +14,7 @@ use crate::collections;
 use crate::collections::{SStoragePool, SVec};
 use crate::safewindows;
 use crate::render::shaderbindings;
+use crate::render::shaderbindings::types;
 use crate::rustywindows;
 use crate::string_db::{hash_str, SHashedStr};
 use crate::utils;
@@ -46,12 +47,10 @@ pub struct SMesh {
 
     local_aabb: utils::SAABB,
 
-    verts_buf: n12::SBindlessBufferResourceSlice,
-    normals_buf: n12::SBindlessBufferResourceSlice,
-    uvs_buf: n12::SBindlessBufferResourceSlice,
-
-    // -- SRV descriptors
-    srv_descriptors: n12::SDescriptorAllocatorAllocation,
+    verts_buf: n12::SBindlessBufferResourceSlice<Vec3>,
+    normals_buf: n12::SBindlessBufferResourceSlice<Vec3>,
+    uvs_buf: n12::SBindlessBufferResourceSlice<Vec2>,
+    indices_buf: n12::SBindlessBufferResourceSlice<u16>,
 
     skinning: Option<SMeshSkinning>, // $$$FRK(TODO): most meshes won't have skinning, this should be factored out
 }
@@ -98,8 +97,8 @@ pub struct SMeshInstance {
 
     pub pickable: bool,
 
-    instance_data: n12::SBindlessBufferResourceSlice,
-    texture_data: n12::SBindlessBufferResourceSlice,
+    instance_data: n12::SBindlessBufferResourceSlice<types::SInstanceData>,
+    texture_data: n12::SBindlessBufferResourceSlice<types::STextureMetadata>,
 
     // -- material info
     pub diffuse_colour: Vec4,
@@ -113,8 +112,8 @@ pub struct SMeshInstanceSkinning {
 
     pub cur_joints_to_parents: SVec<STransform>,
 
-    skinned_verts: n12::SBindlessBufferResourceSlice,
-    skinned_normals: n12::SBindlessBufferResourceSlice,
+    skinned_verts: n12::SBindlessBufferResourceSlice<Vec3>,
+    skinned_normals: n12::SBindlessBufferResourceSlice<Vec3>,
 }
 
 pub struct SMeshInstanceLoader {
@@ -137,34 +136,36 @@ impl SMeshLoader {
         max_mesh_count: u16,
     ) -> Result<Self, &'static str> {
 
+        let real_device = device.upgrade().expect("Dropped device before SMeshLoader");
+
         let local_verts_resource = n12::SBindlessBufferResource::new(
-            device,
+            real_device.deref(),
             t12::SResourceFlags::none(),
             t12::EResourceStates::Common,
             4096,
             256,
-        );
+        )?;
         let local_normals_resource = n12::SBindlessBufferResource::new(
-            device,
+            real_device.deref(),
             t12::SResourceFlags::none(),
             t12::EResourceStates::Common,
             4096,
             256,
-        );
+        )?;
         let uvs_resource = n12::SBindlessBufferResource::new(
-            device,
+            real_device.deref(),
             t12::SResourceFlags::none(),
             t12::EResourceStates::Common,
             4096,
             256,
-        );
+        )?;
         let indices_resource = n12::SBindlessBufferResource::new(
-            device,
+            real_device.deref(),
             t12::SResourceFlags::none(),
             t12::EResourceStates::IndexBuffer,
             4096,
             256,
-        );
+        )?;
 
         Ok(Self {
             device: device.clone(),
@@ -184,75 +185,31 @@ impl SMeshLoader {
         self.mesh_pool.clear();
     }
 
-    fn sync_create_and_upload_buffer_resource<T>(
+    fn sync_upload_bindless_buffer_resource<T>(
         &mut self,
         data: &[T],
-        resource_flags: t12::SResourceFlags,
-        target_state: t12::EResourceStates,
-    ) -> Result<n12::SBufferResource<T>, &'static str> {
+        buffer: &mut n12::SBindlessBufferResource<T>,
+        slice: &n12::SBindlessBufferResourceSlice<T>,
+    ) -> Result<(), &'static str> {
         let mut handle = self.copy_command_list_pool.alloc_list()?;
         let mut copycommandlist = self.copy_command_list_pool.get_list(&handle)?;
 
-        let resource = {
-            copycommandlist.update_buffer_resource(
-                self.device.upgrade().expect("device dropped").deref(), data, resource_flags,
-            )?
-        };
-        drop(copycommandlist);
+        unsafe {
+            buffer.sync_copy_to_default(
+                &mut copycommandlist,
+                slice,
+                data,
+            );
+            drop(copycommandlist);
 
-        let fence_val = self.copy_command_list_pool.execute_and_free_list(&mut handle)?;
-        drop(handle);
+            let fence_val = self.copy_command_list_pool.execute_and_free_list(&mut handle)?;
+            drop(handle);
 
-        // --  This is the sync part - waiting so we can drop intermediate resource safely
-        self.copy_command_list_pool.wait_for_internal_fence_value(fence_val);
+            // --  This is the sync part - waiting so we can drop intermediate resource safely
+            self.copy_command_list_pool.wait_for_internal_fence_value(fence_val);
+        }
 
-        // -- have the direct queue wait on the copy upload to complete
-        // -- shouldn't be necessary in sync version
-        /*
-        self.direct_command_list_pool.gpu_wait(
-            self.copy_command_list_pool.get_internal_fence(),
-            fence_val,
-        )?;
-        */
-
-        // -- transition resources
-        let mut handle  = self.direct_command_list_pool.alloc_list()?;
-        let mut direct_command_list = self.direct_command_list_pool.get_list(&handle)?;
-
-        direct_command_list.transition_resource(
-            &resource.destinationresource.raw,
-            t12::EResourceStates::CopyDest,
-            target_state,
-        )?;
-
-        drop(direct_command_list);
-        self.direct_command_list_pool.execute_and_free_list(&mut handle)?;
-
-        Ok(resource.destinationresource)
-    }
-
-    fn create_mesh_descriptors(
-        &mut self,
-        verts_resource: &n12::SBufferResource<Vec3>,
-        norms_resource: &n12::SBufferResource<Vec3>,
-    ) -> Result<n12::SDescriptorAllocatorAllocation, &'static str> {
-        // -- create srv_views
-        let descriptors = descriptor_alloc(&self.cbv_srv_uav_heap.upgrade().expect("allocator dropped"), 2)?;
-        let vert_srv_desc = verts_resource.create_srv_desc();
-        let norm_srv_desc = norms_resource.create_srv_desc();
-
-        self.device.upgrade().expect("device dropped").create_shader_resource_view(
-            &verts_resource.raw,
-            &vert_srv_desc,
-            descriptors.cpu_descriptor(SMesh::SRVS_VERT_IDX),
-        )?;
-        self.device.upgrade().expect("device dropped").create_shader_resource_view(
-            &norms_resource.raw,
-            &norm_srv_desc,
-            descriptors.cpu_descriptor(SMesh::SRVS_NORM_IDX),
-        )?;
-
-        Ok(descriptors)
+        Ok(())
     }
 
     pub fn get_or_create_mesh_gltf(&mut self, asset_file_path: &'static str, gltf_data: &gltf::Gltf) -> Result<SMeshHandle, &'static str> {
@@ -327,38 +284,34 @@ impl SMeshLoader {
 
         let indices = SVec::<u16>::new_copy_slice(&allocator, indices_bin).unwrap();
 
-        let local_verts_resource = self.sync_create_and_upload_buffer_resource(
-            local_verts.as_slice(),
-            t12::SResourceFlags::from(t12::EResourceFlags::ENone),
-            t12::EResourceStates::VertexAndConstantBuffer,
-        )?;
-        let local_verts_vbv = local_verts_resource.raw.create_vertex_buffer_view()?;
+        let verts_buf = self.local_verts_resource.alloc(local_verts.len())?;
+        let normals_buf = self.local_normals_resource.alloc(local_normals.len())?;
+        let uvs_buf = self.uvs_resource.alloc(uvs.len())?;
+        let indices_buf = self.indices_resource.alloc(indices.len())?;
 
-        let local_normals_resource = self.sync_create_and_upload_buffer_resource(
-            local_normals.as_slice(),
-            t12::SResourceFlags::from(t12::EResourceFlags::ENone),
-            t12::EResourceStates::VertexAndConstantBuffer,
-        )?;
-        let local_normals_vbv = local_normals_resource.raw.create_vertex_buffer_view()?;
-
-        let uvs_resource = self.sync_create_and_upload_buffer_resource(
-            uvs.as_slice(),
-            t12::SResourceFlags::from(t12::EResourceFlags::ENone),
-            t12::EResourceStates::VertexAndConstantBuffer,
-        )?;
-        let uvs_vbv = uvs_resource.raw.create_vertex_buffer_view()?;
-
-        let indices_resource = self.sync_create_and_upload_buffer_resource(
-            indices.as_slice(),
-            t12::SResourceFlags::from(t12::EResourceFlags::ENone),
-            t12::EResourceStates::IndexBuffer,
-        )?;
-        let indices_ibv = indices_resource.raw.create_index_buffer_view(t12::EDXGIFormat::R16UINT)?;
+        self.sync_upload_bindless_buffer_resource(
+            local_verts,
+            self.local_verts_resource,
+            &verts_buf,
+        );
+        self.sync_upload_bindless_buffer_resource(
+            local_normals,
+            self.local_normals_resource,
+            &normals_buf,
+        );
+        self.sync_upload_bindless_buffer_resource(
+            uvs,
+            self.uvs_resource,
+            &uvs_buf,
+        );
+        self.sync_upload_bindless_buffer_resource(
+            indices,
+            self.indices_resource,
+            &indices_buf,
+        );
 
         let local_aabb = utils::SAABB::new_from_points(local_verts.as_slice());
         //println!("Asset name: {}\nAABB: {:?}", asset_name, local_aabb);
-
-        let srv_descriptors = self.create_mesh_descriptors(&local_verts_resource, &local_normals_resource)?;
 
         // -- load skeleton data
 
@@ -486,18 +439,6 @@ impl SMeshLoader {
 
             local_aabb,
 
-            local_verts_resource,
-            local_normals_resource,
-            uvs_resource,
-            indices_resource,
-
-            local_verts_vbv,
-            local_normals_vbv,
-            uvs_vbv,
-            indices_ibv,
-
-            srv_descriptors,
-
             skinning,
         };
 
@@ -567,8 +508,6 @@ impl SMeshLoader {
         )?;
         let indices_ibv = indices_resource.raw.create_index_buffer_view(t12::EDXGIFormat::R16UINT)?;
 
-        let srv_descriptors = self.create_mesh_descriptors(&local_verts_resource, &local_normals_resource)?;
-
         let local_aabb = utils::SAABB::new_from_points(local_verts.as_slice());
 
         let mesh = SMesh{
@@ -590,8 +529,6 @@ impl SMeshLoader {
             local_normals_vbv,
             uvs_vbv,
             indices_ibv,
-
-            srv_descriptors,
 
             skinning: None,
         };

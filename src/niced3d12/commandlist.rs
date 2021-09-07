@@ -243,6 +243,23 @@ impl SCommandList {
         unsafe { self.raw.close() }
     }
 
+    pub fn copy_buffer_region_typed<T>(
+        &mut self,
+        dst_buffer: &SBufferResource<T>,
+        dst_start_index: usize,
+        src_buffer: &SBufferResource<T>,
+        src_start_index: usize,
+        num_items: usize,
+    ) {
+        self.raw.copy_buffer_region(
+            dst_buffer.raw,
+            dst_start_index * std::mem::size_of::<T>,
+            src_buffer.raw,
+            src_start_index * std::mem::size_of::<T>,
+            num_items * std::mem::size_of::<T>,
+        )
+    }
+
     pub fn update_buffer_resource<T>(
         &mut self,
         device: &SDevice,

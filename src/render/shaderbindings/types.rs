@@ -2,7 +2,7 @@ use std::mem::{size_of};
 
 use crate::win;
 
-use crate::math::{Mat4};
+use crate::math::{Mat4, Vec4};
 use crate::typeyd3d12 as t12;
 use crate::utils::{STransform};
 
@@ -28,6 +28,15 @@ pub struct SModelViewProjection {
 pub struct SInstanceData {
     model_location: Mat4,
     texture_metadata_index: u32,
+}
+
+// -- used to fill out shader metadata, must match STextureMetadata in pixel.hlsl
+#[repr(C)]
+pub struct STextureMetadata {
+    diffuse_colour: Vec4,
+    diffuse_texture_index: u32,
+    diffuse_weight: f32,
+    is_lit: u32,
 }
 
 pub fn def_local_verts_input_element(slot: u32) -> t12::SInputElementDesc {
@@ -91,4 +100,24 @@ impl SModelViewProjection {
     }
 }
 
+impl STextureMetadata {
+    pub fn new(diffuse_colour: Vec4, has_diffuse_texture: bool, diffuse_weight: f32, is_lit: bool) -> Self {
+        Self {
+            diffuse_colour,
+            has_diffuse_texture: if has_diffuse_texture { 1.0 } else { 0.0 },
+            diffuse_weight,
+            is_lit: if is_lit { 1.0 } else { 0.0 },
+        }
+    }
 
+    /*
+    pub fn new_from_model(model: &SModel) -> Self {
+        Self::new(
+            model.diffuse_colour,
+            model.diffuse_texture.is_some(),
+            model.diffuse_weight,
+            model.is_lit
+        )
+    }
+    */
+}

@@ -44,9 +44,11 @@ pub struct SBindlessBufferResource<T> {
 
     rid: u64, // -- random ID to verify calls into here
 }
-pub struct SBindlessBufferResourceSlice {
+pub struct SBindlessBufferResourceSlice<T> {
     allocation: freelistallocator::manager::SAllocation,
     buffer_rid: u64,
+
+    phantom: std::marker::PhantomData<T>,
 }
 
 
@@ -196,19 +198,19 @@ impl<T> SBindlessBufferResource<T> {
         })
     }
 
-    pub fn alloc(&mut self, count: usize) -> Result<SBindlessBufferResourceSlice, &'static str> {
+    pub fn alloc(&mut self, count: usize) -> Result<SBindlessBufferResourceSlice<T>, &'static str> {
         Ok(SBindlessBufferResourceSlice{
             allocation: self.allocator.alloc(count, 1)?,
             buffer_rid: self.rid,
         })
     }
 
-    pub fn free(&mut self, mut slice: SBindlessBufferResourceSlice) {
+    pub fn free(&mut self, mut slice: SBindlessBufferResourceSlice<T>) {
         assert!(self.rid == slice.buffer_rid);
         self.allocator.free(&mut slice.allocation)
     }
 
-    pub fn copy_to_upload(&mut self, slice: &SBindlessBufferResourceSlice, data: &[T]) {
+    pub fn copy_to_upload(&mut self, slice: &SBindlessBufferResourceSlice<T>, data: &[T]) {
         assert!(self.rid == slice.buffer_rid);
         assert!(slice.allocation.size() == data.len());
         self.upload_resource.copy_to_map_segment(data, self.next_upload_index);
@@ -221,7 +223,7 @@ impl<T> SBindlessBufferResource<T> {
         self.next_upload_index += data.len();
     }
 
-    pub fn flush_upload_to_default(&mut self, list: &mut SCommandList) {
+    fn transition_resources_for_copy(&mut self, list: &mut SCommandList) {
         list.transition_resource(
             &self.upload_resource.raw,
             t12::EResourceStates::GenericRead,
@@ -232,31 +234,66 @@ impl<T> SBindlessBufferResource<T> {
             self.use_state,
             t12::EResourceStates::CopyDest,
         );
+    }
+
+    fn transition_resources_for_use(&mut self, list: &mut SCommandList) {
+        list.transition_resource(
+            &self.upload_resource.raw,
+            t12::EResourceStates::CopySource,
+            t12::EResourceStates::GenericRead,
+        );
+        list.transition_resource(
+            &self.default_resource.raw,
+            t12::EResourceStates::CopyDest,
+            self.use_state,
+        );
+    }
+
+    pub fn flush_upload_to_default(&mut self, list: &mut SCommandList) {
+        self.transition_resources_for_copy(list);
 
         for staged_upload in self.staged_uploads {
-            list.raw_mut().copy_buffer_region(
-                &self.default_resource.raw.raw,
+            list.raw_mut().copy_buffer_region_typed(
+                &self.default_resource.raw,
                 staged_upload.default_start_index,
-                &self.upload_resource.raw.raw,
+                &self.upload_resource.raw,
                 staged_upload.upload_start_index,
-                staged_upload.count * std::mem::size_of::<T>(),
+                staged_upload.count,
             );
         }
 
+        self.transition_resources_for_use(list);
+
         self.staged_uploads.clear();
 
-        list.transition_resource(
-            &self.upload_resource.raw,
-            t12::EResourceStates::CopySource,
-            t12::EResourceStates::GenericRead,
-        );
-        list.transition_resource(
+        self.next_upload_index = 0;
+    }
+
+    // -- this is unsafe because it can't be called again until GPU copy work finishes
+    // -- $$$FRK(TODO): make it sane to do sync work here without having access a command list pool etc
+    pub unsafe fn sync_copy_to_default(
+        &mut self,
+        list: &mut SCommandList,
+        slice: &SBindlessBufferResourceSlice<T>,
+        data: &[T])
+    {
+        assert!(self.rid == slice.buffer_rid);
+        assert!(slice.allocation.size() == data.len());
+        assert!(self.next_upload_index == 0);
+
+        self.upload_resource.copy_to_map_segment(data, 0);
+
+        self.transition_resources_for_copy(list);
+
+        list.raw_mut().copy_buffer_region_typed(
             &self.default_resource.raw,
-            t12::EResourceStates::CopyDest,
-            self.use_state,
+            slice.allocation.start_offset(),
+            &self.upload_resource.raw,
+            0,
+            data.len(),
         );
 
-        self.next_upload_index = 0;
+        self.transition_resources_for_use(list);
     }
 }
 

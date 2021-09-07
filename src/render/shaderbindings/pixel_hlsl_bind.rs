@@ -5,37 +5,6 @@ use crate::typeyd3d12 as t12;
 use crate::math::{Vec4};
 //use crate::model::{SMeshInstance};
 
-// -- used to fill out shader metadata, must match STextureMetadata in pixel.hlsl
-#[repr(C)]
-pub struct STextureMetadata {
-    diffuse_colour: Vec4,
-    diffuse_texture_index: u32,
-    diffuse_weight: f32,
-    is_lit: u32,
-}
-
-impl STextureMetadata {
-    pub fn new(diffuse_colour: Vec4, has_diffuse_texture: bool, diffuse_weight: f32, is_lit: bool) -> Self {
-        Self {
-            diffuse_colour,
-            has_diffuse_texture: if has_diffuse_texture { 1.0 } else { 0.0 },
-            diffuse_weight,
-            is_lit: if is_lit { 1.0 } else { 0.0 },
-        }
-    }
-
-    /*
-    pub fn new_from_model(model: &SModel) -> Self {
-        Self::new(
-            model.diffuse_colour,
-            model.diffuse_texture.is_some(),
-            model.diffuse_weight,
-            model.is_lit
-        )
-    }
-    */
-}
-
 pub struct SPixelHLSL {
     _bytecode: t12::SShaderBytecode,
 }
@@ -49,7 +18,6 @@ pub struct SPixelHLSLBind {
 impl SPixelHLSL {
     // -- by convention, spaces 3-6 are for pixel shader use
     const BASESPACE: u32 = 3;
-    const SHADOWSPACE: u32 = 4;
 
     pub fn new() -> Result<Self, &'static str> {
         let pixelblob = t12::read_file_to_blob("shaders_built/pixel.cso")?;
@@ -64,37 +32,23 @@ impl SPixelHLSL {
         &self._bytecode
     }
 
-    pub fn bind(&self, root_signature_desc: &mut t12::SRootSignatureDesc) -> SPixelHLSLBind {
-
-        let texture_metadata_root_parameter = t12::SRootParameter {
-            type_: t12::ERootParameterType::E32BitConstants(
-                t12::SRootConstants {
-                    shader_register: 1,
-                    register_space: Self::BASESPACE,
-                    num_32_bit_values: (size_of::<STextureMetadata>() / 4) as u32,
-                }),
-            shader_visibility: t12::EShaderVisibility::Pixel,
+    pub fn bind(&self, root_signature_desc: &mut t12::SRootSignatureDesc, texture_array_size: u32) -> SPixelHLSLBind {
+        let mut add_param = |param: n12::SRootParameter| -> usize {
+            root_signature_desc.parameters.push(param.into_raw());
+            root_signature_desc.parameters.len() - 1
         };
 
-        let texture_root_parameter = {
-            let descriptor_range = t12::SDescriptorRange {
-                range_type: t12::EDescriptorRangeType::SRV,
-                num_descriptors: 1,
-                base_shader_register: 0,
-                register_space: Self::BASESPACE,
-                offset_in_descriptors_from_table_start: t12::EDescriptorRangeOffset::EAppend,
-            };
+        let texture_metadata_rp_idx = add_param(n12::SRootParameter::new_srv_descriptor(
+            Self::TEXTUREMETADATAREGISTER,
+            Self::BASESPACE,
+            t12::EShaderVisibility::Pixel,
+        ));
 
-            let mut root_descriptor_table = t12::SRootDescriptorTable::new();
-            root_descriptor_table
-                .descriptor_ranges
-                .push(descriptor_range);
-
-            t12::SRootParameter {
-                type_: t12::ERootParameterType::DescriptorTable(root_descriptor_table),
-                shader_visibility: t12::EShaderVisibility::Pixel,
-            }
-        };
+        let textures_rp_idx = add_param(n12::SRootParameter::new_unique_space_srv_descriptor_table(
+            Self::TEXTURESPACE,
+            t12::EShaderVisibility::Pixel,
+            texture_array_size,
+        ));
 
         let shadow_cube_root_parameter = {
             let descriptor_range = t12::SDescriptorRange {

@@ -78,4 +78,27 @@ impl SRootParameter {
             raw,
         }
     }
+
+    pub fn new_unique_space_srv_descriptor_table(space: u32, visibility: t12::EShaderVisibility, num_descriptors: u32) -> Self {
+        let descriptor_range = t12::SDescriptorRange {
+            range_type: t12::EDescriptorRangeType::SRV,
+            num_descriptors: num_descriptors,
+            base_shader_register: 0,
+            register_space: space,
+            offset_in_descriptors_from_table_start: 0,
+        };
+
+        let mut root_descriptor_table = t12::SRootDescriptorTable::new();
+        root_descriptor_table
+            .descriptor_ranges
+            .push(descriptor_range);
+
+        let raw = t12::SRootParameter {
+            type_: t12::ERootParameterType::DescriptorTable(root_descriptor_table),
+            shader_visibility: visibility,
+        }
+        Self {
+            raw,
+        }
+    }
 }
